@@ -41,6 +41,7 @@ SCENE_DEFINITIONS: dict[str, dict[str, Any]] = {
         ],
         "mcp_tools": [],
         "actions": [],
+        "skills": [],
     },
     "creative": {
         "id": "creative",
@@ -54,6 +55,7 @@ SCENE_DEFINITIONS: dict[str, dict[str, Any]] = {
         ],
         "mcp_tools": [],
         "actions": [],
+        "skills": [],
     },
     "learning": {
         "id": "learning",
@@ -67,6 +69,7 @@ SCENE_DEFINITIONS: dict[str, dict[str, Any]] = {
         ],
         "mcp_tools": [],
         "actions": [],
+        "skills": [],
     },
     "life": {
         "id": "life",
@@ -80,6 +83,7 @@ SCENE_DEFINITIONS: dict[str, dict[str, Any]] = {
         ],
         "mcp_tools": [],
         "actions": [],
+        "skills": [],
     },
     "work_dev": {
         "id": "work_dev",
