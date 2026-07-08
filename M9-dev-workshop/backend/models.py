@@ -1,0 +1,210 @@
+"""
+云汐 M9 开发者工坊 - 数据模型模块
+使用 SQLAlchemy 定义数据库表结构
+"""
+
+import sys
+import os
+from datetime import datetime
+from typing import Optional, List
+
+# 兼容相对导入和直接运行
+try:
+    from .config import get_settings
+except ImportError:
+    from config import get_settings
+
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    Boolean,
+    Float,
+    JSON,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+
+# ===== 数据库初始化 =====
+settings = get_settings()
+engine = create_engine(
+    settings.get_db_url(),
+    connect_args={"check_same_thread": False},  # SQLite 多线程支持
+    echo=settings.debug,
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+def get_db():
+    """获取数据库会话（依赖注入用）"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    """初始化数据库，创建所有表"""
+    Base.metadata.create_all(bind=engine)
+
+
+# ===== 数据模型定义 =====
+
+class WorkspaceProject(Base):
+    """工作区项目模型"""
+    __tablename__ = "workspace_projects"
+
+    id = Column(Integer, primary_key=True, index=True, comment="项目ID")
+    name = Column(String(255), nullable=False, comment="项目名称")
+    path = Column(String(1024), nullable=False, unique=True, comment="项目路径")
+    description = Column(Text, default="", comment="项目描述")
+    icon = Column(String(255), default="folder", comment="项目图标")
+    last_opened = Column(DateTime, nullable=True, comment="最后打开时间")
+    tags = Column(JSON, default=list, comment="标签列表")
+    open_count = Column(Integer, default=0, comment="打开次数")
+    total_dev_time = Column(Float, default=0.0, comment="累计开发时长（分钟）")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "path": self.path,
+            "description": self.description,
+            "icon": self.icon,
+            "last_opened": self.last_opened.isoformat() if self.last_opened else None,
+            "tags": self.tags or [],
+            "open_count": self.open_count,
+            "total_dev_time": round(self.total_dev_time, 2),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class VSCodeSession(Base):
+    """VS Code 会话记录模型"""
+    __tablename__ = "vscode_sessions"
+
+    id = Column(Integer, primary_key=True, index=True, comment="会话ID")
+    pid = Column(Integer, nullable=False, comment="进程ID")
+    project_path = Column(String(1024), nullable=True, comment="关联项目路径")
+    start_time = Column(DateTime, default=datetime.now, comment="开始时间")
+    end_time = Column(DateTime, nullable=True, comment="结束时间")
+    status = Column(String(50), default="running", comment="状态：running/closed/crashed")
+    window_title = Column(String(255), default="", comment="窗口标题")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "pid": self.pid,
+            "project_path": self.project_path,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "status": self.status,
+            "window_title": self.window_title,
+        }
+
+
+class MCPTool(Base):
+    """MCP 工具注册模型"""
+    __tablename__ = "mcp_tools"
+
+    id = Column(Integer, primary_key=True, index=True, comment="工具ID")
+    name = Column(String(255), nullable=False, unique=True, comment="工具名称")
+    description = Column(Text, default="", comment="工具描述")
+    endpoint = Column(String(1024), default="", comment="调用端点")
+    category = Column(String(100), default="general", comment="工具分类")
+    enabled = Column(Boolean, default=True, comment="是否启用")
+    input_schema = Column(JSON, default=dict, comment="输入参数 Schema")
+    registered_at = Column(DateTime, default=datetime.now, comment="注册时间")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "endpoint": self.endpoint,
+            "category": self.category,
+            "enabled": self.enabled,
+            "input_schema": self.input_schema or {},
+            "registered_at": self.registered_at.isoformat() if self.registered_at else None,
+        }
+
+
+class DevActivity(Base):
+    """开发活动日志模型"""
+    __tablename__ = "dev_activities"
+
+    id = Column(Integer, primary_key=True, index=True, comment="活动ID")
+    project = Column(String(255), default="", comment="关联项目")
+    activity_type = Column(String(100), nullable=False, comment="活动类型：coding/building/debugging/meeting")
+    duration = Column(Float, default=0.0, comment="持续时长（分钟）")
+    description = Column(Text, default="", comment="活动描述")
+    timestamp = Column(DateTime, default=datetime.now, comment="活动时间")
+    meta_data = Column(JSON, default=dict, comment="附加数据")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "project": self.project,
+            "activity_type": self.activity_type,
+            "duration": round(self.duration, 2),
+            "description": self.description,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "meta_data": self.meta_data or {},
+        }
+
+
+# ===== Pydantic 响应模型（如果可用） =====
+try:
+    from pydantic import BaseModel, Field
+    from typing import List as PydanticList
+
+    class ProjectCreate(BaseModel):
+        """项目创建请求"""
+        name: str
+        path: str
+        description: str = ""
+        icon: str = "folder"
+        tags: PydanticList[str] = Field(default_factory=list)
+
+    class ProjectUpdate(BaseModel):
+        """项目更新请求"""
+        name: Optional[str] = None
+        description: Optional[str] = None
+        icon: Optional[str] = None
+        tags: Optional[PydanticList[str]] = None
+
+    class MCPToolCall(BaseModel):
+        """MCP 工具调用请求"""
+        tool_name: str
+        arguments: dict = Field(default_factory=dict)
+
+    class VSCodeOpenRequest(BaseModel):
+        """VS Code 打开请求"""
+        path: Optional[str] = None
+        file: Optional[str] = None
+        new_window: bool = False
+
+except ImportError:
+    # 如果没有 pydantic，跳过响应模型定义
+    pass
+
+
+# 兼容直接运行：初始化数据库
+if __name__ == "__main__":
+    init_db()
+    print(f"数据库已初始化: {settings.db_path}")
+    print("已创建表:")
+    for table in Base.metadata.tables:
+        print(f"  - {table}")
