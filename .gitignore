@@ -31,3 +31,15 @@ logs/
 # 确保忽略缓存
 __pycache__/
 *.pyc
+
+# 遗留幽灵文件（目录孤儿，内容不可读，功能已有替代实现）
+M8-control-tower/backend/audit_logger.py
+M8-control-tower/backend/inspection_runner.py
+M8-control-tower/backend/inspection_tools.py
+M8-control-tower/backend/key_manager.py
+M8-control-tower/backend/openai_proxy.py
+M8-control-tower/backend/protocol_adapter.py
+M8-control-tower/backend/test_e2e.py
+M8-control-tower/backend/routers/api_keys.py
+M8-control-tower/backend/routers/dashboard.py
+M8-control-tower/backend/routers/inspection.py
