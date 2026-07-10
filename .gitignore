@@ -43,3 +43,4 @@ M8-control-tower/backend/test_e2e.py
 M8-control-tower/backend/routers/api_keys.py
 M8-control-tower/backend/routers/dashboard.py
 M8-control-tower/backend/routers/inspection.py
+frontend/m8/inspection.html

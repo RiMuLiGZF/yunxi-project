@@ -1402,6 +1402,153 @@ body::before {
   }
 }
 
+/* ========== 空状态样式 ========== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.empty-state-action {
+  margin-top: 8px;
+}
+
+/* ========== 加载态骨架屏 ========== */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.skeleton-line {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* 加载中指示器 */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+/* 按钮加载状态 */
+.btn.loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 表单验证样式 */
+.form-field.error input,
+.form-field.error textarea,
+.form-field.error select {
+  border-color: var(--error-color, #ef4444);
+}
+
+.form-error {
+  color: var(--error-color, #ef4444);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Toast 关闭按钮 */
+.toast-close {
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
 /* 移动端菜单按钮 */
 .mobile-menu-btn {
   display: none;
@@ -1774,20 +1921,172 @@ let state = {
 };
 
 // ========== 工具函数 ==========
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', options = {}) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
+  const { duration = 3000, closable = false } = options;
+
   toast.className = `toast ${type}`;
-  const icons = { success: '&#10004;', error: '&#10006;', info: '&#8505;' };
-  toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
+  const icons = { success: '&#10004;', error: '&#10006;', info: '&#8505;', warning: '&#9888;' };
+  const closeBtn = closable ? `<span class="toast-close" onclick="this.parentElement.remove()">&times;</span>` : '';
+
+  toast.innerHTML = `
+    <span>${icons[type] || icons.info}</span>
+    <span style="flex: 1;">${message}</span>
+    ${closeBtn}
+  `;
+
   container.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(30px)';
-    toast.style.transition = 'all 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+
+  // 入场动画
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(0)';
+  });
+
+  if (duration > 0) {
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  return toast;
 }
+
+// ========== 表单验证工具 ==========
+
+const Validator = {
+  /**
+   * 验证必填字段
+   */
+  required(value, fieldName = '该字段') {
+    if (value === undefined || value === null || value === '') {
+      return `${fieldName}不能为空`;
+    }
+    if (typeof value === 'string' && value.trim() === '') {
+      return `${fieldName}不能为空`;
+    }
+    return null;
+  },
+
+  /**
+   * 验证最小长度
+   */
+  minLength(value, min, fieldName = '该字段') {
+    if (!value) return null;
+    if (value.length < min) {
+      return `${fieldName}至少需要${min}个字符`;
+    }
+    return null;
+  },
+
+  /**
+   * 验证最大长度
+   */
+  maxLength(value, max, fieldName = '该字段') {
+    if (!value) return null;
+    if (value.length > max) {
+      return `${fieldName}不能超过${max}个字符`;
+    }
+    return null;
+  },
+
+  /**
+   * 验证邮箱格式
+   */
+  email(value, fieldName = '邮箱') {
+    if (!value) return null;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return `${fieldName}格式不正确`;
+    }
+    return null;
+  },
+
+  /**
+   * 验证路径格式
+   */
+  path(value, fieldName = '路径') {
+    if (!value) return null;
+    // 简单路径验证：不能包含非法字符
+    const invalidChars = /[<>"|?*]/;
+    if (invalidChars.test(value)) {
+      return `${fieldName}包含非法字符`;
+    }
+    return null;
+  },
+
+  /**
+   * 批量验证表单
+   * @param {Object} formData - 表单数据
+   * @param {Object} rules - 验证规则 { fieldName: [rule1, rule2, ...] }
+   * @returns {Object} { valid: boolean, errors: { fieldName: errorMsg } }
+   */
+  validate(formData, rules) {
+    const errors = {};
+
+    for (const [field, fieldRules] of Object.entries(rules)) {
+      const value = formData[field];
+      for (const rule of fieldRules) {
+        let error = null;
+        switch (rule.type) {
+          case 'required':
+            error = this.required(value, rule.label || field);
+            break;
+          case 'minLength':
+            error = this.minLength(value, rule.value, rule.label || field);
+            break;
+          case 'maxLength':
+            error = this.maxLength(value, rule.value, rule.label || field);
+            break;
+          case 'email':
+            error = this.email(value, rule.label || field);
+            break;
+          case 'path':
+            error = this.path(value, rule.label || field);
+            break;
+          case 'custom':
+            error = rule.validator(value, formData);
+            break;
+        }
+        if (error) {
+          errors[field] = error;
+          break; // 一个字段只返回第一个错误
+        }
+      }
+    }
+
+    return {
+      valid: Object.keys(errors).length === 0,
+      errors,
+    };
+  },
+
+  /**
+   * 显示表单错误
+   * @param {Object} errors - 错误对象 { fieldName: errorMsg }
+   */
+  showErrors(errors) {
+    // 清除所有现有错误
+    document.querySelectorAll('.form-error').forEach(el => el.remove());
+    document.querySelectorAll('.form-field.error').forEach(el => el.classList.remove('error'));
+
+    // 显示新错误
+    for (const [field, msg] of Object.entries(errors)) {
+      const input = document.getElementById(field) || document.querySelector(`[name="${field}"]`);
+      if (input) {
+        input.parentElement.classList.add('error');
+        const errorEl = document.createElement('div');
+        errorEl.className = 'form-error';
+        errorEl.textContent = msg;
+        input.parentElement.appendChild(errorEl);
+      }
+    }
+  },
+};
 
 async function apiCall(endpoint, options = {}) {
   try {
@@ -1800,6 +2099,115 @@ async function apiCall(endpoint, options = {}) {
   } catch (err) {
     console.warn(`API ${endpoint} 调用失败:`, err.message);
     return null;
+  }
+}
+
+// ========== 空状态 & 加载态工具函数 ==========
+
+/**
+ * 渲染空状态
+ * @param {HTMLElement} container - 容器元素
+ * @param {Object} options - 配置选项
+ */
+function renderEmptyState(container, options = {}) {
+  const {
+    icon = '&#128230;',
+    title = '暂无数据',
+    desc = '还没有任何内容',
+    actionText = '',
+    actionFn = null,
+  } = options;
+
+  const actionHtml = actionText ? `
+    <div class="empty-state-action">
+      <button class="btn btn-primary" onclick="${actionFn}">${actionText}</button>
+    </div>
+  ` : '';
+
+  container.innerHTML = `
+    <div class="empty-state" style="grid-column: 1 / -1;">
+      <div class="empty-state-icon">${icon}</div>
+      <div class="empty-state-title">${title}</div>
+      <div class="empty-state-desc">${desc}</div>
+      ${actionHtml}
+    </div>
+  `;
+}
+
+/**
+ * 渲染骨架屏加载状态
+ * @param {HTMLElement} container - 容器元素
+ * @param {number} count - 骨架卡片数量
+ * @param {string} type - 类型: 'card' | 'list' | 'grid'
+ */
+function renderSkeleton(container, count = 4, type = 'card') {
+  let html = '';
+
+  if (type === 'card' || type === 'grid') {
+    for (let i = 0; i < count; i++) {
+      html += `
+        <div class="skeleton-card">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div class="skeleton skeleton-circle"></div>
+            <div style="flex: 1; margin-left: 12px;">
+              <div class="skeleton skeleton-line" style="width: 60%;"></div>
+              <div class="skeleton skeleton-line short" style="margin-bottom: 0;"></div>
+            </div>
+          </div>
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line short"></div>
+        </div>
+      `;
+    }
+  } else if (type === 'list') {
+    for (let i = 0; i < count; i++) {
+      html += `
+        <div style="padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+          <div class="skeleton skeleton-line" style="width: 40%; margin-bottom: 6px;"></div>
+          <div class="skeleton skeleton-line short" style="margin-bottom: 0;"></div>
+        </div>
+      `;
+    }
+  }
+
+  container.innerHTML = html;
+}
+
+/**
+ * 设置按钮加载状态
+ * @param {HTMLElement} btn - 按钮元素
+ * @param {boolean} loading - 是否加载中
+ */
+function setBtnLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.classList.add('loading');
+    btn.disabled = true;
+  } else {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+/**
+ * 显示/隐藏容器加载遮罩
+ * @param {HTMLElement} container - 容器元素
+ * @param {boolean} show - 是否显示
+ */
+function showLoading(container, show = true) {
+  if (!container) return;
+  container.style.position = 'relative';
+  let overlay = container.querySelector('.loading-overlay');
+
+  if (show) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'loading-overlay';
+      overlay.innerHTML = '<div class="loading-spinner"></div>';
+      container.appendChild(overlay);
+    }
+  } else {
+    if (overlay) overlay.remove();
   }
 }
 
@@ -2040,6 +2448,7 @@ function getActivityIcon(type) {
 // ========== 工作区管理 ==========
 async function loadProjects() {
   const container = document.getElementById('projectsGrid');
+  renderSkeleton(container, 6, 'grid'); // 加载态：骨架屏
   const data = await apiCall('/projects');
   state.projects = data?.projects || getMockProjects();
   renderProjects();
@@ -2062,7 +2471,13 @@ function renderProjects() {
   }
 
   if (!filtered.length) {
-    container.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); text-align: center; padding: 40px;">没有找到匹配的项目</div>';
+    renderEmptyState(container, {
+      icon: '&#128194;',
+      title: state.searchQuery || state.currentTag !== 'all' ? '没有找到匹配的项目' : '还没有项目',
+      desc: state.searchQuery || state.currentTag !== 'all' ? '试试其他搜索关键词或标签' : '点击右上角添加你的第一个项目',
+      actionText: state.searchQuery || state.currentTag !== 'all' ? '' : '添加项目',
+      actionFn: state.searchQuery || state.currentTag !== 'all' ? '' : 'addProject()',
+    });
     return;
   }
 
@@ -2160,11 +2575,16 @@ async function loadVscodeDetails() {
 
 async function loadHistorySessions() {
   const container = document.getElementById('historyList');
+  renderSkeleton(container, 5, 'list'); // 加载态
   const data = await apiCall('/vscode/history');
   const history = data?.history || getMockHistory();
 
   if (!history.length) {
-    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无历史记录</div>';
+    renderEmptyState(container, {
+      icon: '&#128197;',
+      title: '暂无历史记录',
+      desc: '打开项目后会自动记录会话历史',
+    });
     return;
   }
 
@@ -2179,11 +2599,16 @@ async function loadHistorySessions() {
 
 async function loadExtensions() {
   const container = document.getElementById('extensionsList');
+  renderSkeleton(container, 4, 'list'); // 加载态
   const data = await apiCall('/vscode/extensions');
   const exts = data?.extensions || getMockExtensions();
 
   if (!exts.length) {
-    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无扩展</div>';
+    renderEmptyState(container, {
+      icon: '&#129520;',
+      title: '暂无扩展',
+      desc: 'VS Code 扩展列表为空',
+    });
     return;
   }
 
@@ -2202,6 +2627,7 @@ async function loadExtensions() {
 // ========== MCP 工具 ==========
 async function loadMcpTools() {
   const container = document.getElementById('mcpToolsGrid');
+  renderSkeleton(container, 6, 'grid'); // 加载态
   const data = await apiCall('/mcp/tools');
   state.mcpTools = data?.tools || getMockMcpTools();
   renderMcpTools();
@@ -2216,7 +2642,11 @@ function renderMcpTools() {
   }
 
   if (!filtered.length) {
-    container.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); text-align: center; padding: 40px;">该分类下暂无工具</div>';
+    renderEmptyState(container, {
+      icon: '&#128295;',
+      title: state.currentMcpCat === 'all' ? '暂无 MCP 工具' : '该分类下暂无工具',
+      desc: state.currentMcpCat === 'all' ? '注册新的 MCP 工具来扩展能力' : '试试其他分类',
+    });
     return;
   }
 
@@ -2261,10 +2691,22 @@ async function callMcpTool(name) {
   resultBody.classList.remove('empty');
   resultBody.textContent = `正在调用工具「${name}」...`;
 
+  // 找到对应按钮并设置加载状态
+  const toolCards = document.querySelectorAll('.tool-card');
+  let targetBtn = null;
+  toolCards.forEach(card => {
+    if (card.textContent.includes(name)) {
+      targetBtn = card.querySelector('.btn-primary');
+    }
+  });
+  if (targetBtn) setBtnLoading(targetBtn, true);
+
   const res = await apiCall('/mcp/call', {
     method: 'POST',
     body: JSON.stringify({ tool: name, params: {} })
   });
+
+  if (targetBtn) setBtnLoading(targetBtn, false);
 
   if (res) {
     resultBody.textContent = JSON.stringify(res, null, 2);
