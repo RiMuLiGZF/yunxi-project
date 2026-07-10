@@ -57,21 +57,51 @@ def _find_user_by_username(username: str) -> dict | None:
 
 
 def _ensure_default_user() -> None:
-    """确保至少有一个 admin 用户"""
+    """确保至少有一个 admin 用户
+
+    密码优先级：
+    1. M8_ADMIN_PASSWORD 环境变量
+    2. 首次启动自动生成随机密码（输出到控制台和日志）
+    """
+    import secrets
+    import string
+
     users = _load_users()
     if not users:
+        # 获取管理员密码
+        admin_password = settings.admin_password
+
+        # 如果未配置，生成随机密码
+        generated = False
+        if not admin_password:
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            admin_password = "".join(secrets.choice(alphabet) for _ in range(16))
+            generated = True
+
         default_user = {
             "id": 1,
             "username": "admin",
-            "password_hash": get_password_hash("admin123456"),
+            "password_hash": get_password_hash(admin_password),
             "role": "admin",
             "nickname": "超级管理员",
             "email": "admin@yunxi.local",
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "last_login": None,
             "status": "active",
+            "must_change_password": generated,  # 标记首次登录需改密码
         }
         _save_users([default_user])
+
+        # 输出初始密码（仅首次生成时显示）
+        if generated:
+            print("\n" + "=" * 60)
+            print("  ⚠️  首次启动：已生成默认管理员账户")
+            print("=" * 60)
+            print(f"  用户名: admin")
+            print(f"  密  码: {admin_password}")
+            print("-" * 60)
+            print("  请妥善保存此密码，登录后立即修改！")
+            print("=" * 60 + "\n")
 
 
 # 启动时确保默认用户存在

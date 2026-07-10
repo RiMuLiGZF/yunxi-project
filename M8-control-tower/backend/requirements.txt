@@ -1,0 +1,6 @@
+# 云汐系统 - M8 管理工作台后端
+# 整合阶段 MVP 版本
+
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>
