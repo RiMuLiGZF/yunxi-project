@@ -1,0 +1,7 @@
+"""
+云汐系统版本信息
+"""
+
+SYSTEM_VERSION = "v1.0.0"
+BUILD_DATE = "2026-07-10"
+VERSION_CODE = 100
