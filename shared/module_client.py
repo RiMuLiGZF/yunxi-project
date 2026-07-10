@@ -185,3 +185,20 @@ def get_registry() -> ModuleRegistry:
     if _registry is None:
         _registry = ModuleRegistry()
     return _registry
+
+
+# ==================== 向后兼容别名 ====================
+
+# 函数别名
+get_module_registry = get_registry
+
+# ModuleStatus 兼容（使用字符串状态）
+class ModuleStatus:
+    """模块状态常量（向后兼容）"""
+    UNKNOWN = "unknown"
+    RUNNING = "running"
+    STOPPED = "stopped"
+    ERROR = "error"
+
+# ModuleClient 兼容（指向 ModuleRegistry）
+ModuleClient = ModuleRegistry
