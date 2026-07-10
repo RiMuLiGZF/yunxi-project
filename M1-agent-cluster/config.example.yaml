@@ -1,0 +1,111 @@
+# =============================================================================
+# M1 调度中心 - 配置示例文件
+# =============================================================================
+# 使用方法：
+#   1. 复制本文件为 config.yaml
+#   2. 根据实际环境修改配置值
+#   3. 敏感信息（如密钥、Token）通过环境变量注入，
+#      支持 ${ENV_VAR_NAME} 语法
+#   4. 环境变量支持默认值：${ENV_VAR_NAME:default_value}
+# =============================================================================
+
+# ── 基础配置 ─────────────────────────────────────────────────────────────────
+basic:
+  # 服务名称，用于日志、标识、注册发现
+  name: m1-scheduler
+  # 版本号
+  version: "11.1.0"
+  # 服务监听端口
+  port: 8001
+  # 日志级别：debug / info / warning / error
+  log_level: info
+  # 运行环境：development / testing / production
+  env: production
+
+# ── 安全配置 ─────────────────────────────────────────────────────────────────
+security:
+  # 数据加密密钥（AES-256，32字节），用于敏感数据落盘加密
+  encryption_key: ${M1_ENCRYPTION_KEY}
+  # 管理员访问 Token，用于内部管理接口鉴权
+  admin_token: ${M1_ADMIN_TOKEN}
+  # 联邦管理员密钥，用于跨节点管理操作
+  admin_key: ${FEDERATION_ADMIN_KEY}
+  # 内部通信密钥，节点间内部调用鉴权
+  internal_secret: ${FEDERATION_INTERNAL_SECRET}
+  # 主密钥，用于密钥派生和最高权限操作
+  master_key: ${FEDERATION_MASTER_KEY}
+  # CORS 允许的源列表
+  cors_origins:
+    - http://localhost:3000
+    - http://localhost:8080
+  # JWT 签名密钥
+  jwt_secret: ${M1_JWT_SECRET}
+
+# ── 数据库配置 ───────────────────────────────────────────────────────────────
+database:
+  # 数据库类型：sqlite / postgresql / mysql
+  type: sqlite
+  # 数据库路径（sqlite）或连接串（postgresql/mysql）
+  path: ./data/m1.db
+
+# ── 调度器配置 ───────────────────────────────────────────────────────────────
+scheduler:
+  # 最大并发任务数
+  max_concurrent_tasks: 100
+  # 任务队列容量
+  queue_size: 1000
+  # 默认任务超时时间（秒）
+  default_timeout: 300
+  # 重试策略
+  retry:
+    # 最大重试次数
+    max_attempts: 3
+    # 退避策略：fixed / exponential / linear
+    backoff: exponential
+    # 初始延迟时间（秒）
+    initial_delay: 1
+
+# ── 联邦配置 ─────────────────────────────────────────────────────────────────
+federation:
+  # 是否启用联邦模式
+  enabled: true
+  # 联邦节点列表
+  nodes: []
+  # 节点同步间隔（秒）
+  sync_interval: 60
+  # 数据脱敏配置
+  desensitization:
+    # 默认脱敏级别：L0（不脱敏）/ L1（基础脱敏）/ L2（严格脱敏）/ L3（完全脱敏）
+    default_level: L1
+    # 自定义脱敏规则
+    rules: []
+
+# ── 模块配置 ─────────────────────────────────────────────────────────────────
+modules:
+  # M2 模块（意图识别/分类）
+  m2:
+    enabled: true
+    endpoint: http://localhost:8002
+  # M3 模块（记忆系统）
+  m3:
+    enabled: true
+    endpoint: http://localhost:8003
+
+# ── 日志配置 ─────────────────────────────────────────────────────────────────
+logging:
+  # 日志格式：json / text / console
+  format: json
+  # 日志级别：debug / info / warning / error
+  level: info
+  # 日志文件路径
+  file: ./logs/m1.log
+  # 单日志文件最大大小
+  max_size: 100MB
+  # 最大保留日志文件数
+  max_files: 10
+  # 日志中需要自动脱敏的敏感字段名
+  sensitive_fields:
+    - password
+    - token
+    - api_key
+    - secret

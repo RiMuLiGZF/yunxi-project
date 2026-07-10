@@ -274,6 +274,11 @@ class SkillExecuteRequest(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict, description="执行上下文")
 
 
+class ContextSaveRequest(BaseModel):
+    """上下文保存请求体."""
+    context_json: dict[str, Any] = Field(default_factory=dict, description="上下文数据字典")
+
+
 # ---------------------------------------------------------------------------
 # 通用响应工具
 # ---------------------------------------------------------------------------
