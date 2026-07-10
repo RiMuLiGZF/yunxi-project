@@ -251,14 +251,3 @@ def get_process_manager() -> ProcessManager:
     if _process_manager is None:
         _process_manager = ProcessManager()
     return _process_manager
-
-
-# ===== 向后兼容：进程状态常量 =====
-class ProcessStatus:
-    """进程状态常量"""
-    RUNNING = "running"
-    STOPPED = "stopped"
-    ERROR = "error"
-    UNKNOWN = "unknown"
-    STARTING = "starting"
-    STOPPING = "stopping"

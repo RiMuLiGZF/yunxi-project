@@ -26,19 +26,6 @@ from routers.vscode import router as vscode_router
 from routers.workspace import router as workspace_router
 from routers.mcp import router as mcp_router
 from routers.dashboard import router as dashboard_router
-from routers.compat import router as compat_router
-
-# 统一错误处理（从shared共享库导入，兼容本地路径）
-try:
-    from shared.error_handler import register_exception_handlers
-except ImportError:
-    import sys as _sys
-    from pathlib import Path as _Path
-    _shared_path = _Path(__file__).resolve().parent.parent.parent / "shared"
-    if str(_shared_path) not in _sys.path:
-        _sys.path.insert(0, str(_shared_path))
-    from error_handler import register_exception_handlers  # type: ignore
-from routers.compat import router as compat_router
 
 
 # ===== 初始化配置 =====
@@ -61,15 +48,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== 注册全局异常处理器 =====
-register_exception_handlers(app)
-# 保存debug状态供错误处理器使用
-app.state.debug = settings.debug
-
 # ===== 注册路由 =====
 # 注意：各路由文件内部已定义 prefix，这里直接包含即可
-# compat 路由需放在前面，确保前端兼容路径优先匹配
-app.include_router(compat_router)
 app.include_router(vscode_router)
 app.include_router(workspace_router)
 app.include_router(mcp_router)
@@ -170,7 +150,6 @@ def api_info():
         "version": "1.0.0",
         "description": "VS Code 管理、工作区管理、MCP 桥接服务",
         "modules": [
-            {"name": "前端兼容", "prefix": "/api/stats, /api/projects, /api/activities", "status": "active"},
             {"name": "VS Code 管理", "prefix": "/api/vscode", "status": "active"},
             {"name": "工作区管理", "prefix": "/api/workspace", "status": "active"},
             {"name": "MCP 桥接", "prefix": "/api/mcp", "status": "active"},
