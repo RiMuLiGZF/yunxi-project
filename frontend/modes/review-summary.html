@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1.0">
+  <title>云汐系统 M4 — 复盘总结模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       复盘总结模式 · 页面级样式
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      overflow: hidden;
+    }
+
+    /* ── Top Navigation Bar ── */
+    .top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      z-index: var(--z-header);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-shrink: 0;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.25);
+    }
+    .nav-logo-text {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo-sub {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+      margin-left: var(--spacing-xs);
+    }
+
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+    }
+    .nav-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(114, 46, 209, 0.06);
+    }
+    .nav-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.3);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      flex-shrink: 0;
+    }
+    .nav-status-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+    .nav-status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #00B42A; box-shadow: 0 0 4px rgba(0, 180, 42, 0.4); }
+    .status-dot.purple { background: #722ED1; box-shadow: 0 0 4px rgba(114, 46, 209, 0.4); }
+    .status-dot.blue { background: #165DFF; box-shadow: 0 0 4px rgba(22, 93, 255, 0.4); }
+
+    .nav-user-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .user-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F0E8FF, #D5B8FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: #531DAB;
+      border: 2px solid var(--color-primary-light);
+    }
+    .nav-encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #00B42A;
+      border: 1px solid rgba(0, 180, 42, 0.2);
+    }
+
+    /* ── Layout Container ── */
+    .app-layout {
+      display: flex;
+      height: 100%;
+      padding-top: var(--header-height);
+    }
+
+    /* ── Left Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: var(--z-sidebar);
+    }
+
+    .sidebar-profile {
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      text-align: center;
+    }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      margin: 0 auto var(--spacing-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    flex-shrink: 0;
+  }
+    .sidebar-user-name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .sidebar-role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+      padding: 2px 10px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .sidebar-menu {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+    .sidebar-menu-section {
+      margin-bottom: var(--spacing-xs);
+    }
+    .sidebar-menu-label {
+      padding: var(--spacing-sm) var(--spacing-base);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+    }
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-menu-item:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .sidebar-menu-item.active {
+      background: var(--color-sidebar-active-bg);
+      color: var(--color-sidebar-active);
+    }
+    .sidebar-menu-item.active .menu-icon {
+      color: var(--color-primary);
+    }
+    .menu-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+    .menu-icon svg {
+      width: 18px; height: 18px;
+    }
+
+    .sidebar-footer {
+      padding: var(--spacing-base);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-encrypt-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: #F0FFF4;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: #009A29;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+    .encrypt-dot {
+      width: 8px; height: 8px;
+      background: #00B42A;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0, 180, 42, 0.5);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .sidebar-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+      font-size: var(--font-size-xs);
+    }
+    .sidebar-collapse-btn:hover {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Confidential Mode Banner */
+    .confidential-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .confidential-banner svg { flex-shrink: 0; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    /* ── Emotion Dashboard Cards ── */
+    .emotion-dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-base);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      transition: all var(--transition-base);
+    }
+    .glass-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .card-title {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .card-title svg { flex-shrink: 0; }
+    .card-subtitle {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Emotion Tags */
+    .emotion-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-base);
+    }
+    .emotion-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      border: 1px solid;
+    }
+    .emotion-tag.anxiety {
+      background: #FFF3E8;
+      color: #D25F00;
+      border-color: rgba(255, 125, 0, 0.2);
+    }
+    .emotion-tag.pressure {
+      background: #F0E8FF;
+      color: #722ED1;
+      border-color: rgba(114, 46, 209, 0.2);
+    }
+    .emotion-tag.focus {
+      background: #E8FFEA;
+      color: #009A29;
+      border-color: rgba(0, 180, 42, 0.2);
+    }
+
+    /* Emotion Index Badge */
+    .emotion-index-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(135deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-primary-text);
+      margin-top: var(--spacing-sm);
+    }
+    .emotion-index-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Session Summary Stats */
+    .session-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--spacing-base);
+      margin-top: var(--spacing-base);
+    }
+    .session-stat-item {
+      text-align: center;
+      padding: var(--spacing-sm);
+    }
+    .session-stat-value {
+      font-size: var(--font-size-3xl);
+      font-weight: var(--font-weight-bold);
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .session-stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+
+    .session-period {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-medium);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(114, 46, 209, 0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      margin-bottom: var(--spacing-base);
+    }
+
+    /* ── Main Grid: Timeline + Right Panel ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--spacing-base);
+    }
+
+    /* ── Decision Timeline ── */
+    .timeline-card {
+      padding: var(--spacing-xl);
+    }
+
+    .timeline-container {
+      position: relative;
+      padding-left: var(--spacing-xl);
+      margin-top: var(--spacing-base);
+    }
+    .timeline-line {
+      position: absolute;
+      left: 11px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--color-primary), rgba(114, 46, 209, 0.15));
+      border-radius: 1px;
+    }
+
+    .timeline-node {
+      position: relative;
+      padding-bottom: var(--spacing-xl);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-base);
+    }
+    .timeline-node:last-child { padding-bottom: 0; }
+
+    .timeline-dot {
+      position: absolute;
+      left: -23px;
+      top: 4px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      z-index: 2;
+      box-shadow: 0 0 0 4px var(--color-card-bg);
+    }
+    .timeline-dot.correct {
+      background: #00B42A;
+      color: #fff;
+      box-shadow: 0 0 0 4px var(--color-card-bg), 0 2px 8px rgba(0, 180, 42, 0.3);
+    }
+    .timeline-dot.pending {
+      background: #FF7D00;
+      color: #fff;
+      box-shadow: 0 0 0 4px var(--color-card-bg), 0 2px 8px rgba(255, 125, 0, 0.3);
+    }
+    .timeline-dot.bias {
+      background: #F53F3F;
+      color: #fff;
+      box-shadow: 0 0 0 4px var(--color-card-bg), 0 2px 8px rgba(245, 63, 63, 0.3);
+    }
+
+    .timeline-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .timeline-date {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-primary-text);
+      margin-bottom: 4px;
+    }
+    .timeline-decision {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      margin-bottom: 4px;
+    }
+    .timeline-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+    }
+    .timeline-emotion-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-medium);
+    }
+    .timeline-result-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-medium);
+    }
+    .timeline-result-tag.correct {
+      background: #E8FFEA;
+      color: #009A29;
+    }
+    .timeline-result-tag.pending {
+      background: #FFF3E0;
+      color: #D25F00;
+    }
+    .timeline-result-tag.bias {
+      background: #FFECE8;
+      color: #CB2634;
+    }
+    .timeline-arrow {
+      color: var(--color-text-tertiary);
+      font-size: 12px;
+    }
+
+    /* ── Right Panel ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+    }
+
+    /* Bias Detection Card */
+    .bias-card {
+      padding: var(--spacing-lg);
+    }
+    .bias-item {
+      padding: var(--spacing-base) 0;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .bias-item:last-child { border-bottom: none; }
+    .bias-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .bias-name {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+    .bias-name svg { flex-shrink: 0; color: var(--color-primary-text); }
+    .bias-severity {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-semibold);
+    }
+    .bias-severity.high {
+      background: #FFECE8;
+      color: #CB2634;
+    }
+    .bias-severity.medium {
+      background: #FFF3E0;
+      color: #D25F00;
+    }
+    .bias-severity.low {
+      background: #E8FFEA;
+      color: #009A29;
+    }
+    .bias-suggestion {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      line-height: var(--line-height-relaxed);
+      padding-left: 24px;
+    }
+
+    /* Score Indicators */
+    .scores-card {
+      padding: var(--spacing-lg);
+    }
+    .scores-grid {
+      display: flex;
+      gap: var(--spacing-lg);
+      justify-content: center;
+      padding: var(--spacing-sm) 0;
+    }
+    .score-circle {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .score-circle svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 90px; height: 90px;
+      transform: rotate(-90deg);
+    }
+    .score-circle .circle-bg {
+      fill: none;
+      stroke: var(--color-border-light);
+      stroke-width: 6;
+    }
+    .score-circle .circle-progress {
+      fill: none;
+      stroke: var(--color-primary);
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 245;
+      stroke-dashoffset: 245;
+      transition: stroke-dashoffset 1s ease;
+    }
+    .score-circle .circle-progress.animated {
+      transition: stroke-dashoffset 1.5s ease;
+    }
+    .score-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary-text);
+      position: relative;
+      z-index: 1;
+    }
+    .score-label {
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      position: relative;
+      z-index: 1;
+      margin-top: 2px;
+    }
+
+    /* Private Diary Card */
+    .diary-card {
+      padding: var(--spacing-lg);
+    }
+    .diary-preview {
+      position: relative;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-base);
+      background: var(--color-border-light);
+      border-radius: var(--radius-md);
+      min-height: 80px;
+      overflow: hidden;
+    }
+    .diary-preview-text {
+      filter: blur(5px);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-relaxed);
+    }
+    .diary-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(247, 240, 255, 0.6);
+      backdrop-filter: blur(2px);
+      gap: var(--spacing-xs);
+    }
+    .diary-overlay-dots {
+      font-size: var(--font-size-lg);
+      color: var(--color-text-tertiary);
+      letter-spacing: 6px;
+      font-weight: var(--font-weight-bold);
+    }
+    .diary-lock-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--font-size-xs);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .diary-unlock-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      width: 100%;
+      margin-top: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      background: var(--color-border-light);
+      color: var(--color-text-tertiary);
+      cursor: not-allowed;
+      border: 1px solid var(--color-border);
+      transition: all var(--transition-fast);
+    }
+    .diary-unlock-btn:hover {
+      background: var(--color-border);
+    }
+
+    /* ── Emotion Trend SVG ── */
+    .trend-chart {
+      margin-top: var(--spacing-sm);
+      height: 80px;
+      position: relative;
+    }
+    .trend-chart svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Scrollbar styling ── */
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb {
+      background: rgba(114, 46, 209, 0.15);
+      border-radius: 3px;
+    }
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(114, 46, 209, 0.25);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fade-in-up 0.4s ease both;
+    }
+    .animate-in-1 { animation-delay: 0.05s; }
+    .animate-in-2 { animation-delay: 0.1s; }
+    .animate-in-3 { animation-delay: 0.15s; }
+    .animate-in-4 { animation-delay: 0.2s; }
+    .animate-in-5 { animation-delay: 0.25s; }
+    .animate-in-6 { animation-delay: 0.3s; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <!-- Left: Logo -->
+    <div class="nav-logo">
+      <div class="nav-logo-icon">汐</div>
+      <span class="nav-logo-text">云汐<span class="nav-logo-sub">M4 业务引擎</span></span>
+    </div>
+
+    <!-- Center: Mode Tabs -->
+    <nav class="nav-tabs">
+      <a class="nav-tab" href="main-chat.html">💬 对话</a>
+      <a class="nav-tab" href="work-dev.html">工作开发</a>
+      <a class="nav-tab" href="study-plan.html">学业规划</a>
+      <a class="nav-tab active" href="review-summary.html">复盘总结</a>
+      <a class="nav-tab" href="social-relation.html">人际关系</a>
+      <a class="nav-tab" href="emotion-comfort.html">情绪安慰</a>
+      <a class="nav-tab" href="life-management.html">生活管理</a>
+    </nav>
+
+    <!-- Right: Status & User -->
+    <div class="nav-right">
+      <div class="nav-status-group">
+        <div class="nav-status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot purple"></span>
+          <span>M5 72%</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot blue"></span>
+          <span>3 设备</span>
+        </div>
+      </div>
+      <div class="nav-user-area">
+        <div class="nav-encrypt-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密
+        </div>
+        <div class="user-avatar">汐</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">汐</div>
+        <div class="sidebar-user-name">汐舟主理</div>
+        <div class="sidebar-role-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          复盘模式
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a class="sidebar-menu-item" href="main-chat.html">
+          <span class="menu-icon">💬</span>
+          对话主页
+        </a>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">分析工具</div>
+          <a class="sidebar-menu-item active" href="review-generator.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </span>
+            复盘生成器
+          </a>
+          <a class="sidebar-menu-item" href="review-emotion.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </span>
+            情绪仪表盘
+          </a>
+          <a class="sidebar-menu-item" href="review-decision.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            决策回溯
+          </a>
+          <a class="sidebar-menu-item" href="review-summary.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a7 7 0 0 0-5.4 11.4c.8 1.5 2 2.8 3.4 3.8V22l3.5-2.5c.5.1 1 .1 1.5.1a7 7 0 0 0 7-7 7 7 0 0 0-10-6.6z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+            </span>
+            认知偏差检测
+          </a>
+          <a class="sidebar-menu-item" href="review-generator.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </span>
+            客观评审
+          </a>
+          <a class="sidebar-menu-item" href="review-diary.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            私密日记
+          </a>
+        </div>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">成长体系</div>
+          <a class="sidebar-menu-item" href="growth-chronicle.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            地球Online编年史
+          </a>
+          <a class="sidebar-menu-item" href="growth-achievements.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+            </span>
+            成就勋章殿堂
+          </a>
+          <a class="sidebar-menu-item" href="growth-talent-tree.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            </span>
+            心智天赋树
+          </a>
+          <a class="sidebar-menu-item" href="growth-tide-calendar.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+            潮汐专属历法
+          </a>
+          <a class="sidebar-menu-item" href="growth-memory-echo.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </span>
+            记忆回响对比
+          </a>
+          <a class="sidebar-menu-item" href="growth-season-journey.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+            </span>
+            赛季征程
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-encrypt-status">
+          <span class="encrypt-dot"></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密存储已启用
+        </div>
+        <button class="sidebar-collapse-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          收起侧栏
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- Confidential Mode Banner -->
+      <div class="confidential-banner animate-in animate-in-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        涉密模式 — 所有复盘数据仅存储于本地加密区域，M5 记忆模块已隔离
+      </div>
+
+      <!-- ── Top Section: Emotion Dashboard ── -->
+      <div class="section-header animate-in animate-in-1">
+        <div class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          情绪仪表盘
+        </div>
+        <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">数据更新于 06/30 22:15</span>
+      </div>
+
+      <div class="emotion-dashboard">
+        <!-- Left: Emotion State Card -->
+        <div class="glass-card animate-in animate-in-2">
+          <div class="card-header">
+            <div>
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                当前情绪状态
+              </div>
+              <div class="card-subtitle">结构化情绪标签（非原始对话内容）</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+
+          <div class="emotion-tags">
+            <span class="emotion-tag anxiety">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              焦虑
+            </span>
+            <span class="emotion-tag pressure">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              压力中等
+            </span>
+            <span class="emotion-tag focus">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              专注度 7/10
+            </span>
+          </div>
+
+          <!-- 7-day Emotion Trend -->
+          <div class="trend-chart">
+            <svg viewBox="0 0 400 80" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(114, 46, 209, 0.2)"/>
+                  <stop offset="100%" stop-color="rgba(114, 46, 209, 0.02)"/>
+                </linearGradient>
+              </defs>
+              <!-- Grid lines -->
+              <line x1="0" y1="20" x2="400" y2="20" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>
+              <line x1="0" y1="40" x2="400" y2="40" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>
+              <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>
+              <!-- Area fill -->
+              <polygon points="0,55 66,48 133,58 200,42 266,50 333,35 400,44 400,80 0,80" fill="url(#trendGrad)"/>
+              <!-- Line -->
+              <polyline points="0,55 66,48 133,58 200,42 266,50 333,35 400,44" fill="none" stroke="#722ED1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <!-- Dots -->
+              <circle cx="0" cy="55" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="66" cy="48" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="133" cy="58" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="200" cy="42" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="266" cy="50" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="333" cy="35" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>
+              <circle cx="400" cy="44" r="4" fill="#722ED1" stroke="#fff" stroke-width="2"/>
+              <!-- Day labels -->
+              <text x="0" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/24</text>
+              <text x="66" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/25</text>
+              <text x="133" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/26</text>
+              <text x="200" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/27</text>
+              <text x="266" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/28</text>
+              <text x="333" y="76" font-size="10" fill="#86909C" text-anchor="middle">06/29</text>
+              <text x="400" y="76" font-size="10" fill="#722ED1" font-weight="600" text-anchor="middle">06/30</text>
+            </svg>
+          </div>
+
+          <div class="emotion-index-badge">
+            <span class="emotion-index-value">6.2</span>
+            <span>/10 — 轻度焦虑，整体可控</span>
+          </div>
+        </div>
+
+        <!-- Right: Session Summary Card -->
+        <div class="glass-card animate-in animate-in-3">
+          <div class="card-header">
+            <div>
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                本次复盘周期
+              </div>
+            </div>
+            <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">自动汇总</span>
+          </div>
+
+          <div class="session-period">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            2025.06.24 — 2025.06.30
+          </div>
+
+          <div class="session-stats">
+            <div class="session-stat-item">
+              <div class="session-stat-value">12</div>
+              <div class="session-stat-label">记录次数</div>
+            </div>
+            <div class="session-stat-item">
+              <div class="session-stat-value">8</div>
+              <div class="session-stat-label">决策节点</div>
+            </div>
+            <div class="session-stat-item">
+              <div class="session-stat-value">3</div>
+              <div class="session-stat-label">发现偏差</div>
+            </div>
+          </div>
+
+          <div style="margin-top: var(--spacing-lg); padding-top: var(--spacing-base); border-top: 1px solid var(--color-border-light);">
+            <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); margin-bottom: var(--spacing-sm);">
+              关键发现
+            </div>
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); line-height: var(--line-height-relaxed);">
+              本周期内识别出 <span style="color: var(--color-accent-text); font-weight: var(--font-weight-medium);">3 个认知偏差</span>，主要集中在<span style="color: var(--color-primary-text); font-weight: var(--font-weight-medium);">工作压力状态</span>下的决策场景。建议重点关注健康相关决策的优先级。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Middle + Right: Timeline + Analysis Panel ── -->
+      <div class="main-grid">
+
+        <!-- Left: Decision Timeline -->
+        <div class="glass-card timeline-card animate-in animate-in-4">
+          <div class="card-header">
+            <div>
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                决策回溯时间线
+              </div>
+              <div class="card-subtitle">关键决策节点及情绪状态关联分析</div>
+            </div>
+          </div>
+
+          <div class="timeline-container">
+            <div class="timeline-line"></div>
+
+            <!-- Node 1 -->
+            <div class="timeline-node">
+              <div class="timeline-dot correct">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-date">06/24 · 周二</div>
+                <div class="timeline-decision">接受项目延期方案</div>
+                <div class="timeline-meta">
+                  <span class="timeline-emotion-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    焦虑
+                  </span>
+                  <span class="timeline-arrow">→</span>
+                  <span class="timeline-result-tag correct">结果: 正确 ✓</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Node 2 -->
+            <div class="timeline-node">
+              <div class="timeline-dot pending">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-date">06/25 · 周三</div>
+                <div class="timeline-decision">拒绝同事加班请求</div>
+                <div class="timeline-meta">
+                  <span class="timeline-emotion-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    疲惫
+                  </span>
+                  <span class="timeline-arrow">→</span>
+                  <span class="timeline-result-tag pending">结果: 待评估</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Node 3 -->
+            <div class="timeline-node">
+              <div class="timeline-dot correct">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-date">06/26 · 周四</div>
+                <div class="timeline-decision">调整学习优先级</div>
+                <div class="timeline-meta">
+                  <span class="timeline-emotion-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    平静
+                  </span>
+                  <span class="timeline-arrow">→</span>
+                  <span class="timeline-result-tag correct">结果: 正确 ✓</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Node 4 -->
+            <div class="timeline-node">
+              <div class="timeline-dot bias">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-date">06/27 · 周五</div>
+                <div class="timeline-decision" style="color: var(--color-error);">忽略健康提醒继续工作</div>
+                <div class="timeline-meta">
+                  <span class="timeline-emotion-tag" style="background: #FFECE8; color: #CB2634; border-color: transparent;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    紧张
+                  </span>
+                  <span class="timeline-arrow">→</span>
+                  <span class="timeline-result-tag bias">结果: 偏差 ✗</span>
+                </div>
+                <div style="margin-top: 6px; font-size: 11px; color: var(--color-text-tertiary); background: #FFECE8; padding: 6px 10px; border-radius: var(--radius-sm); display: inline-block;">
+                  关联偏差: 沉没成本效应 — 因已投入大量时间而忽视健康信号
+                </div>
+              </div>
+            </div>
+
+            <!-- Node 5 -->
+            <div class="timeline-node">
+              <div class="timeline-dot correct">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-date">06/28 · 周六</div>
+                <div class="timeline-decision">主动汇报进度</div>
+                <div class="timeline-meta">
+                  <span class="timeline-emotion-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    自信
+                  </span>
+                  <span class="timeline-arrow">→</span>
+                  <span class="timeline-result-tag correct">结果: 正确 ✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+
+          <!-- Cognitive Bias Detection -->
+          <div class="glass-card bias-card animate-in animate-in-5">
+            <div class="card-header" style="margin-bottom: var(--spacing-sm);">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a7 7 0 0 0-5.4 11.4c.8 1.5 2 2.8 3.4 3.8V22l3.5-2.5c.5.1 1 .1 1.5.1a7 7 0 0 0 7-7 7 7 0 0 0-10-6.6z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+                  认知偏差检测
+                </div>
+                <div class="card-subtitle">本周期自动识别结果</div>
+              </div>
+              <span style="background: #FFECE8; color: #CB2634; padding: 2px 8px; border-radius: var(--radius-full); font-size: 10px; font-weight: var(--font-weight-semibold);">3 项</span>
+            </div>
+
+            <!-- Bias 1 -->
+            <div class="bias-item">
+              <div class="bias-item-header">
+                <span class="bias-name">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  确认偏差
+                </span>
+                <span class="bias-severity medium">影响: 中等</span>
+              </div>
+              <div class="bias-suggestion">倾向于搜索支持已有观点的信息，建议在决策前主动寻找反面证据。</div>
+            </div>
+
+            <!-- Bias 2 -->
+            <div class="bias-item">
+              <div class="bias-item-header">
+                <span class="bias-name">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  沉没成本效应
+                </span>
+                <span class="bias-severity high">影响: 较高</span>
+              </div>
+              <div class="bias-suggestion">因已投入时间/精力而继续错误路径。设定止损点，定期重新评估投入价值。</div>
+            </div>
+
+            <!-- Bias 3 -->
+            <div class="bias-item">
+              <div class="bias-item-header">
+                <span class="bias-name">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  计划谬误
+                </span>
+                <span class="bias-severity low">影响: 较低</span>
+              </div>
+              <div class="bias-suggestion">倾向于低估任务所需时间。建议在预估时参考历史数据并增加缓冲时间。</div>
+            </div>
+          </div>
+
+          <!-- Objective Review Scores -->
+          <div class="glass-card scores-card animate-in animate-in-5">
+            <div class="card-header" style="margin-bottom: var(--spacing-sm);">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  客观评审
+                </div>
+                <div class="card-subtitle">MENTAL 审核完成</div>
+              </div>
+            </div>
+
+            <div class="scores-grid">
+              <!-- Structure Score -->
+              <div class="score-circle">
+                <svg viewBox="0 0 90 90">
+                  <circle class="circle-bg" cx="45" cy="45" r="39"/>
+                  <circle class="circle-progress" cx="45" cy="45" r="39" id="score-structure" style="stroke-dashoffset: 22;"/>
+                </svg>
+                <span class="score-value">91</span>
+                <span class="score-label">结构分析</span>
+              </div>
+
+              <!-- Logic Score -->
+              <div class="score-circle">
+                <svg viewBox="0 0 90 90">
+                  <circle class="circle-bg" cx="45" cy="45" r="39"/>
+                  <circle class="circle-progress" cx="45" cy="45" r="39" id="score-logic" style="stroke-dashoffset: 37;"/>
+                </svg>
+                <span class="score-value">85</span>
+                <span class="score-label">逻辑审计</span>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: var(--spacing-sm);">
+              <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">综合评分:</span>
+              <span style="font-size: var(--font-size-md); font-weight: var(--font-weight-bold); color: var(--color-primary-text); margin-left: 4px;">88/100</span>
+            </div>
+          </div>
+
+          <!-- Private Diary Card -->
+          <div class="glass-card diary-card animate-in animate-in-6">
+            <div class="card-header" style="margin-bottom: var(--spacing-sm);">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  今日日记
+                </div>
+                <div class="card-subtitle">06/30 · 私密内容</div>
+              </div>
+              <span style="font-size: var(--font-size-xs); color: var(--color-primary-text); display: flex; align-items: center; gap: 3px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                本地加密
+              </span>
+            </div>
+
+            <div class="diary-preview">
+              <div class="diary-preview-text">
+                今天在项目上遇到了一些困难，感觉压力比较大。下午和同事讨论了新的方案，觉得方向是对的。晚上回家后思考了一会，意识到自己在时间管理上还可以做得更好。虽然今天情绪有些波动，但总体来说还是在可控范围内。明天要重点关注...
+              </div>
+              <div class="diary-overlay">
+                <span class="diary-overlay-dots">● ● ● ●</span>
+                <span class="diary-lock-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  需要身份验证
+                </span>
+              </div>
+            </div>
+
+            <button class="diary-unlock-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              查看完整内容
+            </button>
+          </div>
+
+        </div><!-- /right-panel -->
+      </div><!-- /main-grid -->
+
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCRIPTS — 完整交互功能
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+  /* ============================================================
+     复盘总结模式 - 完整交互功能
+     ============================================================ */
+
+  // ===== 通用：模式导航切换 =====
+  const ModeNav = {
+    init() {
+      document.querySelectorAll('.nav-tab, .mode-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const href = tab.getAttribute('href');
+          if (href && !href.includes('review-summary')) {
+            YunxiAPI.showLoading('切换模式中...');
+            setTimeout(() => {
+              YunxiAPI.hideLoading();
+              window.location.href = href;
+            }, 300);
+          }
+        });
+      });
+    }
+  };
+
+  // ===== 侧边栏导航 =====
+  const SidebarNav = {
+    init() {
+      document.querySelectorAll('.sidebar-menu-item, .sidebar .nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          document.querySelectorAll('.sidebar-menu-item, .sidebar .nav-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          const label = item.textContent.trim();
+          YunxiAPI.showToast('已切换到: ' + label, 'success');
+        });
+      });
+    }
+  };
+
+  // ===== 复盘功能标签页 =====
+  const ReviewTabs = {
+    tabs: ['日报生成', '周报生成', '月报生成', '数据统计', '复盘模板'],
+    currentTab: '日报生成',
+
+    init() {
+      // 在主内容区添加标签栏
+      const mainArea = document.querySelector('.main-content, .review-main, .main-work-area');
+      if (!mainArea) return;
+
+      // 找到第一个可插入的位置
+      const contentArea = mainArea.querySelector('.content-scroll, .work-zone-content, .review-content');
+      if (!contentArea) return;
+
+      // 创建 tab 栏
+      const tabBar = document.createElement('div');
+      tabBar.className = 'review-tab-bar';
+      tabBar.style.cssText = `
+        display: flex; gap: 4px; padding: 12px 20px 0;
+        border-bottom: 1px solid var(--color-border-light);
+        margin-bottom: 16px;
+      `;
+
+      this.tabs.forEach((tab, idx) => {
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'review-tab-btn' + (idx === 0 ? ' active' : '');
+        tabBtn.dataset.tab = tab;
+        tabBtn.textContent = tab;
+        tabBtn.style.cssText = `
+          padding: 8px 16px; border: none; border-radius: 8px 8px 0 0;
+          background: transparent; font-size: 13px; font-weight: 500;
+          cursor: pointer; transition: all 0.2s;
+          color: ${idx === 0 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)'};
+          border-bottom: 2px solid ${idx === 0 ? 'var(--color-primary)' : 'transparent'};
+        `;
+        tabBtn.addEventListener('click', () => this.switchTab(tab));
+        tabBar.appendChild(tabBtn);
+      });
+
+      // 在内容前插入 tab 栏
+      contentArea.parentNode.insertBefore(tabBar, contentArea);
+
+      // 保存原始内容
+      this.originalContent = contentArea.innerHTML;
+      this.contentArea = contentArea;
+
+      this.renderTabContent('日报生成');
+    },
+
+    switchTab(tabName) {
+      // 跳转到复盘生成器页面
+      const typeMap = {
+        '日报生成': 'daily',
+        '周报生成': 'weekly',
+        '月报生成': 'monthly',
+      };
+      if (typeMap[tabName]) {
+        window.location.href = 'review-generator.html?type=' + typeMap[tabName];
+        return;
+      }
+      if (tabName === '复盘模板') {
+        window.location.href = 'review-generator.html';
+        return;
+      }
+      if (tabName === '数据统计') {
+        window.location.href = 'review-generator.html';
+        return;
+      }
+      
+      document.querySelectorAll('.review-tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tabName;
+        btn.classList.toggle('active', isActive);
+        btn.style.color = isActive ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)';
+        btn.style.borderBottom = isActive ? '2px solid var(--color-primary)' : '2px solid transparent';
+      });
+      this.currentTab = tabName;
+      this.renderTabContent(tabName);
+      YunxiAPI.showToast('已切换到: ' + tabName, 'success');
+    },
+
+    renderTabContent(tabName) {
+      if (!this.contentArea) return;
+
+      const contents = {
+        '日报生成': this.renderDailyReport(),
+        '周报生成': this.renderWeeklyReport(),
+        '月报生成': this.renderMonthlyReport(),
+        '数据统计': this.renderDataStats(),
+        '复盘模板': this.renderReviewTemplate(),
+      };
+
+      this.contentArea.innerHTML = contents[tabName] || this.originalContent;
+      this.bindTabEvents(tabName);
+    },
+
+    renderDailyReport() {
+      return `
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">今日日报</h3>
+              <button class="gen-daily-btn" data-require-ollama style="padding: 8px 18px; border-radius: 6px; border: none; background: var(--color-primary); color: #fff; font-size: 13px; cursor: pointer; font-weight: 500;">
+                AI 生成日报
+              </button>
+            </div>
+            <div style="background: var(--color-page-bg); border-radius: 8px; padding: 16px; min-height: 150px;">
+              <div style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.8;">
+                <p style="margin-bottom: 8px;"><strong style="color: var(--color-text-primary);">今日完成：</strong></p>
+                <p style="margin-bottom: 6px;">• 完成用户模块重构，提交代码评审</p>
+                <p style="margin-bottom: 6px;">• 修复3个Bug，其中2个为高优先级</p>
+                <p style="margin-bottom: 12px;">• 参加需求评审会议，确认Q3规划</p>
+                <p style="margin-bottom: 8px;"><strong style="color: var(--color-text-primary);">明日计划：</strong></p>
+                <p style="margin-bottom: 6px;">• 继续性能优化工作</p>
+                <p>• 编写单元测试用例</p>
+              </div>
+            </div>
+          </div>
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 12px;">历史日报</h3>
+            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--color-page-bg); border-radius: 6px; margin-bottom: 8px; cursor: pointer;">
+              <span style="font-size: 13px; color: var(--color-text-primary);">2024-07-04 工作日报</span>
+              <span style="font-size: 11px; color: var(--color-text-tertiary);">已生成</span>
+            </div>
+            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--color-page-bg); border-radius: 6px; margin-bottom: 8px; cursor: pointer;">
+              <span style="font-size: 13px; color: var(--color-text-primary);">2024-07-03 工作日报</span>
+              <span style="font-size: 11px; color: var(--color-text-tertiary);">已生成</span>
+            </div>
+            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--color-page-bg); border-radius: 6px; cursor: pointer;">
+              <span style="font-size: 13px; color: var(--color-text-primary);">2024-07-02 工作日报</span>
+              <span style="font-size: 11px; color: var(--color-text-tertiary);">已生成</span>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    renderWeeklyReport() {
+      return `
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">本周周报</h3>
+              <button class="gen-weekly-btn" data-require-ollama style="padding: 8px 18px; border-radius: 6px; border: none; background: var(--color-primary); color: #fff; font-size: 13px; cursor: pointer; font-weight: 500;">
+                AI 生成周报
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+              <div style="text-align: center; padding: 12px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: 700; color: var(--color-primary-text);">42</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px;">完成任务</div>
+              </div>
+              <div style="text-align: center; padding: 12px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: 700; color: var(--color-success);">8</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px;">Bug修复</div>
+              </div>
+              <div style="text-align: center; padding: 12px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: 700; color: var(--color-accent-text);">12</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px;">代码提交</div>
+              </div>
+              <div style="text-align: center; padding: 12px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: 700; color: #722ED1;">5</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px;">参加会议</div>
+              </div>
+            </div>
+            <div style="background: var(--color-page-bg); border-radius: 8px; padding: 16px;">
+              <div style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.8;">
+                <p style="margin-bottom: 6px;"><strong style="color: var(--color-text-primary);">本周总结：</strong>完成用户模块核心功能开发...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    renderMonthlyReport() {
+      return `
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">6月月报</h3>
+              <button class="gen-monthly-btn" data-require-ollama style="padding: 8px 18px; border-radius: 6px; border: none; background: var(--color-primary); color: #fff; font-size: 13px; cursor: pointer; font-weight: 500;">
+                AI 生成月报
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+              <div style="padding: 14px; background: linear-gradient(135deg, rgba(114,46,209,0.08), rgba(146,84,222,0.08)); border-radius: 8px;">
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 6px;">完成项目</div>
+                <div style="font-size: 24px; font-weight: 700; color: #722ED1;">3</div>
+              </div>
+              <div style="padding: 14px; background: linear-gradient(135deg, rgba(22,93,255,0.08), rgba(64,128,255,0.08)); border-radius: 8px;">
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 6px;">代码行数</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--color-primary-text);">8.5k</div>
+              </div>
+              <div style="padding: 14px; background: linear-gradient(135deg, rgba(0,180,42,0.08), rgba(35,195,67,0.08)); border-radius: 8px;">
+                <div style="font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 6px;">工作效率</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--color-success);">+15%</div>
+              </div>
+            </div>
+            <div style="height: 150px; background: var(--color-page-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--color-text-tertiary); font-size: 13px;">
+              月度趋势图表区域
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    renderDataStats() {
+      return `
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">工作数据统计</h3>
+              <button class="analyze-btn" data-require-ollama style="padding: 6px 14px; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-primary-light); color: var(--color-primary-text); font-size: 12px; cursor: pointer;">
+                AI 深度分析
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+              <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 10px;">任务完成率</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--color-success);">92.5%</div>
+                <div style="margin-top: 10px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                  <div style="width: 92.5%; height: 100%; background: var(--color-success); border-radius: 4px;"></div>
+                </div>
+              </div>
+              <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 10px;">代码质量评分</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--color-primary-text);">A-</div>
+                <div style="margin-top: 10px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                  <div style="width: 88%; height: 100%; background: var(--color-primary); border-radius: 4px;"></div>
+                </div>
+              </div>
+              <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 10px;">平均响应时间</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--color-accent-text);">2.3h</div>
+              </div>
+              <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 10px;">团队协作评分</div>
+                <div style="font-size: 28px; font-weight: 700; color: #722ED1;">95</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    renderReviewTemplate() {
+      return `
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">复盘模板库</h3>
+              <button class="template-ai-btn" data-require-ollama style="padding: 6px 14px; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-primary-light); color: var(--color-primary-text); font-size: 12px; cursor: pointer;">
+                AI 定制模板
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+              <div class="template-item" style="padding: 16px; background: var(--color-page-bg); border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px;">KPT 复盘法</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5;">Keep / Problem / Try<br>经典三段式复盘</div>
+              </div>
+              <div class="template-item" style="padding: 16px; background: var(--color-page-bg); border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px;">PDCA 循环</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5;">Plan / Do / Check / Act<br>持续改进方法论</div>
+              </div>
+              <div class="template-item" style="padding: 16px; background: var(--color-page-bg); border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px;">STAR 法则</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5;">Situation / Task / Action / Result<br>事件回顾法</div>
+              </div>
+              <div class="template-item" style="padding: 16px; background: var(--color-page-bg); border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px;">5Why 分析法</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5;">连续追问5个为什么<br>根因分析工具</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    bindTabEvents(tabName) {
+      // 所有AI生成按钮
+      document.querySelectorAll('.gen-daily-btn, .gen-weekly-btn, .gen-monthly-btn, .analyze-btn, .template-ai-btn').forEach(btn => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', async () => {
+          const text = btn.textContent.trim();
+          const validation = await YunxiAPI.validateSystem({ ollama: true });
+          if (!validation.pass) {
+            YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+            return;
+          }
+
+          // 根据按钮类型选择对应的 prompt 和 fallback
+          let promptKey = 'dailyReport';
+          if (btn.classList.contains('gen-weekly-btn')) promptKey = 'weeklyReport';
+          else if (btn.classList.contains('gen-monthly-btn')) promptKey = 'monthlyReport';
+          else if (btn.classList.contains('analyze-btn')) promptKey = 'analyze';
+          else if (btn.classList.contains('template-ai-btn')) promptKey = 'templateAI';
+
+          const prompt = AIHelper.prompts[promptKey]();
+          const fallback = AIHelper.fallbacks[promptKey] || (text + '完成');
+          const result = await AIHelper.callAI(
+            prompt,
+            fallback,
+            'AI 正在' + text.replace('AI ', '') + '...'
+          );
+          if (result.success) {
+            YunxiAPI.showToast(text + '完成', 'success');
+            console.log('[AI] ' + text + '结果:', result.data);
+          }
+        });
+      });
+
+      // 历史记录项
+      document.querySelectorAll('.history-item').forEach(item => {
+        item.addEventListener('click', () => {
+          YunxiAPI.showToast('打开历史记录', 'info');
+        });
+      });
+
+      // 模板项
+      document.querySelectorAll('.template-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const name = item.querySelector('div:first-child').textContent;
+          YunxiAPI.showToast('使用模板: ' + name, 'success');
+        });
+      });
+    }
+  };
+
+  // ===== AI 调用辅助模块 =====
+  const AIHelper = {
+    /**
+     * 调用真实 LLM API，失败时使用降级方案
+     */
+    async callAI(prompt, fallback, loadingText) {
+      if (loadingText) {
+        YunxiAPI.showLoading(loadingText);
+      }
+      try {
+        const data = await YunxiAPI.request('POST', '/chat/send', {
+          body: { message: prompt, stream: false }
+        });
+        const response = data.response || fallback;
+        return { success: true, data: response, fromAPI: true };
+      } catch (error) {
+        console.warn('[AI] API 调用失败，使用降级方案:', error.message);
+        await new Promise(r => setTimeout(r, 500));
+        YunxiAPI.showToast('AI 服务暂时不可用，展示示例结果', 'warning');
+        return { success: true, data: fallback, fromAPI: false };
+      } finally {
+        if (loadingText) {
+          YunxiAPI.hideLoading();
+        }
+      }
+    },
+
+    // 复盘总结模式 - 各功能的 prompt 构建
+    prompts: {
+      dailyReport: () => {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('zh-CN');
+        return `请作为复盘总结助手，帮我生成今日（${dateStr}）的日报。
+要求：
+1. 今日工作完成情况（3-5 项主要工作）
+2. 工作成果与亮点
+3. 遇到的问题及解决方案
+4. 明日工作计划（3 项优先事项）
+5. 心得体会与反思
+
+请使用 STAR 法则组织内容，语言简洁专业。`;
+      },
+
+      weeklyReport: () => {
+        const now = new Date();
+        const weekStart = new Date(now.getTime() - (now.getDay() - 1) * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+        const formatDate = (d) => d.toLocaleDateString('zh-CN');
+        return `请作为复盘总结助手，帮我生成本周（${formatDate(weekStart)} - ${formatDate(weekEnd)}）的周报。
+要求：
+1. 本周工作概述
+2. 重点任务完成情况（按项目分类）
+3. 关键成果与数据指标
+4. 问题与挑战及应对措施
+5. 下周工作计划与目标
+6. 需要的支持与资源
+
+请结构清晰，重点突出，数据量化。`;
+      },
+
+      monthlyReport: () => {
+        const now = new Date();
+        const monthStr = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+        return `请作为复盘总结助手，帮我生成${monthStr}的月报。
+要求：
+1. 本月工作总览
+2. 核心目标达成情况（量化指标）
+3. 重点项目进展
+4. 关键里程碑与成就
+5. 问题复盘与经验总结
+6. 下月工作计划与目标
+7. 个人成长与反思
+
+请结构完整，数据详实，有深度思考。`;
+      },
+
+      analyze: () => {
+        return `请作为数据分析助手，对我的工作数据进行分析。
+要求：
+1. 整体效率评估
+2. 时间分配分析
+3. 任务完成率统计
+4. 瓶颈问题识别
+5. 改进建议与优化方向
+6. 下周/下月预期目标
+
+请基于数据给出客观分析和可行建议。`;
+      },
+
+      templateAI: () => {
+        return `请作为复盘模板设计助手，为我设计一套高效的复盘模板。
+要求：
+1. 模板结构清晰，层次分明
+2. 包含目标回顾、结果评估、原因分析、规律总结等模块
+3. 提供具体的填写指引和示例
+4. 适用于不同时间周期（日/周/月）
+5. 兼顾实用性和深度思考
+
+请输出完整的复盘模板。`;
+      }
+    },
+
+    // 降级结果（模拟数据）
+    fallbacks: {
+      dailyReport: '今日日报已生成：\n【完成工作】\n1. 完成用户模块接口开发\n2. 修复 3 个线上 bug\n3. 参与产品需求评审会\n【问题与解决】\n接口性能问题 - 通过加缓存解决\n【明日计划】\n1. 完成订单模块联调\n2. 编写技术文档\n【心得】持续优化代码质量很重要',
+      weeklyReport: '本周周报已生成：\n【本周概述】完成 3 个功能模块开发，修复 8 个 bug\n【重点任务】用户系统重构、支付接口对接、性能优化\n【关键成果】系统响应速度提升 40%\n【问题挑战】第三方接口不稳定，已做降级处理\n【下周计划】完成订单模块、开展代码评审',
+      monthlyReport: '本月月报已生成：\n【工作总览】完成 2 个大版本迭代，交付 15 个功能点\n【目标达成】核心目标完成率 92%\n【重点项目】用户体系重构、支付系统上线\n【里程碑】月活用户突破 10 万\n【下月计划】启动新功能开发、优化系统架构',
+      analyze: '数据分析完成：\n【效率评估】本周工作效率 85%，高于上周\n【时间分配】编码 60%、会议 20%、文档 15%、其他 5%\n【完成率】任务完成率 90%，延期 2 项\n【瓶颈】需求变更频繁影响进度\n【建议】建立需求冻结机制',
+      templateAI: '复盘模板已生成：包含 5 大模块（目标回顾、结果对比、原因分析、规律总结、行动计划），提供详细填写指引和示例，适用于日/周/月不同周期复盘。'
+    }
+  };
+
+  // ===== 右侧面板 Tab 切换 =====
+  const RightPanelTabs = {
+    init() {
+      const rightPanel = document.querySelector('.right-panel, .review-right-panel');
+      if (!rightPanel) {
+        // 尝试找其他右栏
+        const panels = document.querySelectorAll('[class*="right"]');
+        if (panels.length > 0) {
+          this.addTabsToPanel(panels[0]);
+        }
+        return;
+      }
+      this.addTabsToPanel(rightPanel);
+    },
+
+    addTabsToPanel(panel) {
+      const tabContainer = document.createElement('div');
+      tabContainer.className = 'right-panel-tabs';
+      tabContainer.style.cssText = `
+        display: flex; gap: 2px; background: var(--color-page-bg);
+        border-radius: 8px; padding: 3px; margin-bottom: 12px;
+      `;
+
+      const tabs = [
+        { id: 'tools', name: '工具' },
+        { id: 'history', name: '记录' },
+        { id: 'settings', name: '设置' },
+      ];
+
+      tabs.forEach((tab, idx) => {
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'right-panel-tab' + (idx === 0 ? ' active' : '');
+        tabBtn.dataset.tab = tab.id;
+        tabBtn.textContent = tab.name;
+        tabBtn.style.cssText = `
+          flex: 1; padding: 6px 0; border: none; border-radius: 6px;
+          background: ${idx === 0 ? '#fff' : 'transparent'};
+          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+          color: ${idx === 0 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)'};
+        `;
+        tabBtn.addEventListener('click', () => {
+          document.querySelectorAll('.right-panel-tab').forEach(t => {
+            t.classList.remove('active');
+            t.style.color = 'var(--color-text-tertiary)';
+            t.style.background = 'transparent';
+          });
+          tabBtn.classList.add('active');
+          tabBtn.style.color = 'var(--color-primary-text)';
+          tabBtn.style.background = '#fff';
+          YunxiAPI.showToast('已切换到: ' + tab.name, 'info');
+        });
+        tabContainer.appendChild(tabBtn);
+      });
+
+      panel.insertBefore(tabContainer, panel.firstChild);
+    }
+  };
+
+  // ===== 用户头像 & 状态 =====
+  const UserMenu = {
+    init() {
+      const avatar = document.querySelector('.user-avatar, .nav-user-avatar, .header-avatar');
+      if (avatar) {
+        avatar.style.cursor = 'pointer';
+        avatar.addEventListener('click', () => {
+          YunxiAPI.showToast('用户菜单开发中...', 'info');
+        });
+      }
+    }
+  };
+
+  // ===== 仪表盘数据动态化 =====
+  var DashboardData = {
+    defaults: {
+      overview: { stats: { total_reviews: 0, total_diaries: 0, total_decisions: 0, total_emotions: 0, week_reviews: 0, streak_days: 0 } },
+      emotionStats: { avg_level: 0, dominant_emotion: 'neutral', daily_trend: [], emotion_distribution: {}, total_records: 0 },
+      decisions: [],
+      biases: [],
+      diaries: [],
+    },
+    init: function() { this.loadAllData(); },
+    loadAllData: function() {
+      var self = this;
+      Promise.all([
+        self.loadOverview(), self.loadEmotionStats(),
+        self.loadDecisions(), self.loadBiases(), self.loadDiaries(),
+      ]).catch(function() {});
+    },
+    loadOverview: function() {
+      var self = this;
+      return YunxiAPI.request('GET', 'review/overview')
+        .then(function(data) { self.renderOverviewStats(data.stats || self.defaults.overview.stats); return data; })
+        .catch(function() { self.renderOverviewStats(self.defaults.overview.stats); return self.defaults.overview; });
+    },
+    loadEmotionStats: function() {
+      var self = this;
+      return YunxiAPI.request('GET', 'review/emotions/stats?days=7')
+        .then(function(data) { self.renderEmotionIndex(data); self.renderTrendChart(data.daily_trend || []); return data; })
+        .catch(function() { self.renderEmotionIndex(self.defaults.emotionStats); self.renderTrendChart([]); return self.defaults.emotionStats; });
+    },
+    loadDecisions: function() {
+      var self = this;
+      return YunxiAPI.request('GET', 'review/decisions?limit=5')
+        .then(function(data) { self.renderDecisionTimeline(data || []); return data; })
+        .catch(function() { self.renderDecisionTimeline([]); return []; });
+    },
+    loadBiases: function() {
+      var self = this;
+      return YunxiAPI.request('GET', 'review/biases')
+        .then(function(data) { self.renderBiasDetection(data || []); return data; })
+        .catch(function() { self.renderBiasDetection([]); return []; });
+    },
+    loadDiaries: function() {
+      var self = this;
+      return YunxiAPI.request('GET', 'review/diaries?limit=1')
+        .then(function(data) { self.renderDiaryCard(data && data.length > 0 ? data[0] : null); return data; })
+        .catch(function() { self.renderDiaryCard(null); return []; });
+    },
+    renderOverviewStats: function(stats) {
+      var statValues = document.querySelectorAll('.session-stat-value');
+      if (statValues.length >= 3) {
+        statValues[0].textContent = stats.total_emotions || 0;
+        statValues[1].textContent = stats.total_decisions || 0;
+        statValues[2].textContent = stats.week_reviews || 0;
+      }
+      var statLabels = document.querySelectorAll('.session-stat-label');
+      if (statLabels.length >= 3) {
+        statLabels[0].textContent = '情绪记录';
+        statLabels[1].textContent = '决策节点';
+        statLabels[2].textContent = '本周复盘';
+      }
+      var periodEl = document.querySelector('.session-period');
+      if (periodEl) {
+        var now = new Date();
+        var weekAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        var fmt = function(d) { return d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0'); };
+        periodEl.innerHTML = periodEl.querySelector('svg').outerHTML + ' ' + fmt(weekAgo) + ' \u2014 ' + fmt(now);
+      }
+    },
+    renderEmotionIndex: function(data) {
+      var avgLevel = data.avg_level || 0;
+      var valueEl = document.querySelector('.emotion-index-value');
+      if (valueEl) { valueEl.textContent = avgLevel.toFixed(1); }
+      var badgeEl = document.querySelector('.emotion-index-badge');
+      if (badgeEl) {
+        var desc = '/10 \u2014 ';
+        if (avgLevel >= 8) desc += '情绪高涨，状态极佳';
+        else if (avgLevel >= 6) desc += '情绪稳定，整体良好';
+        else if (avgLevel >= 4) desc += '轻度波动，整体可控';
+        else if (avgLevel > 0) desc += '情绪偏低，注意调节';
+        else desc += '暂无数据';
+        var spans = badgeEl.querySelectorAll('span');
+        if (spans.length >= 2) { spans[1].textContent = desc; }
+      }
+      var updateTimeEl = document.querySelector('.section-header span[style*="tertiary"]');
+      if (updateTimeEl) {
+        var now = new Date();
+        updateTimeEl.textContent = '数据更新于 ' + (now.getMonth()+1) + '/' + now.getDate() + ' ' +
+          String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+      }
+    },
+    renderTrendChart: function(trendData) {
+      var chartEl = document.querySelector('.trend-chart');
+      if (!chartEl) return;
+      var days = 7;
+      var data = (trendData || []).slice(-days);
+      while (data.length < days) { data.unshift({ date: '', avg_level: 0 }); }
+      var width = 400, height = 80, paddingTop = 10, paddingBottom = 20;
+      var chartHeight = height - paddingTop - paddingBottom;
+      var maxLevel = 10;
+      var points = data.map(function(d, i) {
+        var x = (i / (days - 1)) * width;
+        var level = d.avg_level || 0;
+        var y = paddingTop + chartHeight - (level / maxLevel) * chartHeight;
+        return { x: x, y: y, level: level, date: d.date };
+      });
+      var polylinePoints = points.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+      var areaPoints = '0,' + height + ' ' + polylinePoints + ' ' + width + ',' + height;
+      var dateLabels = points.map(function(p, i) {
+        var dateStr = '';
+        if (p.date) { var parts = p.date.split('-'); dateStr = parts[1] + '/' + parts[2]; }
+        else { var d = new Date(); d.setDate(d.getDate() - (days - 1 - i));
+          dateStr = String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0'); }
+        var isLast = i === points.length - 1;
+        return '<text x="' + p.x + '" y="76" font-size="10" fill="' + (isLast ? '#722ED1' : '#86909C') +
+          '" ' + (isLast ? 'font-weight="600" ' : '') + 'text-anchor="middle">' + dateStr + '</text>';
+      }).join('');
+      var dots = points.map(function(p, i) {
+        var isLast = i === points.length - 1;
+        if (p.level === 0) return '';
+        if (isLast) return '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="#722ED1" stroke="#fff" stroke-width="2"/>';
+        return '<circle cx="' + p.x + '" cy="' + p.y + '" r="3.5" fill="#fff" stroke="#722ED1" stroke-width="2"/>';
+      }).join('');
+      chartEl.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' +
+        '<defs><linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="rgba(114, 46, 209, 0.2)"/><stop offset="100%" stop-color="rgba(114, 46, 209, 0.02)"/>' +
+        '</linearGradient></defs>' +
+        '<line x1="0" y1="20" x2="' + width + '" y2="20" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>' +
+        '<line x1="0" y1="40" x2="' + width + '" y2="40" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>' +
+        '<line x1="0" y1="60" x2="' + width + '" y2="60" stroke="rgba(114,46,209,0.06)" stroke-width="1"/>' +
+        '<polygon points="' + areaPoints + '" fill="url(#trendGrad)"/>' +
+        '<polyline points="' + polylinePoints + '" fill="none" stroke="#722ED1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        dots + dateLabels + '</svg>';
+    },
+    renderDecisionTimeline: function(decisions) {
+      var container = document.querySelector('.timeline-container');
+      if (!container) return;
+      if (!decisions || decisions.length === 0) {
+        container.innerHTML = '<div class="timeline-line"></div>' +
+          '<div style="text-align:center;padding:30px 0;color:var(--color-text-tertiary);font-size:12px;">暂无决策记录</div>';
+        return;
+      }
+      var itemsHtml = decisions.slice(0, 5).map(function(d, idx) {
+        var date = d.created_at ? new Date(d.created_at) : new Date();
+        var dateStr = (date.getMonth() + 1) + '/' + date.getDate();
+        var weekDays = ['周日','周一','周二','周三','周四','周五','周六'];
+        var weekDay = weekDays[date.getDay()];
+        var isDone = !!d.final_choice;
+        var statusText = isDone ? '已决定 \u2713' : '待决策';
+        var statusClass = isDone ? 'correct' : 'pending';
+        var emoLevel = d.emotion_level || 5;
+        var emoName = emoLevel >= 7 ? '积极' : emoLevel >= 4 ? '平静' : '低落';
+        var emoColor = emoLevel >= 7 ? '#00B42A' : emoLevel >= 4 ? '#165DFF' : '#FF7D00';
+        var emoBg = emoLevel >= 7 ? '#E8FFEA' : emoLevel >= 4 ? '#E8F3FF' : '#FFF7E8';
+        var dotIcon = isDone
+          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+          : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+        return '<div class="timeline-node"><div class="timeline-dot ' + statusClass + '">' + dotIcon + '</div>' +
+          '<div class="timeline-content"><div class="timeline-date">' + dateStr + ' \u00b7 ' + weekDay + '</div>' +
+          '<div class="timeline-decision">' + d.title + '</div>' +
+          '<div class="timeline-meta"><span class="timeline-emotion-tag" style="background:' + emoBg + ';color:' + emoColor + ';border-color:transparent;">' +
+          '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>' +
+          emoName + '</span><span class="timeline-arrow">\u2192</span>' +
+          '<span class="timeline-result-tag ' + statusClass + '">结果: ' + statusText + '</span></div></div></div>';
+      }).join('');
+      container.innerHTML = '<div class="timeline-line"></div>' + itemsHtml;
+    },
+    renderBiasDetection: function(biases) {
+      var biasCard = document.querySelector('.bias-card');
+      if (!biasCard) return;
+      var badgeEl = biasCard.querySelector('span[style*="FFECE8"]');
+      if (badgeEl) { badgeEl.textContent = (biases.length || 0) + ' 项'; }
+      var firstItem = biasCard.querySelector('.bias-item');
+      if (!firstItem) return;
+      var itemsContainer = firstItem.parentNode;
+      var topBiases = (biases || []).slice(0, 3);
+      if (topBiases.length === 0) {
+        itemsContainer.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--color-text-tertiary);font-size:12px;">暂无检测结果</div>';
+        return;
+      }
+      var levelMap = { high: { text: '影响: 较高', cls: 'high' }, medium: { text: '影响: 中等', cls: 'medium' }, low: { text: '影响: 较低', cls: 'low' } };
+      var itemsHtml = topBiases.map(function(b) {
+        var level = b.level || 'medium';
+        var li = levelMap[level] || levelMap.medium;
+        var suggestion = (b.suggestions && b.suggestions.length > 0) ? b.suggestions[0] : (b.description || '');
+        return '<div class="bias-item"><div class="bias-item-header"><span class="bias-name">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          (b.name || '未知偏差') + '</span><span class="bias-severity ' + li.cls + '">' + li.text + '</span></div>' +
+          '<div class="bias-suggestion">' + suggestion + '</div></div>';
+      }).join('');
+      itemsContainer.innerHTML = itemsHtml;
+    },
+    renderDiaryCard: function(diary) {
+      var diaryCard = document.querySelector('.diary-card');
+      if (!diaryCard) return;
+      var subtitleEl = diaryCard.querySelector('.card-subtitle');
+      var previewTextEl = diaryCard.querySelector('.diary-preview-text');
+      var unlockBtn = diaryCard.querySelector('.diary-unlock-btn');
+      if (!diary) {
+        if (subtitleEl) subtitleEl.textContent = '暂无日记';
+        if (previewTextEl) previewTextEl.textContent = '还没有写下任何日记，点击下方按钮开始记录吧。';
+        if (unlockBtn) {
+          unlockBtn.textContent = '写第一篇日记';
+          unlockBtn.onclick = function() { window.location.href = 'review-diary.html'; };
+        }
+        return;
+      }
+      if (subtitleEl) {
+        var date = diary.created_at ? new Date(diary.created_at) : new Date();
+        subtitleEl.textContent = (date.getMonth()+1) + '/' + date.getDate() + ' \u00b7 私密内容';
+      }
+      if (previewTextEl) {
+        var content = diary.content || '';
+        previewTextEl.textContent = content.length > 100 ? content.substring(0, 100) + '...' : content;
+      }
+      if (unlockBtn) {
+        unlockBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>查看完整内容';
+        unlockBtn.onclick = function(e) { e.stopPropagation(); window.location.href = 'review-diary.html?id=' + diary.id; };
+      }
+      diaryCard.style.cursor = 'pointer';
+      diaryCard.addEventListener('click', function() {
+        window.location.href = 'review-diary.html?id=' + diary.id;
+      });
+    },
+  };
+
+  // ===== 环形进度动画（保留原有） =====
+  function initScoreAnimation() {
+    const circumference = 2 * Math.PI * 39;
+    const structEl = document.getElementById('score-structure');
+    if (structEl) {
+      structEl.style.strokeDasharray = circumference;
+      structEl.style.strokeDashoffset = circumference;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          structEl.style.strokeDashoffset = circumference * (1 - 0.91);
+          structEl.style.transition = 'stroke-dashoffset 1.5s ease';
+        });
+      });
+    }
+    const logicEl = document.getElementById('score-logic');
+    if (logicEl) {
+      logicEl.style.strokeDasharray = circumference;
+      logicEl.style.strokeDashoffset = circumference;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          logicEl.style.strokeDashoffset = circumference * (1 - 0.85);
+          logicEl.style.transition = 'stroke-dashoffset 1.5s ease 0.2s';
+        });
+      });
+    }
+  }
+
+  // ===== 对话功能管理 =====
+  const ChatManager = {
+    messages: [],
+    STORAGE_KEY: 'yunxi_review_chat',
+
+    init() {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        try { this.messages = JSON.parse(stored); } catch(e) { this.messages = []; }
+      }
+    },
+
+    addMessage(role, content) {
+      this.messages.push({ id: Date.now(), role, content, time: new Date().toISOString() });
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.messages));
+    },
+
+    clearMessages() {
+      this.messages = [];
+      localStorage.removeItem(this.STORAGE_KEY);
+    },
+
+    getMessages() { return this.messages; }
+  };
+
+  // ===== 对话操作（新建/清空/导出） =====
+  const ChatActions = {
+    init() {},
+
+    newChat() {
+      ChatManager.clearMessages();
+      YunxiAPI.showToast('已新建对话', 'success');
+    },
+
+    async clearChat() {
+      const confirmed = await YunxiAPI.showConfirm('确定要清空当前对话吗？此操作不可恢复。', '清空对话');
+      if (confirmed) {
+        ChatManager.clearMessages();
+        YunxiAPI.showToast('对话已清空', 'success');
+      }
+    },
+
+    exportChat() {
+      const messages = ChatManager.getMessages();
+      if (messages.length === 0) {
+        YunxiAPI.showToast('暂无对话可导出', 'warning');
+        return;
+      }
+      const content = messages.map(m => `[${m.role}] ${m.content}`).join('\n\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'review-chat-' + new Date().toISOString().slice(0,10) + '.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      YunxiAPI.showToast('对话已导出', 'success');
+    }
+  };
+
+  // ===== 数据导出确认 =====
+  const ExportManager = {
+    async exportReport(type) {
+      const labels = { daily: '日报', weekly: '周报', monthly: '月报' };
+      const label = labels[type] || type;
+      const confirmed = await YunxiAPI.showConfirm(
+        '确定要生成并导出' + label + '吗？',
+        '导出确认'
+      );
+      if (!confirmed) return { success: false };
+
+      return { success: true, label };
+    },
+
+    async clearData(label) {
+      const confirmed = await YunxiAPI.showConfirm(
+        '确定要清空' + label + '吗？此操作不可恢复。',
+        '清空确认'
+      );
+      if (!confirmed) return false;
+
+      YunxiAPI.showToast('已清空' + label, 'success');
+      return true;
+    }
+  };
+
+  // ===== 初始化 =====
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+      try {
+        initScoreAnimation();
+        DashboardData.init();
+        ModeNav.init();
+        SidebarNav.init();
+        ReviewTabs.init();
+        RightPanelTabs.init();
+        UserMenu.init();
+        ChatManager.init();
+        ChatActions.init();
+
+        // 同步按钮状态
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+          YunxiAPI.updateButtonsBySystemStatus();
+        }
+
+        // 定期同步
+        setInterval(() => {
+          if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+            YunxiAPI.updateButtonsBySystemStatus();
+          }
+        }, 30000);
+      } catch (e) {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+          YunxiAPI.showToast('初始化部分功能失败，请刷新页面', 'warning');
+        }
+      }
+    }, 100);
+  });
+  </script>
+
+</body>
+</html>

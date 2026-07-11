@@ -1,0 +1,354 @@
+"""
+M6 硬件外设模拟服务 - FastAPI 启动入口
+
+云汐系统模块六：智能穿戴与硬件外设模拟服务
+提供设备管理、传感器数据采集、SSE 实时推送等能力
+
+运行方式:
+    python server.py
+
+默认端口: 8006 (通过环境变量 M6_PORT 配置)
+"""
+
+from __future__ import annotations
+
+import os
+import hmac
+import sys
+import time
+import uuid
+from pathlib import Path
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+# ---------------------------------------------------------------------------
+# 路径配置
+# ---------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent
+PKG_DIR = BASE_DIR / "m6_hardware"
+
+# 确保 BASE_DIR 在 sys.path 中
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+# ---------------------------------------------------------------------------
+# 导入 M6 核心组件
+# ---------------------------------------------------------------------------
+from m6_hardware.config import get_config
+from m6_hardware.api import api_router
+from m6_hardware.api.m8_auth_middleware import M8AuthMiddleware
+from m6_hardware.services.device_manager import get_device_manager
+from m6_hardware.services.data_collector import get_data_collector
+from m6_hardware.services.notification import get_notification_service
+from m6_hardware.realtime.sse_manager import get_sse_manager
+
+# ---------------------------------------------------------------------------
+# 加载配置
+# ---------------------------------------------------------------------------
+config = get_config()
+
+# ---------------------------------------------------------------------------
+# 生命周期管理
+# ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动时初始化
+    print("\n" + "=" * 60)
+    print("  M6 硬件外设模拟服务 - 启动中...")
+    print("=" * 60)
+
+    # 初始化设备管理器
+    dm = get_device_manager()
+    device_stats = dm.get_stats()
+    print(f"  设备管理器: 已加载 {device_stats['total']} 台设备")
+    print(f"    - 在线: {device_stats['online']}  离线: {device_stats['offline']}  警告: {device_stats['warning']}")
+
+    # 初始化数据采集服务
+    dc = get_data_collector()
+    print(f"  数据采集服务: 已就绪 (间隔 {config.collection_interval}s)")
+    await dc.start()
+
+    # 初始化 SSE 推送服务
+    sse = get_sse_manager()
+    await sse.start()
+    print(f"  SSE 推送服务: 已启动")
+
+    # 通知服务
+    ns = get_notification_service()
+    print(f"  通知推送服务: 已就绪")
+
+    print("-" * 60)
+    print(f"  模拟模式: {'开启' if config.simulation_mode else '关闭'}")
+    print(f"  数据库: {config.database_path}")
+    print("=" * 60 + "\n")
+
+    yield
+
+    # 关闭时清理
+    print("\n正在关闭 M6 硬件外设服务...")
+    dc = get_data_collector()
+    await dc.stop()
+    sse = get_sse_manager()
+    await sse.stop()
+    print("M6 硬件外设服务已关闭\n")
+
+
+# ---------------------------------------------------------------------------
+# FastAPI 应用
+# ---------------------------------------------------------------------------
+app = FastAPI(
+    title="M6 硬件外设模拟服务 API",
+    description="云汐系统模块六：智能穿戴设备、无人机、桌面终端等硬件外设的模拟服务，支持实时传感器数据采集和SSE推送",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# ---------------------------------------------------------------------------
+# CORS 中间件
+# ---------------------------------------------------------------------------
+cors_origins = config.cors_origins
+if cors_origins == "*":
+    allow_origins = ["*"]
+else:
+    allow_origins = cors_origins.split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# M8 统一鉴权中间件
+app.add_middleware(M8AuthMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# 请求中间件：request_id 注入
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """为每个请求注入 request_id，并记录响应时间"""
+    start_time = time.time()
+    request_id = uuid.uuid4().hex[:16]
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+
+    elapsed_ms = (time.time() - start_time) * 1000
+    response.headers["X-Request-Id"] = request_id
+    response.headers["X-Response-Time"] = f"{elapsed_ms:.2f}ms"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# 根路径 - 服务信息
+# ---------------------------------------------------------------------------
+@app.get("/", tags=["Info"], summary="服务信息")
+async def root():
+    """根路径：返回服务基本信息"""
+    dm = get_device_manager()
+    stats = dm.get_stats()
+
+    return {
+        "name": "M6 硬件外设模拟服务",
+        "module": "m6-hardware",
+        "version": "1.0.0",
+        "status": "running",
+        "simulation_mode": config.simulation_mode,
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "device_stats": stats,
+        "endpoints": {
+            "health": "/api/v1/health",
+            "devices": "/api/v1/devices",
+            "sensors": "/api/v1/sensors",
+            "control": "/api/v1/control",
+            "sse": "/api/v1/sse/stream",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# 健康检查（标准端点）
+# ---------------------------------------------------------------------------
+@app.get("/health", tags=["Health"], summary="健康检查")
+async def health():
+    """标准健康检查端点"""
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "status": "healthy",
+            "module": "m6-hardware",
+            "version": "1.0.0",
+        },
+        "request_id": uuid.uuid4().hex[:16],
+        "timestamp": time.time(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# M8 标准对接接口
+# ---------------------------------------------------------------------------
+from fastapi import Header, HTTPException
+
+_start_time_m8 = time.time()
+
+def _verify_m8_token(x_m8_token: str = "") -> bool:
+    expected = os.environ.get("M6_ADMIN_TOKEN", "")
+    if not expected:
+        return True
+    return hmac.compare_digest(x_m8_token, expected)
+
+
+def _get_m6_real_metrics():
+    """获取真实 M6 性能指标"""
+    import os
+    try:
+        import psutil
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        memory_mb = int(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
+    except Exception:
+        cpu_usage = 0.0
+        memory_mb = 0
+    
+    devices_online = 0
+    sensors_total = 0
+    try:
+        from m6_hardware.services.device_manager import get_device_manager
+        dm = get_device_manager()
+        devices = dm.list_devices()
+        devices_online = sum(1 for d in devices if d.get("status") == "online")
+        sensors_total = sum(len(d.get("sensors", [])) for d in devices)
+    except Exception:
+        pass
+    
+    sse_connections = 0
+    try:
+        from m6_hardware.services.sse_manager import get_sse_manager
+        sm = get_sse_manager()
+        if hasattr(sm, "get_connection_count"):
+            sse_connections = sm.get_connection_count()
+    except Exception:
+        pass
+    
+    return {
+        "cpu_usage": round(cpu_usage, 1),
+        "memory_mb": memory_mb,
+        "devices_online": devices_online,
+        "sensors_total": sensors_total,
+        "sse_connections": sse_connections,
+    }
+
+@app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
+async def m8_std_health(x_m8_token: str = Header(default="")):
+    if not _verify_m8_token(x_m8_token):
+        raise HTTPException(status_code=401, detail="Invalid M8 token")
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "status": "healthy",
+            "module": "m6",
+            "module_name": "硬件外设系统",
+            "version": "1.0.0",
+            "uptime_seconds": int(time.time() - _start_time_m8),
+            "device_count": 6,
+        }
+    }
+
+@app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
+async def m8_std_metrics(x_m8_token: str = Header(default="")):
+    if not _verify_m8_token(x_m8_token):
+        raise HTTPException(status_code=401, detail="Invalid M8 token")
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": _get_m6_real_metrics()
+    }
+
+@app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
+async def m8_std_config(x_m8_token: str = Header(default="")):
+    if not _verify_m8_token(x_m8_token):
+        raise HTTPException(status_code=401, detail="Invalid M8 token")
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m6",
+            "version": "1.0.0",
+            "env": os.environ.get("YUNXI_ENV", "development"),
+            "simulation_mode": True,
+            "device_types": 6,
+            "sse_enabled": True,
+        }
+    }
+
+
+# ---------------------------------------------------------------------------
+# 挂载 API 路由
+# ---------------------------------------------------------------------------
+app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# SSE 端点
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/sse/stream", tags=["SSE"], summary="SSE 实时数据流")
+async def sse_stream(request: Request):
+    """SSE 实时数据流端点
+
+    订阅设备状态变更、传感器数据、告警通知等实时事件。
+
+    事件类型:
+    - connected: 连接建立
+    - initial_state: 初始状态
+    - sensor_data: 传感器数据更新
+    - device_status: 设备状态变更
+    - alerts: 告警通知
+    - notification: 设备通知
+    - ping: 心跳
+    """
+    sse = get_sse_manager()
+    return await sse.connect(request)
+
+
+# ---------------------------------------------------------------------------
+# 启动入口
+# ---------------------------------------------------------------------------
+def main() -> None:
+    """启动 FastAPI 服务"""
+    port = config.port
+    host = config.host
+
+    print("\n" + "=" * 60)
+    print("  M6 硬件外设模拟服务")
+    print("  M6 Hardware Peripheral Simulation Service")
+    print("=" * 60)
+    print(f"  版本:        1.0.0")
+    print(f"  模块名:      {config.module_name}")
+    print(f"  监听地址:    {host}:{port}")
+    print(f"  模拟模式:    {'开启' if config.simulation_mode else '关闭'}")
+    print(f"  文档地址:    http://localhost:{port}/docs")
+    print(f"  健康检查:    http://localhost:{port}/health")
+    print(f"  设备列表:    http://localhost:{port}/api/v1/devices")
+    print(f"  SSE 流:      http://localhost:{port}/api/v1/sse/stream")
+    print("=" * 60)
+    print()
+
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level=config.log_level,
+    )
+
+
+if __name__ == "__main__":
+    main()

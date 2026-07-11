@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-07-08T18:16:46",
+  "artifact_count": 7,
+  "artifacts": {
+    "artifact-001": {
+      "id": "artifact-001",
+      "name": "m1-100-concurrent-test-report",
+      "type": "report",
+      "module": "M1",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m1-100-concurrent-test-report - report类型产物",
+      "path": "by-module/M1-agent-cluster/m1-100-concurrent-test-report.md",
+      "tags": [
+        "M1",
+        "report",
+        "agent-cluster",
+        "test"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 478,
+      "content_hash": "3b9a1243a20fc1ba8a2e18971ddfb9fb"
+    },
+    "artifact-002": {
+      "id": "artifact-002",
+      "name": "m1-architecture-design",
+      "type": "doc",
+      "module": "M1",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m1-architecture-design - doc类型产物",
+      "path": "by-module/M1-agent-cluster/m1-architecture-design.md",
+      "tags": [
+        "agent-cluster",
+        "design",
+        "M1",
+        "architecture",
+        "doc"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 592,
+      "content_hash": "f9702e024ea6fc9a7058866cbab02cab"
+    },
+    "artifact-003": {
+      "id": "artifact-003",
+      "name": "m10-integration-test-report",
+      "type": "report",
+      "module": "M10",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m10-integration-test-report - report类型产物",
+      "path": "by-module/M10-system-guard/m10-integration-test-report.md",
+      "tags": [
+        "test",
+        "M10",
+        "system-guard",
+        "report"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 181,
+      "content_hash": "0ab77b9bace23a96e8ec4fb53910c644"
+    },
+    "artifact-004": {
+      "id": "artifact-004",
+      "name": "m10-system-guard-dev-spec",
+      "type": "doc",
+      "module": "M10",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m10-system-guard-dev-spec - doc类型产物",
+      "path": "by-module/M10-system-guard/m10-system-guard-dev-spec.md",
+      "tags": [
+        "dev",
+        "M10",
+        "system-guard",
+        "spec",
+        "doc"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 428,
+      "content_hash": "3b1aeba7f0f60ed1c0849c1d60bb9ca0"
+    },
+    "artifact-005": {
+      "id": "artifact-005",
+      "name": "m2-skill-dev-guide",
+      "type": "doc",
+      "module": "M2",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m2-skill-dev-guide - doc类型产物",
+      "path": "by-module/M2-skills-cluster/m2-skill-dev-guide.md",
+      "tags": [
+        "dev",
+        "skills-cluster",
+        "M2",
+        "guide",
+        "doc"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 384,
+      "content_hash": "7378b3c0d3ae8ce433d8ab3f575fa014"
+    },
+    "artifact-006": {
+      "id": "artifact-006",
+      "name": "m3-edge-cloud-design",
+      "type": "doc",
+      "module": "M3",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m3-edge-cloud-design - doc类型产物",
+      "path": "by-module/M3-edge-cloud/m3-edge-cloud-design.md",
+      "tags": [
+        "M3",
+        "design",
+        "edge-cloud",
+        "doc"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 370,
+      "content_hash": "fbd8f95682b7426cbe78ce09aa60dfcc"
+    },
+    "artifact-007": {
+      "id": "artifact-007",
+      "name": "m5-tide-memory-api",
+      "type": "doc",
+      "module": "M5",
+      "dialog_id": null,
+      "dialog_name": null,
+      "description": "m5-tide-memory-api - doc类型产物",
+      "path": "by-module/M5-tide-memory/m5-tide-memory-api.md",
+      "tags": [
+        "api",
+        "tide-memory",
+        "M5",
+        "doc"
+      ],
+      "created_at": "2026-07-08T18:16:46",
+      "updated_at": "2026-07-08T18:16:46",
+      "version": "1.0",
+      "status": "active",
+      "related_artifacts": [],
+      "size_bytes": 238,
+      "content_hash": "63732c60e3e6195d5fa48f34f784136e"
+    }
+  }
+}

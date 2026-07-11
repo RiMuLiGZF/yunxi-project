@@ -1,0 +1,38 @@
+# 云汐内核 - Skills技能集群系统依赖
+# 【整改 v3.7.0】规范依赖管理，明确版本约束，适配笔记本本地部署
+
+# 核心数据校验（必须）
+pydantic>=2.0.0
+
+# 结构化日志（必须）
+structlog>=24.0.0
+
+# 配置中心热加载（可选，未安装时优雅降级）
+watchdog>=3.0.0
+pyyaml>=6.0
+
+# HTTP API + MCP Transport（可选，未安装时优雅降级）
+fastapi>=0.115.0
+uvicorn>=0.30.0
+
+# 测试依赖（开发环境）
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=5.0.0
+
+# 补充依赖
+aiohttp
+httpx
+python-dotenv
+psutil
+beautifulsoup4
+markdown
+langdetect
+chardet
+PyMuPDF
+pandas
+matplotlib
+typing-extensions
+
+# onnxruntime>=1.16.0          # ONNX Runtime CPU 版本（可选）
+# onnxruntime-gpu>=1.16.0      # ONNX Runtime GPU 版本（需 CUDA，可选）

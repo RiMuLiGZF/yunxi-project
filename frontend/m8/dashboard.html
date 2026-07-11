@@ -1,0 +1,1936 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" >
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总览 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Light mode glass override */
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+/* ── Typography Scale Classes ── */
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+
+/* ===== Quick Action Buttons ===== */
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.04);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+.quick-action-btn:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+.quick-action-btn:active {
+  transform: translateY(0);
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+
+    <!-- Layout Shell -->
+    <div class="flex min-h-screen">
+
+        <!-- ========== LEFT SIDEBAR ========== -->
+        <aside class="fixed left-0 top-0 bottom-0 w-[240px] flex flex-col z-[200]"
+               style="background: var(--sidebar-bg); border-right: 1px solid var(--color-border-subtle);">
+
+            <!-- Logo Area -->
+            <div class="flex items-center gap-3 px-5 h-14 shrink-0"
+                 style="border-bottom: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center brand-gradient-bg">
+                    <i data-lucide="hexagon" class="w-4 h-4" style="color: white;"></i>
+                </div>
+                <span class="text-lg font-semibold brand-gradient-text whitespace-nowrap"
+                      style="font-family: var(--font-family-display);">云汐 M8</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto no-scrollbar">
+                <a href="dashboard.html" data-dom-id="nav-dashboard" data-active="true"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+                   style="background: rgba(59, 130, 246, 0.1); color: var(--color-text-primary); border-left: 3px solid var(--color-primary);">
+                    <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-primary);"></i>
+                    总览
+                </a>
+                <a href="tasks.html" data-dom-id="nav-tasks"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="list-checks" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    任务中心
+                </a>
+                <a href="modules.html" data-dom-id="nav-modules-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="boxes" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    模块管理
+                </a>
+                <a href="deploy.html" data-dom-id="nav-deploy-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="rocket" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    部署管理
+                </a>
+                <a href="monitor.html" data-dom-id="nav-monitor-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="activity" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    系统监控
+                </a>
+                <a href="agents.html" data-dom-id="nav-agents-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="bot" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    Agent 中心
+                </a>
+                <a href="compute.html" data-dom-id="nav-compute-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="cpu" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    算力调度
+                </a>
+                <a href="settings.html" data-dom-id="nav-settings-hidden"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    系统设置
+                </a>
+            </nav>
+
+            <!-- User Info (Bottom) -->
+            <div class="flex items-center gap-3 px-5 py-4 shrink-0"
+                 style="border-top: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                     style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                <span class="text-sm whitespace-nowrap truncate" style="color: var(--color-text-secondary);">管理员</span>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN AREA ========== -->
+        <div class="flex-1 flex flex-col" style="margin-left: 240px;">
+
+            <!-- Top Header Bar -->
+            <header class="flex items-center justify-between px-6 h-14 shrink-0"
+                    style="background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-border-subtle);">
+                <!-- Breadcrumb -->
+                <nav class="flex items-center gap-2 text-sm" style="color: var(--color-text-tertiary);">
+                    <span>首页</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    <span style="color: var(--color-text-primary);">总览仪表盘</span>
+                </nav>
+                <!-- Right Controls -->
+                <div class="flex items-center gap-4">
+                                        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+                        <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+                        <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+                    </button>
+                    <button class="relative w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-80"
+                            style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
+                        <i data-lucide="bell" class="w-4 h-4" style="color: var(--color-text-secondary);"></i>
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                              style="background: var(--state-error);"></span>
+                    </button>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                         style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6" style="max-width: var(--content-max-width);">
+
+                <!-- ===== SECTION 1: KPI Cards ===== -->
+                <section class="grid grid-cols-4 gap-4 mb-6">
+
+                    <!-- KPI Card 1: 在线模块数 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2"
+                                   style="color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase;">在线模块数</p>
+                                <p class="text-3xl font-bold whitespace-nowrap"
+                                   style="color: var(--color-text-primary); font-family: var(--font-family-display);">8<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/8</span></p>
+                                <p class="text-xs mt-1 whitespace-nowrap"
+                                   style="color: var(--state-success);">全部在线</p>
+                            </div>
+                            <svg class="w-12 h-12 shrink-0 -rotate-90" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(148,163,184,0.1)" stroke-width="3"/>
+                                <circle cx="24" cy="24" r="20" fill="none" stroke="var(--state-success)" stroke-width="3"
+                                        stroke-dasharray="125.66" stroke-dashoffset="0" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- KPI Card 2: 今日任务数 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2"
+                                   style="color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase;">今日任务数</p>
+                                <p class="text-3xl font-bold whitespace-nowrap"
+                                   style="color: var(--color-text-primary); font-family: var(--font-family-display);">128</p>
+                                <p class="text-xs mt-1 whitespace-nowrap"
+                                   style="color: var(--color-text-secondary);">较昨日</p>
+                            </div>
+                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium shrink-0 whitespace-nowrap"
+                                  style="background: rgba(16, 185, 129, 0.15); color: var(--state-success);">+12%</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI Card 3: 算力调用次数 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2"
+                                   style="color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase;">算力调用次数</p>
+                                <p class="text-3xl font-bold whitespace-nowrap"
+                                   style="color: var(--color-text-primary); font-family: var(--font-family-display);">1,247</p>
+                                <p class="text-xs mt-1 whitespace-nowrap"
+                                   style="color: var(--color-text-secondary);">今日累计</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(6, 182, 212, 0.1);">
+                                <i data-lucide="cpu" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Card 4: 系统健康度评分 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2"
+                                   style="color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase;">系统健康度</p>
+                                <p class="text-3xl font-bold whitespace-nowrap"
+                                   style="color: var(--state-success); font-family: var(--font-family-display);">96.5<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/100</span></p>
+                                <p class="text-xs mt-1 whitespace-nowrap"
+                                   style="color: var(--state-success);">优秀</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(16, 185, 129, 0.1);">
+                                <i data-lucide="heart-pulse" class="w-5 h-5" style="color: var(--state-success);"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SECTION 2: 图表区域 ===== -->
+                <section class="grid grid-cols-12 gap-4 mb-6">
+
+                    <!-- 模块运行状态柱状图 -->
+                    <div class="col-span-5">
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">模块运行状态</h3>
+                                <span class="text-xs" style="color: var(--color-text-tertiary);">运行时长 / 请求数</span>
+                            </div>
+                            <div id="moduleBarChart" style="height: 280px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 算力调用趋势折线图 -->
+                    <div class="col-span-7">
+                        <div class="glass-surface rounded-xl p-4 mb-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">算力调用趋势</h3>
+                                <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full" style="background: var(--color-primary);"></span>
+                                        <span class="text-xs" style="color: var(--color-text-secondary);">调用次数</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full" style="background: var(--color-secondary);"></span>
+                                        <span class="text-xs" style="color: var(--color-text-secondary);">成功率</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-6 mb-2">
+                                <div>
+                                    <p class="text-xs" style="color: var(--color-text-tertiary);">总调用量</p>
+                                    <p class="text-2xl font-bold" style="color: var(--color-text-primary); font-family: var(--font-family-display);">8,542</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs" style="color: var(--color-text-tertiary);">成功率</p>
+                                    <p class="text-2xl font-bold" style="color: var(--state-success); font-family: var(--font-family-display);">98.2%</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs" style="color: var(--color-text-tertiary);">平均响应</p>
+                                    <p class="text-2xl font-bold" style="color: var(--color-text-primary); font-family: var(--font-family-display);">1.2s</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs" style="color: var(--color-text-tertiary);">今日峰值</p>
+                                    <p class="text-2xl font-bold" style="color: var(--color-primary); font-family: var(--font-family-display);">156/min</p>
+                                </div>
+                            </div>
+                            <div id="computeTrendChart" style="height: 200px;"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SECTION 2.5: 快捷操作 + 任务完成率 ===== -->
+                <section class="grid grid-cols-12 gap-4 mb-6">
+
+                    <!-- 快捷操作区 -->
+                    <div class="col-span-8">
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">快捷操作</h3>
+                            </div>
+                            <div class="grid grid-cols-4 gap-3">
+                                <button class="quick-action-btn" onclick="quickAction('startModule')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(59, 130, 246, 0.1);">
+                                        <i data-lucide="play" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">启动模块</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">快速启动</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('stopModule')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(239, 68, 68, 0.1);">
+                                        <i data-lucide="square" class="w-5 h-5" style="color: var(--state-error);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">停止模块</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">按需关停</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('systemCheck')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(16, 185, 129, 0.1);">
+                                        <i data-lucide="check-circle-2" class="w-5 h-5" style="color: var(--state-success);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">一键检查</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">系统健康</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('compute')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(6, 182, 212, 0.1);">
+                                        <i data-lucide="cpu" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">算力调度</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">资源管理</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('agents')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(168, 85, 247, 0.1);">
+                                        <i data-lucide="bot" class="w-5 h-5" style="color: #a855f7;"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">Agent管理</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">智能体中心</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('monitor')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(245, 158, 11, 0.1);">
+                                        <i data-lucide="activity" class="w-5 h-5" style="color: var(--state-warning);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">系统监控</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">实时指标</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('deploy')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(249, 115, 22, 0.1);">
+                                        <i data-lucide="rocket" class="w-5 h-5" style="color: #f97316;"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">部署中心</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">发布管理</p>
+                                </button>
+                                <button class="quick-action-btn" onclick="quickAction('settings')">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
+                                         style="background: rgba(148, 163, 184, 0.1);">
+                                        <i data-lucide="settings" class="w-5 h-5" style="color: var(--color-text-secondary);"></i>
+                                    </div>
+                                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">系统设置</p>
+                                    <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">配置管理</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 任务完成率饼图 -->
+                    <div class="col-span-4">
+                        <div class="glass-surface rounded-xl p-4 h-full" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">任务完成率</h3>
+                                <span class="text-xs" style="color: var(--color-text-tertiary);">今日</span>
+                            </div>
+                            <div id="taskPieChart" style="height: 220px;"></div>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full" style="background: var(--state-success);"></span>
+                                    <span class="text-xs" style="color: var(--color-text-secondary);">已完成 112</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full" style="background: var(--color-primary);"></span>
+                                    <span class="text-xs" style="color: var(--color-text-secondary);">运行中 12</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full" style="background: var(--state-warning);"></span>
+                                    <span class="text-xs" style="color: var(--color-text-secondary);">排队中 3</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full" style="background: var(--state-error);"></span>
+                                    <span class="text-xs" style="color: var(--color-text-secondary);">失败 1</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SECTION 3: 最近动态 + 最近任务 ===== -->
+                <section class="grid grid-cols-12 gap-4 mb-6">
+
+                    <!-- 最近动态列表 -->
+                    <div class="col-span-5">
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">最近动态</h3>
+                                <button class="text-xs transition-opacity hover:opacity-80" style="color: var(--color-primary);">查看全部</button>
+                            </div>
+                            <div class="space-y-3" id="recentActivityList">
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                             style="background: rgba(16, 185, 129, 0.15);">
+                                            <i data-lucide="check-circle" class="w-3.5 h-3.5" style="color: var(--state-success);"></i>
+                                        </div>
+                                        <div class="w-px flex-1" style="background: var(--color-border-subtle);"></div>
+                                    </div>
+                                    <div class="flex-1 pb-3">
+                                        <p class="text-sm" style="color: var(--color-text-primary);">M1调度模块健康检查通过</p>
+                                        <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">巡检Agent · 3分钟前</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                             style="background: rgba(59, 130, 246, 0.15);">
+                                            <i data-lucide="cpu" class="w-3.5 h-3.5" style="color: var(--color-primary);"></i>
+                                        </div>
+                                        <div class="w-px flex-1" style="background: var(--color-border-subtle);"></div>
+                                    </div>
+                                    <div class="flex-1 pb-3">
+                                        <p class="text-sm" style="color: var(--color-text-primary);">算力调度完成 256 次调用</p>
+                                        <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">算力平台 · 12分钟前</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                             style="background: rgba(245, 158, 11, 0.15);">
+                                            <i data-lucide="alert-triangle" class="w-3.5 h-3.5" style="color: var(--state-warning);"></i>
+                                        </div>
+                                        <div class="w-px flex-1" style="background: var(--color-border-subtle);"></div>
+                                    </div>
+                                    <div class="flex-1 pb-3">
+                                        <p class="text-sm" style="color: var(--color-text-primary);">M5记忆模块内存使用率达 71%</p>
+                                        <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">系统监控 · 28分钟前</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                             style="background: rgba(168, 85, 247, 0.15);">
+                                            <i data-lucide="bot" class="w-3.5 h-3.5" style="color: #a855f7;"></i>
+                                        </div>
+                                        <div class="w-px flex-1" style="background: var(--color-border-subtle);"></div>
+                                    </div>
+                                    <div class="flex-1 pb-3">
+                                        <p class="text-sm" style="color: var(--color-text-primary);">主理人Agent完成新任务路由</p>
+                                        <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">Agent中心 · 45分钟前</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                             style="background: rgba(239, 68, 68, 0.15);">
+                                            <i data-lucide="x-circle" class="w-3.5 h-3.5" style="color: var(--state-error);"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm" style="color: var(--color-text-primary);">任务 #T10238 执行失败</p>
+                                        <p class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">任务中心 · 1小时前</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最近任务列表 -->
+                    <div class="col-span-7">
+                <!-- ===== SECTION 3: 最近任务列表 ===== -->
+                <section>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-subheading whitespace-nowrap"
+                            style="color: var(--color-text-primary);">最近任务</h2>
+                        <button class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80"
+                                style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary); border-radius: var(--radius-md);">
+                            查看全部
+                        </button>
+                    </div>
+                    <div class="glass-surface rounded-xl overflow-hidden" style="border-radius: var(--radius-lg);">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" style="min-width: 640px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary); width: 100px;">任务ID</th>
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary);">标题</th>
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary); width: 90px;">模块</th>
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary); width: 80px;">状态</th>
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary); width: 70px;">耗时</th>
+                                        <th class="text-left px-4 py-3 text-xs font-medium" style="color: var(--color-text-tertiary); width: 130px;">开始时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Row 1 -->
+                                    <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+                                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color: var(--color-text-secondary);">#T10241</td>
+                                        <td class="px-4 py-3 truncate" style="color: var(--color-text-primary);">用户意图解析与路由分发</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">M1 调度</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+                                                  style="background: rgba(16, 185, 129, 0.15); color: var(--state-success);">已完成</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">1.2s</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-tertiary);">2026-07-06 14:32</td>
+                                    </tr>
+                                    <!-- Row 2 -->
+                                    <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+                                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color: var(--color-text-secondary);">#T10240</td>
+                                        <td class="px-4 py-3 truncate" style="color: var(--color-text-primary);">对话上下文管理</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">M3 对话</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+                                                  style="background: rgba(59, 130, 246, 0.15); color: var(--state-info);">运行中</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">0.8s</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-tertiary);">2026-07-06 14:30</td>
+                                    </tr>
+                                    <!-- Row 3 -->
+                                    <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+                                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color: var(--color-text-secondary);">#T10239</td>
+                                        <td class="px-4 py-3 truncate" style="color: var(--color-text-primary);">场景资源加载与预渲染</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">M4 场景</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+                                                  style="background: rgba(148, 163, 184, 0.1); color: var(--color-text-tertiary);">排队中</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">--</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-tertiary);">2026-07-06 14:28</td>
+                                    </tr>
+                                    <!-- Row 4 -->
+                                    <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+                                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color: var(--color-text-secondary);">#T10238</td>
+                                        <td class="px-4 py-3 truncate" style="color: var(--color-text-primary);">长期记忆索引更新</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">M5 记忆</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+                                                  style="background: rgba(239, 68, 68, 0.15); color: var(--state-error);">失败</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">3.1s</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-tertiary);">2026-07-06 14:25</td>
+                                    </tr>
+                                    <!-- Row 5 -->
+                                    <tr>
+                                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color: var(--color-text-secondary);">#T10237</td>
+                                        <td class="px-4 py-3 truncate" style="color: var(--color-text-primary);">积木组件编排执行</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">M7 积木</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+                                                  style="background: rgba(16, 185, 129, 0.15); color: var(--state-success);">已完成</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-secondary);">0.9s</td>
+                                        <td class="px-4 py-3 whitespace-nowrap" style="color: var(--color-text-tertiary);">2026-07-06 14:22</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ECharts Initialization -->
+    <script>
+// ===== 模拟数据（接口对接预留） =====
+        const DashboardMockData = {
+            // 模块运行状态数据
+            moduleStatus: {
+                modules: ['M1调度', 'M2技能', 'M3对话', 'M4场景', 'M5记忆', 'M6感知', 'M7积木', 'M8云汐'],
+                runtime: [452, 389, 512, 298, 421, 267, 156, 380],  // 运行时长（小时）
+                requests: [12560, 8930, 15240, 6780, 9870, 5430, 3210, 7650],  // 请求数
+                status: ['running', 'running', 'running', 'running', 'running', 'running', 'running', 'running']
+            },
+            // 算力调用趋势（近7天）
+            computeTrend: {
+                dates: ['7/2', '7/3', '7/4', '7/5', '7/6', '7/7', '7/8'],
+                calls: [1024, 1156, 987, 1234, 1100, 1356, 1247],
+                successRate: [97.8, 98.2, 97.5, 98.6, 98.1, 98.8, 98.2]
+            },
+            // 任务完成率
+            taskCompletion: {
+                completed: 112,
+                running: 12,
+                pending: 3,
+                failed: 1
+            }
+        };
+
+        // ===== 图表实例管理 =====
+        const DashboardCharts = {
+            moduleBar: null,
+            computeTrend: null,
+            taskPie: null
+        };
+
+        // 初始化所有图表
+        function initDashboardCharts() {
+            initModuleBarChart();
+            initComputeTrendChart();
+            initTaskPieChart();
+
+            // 响应式适配
+            window.addEventListener('resize', function() {
+                Object.values(DashboardCharts).forEach(function(chart) {
+                    if (chart && chart.resize) chart.resize();
+                });
+            });
+        }
+
+        // 1. 模块运行状态柱状图
+        function initModuleBarChart() {
+            var el = document.getElementById('moduleBarChart');
+            if (!el) return;
+
+            DashboardCharts.moduleBar = echarts.init(el, 'dark', {
+                renderer: 'canvas'
+            });
+
+            var colors = [
+                'rgba(59, 130, 246, 0.8)',
+                'rgba(6, 182, 212, 0.8)',
+                'rgba(168, 85, 247, 0.8)',
+                'rgba(245, 158, 11, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(236, 72, 153, 0.8)',
+                'rgba(249, 115, 22, 0.8)',
+                'rgba(59, 130, 246, 0.6)'
+            ];
+
+            var option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    textStyle: { color: '#f1f5f9', fontSize: 12 },
+                    formatter: function(params) {
+                        var m = params[0];
+                        var r = params[1];
+                        return '<div style="font-weight:600;margin-bottom:4px;">' + m.name + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;">'
+                            + '<span style="color:#94a3b8;">运行时长</span><span>' + m.value + 'h</span></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;">'
+                            + '<span style="color:#94a3b8;">请求数</span><span>' + r.value.toLocaleString() + '</span></div>';
+                    }
+                },
+                legend: {
+                    data: ['运行时长', '请求数'],
+                    right: 0,
+                    top: 0,
+                    textStyle: { color: '#94a3b8', fontSize: 11 },
+                    itemWidth: 12,
+                    itemHeight: 8
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '15%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: DashboardMockData.moduleStatus.modules,
+                    axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } },
+                    axisTick: { show: false },
+                    axisLabel: {
+                        color: '#64748b',
+                        fontSize: 10,
+                        interval: 0,
+                        rotate: 0
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '时长(h)',
+                        nameTextStyle: { color: '#64748b', fontSize: 10 },
+                        axisLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { color: '#64748b', fontSize: 10 },
+                        splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.06)' } }
+                    },
+                    {
+                        type: 'value',
+                        name: '请求数',
+                        nameTextStyle: { color: '#64748b', fontSize: 10 },
+                        axisLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { color: '#64748b', fontSize: 10 },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: [
+                    {
+                        name: '运行时长',
+                        type: 'bar',
+                        barWidth: '25%',
+                        data: DashboardMockData.moduleStatus.runtime,
+                        itemStyle: {
+                            borderRadius: [4, 4, 0, 0],
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(59, 130, 246, 0.9)' },
+                                { offset: 1, color: 'rgba(59, 130, 246, 0.3)' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '请求数',
+                        type: 'bar',
+                        yAxisIndex: 1,
+                        barWidth: '25%',
+                        data: DashboardMockData.moduleStatus.requests,
+                        itemStyle: {
+                            borderRadius: [4, 4, 0, 0],
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(6, 182, 212, 0.9)' },
+                                { offset: 1, color: 'rgba(6, 182, 212, 0.3)' }
+                            ])
+                        }
+                    }
+                ]
+            };
+
+            DashboardCharts.moduleBar.setOption(option);
+        }
+
+        // 2. 算力调用趋势折线图
+        function initComputeTrendChart() {
+            var el = document.getElementById('computeTrendChart');
+            if (!el) return;
+
+            DashboardCharts.computeTrend = echarts.init(el, 'dark', {
+                renderer: 'canvas'
+            });
+
+            var option = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    textStyle: { color: '#f1f5f9', fontSize: 12 }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: DashboardMockData.computeTrend.dates,
+                    axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#64748b', fontSize: 10 }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        axisLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { color: '#64748b', fontSize: 10 },
+                        splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.06)' } }
+                    },
+                    {
+                        type: 'value',
+                        min: 95,
+                        max: 100,
+                        axisLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { color: '#64748b', fontSize: 10, formatter: '{value}%' },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: [
+                    {
+                        name: '调用次数',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'circle',
+                        symbolSize: 6,
+                        lineStyle: { width: 2, color: '#3b82f6' },
+                        itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: 1 },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(59, 130, 246, 0.25)' },
+                                { offset: 1, color: 'rgba(59, 130, 246, 0.02)' }
+                            ])
+                        },
+                        data: DashboardMockData.computeTrend.calls
+                    },
+                    {
+                        name: '成功率',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        smooth: true,
+                        symbol: 'circle',
+                        symbolSize: 5,
+                        lineStyle: { width: 2, color: '#06b6d4' },
+                        itemStyle: { color: '#06b6d4', borderColor: '#fff', borderWidth: 1 },
+                        data: DashboardMockData.computeTrend.successRate
+                    }
+                ]
+            };
+
+            DashboardCharts.computeTrend.setOption(option);
+        }
+
+        // 3. 任务完成率饼图
+        function initTaskPieChart() {
+            var el = document.getElementById('taskPieChart');
+            if (!el) return;
+
+            DashboardCharts.taskPie = echarts.init(el, 'dark', {
+                renderer: 'canvas'
+            });
+
+            var option = {
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    textStyle: { color: '#f1f5f9', fontSize: 12 },
+                    formatter: '{b}: {c} ({d}%)'
+                },
+                series: [
+                    {
+                        name: '任务状态',
+                        type: 'pie',
+                        radius: ['55%', '75%'],
+                        center: ['50%', '50%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: {
+                            borderRadius: 6,
+                            borderColor: 'transparent',
+                            borderWidth: 2
+                        },
+                        label: {
+                            show: true,
+                            position: 'center',
+                            formatter: function() {
+                                var total = DashboardMockData.taskCompletion.completed
+                                    + DashboardMockData.taskCompletion.running
+                                    + DashboardMockData.taskCompletion.pending
+                                    + DashboardMockData.taskCompletion.failed;
+                                var rate = ((DashboardMockData.taskCompletion.completed / total) * 100).toFixed(1);
+                                return '{a|' + rate + '%}{b|完成率}';
+                            },
+                            rich: {
+                                a: {
+                                    fontSize: 24,
+                                    fontWeight: 'bold',
+                                    color: '#f1f5f9',
+                                    fontFamily: 'Inter, PingFang SC, sans-serif',
+                                    lineHeight: 30
+                                },
+                                b: {
+                                    fontSize: 11,
+                                    color: '#64748b',
+                                    lineHeight: 16
+                                }
+                            }
+                        },
+                        emphasis: {
+                            label: { show: true },
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.3)'
+                            }
+                        },
+                        labelLine: { show: false },
+                        data: [
+                            { value: DashboardMockData.taskCompletion.completed, name: '已完成', itemStyle: { color: '#10b981' } },
+                            { value: DashboardMockData.taskCompletion.running, name: '运行中', itemStyle: { color: '#3b82f6' } },
+                            { value: DashboardMockData.taskCompletion.pending, name: '排队中', itemStyle: { color: '#f59e0b' } },
+                            { value: DashboardMockData.taskCompletion.failed, name: '失败', itemStyle: { color: '#ef4444' } }
+                        ]
+                    }
+                ]
+            };
+
+            DashboardCharts.taskPie.setOption(option);
+        }
+
+        // ===== 快捷操作处理 =====
+        function quickAction(action) {
+            var actions = {
+                startModule: { page: 'modules.html', msg: '跳转到模块管理 - 启动模块' },
+                stopModule: { page: 'modules.html', msg: '跳转到模块管理 - 停止模块' },
+                systemCheck: { page: 'monitor.html', msg: '正在执行系统健康检查...', direct: true },
+                compute: { page: 'compute.html', msg: '跳转到算力调度' },
+                agents: { page: 'agents.html', msg: '跳转到Agent管理' },
+                monitor: { page: 'monitor.html', msg: '跳转到系统监控' },
+                deploy: { page: 'deploy.html', msg: '跳转到部署中心' },
+                settings: { page: 'settings.html', msg: '跳转到系统设置' }
+            };
+
+            var target = actions[action];
+            if (!target) return;
+
+            if (target.direct && action === 'systemCheck') {
+                YunxiAPI.showLoading('正在执行系统检查...');
+                YunxiAPI.getSystemStatus(true).then(function(status) {
+                    YunxiAPI.hideLoading();
+                    if (status) {
+                        var passed = 0, total = 0;
+                        if (status.checks) {
+                            total = Object.keys(status.checks).length;
+                            Object.values(status.checks).forEach(function(c) {
+                                if (c.status === 'running' || c.status === 'ready' || c.status === 'available') passed++;
+                            });
+                        }
+                        YunxiAPI.showToast('系统检查完成：' + passed + '/' + total + ' 项通过', passed === total ? 'success' : 'warning');
+                    } else {
+                        YunxiAPI.showToast('系统检查完成，状态正常', 'success');
+                    }
+                }).catch(function() {
+                    YunxiAPI.hideLoading();
+                    YunxiAPI.showToast('检查完成（使用模拟数据）', 'info');
+                });
+                return;
+            }
+
+            YunxiAPI.showToast(target.msg, 'info');
+            setTimeout(function() {
+                location.href = target.page;
+            }, 300);
+        }
+
+document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 设置导航链接
+            setupNavigation();
+
+            // 绑定所有交互事件
+            bindDashboardEvents();
+
+            // 初始化ECharts图表
+            initDashboardCharts();
+
+            // 加载仪表盘数据
+            loadDashboardData();
+
+            // 更新用户信息
+            updateUserInfo();
+
+            // 同步按钮状态
+            YunxiAPI.updateButtonsBySystemStatus();
+        });
+
+        function setupNavigation() {
+            var navItems = {
+                'nav-dashboard': 'dashboard.html',
+                'nav-tasks': 'tasks.html',
+                'nav-tasks-active': 'tasks.html',
+                'nav-tasks-hidden': 'tasks.html',
+                'nav-modules': 'modules.html',
+                'nav-modules-active': 'modules.html',
+                'nav-modules-hidden': 'modules.html',
+                'nav-deploy': 'deploy.html',
+                'nav-deploy-active': 'deploy.html',
+                'nav-deploy-hidden': 'deploy.html',
+                'nav-monitor': 'monitor.html',
+                'nav-monitor-active': 'monitor.html',
+                'nav-monitor-hidden': 'monitor.html',
+                'nav-agents': 'agents.html',
+                'nav-agents-hidden': 'agents.html',
+                'nav-compute': 'compute.html',
+                'nav-compute-hidden': 'compute.html',
+                'nav-settings': 'settings.html',
+                'nav-settings-active': 'settings.html',
+                'nav-settings-hidden': 'settings.html'
+            };
+
+            Object.keys(navItems).forEach(function(id) {
+                var el = document.querySelector('[data-dom-id="' + id + '"]');
+                if (el) {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        location.href = navItems[id];
+                    });
+                }
+            });
+        }
+
+        function bindDashboardEvents() {
+            // KPI 卡片点击
+            var kpiCards = document.querySelectorAll('.grid.grid-cols-4.gap-4 .glass-surface');
+            kpiCards.forEach(function(card, index) {
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', function() {
+                    handleKpiCardClick(index);
+                });
+            });
+
+            // 模块卡片点击
+            var moduleCards = document.querySelectorAll('.grid.grid-cols-2.gap-3 .glass-surface');
+            moduleCards.forEach(function(card, index) {
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', function() {
+                    YunxiAPI.showToast('正在跳转到模块管理...', 'info');
+                    setTimeout(function() {
+                        location.href = 'modules.html';
+                    }, 300);
+                });
+            });
+
+            // "查看全部" 任务按钮
+            var viewAllBtn = document.querySelector('section:nth-of-type(3) button');
+            if (viewAllBtn) {
+                viewAllBtn.addEventListener('click', function() {
+                    location.href = 'tasks.html';
+                });
+            }
+
+            // 通知铃铛按钮
+            var notifyBtn = document.querySelector('header button[title="通知"], header button[style*="bell"]');
+            if (notifyBtn) {
+                notifyBtn.addEventListener('click', function() {
+                    YunxiAPI.showToast('您有 3 条未读通知', 'info');
+                    loadAnnouncements();
+                });
+            }
+
+            // 刷新按钮
+            var refreshBtn = document.querySelector('header button[title="刷新"], header button[style*="refresh"]');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    refreshDashboard();
+                });
+            }
+
+            // 搜索框
+            var searchInput = document.querySelector('header input[type="text"]');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        var keyword = searchInput.value.trim();
+                        if (keyword) {
+                            YunxiAPI.showToast('搜索: ' + keyword, 'info');
+                        }
+                    }
+                });
+            }
+
+            // 任务表格行点击
+            var taskRows = document.querySelectorAll('table tbody tr');
+            taskRows.forEach(function(row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function() {
+                    var taskId = row.querySelector('td:first-child');
+                    if (taskId) {
+                        YunxiAPI.showToast('查看任务 ' + taskId.textContent.trim() + ' 详情', 'info');
+                    }
+                });
+            });
+
+            // 用户头像点击（退出登录）
+            var userAvatar = document.querySelector('header .w-8.h-8.rounded-full');
+            if (userAvatar) {
+                userAvatar.style.cursor = 'pointer';
+                userAvatar.addEventListener('click', function() {
+                    handleUserMenu();
+                });
+            }
+        }
+
+        function handleKpiCardClick(index) {
+            var targets = [
+                { page: 'modules.html', msg: '跳转到模块管理' },
+                { page: 'tasks.html', msg: '跳转到任务中心' },
+                { page: 'compute.html', msg: '跳转到算力调度' },
+                { page: 'monitor.html', msg: '跳转到系统监控' }
+            ];
+            if (targets[index]) {
+                YunxiAPI.showToast(targets[index].msg, 'info');
+                setTimeout(function() {
+                    location.href = targets[index].page;
+                }, 300);
+            }
+        }
+
+        async function handleUserMenu() {
+            var confirmed = await YunxiAPI.showConfirm('确定要退出登录吗？', '退出登录');
+            if (confirmed) {
+                YunxiAPI.showLoading('正在退出...');
+                try {
+                    await YunxiAPI.logout();
+                    YunxiAPI.showToast('已退出登录', 'success');
+                    setTimeout(function() {
+                        location.href = 'login.html';
+                    }, 500);
+                } catch (e) {
+                    // 静默错误处理
+                    location.href = 'login.html';
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            }
+        }
+
+        async function refreshDashboard() {
+            YunxiAPI.showLoading('正在刷新数据...');
+            try {
+                await loadDashboardData();
+                YunxiAPI.showToast('数据已刷新', 'success');
+            } catch (e) {
+                YunxiAPI.showToast('刷新失败，请稍后重试', 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        async function loadDashboardData() {
+            // 并行加载 4 个 API：监控总览、模块实时状态、算力总览、告警列表
+            var overviewData = null;
+            var moduleStatusData = null;
+            var computeData = null;
+            var alertsData = null;
+
+            try {
+                var results = await Promise.allSettled([
+                    YunxiAPI.request('GET', '/monitor/overview'),
+                    YunxiAPI.request('GET', '/system/modules/status/realtime'),
+                    YunxiAPI.request('GET', '/compute/monitor/overview'),
+                    YunxiAPI.request('GET', '/monitor/alerts')
+                ]);
+
+                if (results[0].status === 'fulfilled' && results[0].value) {
+                    overviewData = results[0].value;
+                }
+                if (results[1].status === 'fulfilled' && results[1].value) {
+                    moduleStatusData = results[1].value;
+                }
+                if (results[2].status === 'fulfilled' && results[2].value) {
+                    computeData = results[2].value;
+                }
+                if (results[3].status === 'fulfilled' && results[3].value) {
+                    alertsData = results[3].value;
+                }
+            } catch (e) {
+                // 静默错误处理：保留 mock 数据
+            }
+
+            // ===== 1. KPI 卡片数据 =====
+            // 在线模块数：从模块实时状态取（优先），其次从监控总览取
+            var moduleStats = { running: 0, total: 0 };
+            if (moduleStatusData) {
+                moduleStats.running = moduleStatusData.running || 0;
+                moduleStats.total = moduleStatusData.total || 0;
+            } else if (overviewData && overviewData.modules) {
+                moduleStats.running = overviewData.modules.online || 0;
+                moduleStats.total = overviewData.modules.total || 0;
+            }
+
+            // 今日任务数：从监控总览取
+            var tasksToday = 0;
+            if (overviewData && overviewData.tasks_today !== undefined) {
+                tasksToday = overviewData.tasks_today;
+            }
+
+            // 算力调用次数：从算力总览取
+            var computeCalls = 0;
+            if (computeData) {
+                if (computeData.today && computeData.today.calls !== undefined) {
+                    computeCalls = computeData.today.calls;
+                } else if (computeData.total_calls !== undefined) {
+                    computeCalls = computeData.total_calls;
+                }
+            }
+
+            // 活跃告警数：从告警列表取，其次从监控总览取
+            var alertsActive = 0;
+            if (alertsData && alertsData.items) {
+                alertsActive = alertsData.items.length;
+            } else if (alertsData && Array.isArray(alertsData)) {
+                alertsActive = alertsData.length;
+            } else if (overviewData && overviewData.alerts_active !== undefined) {
+                alertsActive = overviewData.alerts_active;
+            }
+
+            // 系统健康度 = (running/total)*60 + (1 - alerts_active/20)*40，取整，范围 0-100
+            var healthScore = 0;
+            if (moduleStats.total > 0) {
+                var moduleRate = moduleStats.running / moduleStats.total;
+                var alertRate = Math.min(alertsActive / 20, 1);
+                healthScore = Math.round(moduleRate * 60 + (1 - alertRate) * 40);
+                healthScore = Math.max(0, Math.min(100, healthScore));
+            }
+
+            var kpiData = {
+                tasks_today: tasksToday,
+                compute_calls: computeCalls,
+                health_score: healthScore,
+                alerts_active: alertsActive
+            };
+            updateKpiCards(kpiData, moduleStats);
+
+            // ===== 2. 模块卡片 =====
+            var moduleList = [];
+            if (moduleStatusData && moduleStatusData.modules) {
+                moduleList = moduleStatusData.modules;
+            }
+            updateModuleCards(moduleList);
+
+            // ===== 3. 图表数据 =====
+            updateChartsWithRealData(overviewData, moduleStatusData, computeData);
+        }
+
+
+        // ===== 用真实数据更新图表 =====
+        function updateChartsWithRealData(overviewData, moduleStatusData, computeData) {
+            // 1. 更新模块运行状态柱状图
+            if (DashboardCharts.moduleBar) {
+                var moduleList = [];
+                if (moduleStatusData && moduleStatusData.modules && moduleStatusData.modules.length > 0) {
+                    moduleList = moduleStatusData.modules;
+                }
+
+                if (moduleList.length > 0) {
+                    var moduleNames = moduleList.map(function(m) { return m.name || m.key || 'M?'; });
+                    // 运行时长：暂时显示 0（API 暂无此字段）
+                    var runtimes = moduleList.map(function() { return 0; });
+                    // 请求数：暂时显示 0（API 暂无此字段）
+                    var requests = moduleList.map(function() { return 0; });
+
+                    // 状态颜色：运行中绿色，已停止灰色，错误红色
+                    var statusColors = moduleList.map(function(m) {
+                        var status = (m.status || '').toLowerCase();
+                        if (status === 'running') return 'rgba(16, 185, 129, 0.8)';
+                        if (status === 'error') return 'rgba(239, 68, 68, 0.8)';
+                        if (status === 'starting') return 'rgba(245, 158, 11, 0.8)';
+                        return 'rgba(148, 163, 184, 0.6)';
+                    });
+
+                    DashboardCharts.moduleBar.setOption({
+                        xAxis: { data: moduleNames },
+                        legend: {
+                            data: ['状态', '请求数'],
+                            right: 0,
+                            top: 0,
+                            textStyle: { color: '#94a3b8', fontSize: 11 },
+                            itemWidth: 12,
+                            itemHeight: 8
+                        },
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'shadow' },
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(148, 163, 184, 0.2)',
+                            textStyle: { color: '#f1f5f9', fontSize: 12 },
+                            formatter: function(params) {
+                                var m = params[0];
+                                var r = params[1];
+                                var moduleItem = moduleList[m.dataIndex];
+                                var statusText = '未知';
+                                var statusColor = '#94a3b8';
+                                if (moduleItem) {
+                                    var st = (moduleItem.status || '').toLowerCase();
+                                    if (st === 'running') { statusText = '运行中'; statusColor = '#10b981'; }
+                                    else if (st === 'stopped') { statusText = '已停止'; statusColor = '#94a3b8'; }
+                                    else if (st === 'error') { statusText = '异常'; statusColor = '#ef4444'; }
+                                    else if (st === 'starting') { statusText = '启动中'; statusColor = '#f59e0b'; }
+                                }
+                                return '<div style="font-weight:600;margin-bottom:4px;">' + m.name + '</div>'
+                                    + '<div style="display:flex;justify-content:space-between;gap:16px;">'
+                                    + '<span style="color:#94a3b8;">状态</span><span style="color:' + statusColor + ';">' + statusText + '</span></div>'
+                                    + '<div style="display:flex;justify-content:space-between;gap:16px;">'
+                                    + '<span style="color:#94a3b8;">请求数</span><span>' + (r ? r.value.toLocaleString() : 0) + '</span></div>';
+                            }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: '状态',
+                                nameTextStyle: { color: '#64748b', fontSize: 10 },
+                                axisLine: { show: false },
+                                axisTick: { show: false },
+                                axisLabel: { show: false },
+                                splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.06)' } }
+                            },
+                            {
+                                type: 'value',
+                                name: '请求数',
+                                nameTextStyle: { color: '#64748b', fontSize: 10 },
+                                axisLine: { show: false },
+                                axisTick: { show: false },
+                                axisLabel: { color: '#64748b', fontSize: 10 },
+                                splitLine: { show: false }
+                            }
+                        ],
+                        series: [
+                            {
+                                name: '状态',
+                                type: 'bar',
+                                barWidth: '25%',
+                                data: runtimes.map(function(v, i) {
+                                    return {
+                                        value: v,
+                                        itemStyle: {
+                                            borderRadius: [4, 4, 0, 0],
+                                            color: statusColors[i]
+                                        }
+                                    };
+                                })
+                            },
+                            {
+                                name: '请求数',
+                                type: 'bar',
+                                yAxisIndex: 1,
+                                barWidth: '25%',
+                                data: requests,
+                                itemStyle: {
+                                    borderRadius: [4, 4, 0, 0],
+                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                        { offset: 0, color: 'rgba(6, 182, 212, 0.9)' },
+                                        { offset: 1, color: 'rgba(6, 182, 212, 0.3)' }
+                                    ])
+                                }
+                            }
+                        ]
+                    });
+                }
+            }
+
+            // 2. 更新算力趋势图
+            if (DashboardCharts.computeTrend) {
+                var totalCalls = 0;
+                var successRate = 0;
+                var avgLatency = 0;
+                var peakCalls = 0;
+
+                if (computeData) {
+                    if (computeData.today) {
+                        totalCalls = computeData.today.calls || 0;
+                        successRate = computeData.today.success_rate !== undefined ? computeData.today.success_rate * 100 : 0;
+                        avgLatency = computeData.today.avg_latency_ms || 0;
+                    } else {
+                        totalCalls = computeData.total_calls || 0;
+                        successRate = computeData.success_rate !== undefined ? computeData.success_rate : 0;
+                        avgLatency = computeData.avg_latency_ms || 0;
+                    }
+                }
+
+                // 更新顶部统计数字
+                var trendContainer = document.getElementById('computeTrendChart');
+                if (trendContainer && trendContainer.parentElement) {
+                    var statsRow = trendContainer.parentElement.querySelector('.flex.items-center.gap-6');
+                    if (statsRow) {
+                        var statItems = statsRow.querySelectorAll('div');
+                        if (statItems.length >= 4) {
+                            // 总调用量
+                            var val0 = statItems[0].querySelector('.text-2xl');
+                            if (val0) val0.textContent = totalCalls.toLocaleString();
+                            // 成功率
+                            var val1 = statItems[1].querySelector('.text-2xl');
+                            if (val1) val1.textContent = (successRate > 0 ? successRate.toFixed(1) : '0.0') + '%';
+                            // 平均响应
+                            var val2 = statItems[2].querySelector('.text-2xl');
+                            if (val2) val2.textContent = (avgLatency > 0 ? (avgLatency / 1000).toFixed(2) : '0.00') + 's';
+                            // 今日峰值
+                            var val3 = statItems[3].querySelector('.text-2xl');
+                            if (val3) val3.textContent = peakCalls + '/min';
+                        }
+                    }
+                }
+
+                // 如果算力数据有趋势数据则更新，否则保留 mock
+                if (computeData && computeData.trend && computeData.trend.dates) {
+                    DashboardCharts.computeTrend.setOption({
+                        xAxis: { data: computeData.trend.dates },
+                        series: [
+                            { name: '调用次数', data: computeData.trend.calls || [] },
+                            { name: '成功率', data: computeData.trend.success_rate || [] }
+                        ]
+                    });
+                }
+                // 没有趋势数据时保留 mock 折线图作为占位（不报错）
+            }
+
+            // 3. 更新任务完成率饼图
+            if (DashboardCharts.taskPie) {
+                var completed = 0;
+                var running = 0;
+                var pending = 0;
+                var failed = 0;
+
+                if (overviewData) {
+                    // 优先从 tasks 字段取
+                    if (overviewData.tasks) {
+                        completed = overviewData.tasks.completed || 0;
+                        running = overviewData.tasks.running || 0;
+                        pending = overviewData.tasks.pending || 0;
+                        failed = overviewData.tasks.failed || 0;
+                    } else {
+                        // 用 tasks_today 作为已完成估算，其余为 0
+                        completed = overviewData.tasks_today || 0;
+                        running = overviewData.tasks_running || 0;
+                        pending = overviewData.tasks_pending || 0;
+                        failed = overviewData.tasks_failed || 0;
+                    }
+                }
+
+                var total = completed + running + pending + failed;
+
+                DashboardCharts.taskPie.setOption({
+                    series: [{
+                        data: [
+                            { value: completed, name: '已完成', itemStyle: { color: '#10b981' } },
+                            { value: running, name: '运行中', itemStyle: { color: '#3b82f6' } },
+                            { value: pending, name: '排队中', itemStyle: { color: '#f59e0b' } },
+                            { value: failed, name: '失败', itemStyle: { color: '#ef4444' } }
+                        ],
+                        label: {
+                            formatter: function() {
+                                var rate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+                                return '{a|' + rate + '%}{b|完成率}';
+                            }
+                        }
+                    }]
+                });
+
+                // 更新底部图例数字
+                var pieContainer = document.getElementById('taskPieChart');
+                if (pieContainer && pieContainer.parentElement) {
+                    var legendGrid = pieContainer.parentElement.querySelector('.grid.grid-cols-2.gap-2');
+                    if (legendGrid) {
+                        var legendItems = legendGrid.querySelectorAll('.flex.items-center.gap-2');
+                        if (legendItems.length >= 4) {
+                            var texts = ['已完成 ' + completed, '运行中 ' + running, '排队中 ' + pending, '失败 ' + failed];
+                            legendItems.forEach(function(item, i) {
+                                var span = item.querySelector('.text-xs');
+                                if (span && texts[i]) span.textContent = texts[i];
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        async function loadAnnouncements() {
+            try {
+                var data = await YunxiAPI.getAnnouncements();
+                if (data && data.length > 0) {
+                    YunxiAPI.showToast('最新公告: ' + data[0].title, 'info');
+                }
+            } catch (e) {
+                // 静默错误处理
+            }
+        }
+
+        function updateKpiCards(stats, modulesData) {
+            var kpiCards = document.querySelectorAll('.grid.grid-cols-4.gap-4 .glass-surface');
+            if (!kpiCards || kpiCards.length === 0) return;
+
+            // KPI 1: 在线模块数
+            if (kpiCards.length >= 1) {
+                var numEl = kpiCards[0].querySelector('.text-3xl');
+                var subEl = kpiCards[0].querySelector('.text-xs.mt-1');
+                if (numEl) {
+                    var running = modulesData.running;
+                    var total = modulesData.total;
+                    if (total > 0) {
+                        numEl.innerHTML = running + '<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/' + total + '</span>';
+                        if (subEl) {
+                            if (running === total) {
+                                subEl.textContent = '全部在线';
+                                subEl.style.color = 'var(--state-success)';
+                            } else if (running === 0) {
+                                subEl.textContent = '全部离线';
+                                subEl.style.color = 'var(--state-error)';
+                            } else {
+                                subEl.textContent = running + ' 个运行中';
+                                subEl.style.color = 'var(--color-text-secondary)';
+                            }
+                        }
+                    } else {
+                        numEl.innerHTML = '0<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/0</span>';
+                    }
+                }
+            }
+
+            // KPI 2: 今日任务数
+            if (kpiCards.length >= 2) {
+                var numEl2 = kpiCards[1].querySelector('.text-3xl');
+                if (numEl2) {
+                    var taskCount = stats.tasks_today || 0;
+                    numEl2.textContent = taskCount.toLocaleString();
+                }
+            }
+
+            // KPI 3: 算力调用次数
+            if (kpiCards.length >= 3) {
+                var numEl3 = kpiCards[2].querySelector('.text-3xl');
+                if (numEl3) {
+                    var calls = stats.compute_calls || 0;
+                    numEl3.textContent = calls.toLocaleString();
+                }
+            }
+
+            // KPI 4: 系统健康度评分
+            if (kpiCards.length >= 4) {
+                var numEl4 = kpiCards[3].querySelector('.text-3xl');
+                var subEl4 = kpiCards[3].querySelector('.text-xs.mt-1');
+                if (numEl4) {
+                    var score = stats.health_score || 0;
+                    numEl4.innerHTML = score + '<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/100</span>';
+                    if (subEl4) {
+                        if (score >= 90) {
+                            subEl4.textContent = '优秀';
+                            subEl4.style.color = 'var(--state-success)';
+                            numEl4.style.color = 'var(--state-success)';
+                        } else if (score >= 70) {
+                            subEl4.textContent = '良好';
+                            subEl4.style.color = 'var(--state-info)';
+                            numEl4.style.color = 'var(--color-primary)';
+                        } else if (score >= 50) {
+                            subEl4.textContent = '一般';
+                            subEl4.style.color = 'var(--state-warning)';
+                            numEl4.style.color = 'var(--state-warning)';
+                        } else {
+                            subEl4.textContent = '较差';
+                            subEl4.style.color = 'var(--state-error)';
+                            numEl4.style.color = 'var(--state-error)';
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateModuleCards(modules) {
+            if (!modules || !modules.length) return;
+
+            var moduleGrid = document.querySelector('.grid.grid-cols-2.gap-3');
+            if (!moduleGrid) return;
+
+            var moduleColors = {
+                'm1': { bg: 'rgba(59, 130, 246, 0.15)', color: 'var(--color-primary)' },
+                'm2': { bg: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' },
+                'm3': { bg: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' },
+                'm4': { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' },
+                'm5': { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981' },
+                'm6': { bg: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' },
+                'm7': { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316' },
+                'm8': { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' },
+            };
+
+            var statusColors = {
+                'running': 'var(--state-success)',
+                'stopped': 'var(--state-warning)',
+                'error': 'var(--state-error)',
+                'unknown': 'var(--color-text-tertiary)',
+            };
+
+            var cards = moduleGrid.querySelectorAll('.glass-surface.rounded-lg');
+            modules.forEach(function(mod, index) {
+                if (index < cards.length) {
+                    var card = cards[index];
+                    var badge = card.querySelector('.w-7');
+                    var nameEl = card.querySelector('.text-sm.font-medium');
+                    var statusDot = card.querySelector('.w-2.h-2.rounded-full');
+
+                    var key = (mod.key || 'm1').toLowerCase();
+                    var colors = moduleColors[key] || moduleColors['m1'];
+
+                    if (badge) {
+                        badge.style.background = colors.bg;
+                        badge.style.color = colors.color;
+                        badge.textContent = (mod.key || 'M1').toUpperCase();
+                    }
+                    if (nameEl) {
+                        nameEl.textContent = mod.name || mod.key || '未知模块';
+                    }
+                    if (statusDot) {
+                        statusDot.style.background = statusColors[mod.status] || statusColors['unknown'];
+                    }
+                }
+            });
+
+            // 更新模块状态标题旁的计数
+            var sectionHeader = moduleGrid.closest('.col-span-5');
+            if (sectionHeader) {
+                var countSpan = sectionHeader.querySelector('.text-xs');
+                if (countSpan) {
+                    var runningCount = modules.filter(function(m) { return m.status === 'running'; }).length;
+                    countSpan.textContent = runningCount + '/' + modules.length + ' 在线';
+                }
+            }
+        }
+
+        function updateUserInfo() {
+            var user = YunxiAPI.getCurrentUser();
+            if (user) {
+                var username = user.username || '管';
+                var initial = username.charAt(0).toUpperCase();
+                var userBadges = document.querySelectorAll('.w-8.h-8.rounded-full');
+                userBadges.forEach(function(badge) {
+                    if (badge.textContent.trim() === '管') {
+                        badge.textContent = initial;
+                    }
+                });
+            }
+        }
+</script>
+
+    <!-- Dashboard API Integration -->
+    <script src="../common/api.js"></script>
+    
+
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>
+
+

@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1.0">
+  <title>云汐系统 M4 — 复盘总结模式 · 记忆回响对比</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../common/api.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       记忆回响对比 · 页面级样式
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      overflow: hidden;
+    }
+
+    /* ── Top Navigation Bar ── */
+    .top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      z-index: var(--z-header);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-shrink: 0;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.25);
+    }
+    .nav-logo-text {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo-sub {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+      margin-left: var(--spacing-xs);
+    }
+
+    .nav-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-md, 8px);
+      background: rgba(114, 46, 209, 0.08);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      color: var(--color-primary, #722ED1);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .nav-back-btn:hover {
+      background: rgba(114, 46, 209, 0.15);
+      border-color: rgba(114, 46, 209, 0.25);
+      transform: translateX(-2px);
+    }
+
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+    }
+    .nav-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(114, 46, 209, 0.06);
+    }
+    .nav-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.3);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      flex-shrink: 0;
+    }
+    .nav-status-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+    .nav-status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #00B42A; box-shadow: 0 0 4px rgba(0, 180, 42, 0.4); }
+    .status-dot.purple { background: #722ED1; box-shadow: 0 0 4px rgba(114, 46, 209, 0.4); }
+    .status-dot.blue { background: #165DFF; box-shadow: 0 0 4px rgba(22, 93, 255, 0.4); }
+
+    .nav-user-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .user-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F0E8FF, #D5B8FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: #531DAB;
+      border: 2px solid var(--color-primary-light);
+    }
+    .nav-encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #00B42A;
+      border: 1px solid rgba(0, 180, 42, 0.2);
+    }
+
+    /* ── Layout Container ── */
+    .app-layout {
+      display: flex;
+      height: 100%;
+      padding-top: var(--header-height);
+    }
+
+    /* ── Left Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: var(--z-sidebar);
+    }
+
+    .sidebar-profile {
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      text-align: center;
+    }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      margin: 0 auto var(--spacing-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    flex-shrink: 0;
+  }
+    .sidebar-user-name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .sidebar-role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+      padding: 2px 10px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .sidebar-menu {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+    .sidebar-menu-section {
+      margin-bottom: var(--spacing-xs);
+    }
+    .sidebar-menu-label {
+      padding: var(--spacing-sm) var(--spacing-base);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+    }
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-menu-item:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .sidebar-menu-item.active {
+      background: var(--color-sidebar-active-bg);
+      color: var(--color-sidebar-active);
+    }
+    .sidebar-menu-item.active .menu-icon {
+      color: var(--color-primary);
+    }
+    .menu-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+    .menu-icon svg {
+      width: 18px; height: 18px;
+    }
+
+    .sidebar-footer {
+      padding: var(--spacing-base);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-encrypt-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: #F0FFF4;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: #009A29;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+    .encrypt-dot {
+      width: 8px; height: 8px;
+      background: #00B42A;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0, 180, 42, 0.5);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .sidebar-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+      font-size: var(--font-size-xs);
+    }
+    .sidebar-collapse-btn:hover {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Confidential Mode Banner */
+    .confidential-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .confidential-banner svg { flex-shrink: 0; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    /* Glass Card */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      transition: all var(--transition-base);
+    }
+    .glass-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    /* ── Page-specific: Section Header Area ── */
+    .page-title-row {
+      margin-bottom: var(--spacing-lg);
+    }
+    .page-main-title {
+      font-size: var(--font-size-3xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+    .page-subtitle {
+      font-size: var(--font-size-base);
+      color: var(--color-text-tertiary);
+      line-height: var(--line-height-relaxed);
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-lg);
+    }
+    .filter-label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-medium);
+    }
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .filter-btn:hover {
+      border-color: var(--color-primary-light);
+      color: var(--color-primary-text);
+      background: var(--color-primary-lighter);
+    }
+    .filter-btn.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      border-color: var(--color-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.25);
+    }
+
+    /* ── Comparison Layout ── */
+    .comparison-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .comparison-pair {
+      position: relative;
+    }
+    .comparison-pair-label {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .comparison-pair-label svg {
+      flex-shrink: 0;
+      color: var(--color-primary-text);
+    }
+
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    /* Comparison Cards */
+    .compare-card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.80);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-lg);
+      transition: all var(--transition-base);
+    }
+    .compare-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+    .compare-card.before {
+      border-left: 3px solid #F53F3F;
+    }
+    .compare-card.after {
+      border-left: 3px solid #00B42A;
+    }
+
+    .compare-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-sm);
+    }
+    .compare-card-time {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+    .compare-card-label {
+      font-size: var(--font-size-xs);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: var(--font-weight-medium);
+    }
+    .compare-card-label.before-label {
+      background: #FFF3E8;
+      color: #D25F00;
+    }
+    .compare-card-label.after-label {
+      background: #E8FFEA;
+      color: #009A29;
+    }
+
+    .compare-card-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .compare-card-desc {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+      margin-bottom: var(--spacing-base);
+    }
+
+    .compare-card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .compare-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      border: 1px solid;
+    }
+    .compare-tag.emotion-red {
+      background: #FFECE8;
+      color: #CB2634;
+      border-color: rgba(245, 63, 63, 0.2);
+    }
+    .compare-tag.emotion-green {
+      background: #E8FFEA;
+      color: #009A29;
+      border-color: rgba(0, 180, 42, 0.2);
+    }
+    .compare-tag.decision-yellow {
+      background: #FFF8E6;
+      color: #D25F00;
+      border-color: rgba(255, 125, 0, 0.2);
+    }
+    .compare-tag.decision-green {
+      background: #E8FFEA;
+      color: #009A29;
+      border-color: rgba(0, 180, 42, 0.2);
+    }
+
+    .compare-pattern {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-sm);
+      display: inline-block;
+    }
+
+    /* Highlight marks for key differences */
+    mark.highlight-before {
+      background: rgba(245, 63, 63, 0.12);
+      color: #CB2634;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: var(--font-weight-medium);
+    }
+    mark.highlight-after {
+      background: rgba(0, 180, 42, 0.12);
+      color: #009A29;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: var(--font-weight-medium);
+    }
+    mark.highlight-purple {
+      background: rgba(114, 46, 209, 0.10);
+      color: var(--color-primary-text);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* ── Center Connector ── */
+    .compare-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: var(--spacing-sm) 0;
+    }
+    .connector-arrow {
+      width: 100%;
+      height: 2px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .connector-arrow svg {
+      width: 80px;
+      height: 32px;
+    }
+    .growth-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00B42A, #23C343);
+      box-shadow: 0 4px 16px rgba(0, 180, 42, 0.35);
+      color: #fff;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-bold);
+      line-height: 1.2;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+    .growth-badge-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      display: block;
+    }
+    .growth-badge-label {
+      font-size: 10px;
+      opacity: 0.85;
+    }
+    .connector-line {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(245, 63, 63, 0.3), rgba(0, 180, 42, 0.3));
+      z-index: 1;
+    }
+
+    /* ── Privacy Overlay ── */
+    .privacy-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(247, 240, 255, 0.75);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-radius: var(--radius-lg);
+      z-index: 10;
+      gap: var(--spacing-xs);
+      cursor: pointer;
+      transition: all var(--transition-base);
+    }
+    .privacy-overlay:hover {
+      background: rgba(247, 240, 255, 0.85);
+    }
+    .privacy-overlay-icon {
+      font-size: var(--font-size-2xl);
+      margin-bottom: var(--spacing-xs);
+    }
+    .privacy-overlay-text {
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .privacy-overlay-sub {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+
+    /* ── Bottom Summary Card ── */
+    .summary-card {
+      background: rgba(255, 255, 255, 0.80);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      margin-top: var(--spacing-lg);
+    }
+    .summary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+    .summary-title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .overall-score-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+    }
+    .overall-score-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(114, 46, 209, 0.3);
+    }
+    .overall-score-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      line-height: 1;
+    }
+    .overall-score-label {
+      font-size: 10px;
+      opacity: 0.85;
+    }
+    .overall-score-desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+    }
+    .overall-score-desc strong {
+      color: var(--color-primary-text);
+    }
+
+    /* Category Scores */
+    .category-scores {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--spacing-base);
+      margin-bottom: var(--spacing-lg);
+    }
+    .category-score-item {
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-base);
+      border: 1px solid rgba(114, 46, 209, 0.08);
+    }
+    .category-score-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-sm);
+    }
+    .category-score-name {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+    }
+    .category-score-value {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: #00B42A;
+    }
+    .category-bar-track {
+      width: 100%;
+      height: 8px;
+      background: var(--color-border-light);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .category-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, #00B42A, #23C343);
+      transition: width 1.5s ease;
+    }
+    .category-bar-fill.purple {
+      background: linear-gradient(90deg, #722ED1, #9254DE);
+    }
+    .category-bar-fill.orange {
+      background: linear-gradient(90deg, #FF7D00, #FFA940);
+    }
+
+    /* ── Scrollbar styling ── */
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb {
+      background: rgba(114, 46, 209, 0.15);
+      border-radius: 3px;
+    }
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(114, 46, 209, 0.25);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fade-in-up 0.4s ease both;
+    }
+    .animate-in-1 { animation-delay: 0.05s; }
+    .animate-in-2 { animation-delay: 0.1s; }
+    .animate-in-3 { animation-delay: 0.15s; }
+    .animate-in-4 { animation-delay: 0.2s; }
+    .animate-in-5 { animation-delay: 0.25s; }
+    .animate-in-6 { animation-delay: 0.3s; }
+    .animate-in-7 { animation-delay: 0.35s; }
+
+    /* ── Memory Search ── */
+    .memory-search-bar {
+      position: relative;
+      margin-bottom: var(--spacing-base);
+    }
+    .memory-search-input {
+      width: 100%;
+      height: 44px;
+      padding: 0 16px 0 44px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-card-bg);
+      color: var(--color-text-primary);
+      font-size: var(--font-size-base);
+      transition: all var(--transition-fast);
+      outline: none;
+    }
+    .memory-search-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(114, 46, 209, 0.1);
+    }
+    .memory-search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-text-tertiary);
+    }
+
+    /* ── Memory Tag Filter ── */
+    .memory-tag-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: var(--spacing-base);
+    }
+    .memory-tag-filter-item {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .memory-tag-filter-item:hover {
+      border-color: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .memory-tag-filter-item.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      border-color: var(--color-primary);
+    }
+
+    /* ── Memory Detail Modal ── */
+    .memory-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .memory-modal-overlay.show { display: flex; }
+    .memory-modal {
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 28px;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .memory-modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(114, 46, 209, 0.08);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-tertiary);
+      transition: all var(--transition-fast);
+    }
+    .memory-modal-close:hover {
+      background: rgba(114, 46, 209, 0.15);
+      color: var(--color-primary-text);
+    }
+    .memory-modal-title {
+      font-size: 22px;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin-bottom: 6px;
+      padding-right: 40px;
+    }
+    .memory-modal-meta {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      margin-bottom: 16px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .memory-modal-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .memory-modal-content {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      line-height: 1.8;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    .memory-modal-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+    .memory-modal-tag {
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      background: var(--color-primary-lighter);
+      color: var(--color-primary-text);
+    }
+    .memory-modal-echo-btn {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: linear-gradient(135deg, var(--color-primary) 0%, #9F7AEA 100%);
+      color: white;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .memory-modal-echo-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    }
+    .memory-modal-echo-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .memory-echo-result {
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--color-bg-page);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--color-primary);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+      display: none;
+    }
+    .memory-echo-result.show { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <!-- Left: Logo -->
+    <div class="nav-logo">
+      <div class="nav-logo-icon">汐</div>
+      <span class="nav-logo-text">云汐<span class="nav-logo-sub">M4 业务引擎</span></span>
+    </div>
+
+    <a href="review-summary.html" class="nav-back-btn" title="返回复盘主页">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>复盘主页</span>
+    </a>
+
+    <!-- Center: Mode Tabs -->
+    <nav class="nav-tabs">
+      <a class="nav-tab" href="main-chat.html">💬 对话</a>
+      <a class="nav-tab" href="work-dev.html">工作开发</a>
+      <a class="nav-tab" href="study-plan.html">学业规划</a>
+      <a class="nav-tab active" href="review-summary.html">复盘总结</a>
+      <a class="nav-tab" href="social-relation.html">人际关系</a>
+      <a class="nav-tab" href="emotion-comfort.html">情绪安慰</a>
+      <a class="nav-tab" href="life-management.html">生活管理</a>
+    </nav>
+
+    <!-- Right: Status & User -->
+    <div class="nav-right">
+      <div class="nav-status-group">
+        <div class="nav-status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot purple"></span>
+          <span>M5 72%</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot blue"></span>
+          <span>3 设备</span>
+        </div>
+      </div>
+      <div class="nav-user-area">
+        <div class="nav-encrypt-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密
+        </div>
+        <div class="user-avatar">汐</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">汐</div>
+        <div class="sidebar-user-name">汐舟主理</div>
+        <div class="sidebar-role-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          复盘模式
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a class="sidebar-menu-item" href="main-chat.html">
+          <span class="menu-icon">💬</span>
+          对话主页
+        </a>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">成长体系</div>
+          <a class="sidebar-menu-item" href="growth-chronicle.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            地球Online编年史
+          </a>
+          <a class="sidebar-menu-item" href="growth-achievements.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span>
+            成就勋章殿堂
+          </a>
+          <a class="sidebar-menu-item" href="growth-talent-tree.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20h4a4.49 4.49 0 0 0 1.29-.3L13.26 22l1.89-.66C13.1 16.17 11 10 2 8"/><path d="M12 2v4"/><path d="M8 4l4 4 4-4"/></svg>
+            </span>
+            心智天赋树
+          </a>
+          <a class="sidebar-menu-item" href="growth-tide-calendar.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+            潮汐专属历法
+          </a>
+          <a class="sidebar-menu-item active" href="growth-memory-echo.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            </span>
+            记忆回响对比
+          </a>
+          <a class="sidebar-menu-item" href="growth-season-journey.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            </span>
+            赛季征程
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-encrypt-status">
+          <span class="encrypt-dot"></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密存储已启用
+        </div>
+        <button class="sidebar-collapse-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          收起侧栏
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- Confidential Mode Banner -->
+      <div class="confidential-banner animate-in animate-in-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        涉密模式 — 所有对比记忆数据仅存储于本地加密区域，M5 回响模块已隔离
+      </div>
+
+      <!-- ── Section Header: 记忆回响对比 ── -->
+      <div class="page-title-row animate-in animate-in-1">
+        <div class="page-main-title">记忆回响对比</div>
+        <div class="page-subtitle">对比同类事件在不同时期的表现，发现成长轨迹</div>
+      </div>
+
+      <!-- Comparison Type Filter -->
+      <div class="filter-bar animate-in animate-in-2">
+        <span class="filter-label">对比类型:</span>
+        <button class="filter-btn active" data-type="all">全部</button>
+        <button class="filter-btn" data-type="decision">决策类</button>
+        <button class="filter-btn" data-type="emotion">情绪类</button>
+        <button class="filter-btn" data-type="social">社交类</button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="memory-search-bar animate-in animate-in-2">
+        <svg class="memory-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="memory-search-input" id="memorySearchInput" placeholder="搜索记忆内容、标签、关键词...">
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           COMPARISON PAIR 1: 面对冲突的应对方式 (UNLOCKED)
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="comparison-pair animate-in animate-in-3">
+        <div class="comparison-pair-label">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+          面对冲突的应对方式
+        </div>
+
+        <div class="comparison-row">
+          <!-- LEFT: Before -->
+          <div class="compare-card before">
+            <div class="compare-card-header">
+              <span class="compare-card-label before-label">半年前</span>
+              <span class="compare-card-time">2024.12.15 · 决策类</span>
+            </div>
+            <div class="compare-card-title">冲突回避事件</div>
+            <div class="compare-card-desc">
+              遇到同事质疑时，<mark class="highlight-before">选择回避沟通</mark>，<mark class="highlight-before">内心焦虑升级</mark>
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-red">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                焦虑 8/10
+              </span>
+              <span class="compare-tag decision-yellow">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                回避
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 退缩型</div>
+          </div>
+
+          <!-- CENTER: Connector -->
+          <div class="compare-connector">
+            <div class="connector-line"></div>
+            <div class="growth-badge">
+              <span class="growth-badge-value">+40%</span>
+              <span class="growth-badge-label">成长</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: After -->
+          <div class="compare-card after">
+            <div class="compare-card-header">
+              <span class="compare-card-label after-label">现在</span>
+              <span class="compare-card-time">2025.06.20 · 决策类</span>
+            </div>
+            <div class="compare-card-title">积极沟通事件</div>
+            <div class="compare-card-desc">
+              面对同样场景，<mark class="highlight-after">主动发起沟通</mark>，<mark class="highlight-after">表达了自己的观点</mark>
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                平静 7/10
+              </span>
+              <span class="compare-tag decision-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                积极应对
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 成长型</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           COMPARISON PAIR 2: 时间管理策略 (LOCKED)
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="comparison-pair animate-in animate-in-4">
+        <div class="comparison-pair-label">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          时间管理策略
+        </div>
+
+        <div class="comparison-row">
+          <!-- LEFT: Before -->
+          <div class="compare-card before">
+            <div class="compare-card-header">
+              <span class="compare-card-label before-label">三个月前</span>
+              <span class="compare-card-time">2025.03.08 · 决策类</span>
+            </div>
+            <div class="compare-card-title">过度承诺事件</div>
+            <div class="compare-card-desc">
+              <mark class="highlight-before">过度承诺</mark>，导致多个任务延期
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-red">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                压力 7/10
+              </span>
+              <span class="compare-tag decision-yellow">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                盲目乐观
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 冲动型</div>
+
+            <!-- Privacy Overlay -->
+            <div class="privacy-overlay">
+              <span class="privacy-overlay-icon">🔒</span>
+              <span class="privacy-overlay-text">解锁权限查看完整对比记录</span>
+              <span class="privacy-overlay-sub">需要身份验证</span>
+            </div>
+          </div>
+
+          <!-- CENTER: Connector -->
+          <div class="compare-connector">
+            <div class="connector-line"></div>
+            <div class="growth-badge" style="background: linear-gradient(135deg, #FF7D00, #FFA940); box-shadow: 0 4px 16px rgba(255, 125, 0, 0.35);">
+              <span class="growth-badge-value">+35%</span>
+              <span class="growth-badge-label">成长</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: After -->
+          <div class="compare-card after">
+            <div class="compare-card-header">
+              <span class="compare-card-label after-label">现在</span>
+              <span class="compare-card-time">2025.06.25 · 决策类</span>
+            </div>
+            <div class="compare-card-title">优先级规划事件</div>
+            <div class="compare-card-desc">
+              学会<mark class="highlight-after">优先级排序</mark>，<mark class="highlight-after">关键任务按时完成</mark>
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                自信 8/10
+              </span>
+              <span class="compare-tag decision-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                策略型
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 策略型</div>
+
+            <!-- Privacy Overlay -->
+            <div class="privacy-overlay">
+              <span class="privacy-overlay-icon">🔒</span>
+              <span class="privacy-overlay-text">解锁权限查看完整对比记录</span>
+              <span class="privacy-overlay-sub">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           COMPARISON PAIR 3: 情绪恢复速度 (LOCKED)
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="comparison-pair animate-in animate-in-5">
+        <div class="comparison-pair-label">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          情绪恢复速度
+        </div>
+
+        <div class="comparison-row">
+          <!-- LEFT: Before -->
+          <div class="compare-card before">
+            <div class="compare-card-header">
+              <span class="compare-card-label before-label">半年前</span>
+              <span class="compare-card-time">2024.12.22 · 情绪类</span>
+            </div>
+            <div class="compare-card-title">情绪低谷事件</div>
+            <div class="compare-card-desc">
+              负面情绪持续 <mark class="highlight-before">3-5 天</mark>才能恢复
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-red">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                低落 6/10
+              </span>
+              <span class="compare-tag decision-yellow">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                恢复缓慢
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 消耗型</div>
+
+            <!-- Privacy Overlay -->
+            <div class="privacy-overlay">
+              <span class="privacy-overlay-icon">🔒</span>
+              <span class="privacy-overlay-text">解锁权限查看完整对比记录</span>
+              <span class="privacy-overlay-sub">需要身份验证</span>
+            </div>
+          </div>
+
+          <!-- CENTER: Connector -->
+          <div class="compare-connector">
+            <div class="connector-line"></div>
+            <div class="growth-badge" style="background: linear-gradient(135deg, #722ED1, #9254DE); box-shadow: 0 4px 16px rgba(114, 46, 209, 0.35);">
+              <span class="growth-badge-value">+50%</span>
+              <span class="growth-badge-label">成长</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: After -->
+          <div class="compare-card after">
+            <div class="compare-card-header">
+              <span class="compare-card-label after-label">现在</span>
+              <span class="compare-card-time">2025.06.28 · 情绪类</span>
+            </div>
+            <div class="compare-card-title">快速恢复事件</div>
+            <div class="compare-card-desc">
+              通过正念练习，<mark class="highlight-after">1-2 天内恢复平衡</mark>
+            </div>
+            <div class="compare-card-tags">
+              <span class="compare-tag emotion-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                平和 8/10
+              </span>
+              <span class="compare-tag decision-green">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                恢复力强
+              </span>
+            </div>
+            <div class="compare-pattern">行为模式: 韧性型</div>
+
+            <!-- Privacy Overlay -->
+            <div class="privacy-overlay">
+              <span class="privacy-overlay-icon">🔒</span>
+              <span class="privacy-overlay-text">解锁权限查看完整对比记录</span>
+              <span class="privacy-overlay-sub">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           BOTTOM SUMMARY CARD: 成长趋势总览
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="summary-card animate-in animate-in-6">
+        <div class="summary-header">
+          <div class="summary-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            成长趋势总览
+          </div>
+          <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">基于 3 组对比数据</span>
+        </div>
+
+        <!-- Overall Score -->
+        <div style="display: flex; align-items: center; gap: var(--spacing-xl); margin-bottom: var(--spacing-lg); padding: var(--spacing-lg); background: linear-gradient(135deg, rgba(114, 46, 209, 0.06), rgba(0, 180, 42, 0.04)); border-radius: var(--radius-md); border: 1px solid rgba(114, 46, 209, 0.08);">
+          <div class="overall-score-circle">
+            <span class="overall-score-value">42%</span>
+            <span class="overall-score-label">综合提升</span>
+          </div>
+          <div class="overall-score-desc">
+            过去六个月内，您的综合行为模式评分提升了 <strong>42%</strong>。在情绪恢复和冲突应对方面取得了显著进步，建议继续保持正念练习习惯。
+          </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div style="font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-bottom: var(--spacing-base);">
+          分类成长评分
+        </div>
+        <div class="category-scores">
+          <!-- Decision -->
+          <div class="category-score-item">
+            <div class="category-score-header">
+              <span class="category-score-name">决策类</span>
+              <span class="category-score-value">+40%</span>
+            </div>
+            <div class="category-bar-track">
+              <div class="category-bar-fill purple" style="width: 0;" data-target="80%"></div>
+            </div>
+            <div style="margin-top: var(--spacing-xs); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
+              冲突应对 / 时间管理 / 任务规划
+            </div>
+          </div>
+
+          <!-- Emotion -->
+          <div class="category-score-item">
+            <div class="category-score-header">
+              <span class="category-score-name">情绪类</span>
+              <span class="category-score-value">+50%</span>
+            </div>
+            <div class="category-bar-track">
+              <div class="category-bar-fill" style="width: 0;" data-target="90%"></div>
+            </div>
+            <div style="margin-top: var(--spacing-xs); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
+              恢复速度 / 情绪稳定 / 正念练习
+            </div>
+          </div>
+
+          <!-- Social -->
+          <div class="category-score-item">
+            <div class="category-score-header">
+              <span class="category-score-name">社交类</span>
+              <span class="category-score-value">+35%</span>
+            </div>
+            <div class="category-bar-track">
+              <div class="category-bar-fill orange" style="width: 0;" data-target="70%"></div>
+            </div>
+            <div style="margin-top: var(--spacing-xs); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
+              沟通意愿 / 边界设定 / 关系维护
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       Memory Detail Modal
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="memory-modal-overlay" id="memoryModalOverlay" onclick="closeMemoryModal(event)">
+    <div class="memory-modal" onclick="event.stopPropagation()">
+      <button class="memory-modal-close" onclick="closeMemoryModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="memory-modal-title" id="memoryModalTitle">记忆标题</div>
+      <div class="memory-modal-meta">
+        <span class="memory-modal-meta-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="memoryModalDate">2025.01.15</span>
+        </span>
+        <span class="memory-modal-meta-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="memoryModalType">决策类</span>
+        </span>
+      </div>
+      <div class="memory-modal-tags" id="memoryModalTags"></div>
+      <div class="memory-modal-content" id="memoryModalContent">记忆内容</div>
+      <button class="memory-modal-echo-btn" id="memoryEchoBtn" data-require-ollama="true" onclick="generateEcho()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        生成记忆回响
+      </button>
+      <div class="memory-echo-result" id="memoryEchoResult"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCRIPTS — Bar animation & interaction
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // 记忆数据（API 数据）
+    let memoryData = [];
+    // 当前筛选状态
+    let currentTypeFilter = 'all';
+    let currentSearchKeyword = '';
+    let currentMemoryId = null;
+    // 分页状态
+    let currentPage = 1;
+    const pageSize = 10;
+    let totalPages = 1;
+    // 数据是否已加载
+    let memoryDataLoaded = false;
+
+    // 降级用的模拟数据
+    const fallbackMemoryData = [
+      {
+        id: 1,
+        title: '面对冲突的应对方式',
+        type: 'emotion',
+        typeText: '情绪类',
+        before: {
+          date: '2024.12.15',
+          title: '冲突回避事件',
+          desc: '遇到同事质疑时，选择回避沟通，内心焦虑升级。会议上被当众指出方案问题时，脑子一片空白，事后自责了整整两天。',
+          emotion: '焦虑 8/10',
+          pattern: '退缩型',
+          tags: ['焦虑', '回避', '职场冲突']
+        },
+        after: {
+          date: '2025.06.20',
+          title: '建设性沟通',
+          desc: '面对类似的质疑场景，能够冷静倾听，有条理地回应。先确认对方的核心顾虑，再用数据和逻辑阐述方案的合理性。',
+          emotion: '平静 3/10',
+          pattern: '协作型',
+          tags: ['冷静', '沟通', '成长']
+        },
+        growth: '从回避到直面冲突，情绪调节能力提升显著。掌握了"先倾听、再回应"的沟通技巧，能够将冲突转化为改进的机会。'
+      },
+      {
+        id: 2,
+        title: '重要决策的思考方式',
+        type: 'decision',
+        typeText: '决策类',
+        before: {
+          date: '2024.11.01',
+          title: '纠结型决策',
+          desc: '选择技术栈时反复纠结了两周，列了长长的对比表还是无法下定决心，最后因为拖延错过了最佳启动时间。',
+          emotion: '纠结 9/10',
+          pattern: '完美主义型',
+          tags: ['纠结', '拖延', '完美主义']
+        },
+        after: {
+          date: '2025.05.10',
+          title: '果断型决策',
+          desc: '面对新项目的架构选择，用半天时间列出核心考量因素和权重，快速评估后做出决策，然后全力以赴执行。',
+          emotion: '笃定 2/10',
+          pattern: '满意型决策',
+          tags: ['果断', '高效', '成长']
+        },
+        growth: '从追求"最优解"到接受"足够好"，决策效率提升了80%。明白了行动比完美更重要，很多答案是在执行中找到的。'
+      },
+      {
+        id: 3,
+        title: '社交场合的表现',
+        type: 'social',
+        typeText: '社交类',
+        before: {
+          date: '2025.01.20',
+          title: '社交焦虑',
+          desc: '参加技术沙龙时全程紧张，只跟认识的一两个人说话，想提问但一直没敢举手，回家后觉得浪费了机会。',
+          emotion: '紧张 7/10',
+          pattern: '观察者型',
+          tags: ['社交焦虑', '内向', '紧张']
+        },
+        after: {
+          date: '2025.06.15',
+          title: '自在社交',
+          desc: '在同一系列的沙龙上，主动认识了三位新朋友，还现场提了两个问题。结束后大家交换了联系方式，约好了下次再聚。',
+          emotion: '兴奋 4/10',
+          pattern: '连接者型',
+          tags: ['自信', '主动', '成长']
+        },
+        growth: '社交能力的提升来自于一次次的刻意练习。从"我会不会很尴尬"转变为"我能给别人带来什么价值"，心态的转变是关键。'
+      },
+      {
+        id: 4,
+        title: '面对失败的态度',
+        type: 'emotion',
+        typeText: '情绪类',
+        before: {
+          date: '2025.02.14',
+          title: '自我否定',
+          desc: '项目上线出了bug，整整一周都在自我怀疑，觉得自己能力不行，甚至开始考虑是不是该转行。',
+          emotion: '沮丧 9/10',
+          pattern: '自我攻击型',
+          tags: ['失败', '自我否定', '沮丧']
+        },
+        after: {
+          date: '2025.06.28',
+          title: '成长型思维',
+          desc: '又一次线上问题后，快速组织复盘，梳理根因和改进措施，当天就输出了完整的复盘文档。团队反而因为这次事故建立了更完善的流程。',
+          emotion: '专注 2/10',
+          pattern: '问题解决型',
+          tags: ['复盘', '成长型思维', '进步']
+        },
+        growth: '从"我怎么这么蠢"到"我能从中学到什么"，思维模式的转变是最珍贵的成长。失败不再是终点，而是成长的养分。'
+      },
+      {
+        id: 5,
+        title: '时间管理能力',
+        type: 'decision',
+        typeText: '决策类',
+        before: {
+          date: '2025.01.05',
+          title: '忙碌低效',
+          desc: '每天都很忙，但晚上复盘时又觉得没做什么正事。被各种消息和会议打断，真正重要的事情总是一拖再拖。',
+          emotion: '焦虑 7/10',
+          pattern: '被动应对型',
+          tags: ['拖延', '低效', '时间管理']
+        },
+        after: {
+          date: '2025.06.30',
+          title: '主动掌控',
+          desc: '建立了"每日三件事"的习惯，早上先完成最重要的任务。用番茄工作法保持专注，每周日做下周规划。产出提升了一倍多。',
+          emotion: '充实 1/10',
+          pattern: '主动规划型',
+          tags: ['高效', '自律', '成长']
+        },
+        growth: '时间管理的本质不是挤时间，而是选择。想清楚什么是真正重要的，然后把最好的精力留给最重要的事。'
+      }
+    ];
+
+    // ===== API 相关函数 =====
+
+    // 从 API 加载记忆列表
+    async function loadMemories(page = 1, size = 10, category = '', keyword = '') {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', page);
+        params.set('size', size);
+        if (category && category !== 'all') params.set('category', category);
+        if (keyword) params.set('keyword', keyword);
+
+        const data = await YunxiAPI.request('GET', '/growth/memories?' + params.toString());
+
+        // 处理返回格式
+        const list = data.list || data.items || data.records || (Array.isArray(data) ? data : []);
+        const total = data.total || data.total_count || (Array.isArray(data) ? data.length : list.length);
+
+        // 转换数据格式
+        memoryData = list.map(item => ({
+          id: item.id,
+          title: item.title || item.name || '',
+          type: item.category || item.type || '',
+          typeText: item.category_text || item.typeText || getCategoryText(item.category || item.type),
+          before: item.before || item.memory_before || { date: '', title: '', desc: '', emotion: '', pattern: '', tags: [] },
+          after: item.after || item.memory_after || { date: '', title: '', desc: '', emotion: '', pattern: '', tags: [] },
+          growth: item.growth || item.insight || item.summary || '',
+          content: item.content || item.description || ''
+        }));
+
+        totalPages = Math.ceil(total / size) || 1;
+        currentPage = page;
+        memoryDataLoaded = true;
+
+        return { list: memoryData, total, totalPages };
+      } catch (error) {
+        // 降级到模拟数据
+        if (!memoryDataLoaded) {
+          memoryData = fallbackMemoryData;
+          totalPages = 1;
+          YunxiAPI.showToast('记忆数据加载失败，使用本地数据', 'warning');
+        }
+        return { list: memoryData, total: memoryData.length, totalPages: 1 };
+      }
+    }
+
+    // 获取记忆详情
+    async function loadMemoryDetail(id) {
+      try {
+        const data = await YunxiAPI.request('GET', `/growth/memories/${id}`);
+        const memory = {
+          id: data.id || id,
+          title: data.title || '',
+          type: data.category || data.type || '',
+          typeText: data.category_text || getCategoryText(data.category || data.type),
+          before: data.before || data.memory_before || { date: '', title: '', desc: '', emotion: '', pattern: '', tags: [] },
+          after: data.after || data.memory_after || { date: '', title: '', desc: '', emotion: '', pattern: '', tags: [] },
+          growth: data.growth || data.insight || '',
+          content: data.content || ''
+        };
+
+        // 更新本地数据
+        const index = memoryData.findIndex(m => m.id === id);
+        if (index >= 0) {
+          memoryData[index] = memory;
+        }
+
+        return memory;
+      } catch (error) {
+        // 降级：从本地数据找
+        return memoryData.find(m => m.id === id) || null;
+      }
+    }
+
+    // AI 生成回响
+    async function generateEchoAPI(memoryId, type = 'insight') {
+      try {
+        const body = { type: type };
+        if (memoryId) body.memory_id = memoryId;
+
+        const data = await YunxiAPI.request('POST', '/growth/memories/generate', { body });
+        return {
+          success: true,
+          content: data.content || data.result || data.echo || data.text || ''
+        };
+      } catch (error) {
+        YunxiAPI.showToast('生成回响失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 删除记忆
+    async function deleteMemoryAPI(id) {
+      try {
+        await YunxiAPI.request('DELETE', `/growth/memories/${id}`);
+        // 从本地数据移除
+        memoryData = memoryData.filter(m => m.id !== id);
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 获取分类文本
+    function getCategoryText(type) {
+      const map = {
+        emotion: '情绪类',
+        decision: '决策类',
+        social: '社交类',
+        growth: '成长类',
+        work: '工作类',
+        life: '生活类'
+      };
+      return map[type] || type || '其他';
+    }
+
+    // 获取筛选后的记忆列表
+    function getFilteredMemories() {
+      return memoryData.filter(item => {
+        const typeMatch = currentTypeFilter === 'all' || item.type === currentTypeFilter;
+        const keyword = currentSearchKeyword.toLowerCase();
+        const searchMatch = !keyword ||
+          (item.title && item.title.toLowerCase().includes(keyword)) ||
+          (item.before && item.before.desc && item.before.desc.toLowerCase().includes(keyword)) ||
+          (item.after && item.after.desc && item.after.desc.toLowerCase().includes(keyword)) ||
+          (item.before && item.before.tags && item.before.tags.some(t => t.toLowerCase().includes(keyword))) ||
+          (item.after && item.after.tags && item.after.tags.some(t => t.toLowerCase().includes(keyword)));
+        return typeMatch && searchMatch;
+      });
+    }
+
+    // 渲染记忆列表（显示/隐藏）
+    function renderMemoryList() {
+      const pairs = document.querySelectorAll('.comparison-pair');
+      const filtered = getFilteredMemories();
+      const filteredIds = filtered.map(f => f.id);
+
+      pairs.forEach((pair, index) => {
+        const memory = memoryData[index] || fallbackMemoryData[index];
+        if (!memory) return;
+
+        pair.setAttribute('data-id', memory.id);
+
+        if (filteredIds.includes(memory.id)) {
+          pair.style.display = '';
+        } else {
+          pair.style.display = 'none';
+        }
+
+        // 绑定点击事件
+        if (!pair._hasClickHandler) {
+          pair.style.cursor = 'pointer';
+          pair.addEventListener('click', () => openMemoryDetail(memory.id));
+          pair._hasClickHandler = true;
+        }
+      });
+    }
+
+    // 打开记忆详情
+    function openMemoryDetail(id) {
+      currentMemoryId = id;
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          // 从 API 加载详情
+          const memory = await loadMemoryDetail(id);
+          if (!memory) {
+            YunxiAPI.showToast('记忆不存在', 'error');
+            return;
+          }
+
+          document.getElementById('memoryModalTitle').textContent = memory.title || '';
+          document.getElementById('memoryModalDate').textContent =
+            `${memory.before?.date || ''} → ${memory.after?.date || ''}`;
+          document.getElementById('memoryModalType').textContent = memory.typeText || '';
+
+          const allTags = [...new Set([
+            ...(memory.before?.tags || []),
+            ...(memory.after?.tags || [])
+          ])];
+          document.getElementById('memoryModalTags').innerHTML =
+            allTags.map(t => `<span class="memory-modal-tag">${t}</span>`).join('');
+
+          const content = `【过去】
+${memory.before?.desc || memory.before?.content || ''}
+
+【现在】
+${memory.after?.desc || memory.after?.content || ''}
+
+【成长感悟】
+${memory.growth || memory.content || ''}`;
+          document.getElementById('memoryModalContent').textContent = content;
+
+          // 重置回响结果
+          document.getElementById('memoryEchoResult').classList.remove('show');
+          document.getElementById('memoryEchoResult').textContent = '';
+          document.getElementById('memoryEchoBtn').disabled = false;
+
+          document.getElementById('memoryModalOverlay').classList.add('show');
+          YunxiAPI.showToast(`查看「${memory.title}」详情`, 'info');
+        },
+        { showError: true, loadingText: '加载记忆详情...' }
+      );
+    }
+
+    // 关闭记忆详情
+    function closeMemoryModal(e) {
+      if (e && e.target !== document.getElementById('memoryModalOverlay')) return;
+      document.getElementById('memoryModalOverlay').classList.remove('show');
+      currentMemoryId = null;
+    }
+
+    // 生成记忆回响（需要 ollama）
+    function generateEcho() {
+      if (!currentMemoryId) return;
+      const memory = memoryData.find(m => m.id === currentMemoryId);
+      if (!memory) return;
+
+      const btn = document.getElementById('memoryEchoBtn');
+      btn.disabled = true;
+
+      YunxiAPI.withValidation(
+        { ollama: true },
+        async () => {
+          // 调用 API 生成回响
+          const result = await generateEchoAPI(currentMemoryId, 'insight');
+          if (!result.success) {
+            throw new Error(result.error || '生成失败');
+          }
+
+          const resultEl = document.getElementById('memoryEchoResult');
+          resultEl.textContent = result.content;
+          resultEl.classList.add('show');
+          btn.disabled = false;
+
+          YunxiAPI.showToast('记忆回响生成完成', 'success');
+        },
+        { showError: true, loadingText: 'AI正在生成记忆回响...' }
+      ).then(result => {
+        if (!result.success) {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    // 切换类型筛选
+    function filterByType(type) {
+      currentTypeFilter = type;
+      currentPage = 1;
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          // 从 API 加载对应分类的数据
+          await loadMemories(1, pageSize, type, currentSearchKeyword);
+          renderMemoryList();
+          const count = getFilteredMemories().length;
+          YunxiAPI.showToast(`筛选完成，共 ${count} 组对比`, 'info');
+        },
+        { showError: true, loadingText: '筛选中...' }
+      );
+    }
+
+    // 搜索
+    let searchTimeout = null;
+    function handleSearch(keyword) {
+      currentSearchKeyword = keyword;
+      if (searchTimeout) clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        // 从 API 加载搜索结果
+        loadMemories(1, pageSize, currentTypeFilter, keyword).then(() => {
+          renderMemoryList();
+        });
+      }, 500);
+    }
+
+    // 初始化数据
+    async function initMemoryData() {
+      try {
+        await loadMemories(1, pageSize, 'all', '');
+        renderMemoryList();
+      } catch (error) {
+        // 已在 loadMemories 中处理降级
+        renderMemoryList();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 先用降级数据初始化
+      memoryData = [...fallbackMemoryData];
+
+      // Bar animation
+      setTimeout(() => {
+        document.querySelectorAll('.category-bar-fill').forEach(bar => {
+          const target = bar.getAttribute('data-target');
+          if (target) {
+            bar.style.width = target;
+          }
+        });
+      }, 400);
+
+      // Filter button toggle
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const type = btn.getAttribute('data-type');
+          filterByType(type);
+        });
+      });
+
+      // Search input
+      const searchInput = document.getElementById('memorySearchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          handleSearch(e.target.value);
+        });
+      }
+
+      // Sidebar menu item click handling
+      document.querySelectorAll('.sidebar-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!item.getAttribute('href') || item.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.sidebar-menu-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      // Nav tab click handling
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          if (!tab.getAttribute('href') || tab.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        });
+      });
+
+      // 初始化记忆列表（先用降级数据）
+      renderMemoryList();
+
+      // 从 API 加载真实数据
+      initMemoryData();
+
+      // 同步按钮状态
+      YunxiAPI.updateButtonsBySystemStatus();
+    });
+  </script>
+
+</body>
+</html>

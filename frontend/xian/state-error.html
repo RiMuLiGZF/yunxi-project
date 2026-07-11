@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+  --color-primary: var(--color-tide-cyan);
+  --color-foreground: var(--color-text-primary);
+  --color-surface: rgba(10, 22, 40, 0.85);
+  --color-muted: var(--color-text-muted);
+  --color-border: rgba(0, 212, 255, 0.2);
+}
+</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汐舷 · 任务出错</title>
+  <style id="theme-vars">
+/* ========================================
+   汐舷 Xian — 品牌设计系统
+   M8 云汐管理工作台 / 监控中心
+   ======================================== */
+
+:root {
+  /* === 深海蓝渐变背景 === */
+  --color-tide-deep: #0a1628;
+  --color-tide-mid: #0d2137;
+  --color-tide-light: #1a3a5c;
+
+  /* === 潮汐青色（主色） === */
+  --color-tide-cyan: #00d4ff;
+  --color-tide-cyan-glow: rgba(0, 212, 255, 0.6);
+  --color-tide-cyan-soft: rgba(0, 212, 255, 0.15);
+
+  /* === 辅助色 === */
+  --color-tide-purple: #7c3aed;
+  --color-tide-green: #10b981;
+  --color-tide-amber: #f59e0b;
+  --color-tide-red: #ef4444;
+  --color-tide-gray: #64748b;
+
+  /* === 状态色 === */
+  --state-running: #00d4ff;
+  --state-running-glow: rgba(0, 212, 255, 0.6);
+  --state-success: #10b981;
+  --state-success-glow: rgba(16, 185, 129, 0.5);
+  --state-pending: #64748b;
+  --state-pending-glow: rgba(100, 116, 139, 0.3);
+  --state-error: #ef4444;
+  --state-error-glow: rgba(239, 68, 68, 0.6);
+  --state-confirm: #f59e0b;
+  --state-confirm-glow: rgba(245, 158, 11, 0.6);
+
+  /* === 文字色 === */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* === 表面色 === */
+  --color-surface-header: rgba(10, 22, 40, 0.85);
+  --color-surface-sidebar: rgba(10, 22, 40, 0.7);
+  --color-surface-panel: rgba(10, 22, 40, 0.9);
+  --color-surface-card: rgba(10, 22, 40, 0.8);
+  --color-surface-overlay: rgba(10, 22, 40, 0.9);
+
+  /* === 边框色 === */
+  --color-border-cyan: rgba(0, 212, 255, 0.2);
+  --color-border-cyan-strong: rgba(0, 212, 255, 0.3);
+  --color-border-subtle: rgba(0, 212, 255, 0.1);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+
+  /* === 间距系统 === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* === 圆角 === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* === 动效曲线 === */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-gentle: cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* === 动画时长 === */
+  --duration-micro: 0.15s;
+  --duration-short: 0.2s;
+  --duration-medium: 0.3s;
+  --duration-panel: 0.4s;
+  --duration-state: 0.5s;
+  --duration-flow: 0.8s;
+}
+
+/* === 背景渐变 === */
+body {
+  background: linear-gradient(180deg, #1a3a5c 0%, #0d2137 50%, #0a1628 100%);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* === 排版 === */
+.xian-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.xian-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.xian-body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.xian-caption {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.xian-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* === 毛玻璃效果 === */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-header);
+  border-bottom: 1px solid var(--color-border-cyan);
+}
+
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-panel);
+  border-top: 1px solid var(--color-border-cyan);
+}
+
+.glass-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-cyan);
+}
+
+/* === 状态动画 === */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes breathe-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--state-running-glow); }
+  50% { box-shadow: 0 0 40px var(--state-running-glow); }
+}
+
+@keyframes flicker-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-15px) translateX(8px); }
+  50% { transform: translateY(-5px) translateX(-12px); }
+  75% { transform: translateY(-20px) translateX(5px); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ripple-out {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(3); opacity: 0; }
+}
+
+@keyframes energy-flow {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* === 滚动条 === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.4);
+}
+
+  </style>
+  <style type="text/tailwindcss">
+  @layer base {
+    body { background: linear-gradient(180deg, #1a3a5c 0%, #0d2137 50%, #0a1628 100%); color: var(--color-text-primary); }
+  }
+  </style>
+</head>
+<body>
+
+
+  <!-- z0: Background Particles -->
+  <div class="particle-layer" aria-hidden="true">
+    <div class="particle" style="width:3px;height:3px;top:15%;left:20%;opacity:0.06;animation:particle-drift-1 18s ease-in-out infinite;"></div>
+    <div class="particle" style="width:2px;height:2px;top:30%;left:65%;opacity:0.08;animation:particle-drift-2 22s ease-in-out infinite 2s;"></div>
+    <div class="particle" style="width:4px;height:4px;top:55%;left:10%;opacity:0.04;animation:particle-drift-3 20s ease-in-out infinite 4s;"></div>
+    <div class="particle" style="width:2px;height:2px;top:70%;left:80%;opacity:0.06;animation:particle-drift-1 25s ease-in-out infinite 1s;"></div>
+    <div class="particle" style="width:3px;height:3px;top:40%;left:45%;opacity:0.05;animation:particle-drift-2 19s ease-in-out infinite 3s;"></div>
+    <div class="particle" style="width:2px;height:2px;top:85%;left:35%;opacity:0.03;animation:particle-drift-3 24s ease-in-out infinite 5s;"></div>
+    <div class="particle" style="width:3px;height:3px;top:10%;left:75%;opacity:0.06;animation:particle-drift-1 21s ease-in-out infinite 6s;"></div>
+    <div class="particle" style="width:2px;height:2px;top:60%;left:55%;opacity:0.04;animation:particle-drift-2 23s ease-in-out infinite 7s;"></div>
+    <div class="particle" style="width:3px;height:3px;top:25%;left:90%;opacity:0.07;animation:particle-drift-3 17s ease-in-out infinite 2s;"></div>
+    <div class="particle" style="width:2px;height:2px;top:78%;left:25%;opacity:0.05;animation:particle-drift-1 26s ease-in-out infinite 4s;"></div>
+  </div>
+
+  <!-- Dashboard Root -->
+  <div class="dashboard-root">
+
+    <!-- 1. TASK HEADER (ERROR STATE) -->
+    <header class="task-header">
+      <div class="header-left">
+        <div class="task-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="header-task-info">
+          <span class="xian-title">智能文档生成</span>
+          <span class="error-badge">出错</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="progress-track">
+          <div class="progress-fill--error"></div>
+        </div>
+        <div class="progress-text--error">65% — 执行出错</div>
+      </div>
+
+      <div class="header-right">
+        <div class="time-display--error">03:15</div>
+        <button class="btn-text-retry" aria-label="重试">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          重试
+        </button>
+        <button class="btn-text-skip" aria-label="跳过">
+          <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          跳过
+        </button>
+        <button class="ctrl-btn ctrl-btn--cancel" aria-label="取消">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. MIDDLE ROW -->
+    <div class="middle-row">
+
+      <!-- LEFT SIDEBAR (ERROR STATE) -->
+      <aside class="history-sidebar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索历史任务..." aria-label="搜索历史任务">
+        </div>
+        <div class="sidebar-list">
+          <div class="group-label">进行中</div>
+          <div class="task-item task-item--error">
+            <div class="task-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div class="task-item__name task-item__name--error">智能文档生成</div>
+            <div class="task-item__time task-item__time--error">03:15</div>
+          </div>
+
+          <div class="group-label">今天完成</div>
+          <div class="task-item">
+            <div class="task-item__dot task-item__dot--done"></div>
+            <div class="task-item__name task-item__name--secondary">API接口重构</div>
+            <div class="task-item__time">15:42</div>
+          </div>
+          <div class="task-item">
+            <div class="task-item__dot task-item__dot--done"></div>
+            <div class="task-item__name task-item__name--secondary">测试用例生成</div>
+            <div class="task-item__time">12:18</div>
+          </div>
+
+          <div class="group-label">昨天</div>
+          <div class="task-item">
+            <div class="task-item__dot task-item__dot--done"></div>
+            <div class="task-item__name task-item__name--secondary">代码审查</div>
+            <div class="task-item__time">昨天</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTRAL TIDE STAGE (ERROR STATE) -->
+      <main class="tide-stage">
+
+        <!-- SVG Energy Flow Paths (interrupted) -->
+        <svg class="svg-energy-layer" preserveAspectRatio="none" aria-hidden="true">
+          <path class="energy-path energy-path--cyan" d="M 200 120 Q 220 200 190 300"/>
+          <path class="energy-path energy-path--red" d="M 520 180 Q 460 260 380 340"/>
+          <path class="energy-path energy-path--red" d="M 620 140 Q 560 250 480 330"/>
+        </svg>
+
+        <!-- Vortex (RED-tinted) -->
+        <div class="vortex-container">
+          <div class="vortex-glow--error" aria-hidden="true"></div>
+          <div class="vortex-ring vortex-ring--outer" aria-hidden="true"></div>
+          <div class="vortex-ring vortex-ring--middle" aria-hidden="true"></div>
+          <div class="vortex-ring vortex-ring--inner" aria-hidden="true"></div>
+          <div class="vortex-center">
+            <svg class="vortex-center__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="vortex-center__label--error">执行出错</span>
+          </div>
+        </div>
+
+        <!-- Orbiting Nodes Container -->
+        <div style="position:absolute; width:440px; height:440px;">
+
+          <!-- Node: 0deg top - M5 Memory (ACTIVE, frozen) -->
+          <div class="orbit-node orbit-node--pos-0 orbit-node--active" style="position:absolute;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/>
+              <path d="M16 14H8a4 4 0 0 0-4 4v2h20v-2a4 4 0 0 0-4-4z"/>
+              <circle cx="12" cy="4" r="1" fill="currentColor"/>
+            </svg>
+            <span class="orbit-node__label">M5 记忆系统</span>
+          </div>
+
+          <!-- Node: 60deg top-right - M4 Scene Engine (ACTIVE, frozen) -->
+          <div class="orbit-node orbit-node--pos-60 orbit-node--active" style="position:absolute; left: 90%;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+              <path d="M2 2l7.586 7.586"/>
+              <circle cx="11" cy="11" r="2"/>
+            </svg>
+            <span class="orbit-node__label">M4 场景引擎</span>
+          </div>
+
+          <!-- Node: 120deg bottom-right - M2 Skills (ERROR!) -->
+          <div class="orbit-node orbit-node--pos-120 orbit-node--error" style="position:absolute; left: 92%;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="orbit-node__label">M2 技能集群</span>
+          </div>
+
+          <!-- Node: 180deg bottom - Tool/External API (IDLE) -->
+          <div class="orbit-node orbit-node--pos-180 orbit-node--idle" style="position:absolute; bottom: 0;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            <span class="orbit-node__label">工具/外部API</span>
+          </div>
+
+          <!-- Node: 240deg bottom-left - M7 Blocks (IDLE) -->
+          <div class="orbit-node orbit-node--pos-240 orbit-node--idle" style="position:absolute; left: 0;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span class="orbit-node__label">M7 积木平台</span>
+          </div>
+
+          <!-- Node: 300deg top-left - M6 Hardware (IDLE) -->
+          <div class="orbit-node orbit-node--pos-300 orbit-node--idle" style="position:absolute; left: -2%;">
+            <svg class="orbit-node__icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="7"/>
+              <polyline points="12 9 12 12 13.5 13.5"/>
+              <path d="M16.51 17.35l-.35 3.83a2 2 0 0 1-2 1.82H9.83a2 2 0 0 1-2-1.82l-.35-3.83m.01-10.7.35-3.83A2 2 0 0 1 9.83 1h4.35a2 2 0 0 1 2 1.82l.35 3.83"/>
+            </svg>
+            <span class="orbit-node__label">M6 硬件外设</span>
+          </div>
+        </div>
+
+        <!-- ERROR CARD OVERLAY -->
+        <div class="error-card-overlay">
+          <div class="error-card">
+            <button class="error-card__close" aria-label="关闭">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            <div class="error-card__header">
+              <div class="error-card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <span class="error-card__title">任务执行出错</span>
+            </div>
+
+            <div class="error-card__type">大模型超时</div>
+
+            <div class="error-card__message">
+              调用 GPT-4 API 时连接超时（30s），任务在步骤 3/5 中断。
+            </div>
+
+            <button class="error-card__detail-toggle" id="detail-toggle" aria-expanded="false" aria-controls="stacktrace-content">
+              <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+              详细错误信息
+            </button>
+
+            <div class="error-card__stacktrace" id="stacktrace-content" role="region">
+              <code>ERROR: ApiCallTimeout
+  at SkillCluster.invoke (M2/skill-runner.ts:142)
+  at StepExecutor.runStep (core/executor.ts:89)
+  at Pipeline.execute (core/pipeline.ts:56)
+Caused by: fetch timeout at 30000ms
+  endpoint: https://api.openai.com/v1/chat/completions
+  model: gpt-4
+  retry count: 3/3 exhausted</code>
+            </div>
+
+            <div class="error-card__actions">
+              <button class="action-btn action-btn--primary" aria-label="重试">
+                <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                重试
+              </button>
+              <button class="action-btn action-btn--secondary" aria-label="跳过此步骤">
+                <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                跳过此步骤
+              </button>
+              <button class="action-btn action-btn--secondary" aria-label="人工修改">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                人工修改
+              </button>
+              <button class="action-btn action-btn--danger" aria-label="取消任务">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                取消任务
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- 3. BOTTOM DETAIL PANEL (ERROR LOGS) -->
+    <div class="detail-panel">
+      <div class="drag-handle" aria-hidden="true"></div>
+      <nav class="tab-bar" role="tablist">
+        <button class="tab-btn" role="tab" aria-selected="false">步骤详情</button>
+        <button class="tab-btn" role="tab" aria-selected="false">调用记录</button>
+        <button class="tab-btn tab-btn--active" role="tab" aria-selected="true">日志</button>
+        <button class="tab-btn" role="tab" aria-selected="false">性能</button>
+      </nav>
+      <div class="tab-content" role="tabpanel">
+        <div class="log-line">
+          <span class="log-line__time">14:30:12</span>
+          <span class="log-line__level log-line__level--info">INFO</span>
+          <span class="log-line__msg">Pipeline started — task: 智能文档生成</span>
+        </div>
+        <div class="log-line">
+          <span class="log-line__time">14:30:14</span>
+          <span class="log-line__level log-line__level--info">INFO</span>
+          <span class="log-line__msg">Step 1/5 complete: 调度 — 1.8s</span>
+        </div>
+        <div class="log-line">
+          <span class="log-line__time">14:30:45</span>
+          <span class="log-line__level log-line__level--info">INFO</span>
+          <span class="log-line__msg">Step 2/5 complete: 场景分析 — 30.2s</span>
+        </div>
+        <div class="log-line">
+          <span class="log-line__time">14:31:02</span>
+          <span class="log-line__level log-line__level--info">INFO</span>
+          <span class="log-line__msg">Step 3/5 started: 代码生成 (M2 技能集群)</span>
+        </div>
+        <div class="log-line">
+          <span class="log-line__time">14:33:15</span>
+          <span class="log-line__level log-line__level--warn">WARN</span>
+          <span class="log-line__msg">GPT-4 API call retry 1/3 — timeout at 30s</span>
+        </div>
+        <div class="log-line">
+          <span class="log-line__time">14:33:48</span>
+          <span class="log-line__level log-line__level--warn">WARN</span>
+          <span class="log-line__msg">GPT-4 API call retry 2/3 — timeout at 30s</span>
+        </div>
+        <div class="log-line log-line--highlight">
+          <span class="log-line__time">14:34:22</span>
+          <span class="log-line__level log-line__level--error">ERROR</span>
+          <span class="log-line__msg log-line__msg--error">GPT-4 API call retry 3/3 — timeout at 30s, all retries exhausted</span>
+        </div>
+        <div class="log-line log-line--highlight">
+          <span class="log-line__time">14:34:22</span>
+          <span class="log-line__level log-line__level--error">ERROR</span>
+          <span class="log-line__msg log-line__msg--error">Step 3/5 failed: ApiCallTimeout — pipeline halted at 65%</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Porthole Frame Decoration (z100) -->
+  <div class="porthole-frame" aria-hidden="true">
+    <div class="porthole-corner porthole-corner--tl"></div>
+    <div class="porthole-corner porthole-corner--tr"></div>
+    <div class="porthole-corner porthole-corner--bl"></div>
+    <div class="porthole-corner porthole-corner--br"></div>
+  </div>
+
+  <!-- Error card detail toggle interaction -->
+  <script>
+    (function() {
+      var toggle = document.getElementById('detail-toggle');
+      var stacktrace = document.getElementById('stacktrace-content');
+      if (toggle && stacktrace) {
+        toggle.addEventListener('click', function() {
+          var expanded = stacktrace.classList.toggle('visible');
+          toggle.classList.toggle('expanded', expanded);
+          toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+      }
+    })();
+  </script>
+
+<style>
+    /* === RESET & VIEWPORT === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    }
+
+    /* === RED TINT OVERLAY on background === */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* === VIEWPORT LAYOUT === */
+    .dashboard-root {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 72px 1fr 180px;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .middle-row {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      overflow: hidden;
+    }
+
+    /* === PARTICLE LAYER (z0) === */
+    .particle-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--color-tide-cyan);
+    }
+
+    @keyframes particle-drift-1 {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(12px, -20px); }
+      50% { transform: translate(-8px, -35px); }
+      75% { transform: translate(18px, -15px); }
+    }
+    @keyframes particle-drift-2 {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(-15px, 10px); }
+      50% { transform: translate(10px, -25px); }
+      75% { transform: translate(-5px, 20px); }
+    }
+    @keyframes particle-drift-3 {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(20px, -10px); }
+      66% { transform: translate(-12px, -30px); }
+    }
+
+    /* === TASK HEADER (z10) — ERROR STATE === */
+    .task-header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--spacing-xl);
+      background: var(--color-surface-header);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.15);
+      height: 72px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-shrink: 0;
+    }
+
+    .header-left .task-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-full);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-tide-red);
+      animation: flicker-error 0.5s ease-in-out infinite;
+    }
+
+    .header-task-info {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    .error-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--radius-md);
+      background: var(--color-tide-red);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .header-center {
+      flex: 1;
+      margin: 0 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .progress-fill--error {
+      width: 65%;
+      height: 100%;
+      background: linear-gradient(90deg, #ef4444, #dc2626);
+      border-radius: var(--radius-full);
+      position: relative;
+    }
+
+    .progress-fill--error::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2));
+      animation: flicker-error 1s ease-in-out infinite;
+    }
+
+    .progress-text--error {
+      font-size: 12px;
+      color: var(--color-tide-red);
+      text-align: center;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-shrink: 0;
+    }
+
+    .time-display--error {
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 14px;
+      color: var(--color-tide-red);
+      letter-spacing: 0.02em;
+    }
+
+    .ctrl-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard),
+                  border-color var(--duration-micro) var(--ease-standard),
+                  color var(--duration-micro) var(--ease-standard);
+    }
+    .ctrl-btn:hover {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: var(--color-border-cyan-strong);
+      color: var(--color-tide-cyan);
+    }
+    .ctrl-btn:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+    .ctrl-btn--cancel {
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--color-tide-red);
+    }
+    .ctrl-btn--cancel:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    .ctrl-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+    }
+
+    .btn-text-retry {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-full);
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid var(--color-border-cyan-strong);
+      color: var(--color-tide-cyan);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard),
+                  border-color var(--duration-micro) var(--ease-standard);
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn-text-retry:hover {
+      background: rgba(0, 212, 255, 0.18);
+      border-color: rgba(0, 212, 255, 0.45);
+    }
+    .btn-text-retry:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+    .btn-text-retry svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .btn-text-skip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard),
+                  border-color var(--duration-micro) var(--ease-standard);
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn-text-skip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .btn-text-skip:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+    .btn-text-skip svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* === LEFT SIDEBAR (z10) === */
+    .history-sidebar {
+      position: relative;
+      z-index: 10;
+      background: var(--color-surface-sidebar);
+      border-right: 1px solid var(--color-border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .search-box {
+      margin: var(--spacing-lg);
+      padding: 0 var(--spacing-lg);
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--color-border-default);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      color: var(--color-text-muted);
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .search-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--color-text-primary);
+      font-size: 13px;
+      width: 100%;
+      font-family: inherit;
+    }
+    .search-box input::placeholder {
+      color: var(--color-text-muted);
+    }
+    .search-box svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+      flex-shrink: 0;
+    }
+
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 var(--spacing-lg);
+    }
+
+    .group-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: var(--spacing-md) 0 var(--spacing-xs);
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: var(--radius-md);
+      margin-bottom: 2px;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard);
+      border-left: 3px solid transparent;
+    }
+    .task-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    /* ERROR active item */
+    .task-item--error {
+      background: rgba(239, 68, 68, 0.08);
+      border-left-color: var(--color-tide-red);
+      padding-left: calc(var(--spacing-md) - 3px);
+    }
+
+    .task-item__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .task-item__dot--error {
+      background: var(--color-tide-red);
+      animation: flicker-error 0.5s ease-in-out infinite;
+      box-shadow: 0 0 6px var(--state-error-glow);
+    }
+    .task-item__dot--queued {
+      background: var(--color-text-muted);
+    }
+    .task-item__dot--done {
+      background: var(--state-success);
+    }
+    .task-item__dot--active {
+      background: var(--color-tide-cyan);
+      animation: breathe 2s ease-in-out infinite;
+      box-shadow: 0 0 6px var(--state-running-glow);
+    }
+
+    .task-item__icon {
+      width: 8px;
+      height: 8px;
+      flex-shrink: 0;
+      color: var(--color-tide-red);
+    }
+    .task-item__icon svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .task-item__name {
+      flex: 1;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-item__name--primary {
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    .task-item__name--error {
+      font-weight: 600;
+      color: var(--color-tide-red);
+    }
+    .task-item__name--secondary {
+      color: var(--color-text-secondary);
+    }
+
+    .task-item__time {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      flex-shrink: 0;
+    }
+    .task-item__time--error {
+      color: var(--color-tide-red);
+    }
+
+    /* === CENTRAL TIDE STAGE (z1) === */
+    .tide-stage {
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* --- Vortex (RED-tinted) --- */
+    .vortex-container {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vortex-ring {
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .vortex-ring--outer {
+      width: 280px;
+      height: 280px;
+      border: 2px dashed rgba(239, 68, 68, 0.3);
+      animation: spin-cw 20s linear infinite, flicker-error 2s ease-in-out infinite;
+    }
+
+    .vortex-ring--middle {
+      width: 200px;
+      height: 200px;
+      border: 2px solid rgba(239, 68, 68, 0.25);
+      animation: spin-ccw 15s linear infinite, flicker-error 1.5s ease-in-out infinite;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.1), inset 0 0 20px rgba(239, 68, 68, 0.05);
+    }
+
+    .vortex-ring--inner {
+      width: 120px;
+      height: 120px;
+      border: 2px solid rgba(239, 68, 68, 0.35);
+      animation: spin-cw 10s linear infinite;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.12) 0%, transparent 70%);
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.15);
+    }
+
+    .vortex-center {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .vortex-center__icon--error {
+      width: 32px;
+      height: 32px;
+      color: var(--color-tide-red);
+      animation: flicker-error 0.5s ease-in-out infinite;
+    }
+
+    .vortex-center__label--error {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-tide-red);
+    }
+
+    .vortex-glow--error {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.06) 0%, transparent 70%);
+      animation: flicker-error 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* --- Orbiting Nodes (ERROR STATE) --- */
+    .orbit-ring {
+      position: absolute;
+      width: 440px;
+      height: 440px;
+      animation: spin-cw 60s linear infinite;
+    }
+
+    .orbit-node {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 22, 40, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .orbit-node__icon {
+      width: 24px;
+      height: 24px;
+      stroke: var(--color-text-muted);
+      fill: none;
+      stroke-width: 1.5;
+    }
+
+    .orbit-node__label {
+      position: absolute;
+      bottom: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    /* Active node (was running, now frozen) */
+    .orbit-node--active {
+      border: 2px solid var(--color-tide-cyan);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 8px rgba(0, 212, 255, 0.2);
+    }
+    .orbit-node--active .orbit-node__icon {
+      stroke: var(--color-tide-cyan);
+    }
+    .orbit-node--active .orbit-node__label {
+      color: var(--color-tide-cyan);
+    }
+
+    /* ERROR node — M2 */
+    .orbit-node--error {
+      border: 2px solid var(--color-tide-red);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.25);
+      animation: flicker-error 0.5s ease-in-out infinite;
+    }
+    .orbit-node--error .orbit-node__icon {
+      stroke: var(--color-tide-red);
+    }
+    .orbit-node--error .orbit-node__label {
+      color: var(--color-tide-red);
+      font-weight: 600;
+    }
+
+    /* Idle nodes */
+    .orbit-node--idle {
+      border: 1px solid rgba(100, 116, 139, 0.3);
+    }
+
+    /* Node positions */
+    .orbit-node--pos-0   { top: 0;   left: 50%; transform: translateX(-50%); }
+    .orbit-node--pos-60  { top: 10%; left: 93%; transform: translateX(-50%); }
+    .orbit-node--pos-120 { top: 55%; left: 95%; transform: translateX(-50%); }
+    .orbit-node--pos-180 { bottom: 0; left: 50%; transform: translateX(-50%); }
+    .orbit-node--pos-240 { top: 55%; left: 0;  transform: translateX(-50%); }
+    .orbit-node--pos-300 { top: 10%; left: 2%;  transform: translateX(-50%); }
+
+    /* --- Energy Flows (interrupted) --- */
+    .energy-flow-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .energy-dot {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--state-running-glow), 0 0 16px rgba(0, 212, 255, 0.3);
+    }
+
+    .energy-dot--cyan {
+      background: var(--color-tide-cyan);
+      opacity: 0.3;
+    }
+
+    .energy-dot--red {
+      background: var(--color-tide-red);
+      box-shadow: 0 0 8px var(--state-error-glow), 0 0 16px rgba(239, 68, 68, 0.3);
+    }
+
+    /* SVG energy paths */
+    .svg-energy-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .energy-path {
+      fill: none;
+      stroke-width: 1;
+    }
+    .energy-path--cyan {
+      stroke: rgba(0, 212, 255, 0.1);
+    }
+    .energy-path--red {
+      stroke: rgba(239, 68, 68, 0.2);
+      stroke-dasharray: 4 6;
+    }
+
+    /* === ERROR CARD OVERLAY === */
+    @keyframes fade-in-down {
+      from { opacity: 0; transform: translateY(-30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .error-card-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      width: 520px;
+      animation: fade-in-down 0.4s cubic-bezier(0.3, 0, 0, 1) both;
+    }
+
+    .error-card {
+      background: rgba(10, 22, 40, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-xl) var(--spacing-2xl);
+      position: relative;
+    }
+
+    .error-card__close {
+      position: absolute;
+      top: var(--spacing-lg);
+      right: var(--spacing-lg);
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard),
+                  color var(--duration-micro) var(--ease-standard);
+    }
+    .error-card__close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--color-text-primary);
+    }
+    .error-card__close:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+    .error-card__close svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+    }
+
+    .error-card__header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .error-card__icon {
+      width: 28px;
+      height: 28px;
+      color: var(--color-tide-red);
+      flex-shrink: 0;
+    }
+    .error-card__icon svg {
+      width: 28px;
+      height: 28px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+    }
+
+    .error-card__title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-tide-red);
+      line-height: 1.3;
+    }
+
+    .error-card__type {
+      display: inline-flex;
+      padding: 3px 10px;
+      border-radius: var(--radius-md);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--color-tide-red);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .error-card__message {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .error-card__detail-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: color var(--duration-micro) var(--ease-standard);
+      margin-bottom: var(--spacing-md);
+      user-select: none;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+    }
+    .error-card__detail-toggle:hover {
+      color: var(--color-text-secondary);
+    }
+    .error-card__detail-toggle svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      transition: transform var(--duration-short) var(--ease-standard);
+    }
+    .error-card__detail-toggle.expanded svg {
+      transform: rotate(90deg);
+    }
+
+    .error-card__stacktrace {
+      display: none;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-xl);
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .error-card__stacktrace.visible {
+      display: block;
+    }
+    .error-card__stacktrace code {
+      display: block;
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.7;
+      color: rgba(239, 68, 68, 0.8);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .error-card__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: var(--radius-full);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--duration-micro) var(--ease-standard),
+                  border-color var(--duration-micro) var(--ease-standard),
+                  transform var(--duration-micro) var(--ease-standard);
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .action-btn:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+    .action-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .action-btn--primary {
+      background: var(--color-tide-cyan);
+      border: 1px solid var(--color-tide-cyan);
+      color: #0a1628;
+    }
+    .action-btn--primary:hover {
+      background: #33ddff;
+      border-color: #33ddff;
+      transform: translateY(-1px);
+    }
+
+    .action-btn--secondary {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--color-text-secondary);
+    }
+    .action-btn--secondary:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .action-btn--danger {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--color-tide-red);
+    }
+    .action-btn--danger:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    /* === BOTTOM DETAIL PANEL (z10) — ERROR LOGS === */
+    .detail-panel {
+      position: relative;
+      z-index: 10;
+      background: var(--color-surface-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(239, 68, 68, 0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .drag-handle {
+      width: 40px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      margin: var(--spacing-sm) auto 0;
+      flex-shrink: 0;
+    }
+
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: var(--spacing-sm) var(--spacing-xl);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.08);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: var(--spacing-sm) var(--spacing-lg);
+      font-size: 13px;
+      color: var(--color-text-muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color var(--duration-micro) var(--ease-standard),
+                  border-color var(--duration-micro) var(--ease-standard);
+      font-family: inherit;
+    }
+    .tab-btn:hover {
+      color: var(--color-text-secondary);
+    }
+    .tab-btn--active {
+      color: var(--color-tide-red);
+      border-bottom-color: var(--color-tide-red);
+    }
+    .tab-btn:focus-visible {
+      outline: 2px solid var(--color-tide-cyan);
+      outline-offset: 2px;
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-md) var(--spacing-xl);
+    }
+
+    .log-line {
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--color-text-muted);
+      display: flex;
+      gap: var(--spacing-md);
+    }
+    .log-line__time {
+      color: var(--color-text-muted);
+      flex-shrink: 0;
+      min-width: 70px;
+    }
+    .log-line__level {
+      flex-shrink: 0;
+      min-width: 44px;
+      font-weight: 600;
+    }
+    .log-line__level--info {
+      color: var(--color-tide-cyan);
+    }
+    .log-line__level--warn {
+      color: var(--color-tide-amber);
+    }
+    .log-line__level--error {
+      color: var(--color-tide-red);
+    }
+    .log-line__msg {
+      color: var(--color-text-muted);
+      flex: 1;
+    }
+    .log-line__msg--error {
+      color: rgba(239, 68, 68, 0.9);
+    }
+    .log-line--highlight {
+      background: rgba(239, 68, 68, 0.05);
+      margin: 0 calc(-1 * var(--spacing-lg));
+      padding: 2px var(--spacing-lg);
+    }
+
+    /* === PORTHOLE FRAME (z100) === */
+    .porthole-frame {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.4);
+    }
+    .porthole-frame::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border: 1px solid rgba(239, 68, 68, 0.06);
+      pointer-events: none;
+    }
+    .porthole-corner {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: rgba(239, 68, 68, 0.12);
+      border-style: solid;
+    }
+    .porthole-corner--tl {
+      top: 12px;
+      left: 12px;
+      border-width: 2px 0 0 2px;
+      border-radius: 3px 0 0 0;
+    }
+    .porthole-corner--tr {
+      top: 12px;
+      right: 12px;
+      border-width: 2px 2px 0 0;
+      border-radius: 0 3px 0 0;
+    }
+    .porthole-corner--bl {
+      bottom: 12px;
+      left: 12px;
+      border-width: 0 0 2px 2px;
+      border-radius: 0 0 0 3px;
+    }
+    .porthole-corner--br {
+      bottom: 12px;
+      right: 12px;
+      border-width: 0 2px 2px 0;
+      border-radius: 0 0 3px 0;
+    }
+
+    /* === REDUCED MOTION === */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+
+
+    <!-- Xian State API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        function init() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 点击 logo 或返回按钮跳回主运行页面
+            var logoEl = document.querySelector('.logo-area, [class*="logo"]');
+            if (logoEl) {
+                logoEl.style.cursor = 'pointer';
+                logoEl.addEventListener('click', function() {
+                    location.href = 'main-running.html';
+                });
+            }
+
+            var backBtn = document.querySelector('.back-btn, [class*="back"]');
+            if (backBtn) {
+                backBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    location.href = 'main-running.html';
+                });
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+
+
+    </body>
+</html>

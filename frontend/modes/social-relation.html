@@ -1,0 +1,3602 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="social-relation">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云汐 M4 — 人际关系模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    /* ── Layout Shell ── */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Decorative Background Accents (Pink-themed) ── */
+    .app-body::before {
+      content: '';
+      position: absolute;
+      top: -120px;
+      right: -80px;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,125,151,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .app-body::after {
+      content: '';
+      position: absolute;
+      bottom: -100px;
+      left: 200px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,125,151,0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════
+       TOP NAVIGATION BAR (56px)
+       ═══════════════════════════════════════ */
+    .top-nav {
+      height: var(--header-height);
+      min-height: var(--header-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      z-index: var(--z-header);
+      position: relative;
+    }
+
+    /* Logo area */
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      min-width: 180px;
+    }
+    .nav-logo .logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #FF7D97, #F55778);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.5px;
+      box-shadow: 0 2px 8px rgba(255,125,151,0.3);
+    }
+    .nav-logo .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+    .nav-logo .logo-brand {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo .logo-sub {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Mode tabs */
+    .mode-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--color-primary-light);
+      border-radius: var(--radius-full);
+      padding: 3px;
+    }
+    .mode-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      white-space: nowrap;
+    }
+    .mode-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(255,255,255,0.5);
+    }
+    .mode-tab.active {
+      background: #FF7D97;
+      color: #FFFFFF;
+      box-shadow: 0 2px 10px rgba(255,125,151,0.35);
+    }
+    .mode-tab .tab-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* Right status */
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      min-width: 260px;
+      justify-content: flex-end;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: var(--color-success); box-shadow: 0 0 6px rgba(0,180,42,0.4); }
+    .status-dot.pink { background: #FF7D97; box-shadow: 0 0 6px rgba(255,125,151,0.35); }
+    .status-dot.orange { background: var(--color-warning); box-shadow: 0 0 6px rgba(255,125,0,0.3); }
+
+    .encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      background: #F0F7FF;
+      border: 1px solid #D4E4FF;
+      font-size: var(--font-size-xs);
+      color: #165DFF;
+      font-weight: var(--font-weight-medium);
+    }
+
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FF7D97 0%, #F55778 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      border: 2px solid #fff;
+      box-shadow: 0 2px 8px rgba(255,125,151,0.25);
+      cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+    .user-avatar:hover { transform: scale(1.08); }
+
+    /* ═══════════════════════════════════════
+       LEFT SIDEBAR (240px)
+       ═══════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      height: 100%;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      z-index: var(--z-sidebar);
+      position: relative;
+    }
+
+    /* User profile */
+    .sidebar-profile {
+      padding: var(--spacing-lg) var(--spacing-base);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .profile-card:hover { background: var(--color-primary-light); }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: var(--font-weight-bold);
+      flex-shrink: 0;
+    }
+    .profile-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .profile-name {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-role {
+      font-size: var(--font-size-xs);
+      color: #F55778;
+      background: #FFF0F3;
+      padding: 1px 8px;
+      border-radius: var(--radius-full);
+      font-weight: var(--font-weight-medium);
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+    }
+
+    /* Sidebar navigation */
+    .sidebar-nav {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+      overflow-y: auto;
+    }
+    .nav-section-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+      padding: var(--spacing-base) var(--spacing-sm) var(--spacing-sm);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      margin-bottom: 2px;
+      position: relative;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .nav-item:hover {
+      background: #FFF0F3;
+      color: #FF7D97;
+    }
+    .nav-item.active {
+      background: #FFF0F3;
+      color: #FF7D97;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      border-radius: 0 3px 3px 0;
+      background: #FF7D97;
+    }
+    .nav-item .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .nav-item .nav-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      padding: var(--spacing-sm);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-footer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      width: 100%;
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      color: var(--color-text-tertiary);
+      font-size: var(--font-size-sm);
+      background: transparent;
+      border: none;
+    }
+    .sidebar-footer-btn:hover {
+      background: #FFF0F3;
+      color: #FF7D97;
+    }
+    .sidebar-footer-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+    }
+
+    /* ═══════════════════════════════════════
+       MAIN CONTENT AREA
+       ═══════════════════════════════════════ */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Content scroll area */
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xl);
+    }
+
+    /* ── Stats Row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--spacing-base);
+    }
+    .stat-card {
+      position: relative;
+      padding: var(--spacing-lg);
+      border-radius: var(--radius-lg);
+      background: var(--color-glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      transition: all var(--transition-base);
+      overflow: hidden;
+      cursor: default;
+    }
+    .stat-card:hover {
+      box-shadow: var(--shadow-card-hover);
+      transform: translateY(-2px);
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+    }
+    .stat-card:nth-child(1)::before { background: linear-gradient(to bottom, #FF7D97, #F55778); }
+    .stat-card:nth-child(2)::before { background: linear-gradient(to bottom, #FF9AAF, #FF7D97); }
+    .stat-card:nth-child(3)::before { background: linear-gradient(to bottom, #FFD166, #FFAA33); }
+    .stat-card:nth-child(4)::before { background: linear-gradient(to bottom, #F55778, #FF7D97); }
+
+    .stat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-sm);
+    }
+    .stat-label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+    .stat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stat-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+    }
+    .stat-icon.pink { background: #FFF0F3; color: #FF7D97; }
+    .stat-icon.rose { background: #FFE8EE; color: #F55778; }
+    .stat-icon.yellow { background: #FFF7E6; color: #D48808; }
+    .stat-icon.red { background: #FFECE8; color: #F53F3F; }
+
+    .stat-value {
+      font-size: var(--font-size-4xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+      line-height: var(--line-height-tight);
+    }
+    .stat-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      margin-top: var(--spacing-xs);
+    }
+    .stat-trend.up { color: var(--color-success); }
+    .stat-trend.down { color: var(--color-error); }
+    .stat-trend.orange { color: var(--color-warning); }
+
+    /* ── Workspace Section (Main Columns) ── */
+    .workspace-section {
+      display: flex;
+      gap: var(--spacing-base);
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Left Main Column (~65%) ── */
+    .left-main-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+      min-width: 0;
+    }
+
+    /* Relationship Graph Panel */
+    .graph-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--radius-lg);
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      min-height: 420px;
+      position: relative;
+    }
+    .graph-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-base) var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      background: var(--color-glass-bg);
+      backdrop-filter: blur(12px);
+    }
+    .graph-panel-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .graph-panel-action {
+      font-size: var(--font-size-xs);
+      color: #FF7D97;
+      cursor: pointer;
+      font-weight: var(--font-weight-medium);
+      background: transparent;
+      border: none;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition-fast);
+    }
+    .graph-panel-action:hover { background: #FFF0F3; }
+
+    /* SVG Relationship Graph */
+    .graph-canvas {
+      flex: 1;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,125,151,0.03) 0%, transparent 60%),
+        radial-gradient(circle at 30% 30%, rgba(255,209,102,0.03) 0%, transparent 50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .graph-svg {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+    }
+
+    /* ── Right Panel (~35%) ── */
+    .right-panel {
+      width: 360px;
+      min-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+    }
+
+    .panel-card {
+      background: var(--color-card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: box-shadow var(--transition-base);
+    }
+    .panel-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+    .panel-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-base) var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .panel-card-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .panel-card-action {
+      font-size: var(--font-size-xs);
+      color: #FF7D97;
+      cursor: pointer;
+      font-weight: var(--font-weight-medium);
+      background: transparent;
+      border: none;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition-fast);
+    }
+    .panel-card-action:hover { background: #FFF0F3; }
+    .panel-card-body {
+      padding: var(--spacing-base) var(--spacing-lg);
+    }
+
+    /* Strategy Suggestion Cards */
+    .strategy-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .strategy-card {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border-light);
+      background: var(--color-page-bg);
+      transition: all var(--transition-fast);
+      cursor: pointer;
+    }
+    .strategy-card:hover {
+      background: #FFF0F3;
+      border-color: rgba(255,125,151,0.2);
+    }
+    .strategy-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+    }
+    .strategy-icon.pink { background: #FFF0F3; }
+    .strategy-icon.yellow { background: #FFF7E6; }
+    .strategy-icon.green { background: #E8FFEA; }
+    .strategy-content { flex: 1; min-width: 0; }
+    .strategy-text {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-primary);
+      line-height: var(--line-height-relaxed);
+    }
+    .strategy-meta {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+    .priority-tag {
+      padding: 1px 8px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      flex-shrink: 0;
+      align-self: center;
+    }
+    .priority-tag.high { background: #FFECE8; color: #F53F3F; }
+    .priority-tag.medium { background: #FFF7E6; color: #D48808; }
+    .priority-tag.low { background: #E8FFEA; color: #00B42A; }
+
+    /* Recent Interactions Timeline */
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid var(--color-border-light);
+      transition: background var(--transition-fast);
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-item { cursor: pointer; }
+    .timeline-item:hover { background: #FFF0F3; margin: 0 calc(-1 * var(--spacing-lg)); padding: var(--spacing-sm) var(--spacing-lg); border-radius: var(--radius-sm); }
+    .timeline-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-bold);
+      flex-shrink: 0;
+    }
+    .timeline-avatar.p1 { background: linear-gradient(135deg, #FF7D97, #F55778); }
+    .timeline-avatar.p2 { background: linear-gradient(135deg, #FFD166, #FFAA33); }
+    .timeline-avatar.p3 { background: linear-gradient(135deg, #94D0FF, #1890FF); }
+    .timeline-avatar.p4 { background: linear-gradient(135deg, #00B42A, #23C343); }
+    .timeline-avatar.p5 { background: linear-gradient(135deg, #9254DE, #722ED1); }
+    .timeline-info { flex: 1; min-width: 0; }
+    .timeline-action {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .timeline-action .actor { color: #FF7D97; font-weight: var(--font-weight-semibold); }
+    .timeline-time {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      flex-shrink: 0;
+    }
+
+    /* Emotion Baseline Summary */
+    .emotion-tags {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-sm);
+    }
+    .emotion-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+    }
+    .emotion-tag.positive { background: #E8FFEA; color: #00B42A; }
+    .emotion-tag.neutral { background: #FFF7E6; color: #D48808; }
+    .emotion-tag.negative { background: #FFECE8; color: #F53F3F; }
+
+    .emotion-bar-track {
+      width: 100%;
+      height: 10px;
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      display: flex;
+      background: var(--color-border-light);
+    }
+    .emotion-bar-seg {
+      height: 100%;
+      transition: width 0.6s ease;
+    }
+    .emotion-bar-seg.positive { background: linear-gradient(90deg, #00B42A, #23C343); }
+    .emotion-bar-seg.neutral { background: linear-gradient(90deg, #FFD166, #FFAA33); }
+    .emotion-bar-seg.negative { background: linear-gradient(90deg, #F53F3F, #FF7875); }
+
+    /* Privacy overlay for sensitive data */
+    .sensitive-overlay {
+      position: relative;
+    }
+    .sensitive-overlay::after {
+      content: '\1F512 \89E3\9501\67E5\770B\4E92\52A8\8BE6\60C5';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-mask-bg);
+      backdrop-filter: blur(3px);
+      color: var(--color-mask-text);
+      font-size: var(--font-size-sm);
+      letter-spacing: 1px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: opacity var(--transition-base);
+    }
+
+    /* Star rating visual */
+    .star-rating {
+      display: inline-flex;
+      gap: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .star-rating .star {
+      color: #FFD166;
+      font-size: 14px;
+    }
+    .star-rating .star.empty {
+      color: #E5E6EB;
+    }
+
+    /* Notification badge */
+    .notif-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-bold);
+      background: #FF7D00;
+      color: #fff;
+      margin-left: 6px;
+    }
+
+    /* ── Utility ── */
+    .mono { font-family: var(--font-family-mono); }
+    .tabular { font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════
+   v2.2 — Person Info Card (relationship graph)
+   ═══════════════════════════════════════════════════════════ */
+.person-card-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 43, 74, 0.25);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+.person-card-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.person-card {
+  background: #fff;
+  border-radius: 16px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(26, 43, 74, 0.15), 0 0 0 1px rgba(100, 150, 220, 0.08);
+  overflow: hidden;
+  transform: translateY(20px) scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.person-card-overlay.active .person-card {
+  transform: translateY(0) scale(1);
+}
+
+.person-card-header {
+  padding: 24px 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.person-card-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.person-card-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #1A2B4A);
+  line-height: 1.3;
+}
+
+.person-card-role {
+  font-size: 13px;
+  color: var(--color-text-secondary, #4A5F80);
+  margin-top: 2px;
+}
+
+.person-card-relation-tag {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.person-card-body {
+  padding: 0 24px 24px;
+}
+
+.person-card-section {
+  margin-bottom: 16px;
+}
+.person-card-section:last-child {
+  margin-bottom: 0;
+}
+
+.person-card-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary, #7A8FA8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.person-card-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-page-bg, #F5F7FA);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #4A5F80);
+}
+.person-card-info-row:last-child {
+  margin-bottom: 0;
+}
+.person-card-info-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.person-card-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(100, 150, 220, 0.08);
+  color: var(--color-text-tertiary, #7A8FA8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+  z-index: 1;
+}
+.person-card-close:hover {
+  background: rgba(100, 150, 220, 0.15);
+  color: var(--color-text-primary, #1A2B4A);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v2.2 — Intimacy Ranking
+   ═══════════════════════════════════════════════════════════ */
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rank-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rank-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.rank-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #1A2B4A);
+  flex: 1;
+}
+.rank-value {
+  font-size: 12px;
+  color: var(--color-primary-text, #5B8DEF);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rank-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-page-bg, #F5F7FA);
+  overflow: hidden;
+  margin-left: 32px;
+}
+.rank-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Graph node click highlight */
+.rel-node {
+  cursor: pointer !important;
+}
+.rel-node.active-node .node-circle {
+  filter: brightness(1.1) drop-shadow(0 0 12px rgba(91, 141, 239, 0.4));
+  stroke-width: 2.5;
+}
+
+/* Cross-connection lines between non-center people */
+.cross-conn-line {
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Double-click hint */
+.graph-canvas::after {
+  content: '双击人物查看详情 · 拖拽节点可移动 · 滚轮缩放';
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(8px);
+  padding: 4px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 5;
+  border: 1px solid var(--color-card-border);
+}
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ═══════════════════════════════════
+         TOP NAVIGATION
+         ═══════════════════════════════════ -->
+    <header class="top-nav">
+      <!-- Left: Logo -->
+      <div class="nav-logo">
+        <div class="logo-icon">YX</div>
+        <div class="logo-text">
+          <span class="logo-brand">云汐 M4 业务引擎</span>
+        </div>
+      </div>
+
+      <!-- Center: Mode Tabs -->
+      <nav class="mode-tabs">
+        <a class="mode-tab" href="main-chat.html">
+          <span class="tab-icon">💬</span>对话
+        </a>
+        <a class="mode-tab" href="work-dev.html">
+          <span class="tab-icon">&#9998;</span>工作开发
+        </a>
+        <a class="mode-tab" href="study-plan.html">
+          <span class="tab-icon">&#128218;</span>学业规划
+        </a>
+        <a class="mode-tab" href="review-summary.html">
+          <span class="tab-icon">&#128200;</span>复盘总结
+        </a>
+        <a class="mode-tab active" href="social-relation.html">
+          <span class="tab-icon">&#129309;</span>人际关系
+        </a>
+        <a class="mode-tab" href="emotion-comfort.html">
+          <span class="tab-icon">&#127754;</span>情绪安慰
+        </a>
+        <a class="mode-tab" href="life-management.html">
+          <span class="tab-icon">&#127968;</span>生活管理
+        </a>
+      </nav>
+
+      <!-- Right: Status -->
+      <div class="nav-status">
+        <div class="status-item">
+          <span class="status-dot green"></span>
+          <span>网络正常</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot pink"></span>
+          <span>M5 82%</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot orange"></span>
+          <span>3 设备</span>
+        </div>
+        <div class="encrypt-badge">&#128274; 本地加密</div>
+        <div class="user-avatar" title="汐舟主理">汐</div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════
+         APP BODY
+         ═══════════════════════════════════ -->
+    <div class="app-body">
+
+      <!-- ── Left Sidebar ── -->
+      <aside class="sidebar">
+        <!-- Profile -->
+        <div class="sidebar-profile">
+          <div class="profile-card">
+            <div class="sidebar-avatar">汐</div>
+            <div class="profile-info">
+              <span class="profile-name">汐舟主理</span>
+              <span class="profile-role">社交分析</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+          <a class="nav-item" href="main-chat.html">
+            <span class="nav-icon">💬</span>
+            <span>对话主页</span>
+          </a>
+          <div class="nav-section-label">关系管理</div>
+          <a class="nav-item active" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><circle cx="5" cy="5" r="1.5"></circle><circle cx="19" cy="5" r="1.5"></circle><circle cx="5" cy="19" r="1.5"></circle><circle cx="19" cy="19" r="1.5"></circle><line x1="10.5" y1="11" x2="6" y2="6"></line><line x1="13.5" y1="11" x2="18" y2="6"></line><line x1="10.5" y1="13" x2="6" y2="18"></line><line x1="13.5" y1="13" x2="18" y2="18"></line></svg>
+            </span>
+            关系图谱
+          </a>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </span>
+            对话情境模拟
+          </a>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
+            </span>
+            沟通策略建议
+            <span class="badge" style="margin-left:auto; background:#FF7D97; color:#fff; font-size:11px; padding:0 6px; border-radius:9999px; font-weight:600;">3</span>
+          </a>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </span>
+            互动记录时间线
+          </a>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </span>
+            关系评估报告
+          </a>
+
+          <div class="nav-section-label" style="margin-top: 8px;">工具</div>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            </span>
+            社交笔记
+          </a>
+          <a class="nav-item" href="social-relation.html">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            搜索联系人
+          </a>
+        </nav>
+
+        <!-- Footer -->
+        <div class="sidebar-footer">
+          <button class="sidebar-footer-btn">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            收起侧栏
+          </button>
+        </div>
+      </aside>
+
+      <!-- ── Main Content ── -->
+      <main class="main-content">
+        <div class="content-scroll">
+
+          <!-- ── Stats Row ── -->
+          <section class="stats-row">
+            <!-- Stat 1: Core Relationships -->
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">核心关系</span>
+                <div class="stat-icon pink">
+                  <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value tabular">8<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">人</span></div>
+              <div class="stat-trend up">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                &#8593;2 本月
+              </div>
+            </div>
+
+            <!-- Stat 2: Monthly Interactions -->
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">本月互动</span>
+                <div class="stat-icon rose">
+                  <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value tabular">42<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">次</span></div>
+              <div class="stat-trend up">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                +12 较上月
+              </div>
+            </div>
+
+            <!-- Stat 3: Communication Score -->
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">沟通评分</span>
+                <div class="stat-icon yellow">
+                  <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+              </div>
+              <div class="stat-value tabular">85<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">分</span></div>
+              <div class="stat-trend up" style="margin-top:6px;">
+                <span class="star-rating">
+                  <span class="star">&#9733;</span>
+                  <span class="star">&#9733;</span>
+                  <span class="star">&#9733;</span>
+                  <span class="star">&#9733;</span>
+                  <span class="star empty">&#9733;</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Stat 4: Pending Reminders -->
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">待处理提醒</span>
+                <div class="stat-icon red">
+                  <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value tabular">3<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">项</span></div>
+              <div class="stat-trend orange">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                需关注
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Workspace: Graph + Right Panel ── -->
+          <section class="workspace-section">
+
+            <!-- Left Main Column: Relationship Graph -->
+            <div class="left-main-col">
+              <div class="graph-panel">
+                <div class="graph-panel-header">
+                  <span class="graph-panel-title">&#127760; 关系图谱总览</span>
+                  <button class="graph-panel-action">全屏查看</button>
+                </div>
+                <div class="graph-canvas">
+                  <div id="relationGraph" style="width:100%;height:100%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="right-panel">
+
+              <!-- Communication Strategy Card -->
+              <div class="panel-card">
+                <div class="panel-card-header">
+                  <span class="panel-card-title">&#128161; 沟通策略建议</span>
+                  <button class="panel-card-action">全部策略</button>
+                </div>
+                <div class="panel-card-body">
+                  <div class="strategy-list">
+                    <div class="strategy-card">
+                      <div class="strategy-icon pink">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7D97" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                      </div>
+                      <div class="strategy-content">
+                        <div class="strategy-text">建议: 主动跟进与刘洋的合作讨论</div>
+                        <div class="strategy-meta">上次互动: 3天前</div>
+                      </div>
+                      <span class="priority-tag high">高</span>
+                    </div>
+                    <div class="strategy-card">
+                      <div class="strategy-icon yellow">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D48808" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      </div>
+                      <div class="strategy-content">
+                        <div class="strategy-text">建议: 本周安排与家人的通话</div>
+                        <div class="strategy-meta">距上次通话: 5天</div>
+                      </div>
+                      <span class="priority-tag medium">中</span>
+                    </div>
+                    <div class="strategy-card">
+                      <div class="strategy-icon green">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B42A" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                      </div>
+                      <div class="strategy-content">
+                        <div class="strategy-text">建议: 回复李明的消息</div>
+                        <div class="strategy-meta">未读消息: 2条</div>
+                      </div>
+                      <span class="priority-tag low">低</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recent Interactions Timeline Card -->
+              <div class="panel-card" style="flex: 1;">
+                <div class="panel-card-header">
+                  <span class="panel-card-title">&#128338; 最近互动</span>
+                  <button class="panel-card-action">查看全部</button>
+                </div>
+                <div class="panel-card-body">
+                  <div class="timeline-list">
+                    <div class="timeline-item">
+                      <div class="timeline-avatar p1">李</div>
+                      <div class="timeline-info">
+                        <div class="timeline-action"><span class="actor">李明</span> 发来消息</div>
+                      </div>
+                      <span class="timeline-time">2分钟前</span>
+                    </div>
+                    <div class="timeline-item">
+                      <div class="timeline-avatar p2">王</div>
+                      <div class="timeline-info">
+                        <div class="timeline-action"><span class="actor">王芳</span> 邀请会议</div>
+                      </div>
+                      <span class="timeline-time">1小时前</span>
+                    </div>
+                    <div class="timeline-item">
+                      <div class="timeline-avatar p3">赵</div>
+                      <div class="timeline-info">
+                        <div class="timeline-action"><span class="actor">赵磊</span> 提交评审</div>
+                      </div>
+                      <span class="timeline-time">3小时前</span>
+                    </div>
+                    <div class="timeline-item">
+                      <div class="timeline-avatar p4">陈</div>
+                      <div class="timeline-info">
+                        <div class="timeline-action"><span class="actor">陈静</span> 来电提醒</div>
+                      </div>
+                      <span class="timeline-time">昨天 20:15</span>
+                    </div>
+                    <div class="timeline-item">
+                      <div class="timeline-avatar p5">刘</div>
+                      <div class="timeline-info">
+                        <div class="timeline-action"><span class="actor">刘洋</span> 分享文件</div>
+                      </div>
+                      <span class="timeline-time">昨天 14:30</span>
+                    </div>
+                  </div>
+
+                  <!-- Privacy overlay on interaction details -->
+                  <div class="sensitive-overlay" style="margin-top: var(--spacing-base); padding: var(--spacing-base); border-radius: var(--radius-md); background: #FFF5F7; min-height: 60px; text-align: center; line-height: 60px; font-size: var(--font-size-sm); color: var(--color-text-tertiary);">
+                    <span style="filter:blur(3px);">李明: 项目进展如何？下周有空讨论一下...</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Intimacy Ranking -->
+              <div class="panel-card">
+                <div class="panel-card-header">
+                  <span class="panel-card-title">&#10084;&#65039; 亲密度排行</span>
+                  <button class="panel-card-action">详情</button>
+                </div>
+                <div class="panel-card-body">
+                  <div class="rank-list">
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#F55778,#FF7D97);">陈</span>
+                        <span class="rank-name">陈静</span>
+                        <span class="rank-value">95%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:95%;background:linear-gradient(90deg,#F55778,#FF7D97);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#FF7D97,#FF9FB4);">李</span>
+                        <span class="rank-name">李明</span>
+                        <span class="rank-value">92%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:92%;background:linear-gradient(90deg,#FF7D97,#FF9FB4);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#FFD166,#FFAA33);">王</span>
+                        <span class="rank-name">王芳</span>
+                        <span class="rank-value">85%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:85%;background:linear-gradient(90deg,#FFD166,#FFAA33);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#94D0FF,#5B8DEF);">赵</span>
+                        <span class="rank-name">赵磊</span>
+                        <span class="rank-value">78%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:78%;background:linear-gradient(90deg,#94D0FF,#5B8DEF);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#00B42A,#23C343);">刘</span>
+                        <span class="rank-name">刘洋</span>
+                        <span class="rank-value">70%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:70%;background:linear-gradient(90deg,#00B42A,#23C343);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#9254DE,#722ED1);">周</span>
+                        <span class="rank-name">周琳</span>
+                        <span class="rank-value">65%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:65%;background:linear-gradient(90deg,#9254DE,#722ED1);"></div></div>
+                    </div>
+                    <div class="rank-item">
+                      <div class="rank-row">
+                        <span class="rank-avatar" style="background:linear-gradient(135deg,#C9CDD4,#86909C);">张</span>
+                        <span class="rank-name">张伟</span>
+                        <span class="rank-value">55%</span>
+                      </div>
+                      <div class="rank-bar"><div class="rank-fill" style="width:55%;background:linear-gradient(90deg,#C9CDD4,#86909C);"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Emotion Baseline Summary Card -->
+              <div class="panel-card">
+                <div class="panel-card-header">
+                  <span class="panel-card-title">&#127912; 最近互动情绪基调</span>
+                  <button class="panel-card-action">详情</button>
+                </div>
+                <div class="panel-card-body">
+                  <div class="emotion-tags">
+                    <span class="emotion-tag positive">&#128994; 积极 65%</span>
+                    <span class="emotion-tag neutral">&#128992; 中性 28%</span>
+                    <span class="emotion-tag negative">&#128993; 消极 7%</span>
+                  </div>
+                  <div class="emotion-bar-track">
+                    <div class="emotion-bar-seg positive" style="width: 65%;"></div>
+                    <div class="emotion-bar-seg neutral" style="width: 28%;"></div>
+                    <div class="emotion-bar-seg negative" style="width: 7%;"></div>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-top: var(--spacing-sm); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
+                    <span>基于最近 42 次互动分析</span>
+                    <span style="color: #00B42A; font-weight: 600;">&#8593; 情绪状态良好</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+<!-- Person Info Card Overlay -->
+<div class="person-card-overlay" id="personCardOverlay">
+  <div class="person-card">
+    <button class="person-card-close" onclick="closePersonCard()" title="关闭">&times;</button>
+    <div class="person-card-header">
+      <div class="person-card-avatar" id="pcAvatar">李</div>
+      <div>
+        <div class="person-card-name" id="pcName">李明</div>
+        <div class="person-card-role" id="pcRole">产品经理</div>
+      </div>
+      <span class="person-card-relation-tag" id="pcRelation">亲密</span>
+    </div>
+    <div class="person-card-body">
+      <div class="person-card-section">
+        <div class="person-card-section-title">联系信息</div>
+        <div class="person-card-info-row" id="pcPhone">
+          <span class="person-card-info-icon">📱</span>
+          <span></span>
+        </div>
+        <div class="person-card-info-row" id="pcEmail">
+          <span class="person-card-info-icon">📧</span>
+          <span></span>
+        </div>
+        <div class="person-card-info-row" id="pcWechat">
+          <span class="person-card-info-icon">💬</span>
+          <span></span>
+        </div>
+      </div>
+      <div class="person-card-section">
+        <div class="person-card-section-title">备注</div>
+        <div class="person-card-info-row" id="pcNote">
+          <span class="person-card-info-icon">📝</span>
+          <span></span>
+        </div>
+      </div>
+      <div class="person-card-section">
+        <div class="person-card-section-title">互动频率</div>
+        <div class="person-card-info-row" id="pcFreq">
+          <span class="person-card-info-icon">📊</span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+    <div class="person-card-actions" style="display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--color-border-light); justify-content: space-between;">
+      <div style="display: flex; gap: 8px;">
+        <button onclick="SocialUI.editCurrentContact()" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #FF7D97; background: rgba(255,125,151,0.1); color: #FF7D97; font-size: 12px; cursor: pointer; font-weight: 500;">✏️ 编辑</button>
+        <button onclick="SocialUI.deleteCurrentContact()" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #FF4D4F; background: rgba(255,77,79,0.1); color: #FF4D4F; font-size: 12px; cursor: pointer; font-weight: 500;">🗑️ 删除</button>
+      </div>
+      <button onclick="closePersonCard()" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: white; color: #4A5F80; font-size: 12px; cursor: pointer;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// SocialData — 人际关系模式数据层（统一封装 API 调用 + 静态降级）
+// ═══════════════════════════════════════════════════════════
+const SocialData = {
+  API_PREFIX: '/api/social-relation',
+
+  // 缓存数据
+  cache: {
+    overview: null,
+    relationGraph: null,
+    contacts: [],
+    contactMap: {},
+    interactions: [],
+    reminders: [],
+    eqCourses: [],
+    eqScore: null,
+  },
+
+  // snake_case → camelCase 工具
+  _camel(obj) {
+    if (Array.isArray(obj)) return obj.map(item => this._camel(item));
+    if (obj && typeof obj === 'object') {
+      const result = {};
+      for (const key in obj) {
+        const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+        result[camelKey] = this._camel(obj[key]);
+      }
+      return result;
+    }
+    return obj;
+  },
+
+  // 通用 GET 请求封装
+  async _request(endpoint, options = {}) {
+    try {
+      const data = await YunxiAPI.request('GET', this.API_PREFIX + endpoint, options);
+      return this._camel(data);
+    } catch (err) {
+      console.warn('[SocialData] API 调用失败:', endpoint, err.message);
+      return null;
+    }
+  },
+
+  // 通用写操作请求封装（POST/PUT/PATCH/DELETE）
+  async _mutate(method, endpoint, body = {}) {
+    try {
+      const data = await YunxiAPI.request(method, this.API_PREFIX + endpoint, { body: body });
+      return this._camel(data);
+    } catch (err) {
+      console.warn('[SocialData] API 调用失败:', method, endpoint, err.message);
+      throw err;
+    }
+  },
+
+  // 1. 概览数据
+  async fetchOverview() {
+    const data = await this._request('/overview');
+    if (data) {
+      this.cache.overview = data;
+      return data;
+    }
+    // Fallback 静态数据
+    this.cache.overview = {
+      stats: {
+        totalContacts: 8,
+        totalInteractions: 42,
+        avgCloseness: 78,
+        eqScore: 85,
+        weekInteractions: 12,
+        streakDays: 7,
+      },
+      topContacts: [
+        { id: 'chenjing', name: '陈静', closeness: 95, relation: '家人', avatar: '陈', color: '#F55778' },
+        { id: 'liming', name: '李明', closeness: 92, relation: '亲密好友', avatar: '李', color: '#FF7D97' },
+        { id: 'wangfang', name: '王芳', closeness: 85, relation: '同事', avatar: '王', color: '#FFD166' },
+        { id: 'zhaolei', name: '赵磊', closeness: 78, relation: '导师', avatar: '赵', color: '#94D0FF' },
+        { id: 'liuyang', name: '刘洋', closeness: 70, relation: '朋友', avatar: '刘', color: '#00B42A' },
+        { id: 'zhoulin', name: '周琳', closeness: 65, relation: '朋友', avatar: '周', color: '#9254DE' },
+        { id: 'zhangwei', name: '张伟', closeness: 55, relation: '合作伙伴', avatar: '张', color: '#C9CDD4' },
+      ],
+      emotionStats: { positive: 65, neutral: 28, negative: 7, total: 42 },
+      strategies: [
+        { id: 1, text: '建议: 主动跟进与刘洋的合作讨论', meta: '上次互动: 3天前', priority: 'high', icon: 'chat', color: '#FF7D97' },
+        { id: 2, text: '建议: 本周安排与家人的通话', meta: '距上次通话: 5天', priority: 'medium', icon: 'phone', color: '#D48808' },
+        { id: 3, text: '建议: 回复李明的消息', meta: '未读消息: 2条', priority: 'low', icon: 'mail', color: '#00B42A' },
+      ],
+    };
+    YunxiAPI.showToast('概览数据加载失败，已显示示例数据', 'warning');
+    return this.cache.overview;
+  },
+
+  // 2. 关系图谱
+  async fetchRelationGraph() {
+    const data = await this._request('/relation-graph');
+    if (data && data.nodes && data.links) {
+      this.cache.relationGraph = data;
+      return data;
+    }
+    // Fallback 静态数据
+    this.cache.relationGraph = {
+      nodes: [
+        { id: 'me', name: '我', level: 0, color: '#F55778', x: 0, y: 0 },
+        { id: 'liming', name: '李明', level: 1, color: '#FF7D97', closeness: 92 },
+        { id: 'wangfang', name: '王芳', level: 1, color: '#FFD166', closeness: 85 },
+        { id: 'zhaolei', name: '赵磊', level: 1, color: '#94D0FF', closeness: 78 },
+        { id: 'chenjing', name: '陈静', level: 1, color: '#F55778', closeness: 95 },
+        { id: 'liuyang', name: '刘洋', level: 1, color: '#00B42A', closeness: 70 },
+        { id: 'zhangwei', name: '张伟', level: 1, color: '#C9CDD4', closeness: 55 },
+        { id: 'zhoulin', name: '周琳', level: 1, color: '#9254DE', closeness: 65 },
+      ],
+      links: [
+        { source: 'me', target: 'liming', strength: 0.9, relation: '亲密好友' },
+        { source: 'me', target: 'wangfang', strength: 0.8, relation: '同事' },
+        { source: 'me', target: 'zhaolei', strength: 0.75, relation: '导师' },
+        { source: 'me', target: 'chenjing', strength: 0.95, relation: '家人' },
+        { source: 'me', target: 'liuyang', strength: 0.7, relation: '朋友' },
+        { source: 'me', target: 'zhangwei', strength: 0.55, relation: '合作伙伴' },
+        { source: 'me', target: 'zhoulin', strength: 0.65, relation: '朋友' },
+        { source: 'liming', target: 'wangfang', strength: 0.4, relation: '同事' },
+        { source: 'liming', target: 'zhoulin', strength: 0.4, relation: '朋友' },
+        { source: 'wangfang', target: 'zhaolei', strength: 0.35, relation: '同事' },
+        { source: 'chenjing', target: 'zhangwei', strength: 0.3, relation: '认识' },
+        { source: 'liuyang', target: 'zhangwei', strength: 0.35, relation: '朋友' },
+      ],
+    };
+    YunxiAPI.showToast('关系图谱数据加载失败，已显示示例数据', 'warning');
+    return this.cache.relationGraph;
+  },
+
+  // 3. 联系人列表
+  async fetchContacts(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const data = await this._request('/contacts' + (query ? '?' + query : ''));
+    if (Array.isArray(data)) {
+      this.cache.contacts = data;
+      this._buildContactMap(data);
+      return data;
+    }
+    // Fallback
+    this.cache.contacts = this._getFallbackContacts();
+    this._buildContactMap(this.cache.contacts);
+    YunxiAPI.showToast('联系人数据加载失败，已显示示例数据', 'warning');
+    return this.cache.contacts;
+  },
+
+  async fetchContactDetail(id) {
+    const data = await this._request('/contacts/' + id);
+    if (data && data.contact) {
+      this.cache.contactMap[id] = data.contact;
+      return data;
+    }
+    // Fallback
+    const contacts = this._getFallbackContactsDetail();
+    const fallback = contacts.find(c => c.id === id) || contacts[0];
+    YunxiAPI.showToast('联系人详情加载失败，已显示示例数据', 'warning');
+    return { contact: fallback.contact, interactions: fallback.interactions };
+  },
+
+  // 创建联系人
+  async createContact(contactData) {
+    try {
+      const data = await this._mutate('POST', '/contacts', contactData);
+      if (data) {
+        // 刷新联系人列表缓存
+        await this.fetchContacts();
+        return data;
+      }
+    } catch (err) {
+      YunxiAPI.showToast('创建联系人失败: ' + err.message, 'error');
+    }
+    return null;
+  },
+
+  // 更新联系人
+  async updateContact(id, contactData) {
+    try {
+      const data = await this._mutate('PUT', '/contacts/' + id, contactData);
+      if (data) {
+        // 刷新联系人列表缓存
+        await this.fetchContacts();
+        return data;
+      }
+    } catch (err) {
+      YunxiAPI.showToast('更新联系人失败: ' + err.message, 'error');
+    }
+    return null;
+  },
+
+  // 删除联系人
+  async deleteContact(id) {
+    try {
+      await this._mutate('DELETE', '/contacts/' + id);
+      // 刷新缓存
+      await this.fetchContacts();
+      await this.fetchInteractions();
+      await this.fetchReminders();
+      return true;
+    } catch (err) {
+      YunxiAPI.showToast('删除联系人失败: ' + err.message, 'error');
+      return false;
+    }
+  },
+
+  _buildContactMap(contacts) {
+    this.cache.contactMap = {};
+    contacts.forEach(c => { this.cache.contactMap[c.id] = c; });
+  },
+
+  _getFallbackContacts() {
+    return [
+      { id: 'liming', name: '李明', avatar: '李', relation: '亲密好友', closeness: 92, lastContact: '昨天', contactCount: 86, tags: ['朋友', '同事'] },
+      { id: 'wangfang', name: '王芳', avatar: '王', relation: '同事', closeness: 85, lastContact: '今天', contactCount: 124, tags: ['同事', '项目'] },
+      { id: 'zhaolei', name: '赵磊', avatar: '赵', relation: '导师', closeness: 78, lastContact: '3天前', contactCount: 32, tags: ['导师', '技术'] },
+      { id: 'chenjing', name: '陈静', avatar: '陈', relation: '家人', closeness: 95, lastContact: '2天前', contactCount: 156, tags: ['家人', '姐姐'] },
+      { id: 'liuyang', name: '刘洋', avatar: '刘', relation: '朋友', closeness: 70, lastContact: '5天前', contactCount: 45, tags: ['朋友', '健身'] },
+      { id: 'zhangwei', name: '张伟', avatar: '张', relation: '合作伙伴', closeness: 55, lastContact: '2周前', contactCount: 18, tags: ['合作', '投资'] },
+      { id: 'zhoulin', name: '周琳', avatar: '周', relation: '朋友', closeness: 65, lastContact: '1周前', contactCount: 28, tags: ['朋友', '设计'] },
+    ];
+  },
+
+  _getFallbackContactsDetail() {
+    return [
+      {
+        contact: { id: 'liming', name: '李明', avatar: '李', relation: '亲密好友', closeness: 92, lastContact: '昨天', contactCount: 86, tags: ['朋友', '同事'], phone: '138-0012-3456', email: 'liming@company.com', wechat: 'lm_tech', note: '大学室友，毕业后保持密切联系。经常一起讨论产品方向和技术趋势。', freq: '每周 2-3 次交流，最近互动：昨天', role: '产品经理 · 创新部', relColor: '#FF7D97' },
+        interactions: [
+          { id: 1, contactId: 'liming', contactName: '李明', type: '电话', content: '讨论新产品设计方案', date: '昨天', emotion: 'positive' },
+          { id: 2, contactId: 'liming', contactName: '李明', type: '微信', content: '分享行业文章', date: '3天前', emotion: 'positive' },
+        ],
+      },
+    ];
+  },
+
+  // 4. 交往记录
+  async fetchInteractions(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const data = await this._request('/interactions' + (query ? '?' + query : ''));
+    if (Array.isArray(data)) {
+      this.cache.interactions = data;
+      return data;
+    }
+    // Fallback
+    this.cache.interactions = [
+      { id: 1, contactId: 'liming', contactName: '李明', type: '消息', content: '发来消息', date: '2分钟前', emotion: 'positive' },
+      { id: 2, contactId: 'wangfang', contactName: '王芳', type: '会议', content: '邀请会议', date: '1小时前', emotion: 'neutral' },
+      { id: 3, contactId: 'zhaolei', contactName: '赵磊', type: '评审', content: '提交评审', date: '3小时前', emotion: 'positive' },
+      { id: 4, contactId: 'chenjing', contactName: '陈静', type: '电话', content: '来电提醒', date: '昨天 20:15', emotion: 'positive' },
+      { id: 5, contactId: 'liuyang', contactName: '刘洋', type: '文件', content: '分享文件', date: '昨天 14:30', emotion: 'neutral' },
+    ];
+    YunxiAPI.showToast('互动记录加载失败，已显示示例数据', 'warning');
+    return this.cache.interactions;
+  },
+
+  // 创建交往记录
+  async createInteraction(interactionData) {
+    try {
+      const data = await this._mutate('POST', '/interactions', interactionData);
+      if (data) {
+        // 刷新列表
+        await this.fetchInteractions();
+        await this.fetchContacts();
+        return data;
+      }
+    } catch (err) {
+      YunxiAPI.showToast('记录交往失败: ' + err.message, 'error');
+    }
+    return null;
+  },
+
+  // 5. 社交提醒
+  async fetchReminders() {
+    const data = await this._request('/reminders');
+    if (Array.isArray(data)) {
+      this.cache.reminders = data;
+      return data;
+    }
+    // Fallback
+    this.cache.reminders = [
+      { id: 1, type: 'birthday', title: '陈静 - 生日提醒', description: '还有 3 天 · 建议准备礼物', date: '3天后', priority: 'high', status: 'pending' },
+      { id: 2, type: 'regular', title: '赵磊 - 定期联系', description: '距上次联系 18 天', date: '待联系', priority: 'medium', status: 'pending' },
+      { id: 3, type: 'followup', title: '刘洋 - 合作跟进', description: '上次互动: 3天前', date: '本周内', priority: 'high', status: 'pending' },
+      { id: 4, type: 'message', title: '李明 - 未读消息', description: '未读消息: 2条', date: '昨天', priority: 'low', status: 'pending' },
+      { id: 5, type: 'family', title: '家人通话', description: '距上次通话: 5天', date: '本周内', priority: 'medium', status: 'pending' },
+    ];
+    YunxiAPI.showToast('提醒数据加载失败，已显示示例数据', 'warning');
+    return this.cache.reminders;
+  },
+
+  // 更新提醒状态
+  async updateReminder(id, status) {
+    try {
+      const data = await this._mutate('PATCH', '/reminders/' + id, { status: status });
+      if (data) {
+        await this.fetchReminders();
+        return data;
+      }
+    } catch (err) {
+      YunxiAPI.showToast('更新提醒失败: ' + err.message, 'error');
+    }
+    return null;
+  },
+
+  // 6. 情商课程
+  async fetchEqCourses() {
+    const data = await this._request('/eq-courses');
+    if (Array.isArray(data)) {
+      this.cache.eqCourses = data;
+      return data;
+    }
+    // Fallback
+    this.cache.eqCourses = [
+      { id: 1, title: '高情商沟通入门', progress: 75, totalLessons: 12, completedLessons: 9, description: '学习基本沟通技巧和话术' },
+      { id: 2, title: '冲突管理与化解', progress: 40, totalLessons: 8, completedLessons: 3, description: '掌握冲突处理和矛盾化解方法' },
+      { id: 3, title: '职场人际关系提升', progress: 20, totalLessons: 10, completedLessons: 2, description: '建立和维护职场人脉网络' },
+    ];
+    YunxiAPI.showToast('情商课程加载失败，已显示示例数据', 'warning');
+    return this.cache.eqCourses;
+  },
+
+  // 7. 情商得分
+  async fetchEqScore() {
+    const data = await this._request('/eq-score');
+    if (data && data.score !== undefined) {
+      this.cache.eqScore = data;
+      return data;
+    }
+    // Fallback
+    this.cache.eqScore = {
+      score: 85,
+      level: '良好',
+      dimensions: [
+        { name: '自我认知', score: 88 },
+        { name: '社交能力', score: 82 },
+        { name: '情绪管理', score: 78 },
+        { name: '同理心', score: 90 },
+      ],
+    };
+    YunxiAPI.showToast('情商评分加载失败，已显示示例数据', 'warning');
+    return this.cache.eqScore;
+  },
+
+  // 批量加载所有数据
+  async loadAll() {
+    try {
+      const results = await Promise.allSettled([
+        this.fetchOverview(),
+        this.fetchRelationGraph(),
+        this.fetchContacts(),
+        this.fetchInteractions(),
+        this.fetchReminders(),
+        this.fetchEqCourses(),
+        this.fetchEqScore(),
+      ]);
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      console.log('[SocialData] loadAll 完成:', successCount + '/' + results.length, '个接口成功');
+      return { success: successCount === results.length, total: results.length, succeeded: successCount };
+    } catch (e) {
+      console.error('[SocialData] loadAll 异常:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 获取人员详情（兼容旧的 PEOPLE_DATA 格式）
+  getPersonData(id) {
+    const c = this.cache.contactMap[id];
+    if (!c) return null;
+    const initial = c.avatar || (c.name ? c.name.charAt(0) : '?');
+    const colorMap = {
+      '家人': '#F55778', '亲密好友': '#FF7D97', '好友': '#FF7D97', '朋友': '#9254DE',
+      '同事': '#FFD166', '导师': '#94D0FF', '合作伙伴': '#C9CDD4',
+    };
+    const color = c.color || colorMap[c.relation] || '#FF7D97';
+    return {
+      name: c.name,
+      initial: initial,
+      role: c.relation,
+      relation: c.relation,
+      relColor: color,
+      relBg: color + '1A',
+      phone: c.phone || '—',
+      email: c.email || '—',
+      wechat: c.wechat || '—',
+      note: c.note || '暂无备注',
+      freq: '共 ' + (c.contactCount || 0) + ' 次互动，最近：' + (c.lastContact || '—'),
+    };
+  },
+
+  // 获取所有人员 key 映射（兼容旧的 NODE_NAME_MAP）
+  getNameMap() {
+    const map = {};
+    this.cache.contacts.forEach(c => { map[c.name] = c.id; });
+    return map;
+  },
+};
+
+// v2.2 — Person card interaction (数据来自 SocialData)
+let activeNode = null;
+
+function showPersonCard(personKey) {
+  // 优先从 SocialData 获取，降级到旧 PEOPLE_DATA
+  let p = SocialData.getPersonData(personKey);
+  if (!p && window.PEOPLE_DATA) p = PEOPLE_DATA[personKey];
+  if (!p) return;
+
+  // 设置当前联系人 ID（用于编辑/删除）
+  if (typeof SocialUI !== 'undefined') {
+    SocialUI.setCurrentContact(personKey);
+  }
+
+  // Update card content
+  document.getElementById('pcAvatar').textContent = p.initial;
+  document.getElementById('pcAvatar').style.background = 'linear-gradient(135deg, ' + p.relColor + ', ' + p.relColor + '88)';
+  document.getElementById('pcName').textContent = p.name;
+  document.getElementById('pcRole').textContent = p.role;
+
+  const relTag = document.getElementById('pcRelation');
+  relTag.textContent = p.relation;
+  relTag.style.background = p.relBg;
+  relTag.style.color = p.relColor;
+  relTag.style.border = '1px solid ' + p.relColor + '30';
+
+  // Contact info
+  document.getElementById('pcPhone').querySelector('span:last-child').textContent = p.phone;
+  document.getElementById('pcEmail').querySelector('span:last-child').textContent = p.email;
+  document.getElementById('pcWechat').querySelector('span:last-child').textContent = 'WeChat: ' + p.wechat;
+  document.getElementById('pcNote').querySelector('span:last-child').textContent = p.note;
+  document.getElementById('pcFreq').querySelector('span:last-child').textContent = p.freq;
+
+  // Show overlay
+  document.getElementById('personCardOverlay').classList.add('active');
+
+  // Highlight active node
+  if (activeNode) activeNode.classList.remove('active-node');
+  document.querySelectorAll('.rel-node').forEach(function(node) {
+    const n = node.querySelector('.node-name');
+    if (n && n.textContent === p.name) {
+      node.classList.add('active-node');
+      activeNode = node;
+    }
+  });
+}
+
+function closePersonCard() {
+  document.getElementById('personCardOverlay').classList.remove('active');
+  if (activeNode) {
+    activeNode.classList.remove('active-node');
+    activeNode = null;
+  }
+}
+
+// 绑定人员卡片事件（数据加载后调用）
+function bindPersonCardEvents() {
+  const nameMap = SocialData.getNameMap();
+  // 关系图谱节点双击
+  document.querySelectorAll('.rel-node').forEach(function(node) {
+    if (node.dataset.bound) return;
+    const nameEl = node.querySelector('.node-name');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    const key = nameMap[name];
+    if (key) {
+      node.dataset.bound = 'true';
+      node.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        showPersonCard(key);
+      });
+    }
+  });
+  // 时间线点击
+  document.querySelectorAll('.timeline-item').forEach(function(item) {
+    if (item.dataset.bound) return;
+    const actor = item.querySelector('.actor');
+    if (!actor) return;
+    const name = actor.textContent.trim();
+    const key = nameMap[name];
+    if (key) {
+      item.dataset.bound = 'true';
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showPersonCard(key);
+      });
+    }
+  });
+  // 策略卡片点击
+  document.querySelectorAll('.strategy-card').forEach(function(card) {
+    if (card.dataset.bound) return;
+    const text = card.querySelector('.strategy-text');
+    if (!text) return;
+    const strategyStr = text.textContent;
+    Object.keys(nameMap).forEach(function(personName) {
+      if (strategyStr.indexOf(personName) !== -1) {
+        card.dataset.bound = 'true';
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', function(e) {
+          e.stopPropagation();
+          showPersonCard(nameMap[personName]);
+        });
+      }
+    });
+  });
+}
+
+// Close card on overlay click
+document.getElementById('personCardOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closePersonCard();
+});
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closePersonCard();
+});
+
+// ═══════════════════════════════════════════════════════════
+// v3.0 — ECharts Force-Directed Relationship Graph（数据来自 SocialData）
+// ═══════════════════════════════════════════════════════════
+const RelationGraph = {
+  chart: null,
+
+  init() {
+    const graphDom = document.getElementById('relationGraph');
+    if (!graphDom || typeof echarts === 'undefined') return;
+    this.chart = echarts.init(graphDom, null, { renderer: 'canvas' });
+    window.__relationGraph = this.chart;
+
+    // Double-click to show person card
+    this.chart.on('dblclick', (params) => {
+      if (params.dataType === 'node') {
+        const name = params.name;
+        const nameMap = SocialData.getNameMap();
+        const key = nameMap[name];
+        if (key && typeof showPersonCard === 'function') {
+          showPersonCard(key);
+        }
+      }
+    });
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+      if (this.chart) this.chart.resize();
+    });
+  },
+
+  // 将 API 数据转换为 ECharts 格式
+  _convertGraphData(graphData) {
+    const { nodes, links } = graphData;
+    const pinkMain = '#FF7D97';
+    const pinkDeep = '#F55778';
+
+    // 转换节点
+    const echartsNodes = nodes.map(node => {
+      const isCenter = node.level === 0 || node.id === 'me' || node.name === '我';
+      const color = node.color || pinkMain;
+      const closeness = node.closeness || 0;
+      const size = isCenter ? 52 : (20 + closeness * 0.2);
+
+      if (isCenter) {
+        return {
+          name: node.name,
+          symbolSize: size,
+          category: 0,
+          itemStyle: {
+            color: {
+              type: 'radial', x: 0.4, y: 0.35, r: 0.8,
+              colorStops: [
+                { offset: 0, color: '#FFA0B4' },
+                { offset: 1, color: pinkDeep }
+              ]
+            },
+            shadowBlur: 20,
+            shadowColor: 'rgba(255,125,151,0.5)'
+          },
+          label: { fontSize: 14, fontWeight: 'bold', color: '#fff' }
+        };
+      }
+      return {
+        name: node.name,
+        symbolSize: size,
+        category: 1,
+        value: closeness,
+        itemStyle: { color: color }
+      };
+    });
+
+    // 转换连线
+    const echartsLinks = links.map(link => {
+      const strength = link.strength || 0.5;
+      const isCoreLink = (link.source === 'me' || link.source === '我') ||
+                          (link.target === 'me' || link.target === '我');
+      const lineColor = isCoreLink
+        ? 'rgba(255,125,151,' + (0.3 + strength * 0.3) + ')'
+        : 'rgba(200,200,220,' + (0.2 + strength * 0.15) + ')';
+      return {
+        source: link.source,
+        target: link.target,
+        lineStyle: {
+          width: 1 + strength * 2.5,
+          color: lineColor,
+          type: isCoreLink ? 'solid' : 'dashed'
+        },
+        value: link.relation || ''
+      };
+    });
+
+    return { nodes: echartsNodes, links: echartsLinks };
+  },
+
+  async loadData() {
+    if (!this.chart) this.init();
+    if (!this.chart) return;
+
+    const graphData = SocialData.cache.relationGraph || await SocialData.fetchRelationGraph();
+    const converted = this._convertGraphData(graphData);
+
+    const pinkMain = '#FF7D97';
+    const pinkLight = '#FF9FB4';
+
+    const option = {
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderColor: 'rgba(100,150,220,0.12)',
+        textStyle: { color: '#1A2B4A', fontSize: 12, fontFamily: 'Inter, PingFang SC, sans-serif' },
+        formatter: function(params) {
+          if (params.dataType === 'node') {
+            const intimacy = params.data.value || '';
+            return '<b>' + params.name + '</b>' + (intimacy ? '<br>亲密度：' + intimacy + '%' : '');
+          }
+          const rel = params.data.value || '';
+          return params.data.source + ' ↔ ' + params.data.target + (rel ? '<br>关系：' + rel : '');
+        }
+      },
+      series: [{
+        type: 'graph',
+        layout: 'force',
+        data: converted.nodes,
+        links: converted.links,
+        categories: [
+          { name: '自我', itemStyle: { color: pinkMain } },
+          { name: '核心圈', itemStyle: { color: pinkLight } }
+        ],
+        roam: true,
+        draggable: true,
+        label: {
+          show: true,
+          color: '#4A5F80',
+          fontSize: 11,
+          fontFamily: 'Inter, PingFang SC, sans-serif',
+          position: 'bottom',
+          distance: 8,
+          formatter: function(params) {
+            if (params.name === '我') return '';
+            return params.name;
+          }
+        },
+        force: {
+          repulsion: 320,
+          edgeLength: [100, 200],
+          gravity: 0.1,
+          layoutAnimation: true,
+          friction: 0.6
+        },
+        emphasis: {
+          focus: 'adjacency',
+          lineStyle: { width: 3 },
+          itemStyle: { shadowBlur: 15, shadowColor: 'rgba(255,125,151,0.6)' },
+          label: { fontSize: 13, fontWeight: 'bold' }
+        },
+        lineStyle: {
+          curveness: 0.15
+        },
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut'
+      }]
+    };
+
+    this.chart.setOption(option, true);
+  },
+
+  resize() {
+    if (this.chart) this.chart.resize();
+  }
+};
+
+/* ============================================================
+   人际关系模式 - 完整交互功能（增强）
+   ============================================================ */
+
+// ===== 模式导航切换 =====
+(function() {
+  document.querySelectorAll('.mode-tab, .nav-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = tab.getAttribute('href');
+      if (href && !href.includes('social-relation')) {
+        YunxiAPI.showLoading('切换模式中...');
+        setTimeout(() => {
+          YunxiAPI.hideLoading();
+          window.location.href = href;
+        }, 300);
+      }
+    });
+  });
+})();
+
+// ===== 侧边栏导航 =====
+(function() {
+  document.querySelectorAll('.sidebar-nav .nav-item, .sidebar .nav-item, .sidebar-menu-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.sidebar-nav .nav-item, .sidebar .nav-item, .sidebar-menu-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      const label = item.textContent.trim();
+      YunxiAPI.showToast('已切换到: ' + label, 'success');
+    });
+  });
+})();
+
+// ===== 右侧面板 & 统计卡片 UI 更新（数据来自 SocialData） =====
+const UIUpdater = {
+  // 更新所有静态数据区域
+  async updateAll() {
+    this.updateStats();
+    this.updateStrategies();
+    this.updateTimeline();
+    this.updateRankList();
+    this.updateEmotionSummary();
+    // 关系图谱
+    if (typeof RelationGraph !== 'undefined') {
+      await RelationGraph.loadData();
+    }
+    // 绑定人员卡片事件
+    if (typeof bindPersonCardEvents === 'function') {
+      bindPersonCardEvents();
+    }
+  },
+
+  // 更新统计卡片
+  updateStats() {
+    const overview = SocialData.cache.overview;
+    if (!overview || !overview.stats) return;
+    const s = overview.stats;
+
+    // 更新四个统计卡片的数值
+    const statCards = document.querySelectorAll('.stats-row .stat-card');
+    if (statCards.length >= 4) {
+      // 核心关系
+      const val1 = statCards[0].querySelector('.stat-value');
+      if (val1) val1.innerHTML = s.totalContacts + '<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">人</span>';
+      // 本月互动
+      const val2 = statCards[1].querySelector('.stat-value');
+      if (val2) val2.innerHTML = s.totalInteractions + '<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">次</span>';
+      // 沟通评分
+      const val3 = statCards[2].querySelector('.stat-value');
+      if (val3) val3.innerHTML = s.eqScore + '<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">分</span>';
+      // 待处理提醒
+      const val4 = statCards[3].querySelector('.stat-value');
+      const reminderCount = SocialData.cache.reminders ? SocialData.cache.reminders.length : 3;
+      if (val4) val4.innerHTML = reminderCount + '<span style="font-size: var(--font-size-xl); font-weight: var(--font-weight-medium); color: var(--color-text-tertiary); margin-left: 4px;">项</span>';
+    }
+  },
+
+  // 更新策略建议列表
+  updateStrategies() {
+    const overview = SocialData.cache.overview;
+    const strategyList = document.querySelector('.strategy-list');
+    if (!strategyList) return;
+
+    let strategies = [];
+    if (overview && overview.strategies && overview.strategies.length) {
+      strategies = overview.strategies;
+    } else if (SocialData.cache.reminders && SocialData.cache.reminders.length) {
+      // 如果没有策略数据，用提醒数据替代
+      strategies = SocialData.cache.reminders.slice(0, 3).map(r => ({
+        id: r.id,
+        text: '建议: ' + r.title,
+        meta: r.description,
+        priority: r.priority,
+        icon: this._priorityToIcon(r.priority),
+        color: this._priorityToColor(r.priority),
+      }));
+    }
+
+    const iconMap = {
+      chat: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7D97" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+      phone: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D48808" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
+      mail: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B42A" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>',
+    };
+
+    const iconColorMap = {
+      '#FF7D97': 'pink',
+      '#D48808': 'yellow',
+      '#00B42A': 'green',
+    };
+
+    strategyList.innerHTML = strategies.map(s => {
+      const iconType = s.icon || 'chat';
+      const iconSvg = iconMap[iconType] || iconMap.chat;
+      const colorClass = iconColorMap[s.color] || 'pink';
+      const priorityLabel = s.priority === 'high' ? '高' : s.priority === 'medium' ? '中' : '低';
+      return `
+        <div class="strategy-card" data-strategy-id="${s.id}">
+          <div class="strategy-icon ${colorClass}">${iconSvg}</div>
+          <div class="strategy-content">
+            <div class="strategy-text">${s.text}</div>
+            <div class="strategy-meta">${s.meta}</div>
+          </div>
+          <span class="priority-tag ${s.priority}">${priorityLabel}</span>
+        </div>
+      `;
+    }).join('');
+  },
+
+  _priorityToIcon(priority) {
+    if (priority === 'high') return 'chat';
+    if (priority === 'medium') return 'phone';
+    return 'mail';
+  },
+
+  _priorityToColor(priority) {
+    if (priority === 'high') return '#FF7D97';
+    if (priority === 'medium') return '#D48808';
+    return '#00B42A';
+  },
+
+  // 更新最近互动时间线
+  updateTimeline() {
+    const interactions = SocialData.cache.interactions;
+    const timelineList = document.querySelector('.timeline-list');
+    if (!timelineList || !interactions || !interactions.length) return;
+
+    const avatarColors = ['p1', 'p2', 'p3', 'p4', 'p5'];
+    const colorMap = {};
+    let colorIdx = 0;
+
+    timelineList.innerHTML = interactions.slice(0, 5).map(item => {
+      const name = item.contactName || '';
+      const initial = name.charAt(0);
+      if (!colorMap[name]) {
+        colorMap[name] = avatarColors[colorIdx % avatarColors.length];
+        colorIdx++;
+      }
+      const actionText = item.content || item.type || '';
+      return `
+        <div class="timeline-item" data-interaction-id="${item.id}">
+          <div class="timeline-avatar ${colorMap[name]}">${initial}</div>
+          <div class="timeline-info">
+            <div class="timeline-action"><span class="actor">${name}</span> ${actionText}</div>
+          </div>
+          <span class="timeline-time">${item.date || ''}</span>
+        </div>
+      `;
+    }).join('');
+  },
+
+  // 更新亲密度排行
+  updateRankList() {
+    const overview = SocialData.cache.overview;
+    const rankList = document.querySelector('.rank-list');
+    if (!rankList) return;
+
+    let contacts = [];
+    if (overview && overview.topContacts && overview.topContacts.length) {
+      contacts = overview.topContacts;
+    } else if (SocialData.cache.contacts && SocialData.cache.contacts.length) {
+      contacts = [...SocialData.cache.contacts].sort((a, b) => (b.closeness || 0) - (a.closeness || 0));
+    }
+    if (!contacts.length) return;
+
+    const colorFor = (c, idx) => {
+      if (c.color) return c.color;
+      const colors = ['#F55778', '#FF7D97', '#FFD166', '#94D0FF', '#00B42A', '#9254DE', '#C9CDD4'];
+      return colors[idx % colors.length];
+    };
+
+    rankList.innerHTML = contacts.slice(0, 7).map((c, idx) => {
+      const color = colorFor(c, idx);
+      const initial = c.avatar || c.name.charAt(0);
+      const closeness = c.closeness || 0;
+      return `
+        <div class="rank-item">
+          <div class="rank-row">
+            <span class="rank-avatar" style="background:linear-gradient(135deg,${color},${color}cc);">${initial}</span>
+            <span class="rank-name">${c.name}</span>
+            <span class="rank-value">${closeness}%</span>
+          </div>
+          <div class="rank-bar"><div class="rank-fill" style="width:${closeness}%;background:linear-gradient(90deg,${color},${color}aa);"></div></div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  // 更新情绪基调
+  updateEmotionSummary() {
+    const overview = SocialData.cache.overview;
+    const emotionCard = document.querySelector('.panel-card .emotion-tags');
+    if (!emotionCard) return;
+
+    let stats = { positive: 65, neutral: 28, negative: 7, total: 42 };
+    if (overview && overview.emotionStats) {
+      stats = Object.assign(stats, overview.emotionStats);
+    } else if (SocialData.cache.interactions && SocialData.cache.interactions.length) {
+      // 从互动记录计算
+      const total = SocialData.cache.interactions.length;
+      let positive = 0, neutral = 0, negative = 0;
+      SocialData.cache.interactions.forEach(item => {
+        if (item.emotion === 'positive') positive++;
+        else if (item.emotion === 'negative') negative++;
+        else neutral++;
+      });
+      stats = {
+        positive: total ? Math.round(positive / total * 100) : 0,
+        neutral: total ? Math.round(neutral / total * 100) : 0,
+        negative: total ? Math.round(negative / total * 100) : 0,
+        total: total,
+      };
+    }
+
+    const cardBody = emotionCard.closest('.panel-card-body');
+    if (!cardBody) return;
+
+    const positiveTag = emotionCard.querySelector('.emotion-tag.positive');
+    const neutralTag = emotionCard.querySelector('.emotion-tag.neutral');
+    const negativeTag = emotionCard.querySelector('.emotion-tag.negative');
+    if (positiveTag) positiveTag.innerHTML = '&#128994; 积极 ' + stats.positive + '%';
+    if (neutralTag) neutralTag.innerHTML = '&#128992; 中性 ' + stats.neutral + '%';
+    if (negativeTag) negativeTag.innerHTML = '&#128993; 消极 ' + stats.negative + '%';
+
+    const barTrack = cardBody.querySelector('.emotion-bar-track');
+    if (barTrack) {
+      const segs = barTrack.querySelectorAll('.emotion-bar-seg');
+      if (segs.length >= 3) {
+        segs[0].style.width = stats.positive + '%';
+        segs[1].style.width = stats.neutral + '%';
+        segs[2].style.width = stats.negative + '%';
+      }
+    }
+
+    const metaRow = cardBody.querySelector('[style*="justify-content: space-between"]');
+    if (metaRow) {
+      const firstSpan = metaRow.querySelector('span:first-child');
+      if (firstSpan) firstSpan.textContent = '基于最近 ' + stats.total + ' 次互动分析';
+    }
+  },
+};
+
+// ===== 功能标签页（人脉图谱/交往记录/情商分析/提醒） =====
+const SocialTabs = {
+  tabs: ['人脉图谱', '交往记录', '情商分析', '提醒'],
+  currentTab: '人脉图谱',
+
+  init() {
+    const mainContent = document.querySelector('.main-content');
+    if (!mainContent) return;
+
+    const contentArea = mainContent.querySelector('.content-scroll, .main-content-area');
+    if (!contentArea) return;
+
+    // 创建 tab 栏
+    const tabBar = document.createElement('div');
+    tabBar.className = 'social-tab-bar';
+    tabBar.style.cssText = `
+      display: flex; gap: 4px; padding: 12px 20px 0;
+      border-bottom: 1px solid var(--color-border-light);
+    `;
+
+    this.tabs.forEach((tab, idx) => {
+      const tabBtn = document.createElement('button');
+      tabBtn.className = 'social-tab-btn' + (idx === 0 ? ' active' : '');
+      tabBtn.dataset.tab = tab;
+      tabBtn.textContent = tab;
+      tabBtn.style.cssText = `
+        padding: 8px 18px; border: none; border-radius: 8px 8px 0 0;
+        background: transparent; font-size: 13px; font-weight: 500;
+        cursor: pointer; transition: all 0.2s;
+        color: ${idx === 0 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)'};
+        border-bottom: 2px solid ${idx === 0 ? '#FF7D97' : 'transparent'};
+      `;
+      tabBtn.addEventListener('click', () => this.switchTab(tab));
+      tabBar.appendChild(tabBtn);
+    });
+
+    contentArea.parentNode.insertBefore(tabBar, contentArea);
+    this.contentArea = contentArea;
+    this.originalContent = contentArea.innerHTML;
+  },
+
+  switchTab(tabName) {
+    document.querySelectorAll('.social-tab-btn').forEach(btn => {
+      const isActive = btn.dataset.tab === tabName;
+      btn.classList.toggle('active', isActive);
+      btn.style.color = isActive ? '#FF7D97' : 'var(--color-text-tertiary)';
+      btn.style.borderBottom = isActive ? '2px solid #FF7D97' : '2px solid transparent';
+    });
+    this.currentTab = tabName;
+    this.renderTabContent(tabName);
+    YunxiAPI.showToast('已切换到: ' + tabName, 'success');
+  },
+
+  renderTabContent(tabName) {
+    if (!this.contentArea) return;
+
+    if (tabName === '人脉图谱') {
+      this.contentArea.innerHTML = this.renderRelationGraphTab();
+      // 重新渲染关系图谱
+      (async () => {
+        if (typeof RelationGraph !== 'undefined') {
+          await RelationGraph.loadData();
+        }
+        if (typeof bindPersonCardEvents === 'function') {
+          bindPersonCardEvents();
+        }
+        SocialUI.bindContactListEvents();
+      })();
+    } else {
+      const contents = {
+        '交往记录': this.renderContactRecords(),
+        '情商分析': this.renderEQAnalysis(),
+        '提醒': this.renderReminders(),
+      };
+      this.contentArea.innerHTML = contents[tabName] || this.originalContent;
+    }
+
+    this.bindTabEvents(tabName);
+  },
+
+  renderRelationGraphTab() {
+    const contacts = SocialData.cache.contacts || [];
+
+    const getRelationColor = (relation) => {
+      const colorMap = {
+        '家人': '#F55778', '亲密好友': '#FF7D97', '好友': '#FF7D97',
+        '朋友': '#9254DE', '同事': '#FFD166', '导师': '#94D0FF',
+        '合作伙伴': '#C9CDD4',
+      };
+      return colorMap[relation] || '#FF7D97';
+    };
+
+    const contactsHtml = contacts.length ? contacts.map(c => {
+      const color = getRelationColor(c.relation);
+      const avatar = c.avatar || c.name.charAt(0);
+      return `
+        <div class="contact-list-item" data-contact-id="${c.id}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, ${color}, ${color}aa); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; flex-shrink: 0;">${avatar}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--color-text-primary);">${c.name}</div>
+            <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px;">${c.relation || ''} · 联系 ${c.contactCount || 0} 次 · ${c.lastContact || '—'}</div>
+          </div>
+          <div style="font-size: 11px; color: ${color}; font-weight: 600; flex-shrink: 0;">${c.closeness || 0}%</div>
+        </div>
+      `;
+    }).join('') : `
+      <div style="text-align: center; padding: 30px 0; color: var(--color-text-tertiary); font-size: 13px;">
+        暂无联系人，点击右上角添加
+      </div>
+    `;
+
+    return `
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; box-sizing: border-box;">
+        <!-- 关系图谱 -->
+        <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; overflow: hidden; flex-shrink: 0; height: 340px; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light);">
+            <h3 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary);">人脉图谱</h3>
+            <button onclick="SocialUI.openAddContactForm()" style="padding: 5px 12px; border-radius: 6px; border: 1px solid #FF7D97; background: rgba(255,125,151,0.1); color: #FF7D97; font-size: 12px; cursor: pointer; font-weight: 500;">
+              + 添加联系人
+            </button>
+          </div>
+          <div id="relationGraph" style="width: 100%; height: calc(100% - 45px);"></div>
+        </div>
+        <!-- 联系人列表 -->
+        <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 16px; flex: 1; min-height: 0; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <h3 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary);">联系人列表 <span style="font-size: 12px; color: var(--color-text-tertiary); font-weight: 400;">(${contacts.length})</span></h3>
+          </div>
+          <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+            ${contactsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderContactRecords() {
+    const interactions = SocialData.cache.interactions || [];
+    const contacts = SocialData.cache.contactMap || {};
+
+    const getRelation = (contactId) => {
+      const c = contacts[contactId];
+      return c ? c.relation : '';
+    };
+    const getRelationColor = (contactId) => {
+      const c = contacts[contactId];
+      if (!c) return '#FF7D97';
+      const colorMap = {
+        '家人': '#F55778', '亲密好友': '#FF7D97', '好友': '#FF7D97',
+        '朋友': '#9254DE', '同事': '#FFD166', '导师': '#94D0FF',
+        '合作伙伴': '#C9CDD4',
+      };
+      return c.color || colorMap[c.relation] || '#FF7D97';
+    };
+    const getAvatarColor = (idx) => {
+      const colors = [
+        'linear-gradient(135deg, #FF7D97, #F55778)',
+        'linear-gradient(135deg, #FFD166, #FFB347)',
+        'linear-gradient(135deg, #94D0FF, #5B8DEF)',
+        'linear-gradient(135deg, #00B42A, #23C343)',
+        'linear-gradient(135deg, #9254DE, #722ED1)',
+      ];
+      return colors[idx % colors.length];
+    };
+
+    const records = interactions.length ? interactions : [
+      { id: 1, contactId: 'liming', contactName: '李明', type: '电话', content: '讨论了新产品设计方案，约定下周三一起参加行业沙龙...', date: '昨天', emotion: 'positive' },
+      { id: 2, contactId: 'wangfang', contactName: '王芳', type: '微信消息', content: '确认了下周迭代计划，前端任务分配完毕...', date: '今天', emotion: 'neutral' },
+    ];
+
+    const recordsHtml = records.map((item, idx) => {
+      const name = item.contactName || '';
+      const initial = name.charAt(0);
+      const relation = getRelation(item.contactId);
+      const relColor = getRelationColor(item.contactId);
+      const avatarBg = getAvatarColor(idx);
+      return `
+        <div class="contact-record" style="padding: 14px; background: var(--color-page-bg); border-radius: 8px; cursor: pointer;" data-contact-id="${item.contactId}">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 36px; height: 36px; border-radius: 50%; background: ${avatarBg}; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 600;">${initial}</div>
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--color-text-primary);">${name}</div>
+                <div style="font-size: 11px; color: var(--color-text-tertiary);">${item.date} · ${item.type}</div>
+              </div>
+            </div>
+            ${relation ? `<span style="font-size: 11px; background: ${relColor}1A; color: ${relColor}; padding: 2px 8px; border-radius: 10px;">${relation}</span>` : ''}
+          </div>
+          <div style="font-size: 12px; color: var(--color-text-secondary); line-height: 1.6;">${item.content || ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">交往记录</h3>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="SocialUI.openInteractionForm()" style="padding: 6px 14px; border-radius: 6px; border: none; background: linear-gradient(135deg, #FF7D97, #F55778); color: white; font-size: 12px; cursor: pointer; font-weight: 500;">
+                + 记录交往
+              </button>
+              <button class="ai-contact-btn" data-require-ollama style="padding: 6px 14px; border-radius: 6px; border: 1px solid #FF7D97; background: rgba(255,125,151,0.1); color: #FF7D97; font-size: 12px; cursor: pointer;">
+                AI 智能整理
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${recordsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderEQAnalysis() {
+    const eqScore = SocialData.cache.eqScore || {
+      score: 85, level: '良好',
+      dimensions: [
+        { name: '自我认知', score: 88 },
+        { name: '社交能力', score: 82 },
+        { name: '情绪管理', score: 78 },
+        { name: '同理心', score: 90 },
+      ],
+    };
+    const eqCourses = SocialData.cache.eqCourses || [];
+
+    const dimColors = ['#FF7D97', '#9254DE', '#00B42A', '#FFD166'];
+    const dimensionsHtml = eqScore.dimensions.map((d, idx) => `
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+          <span style="color: var(--color-text-secondary);">${d.name}</span>
+          <span style="color: var(--color-text-primary); font-weight: 600;">${d.score}%</span>
+        </div>
+        <div style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+          <div style="width: ${d.score}%; height: 100%; background: ${dimColors[idx % dimColors.length]}; border-radius: 2px;"></div>
+        </div>
+      </div>
+    `).join('');
+
+    let coursesHtml = '';
+    if (eqCourses.length) {
+      coursesHtml = `
+        <div style="margin-top: 16px;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 12px;">情商课程进度</div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${eqCourses.map(c => `
+              <div style="padding: 12px; background: var(--color-page-bg); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div style="font-size: 12px; font-weight: 600; color: var(--color-text-primary);">${c.title}</div>
+                  <div style="font-size: 11px; color: #FF7D97; font-weight: 600;">${c.progress || 0}%</div>
+                </div>
+                <div style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+                  <div style="width: ${c.progress || 0}%; height: 100%; background: linear-gradient(90deg, #FF7D97, #F55778); border-radius: 2px;"></div>
+                </div>
+                <div style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 4px;">
+                  ${c.completedLessons || 0} / ${c.totalLessons || 0} 课时 · ${c.description || ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">情商分析报告</h3>
+            <button class="ai-eq-btn" data-require-ollama style="padding: 6px 14px; border-radius: 6px; border: 1px solid #FF7D97; background: rgba(255,125,151,0.1); color: #FF7D97; font-size: 12px; cursor: pointer;">
+              AI 深度分析
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+            <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 8px;">整体情商评分 · ${eqScore.level || '良好'}</div>
+              <div style="font-size: 32px; font-weight: 700; color: #FF7D97;">${eqScore.score}</div>
+              <div style="margin-top: 8px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${eqScore.score}%; height: 100%; background: linear-gradient(90deg, #FF7D97, #F55778); border-radius: 3px;"></div>
+              </div>
+            </div>
+            <div style="padding: 16px; background: var(--color-page-bg); border-radius: 8px;">
+              <div style="font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 10px;">维度分析</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${dimensionsHtml}
+              </div>
+            </div>
+          </div>
+          ${coursesHtml}
+        </div>
+      </div>
+    `;
+  },
+
+  renderReminders() {
+    const reminders = SocialData.cache.reminders || [];
+
+    const remindersHtml = reminders.length ? reminders.map(r => {
+      const isHigh = r.priority === 'high';
+      const bgStyle = isHigh
+        ? 'background: linear-gradient(135deg, rgba(255,77,79,0.08), rgba(255,125,0,0.08));'
+        : 'background: var(--color-page-bg);';
+      const avatarBg = isHigh
+        ? 'linear-gradient(135deg, #FF4D4F, #FF7D00)'
+        : 'linear-gradient(135deg, #94D0FF, #5B8DEF)';
+      const priorityStyle = isHigh
+        ? 'background: rgba(255,77,79,0.15); color: #FF4D4F; font-weight: 600;'
+        : 'background: var(--color-primary-light); color: var(--color-primary-text);';
+      const priorityLabel = isHigh ? '紧急' : (r.priority === 'medium' ? '重要' : '普通');
+      const initial = (r.title || '').charAt(0);
+
+      const isDone = r.status === 'done';
+      const titleStyle = isDone ? 'text-decoration: line-through; color: var(--color-text-tertiary);' : '';
+      const descStyle = isDone ? 'opacity: 0.6;' : '';
+
+      return `
+        <div class="reminder-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; ${bgStyle} border-radius: 8px; ${isDone ? 'opacity: 0.6;' : ''}" data-reminder-id="${r.id}">
+          <div class="reminder-checkbox" data-reminder-id="${r.id}" style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid ${isDone ? '#00B42A' : '#d1d5db'}; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; background: ${isDone ? '#00B42A' : 'white'}; transition: all 0.2s;">
+            ${isDone ? '<span style="color: white; font-size: 12px; line-height: 1;">✓</span>' : ''}
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: ${avatarBg}; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 600; flex-shrink: 0;">${initial}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--color-text-primary); ${titleStyle}">${r.title}</div>
+            <div style="font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; ${descStyle}">${r.description || ''}${r.date ? ' · ' + r.date : ''}</div>
+          </div>
+          <span style="font-size: 11px; ${priorityStyle} padding: 4px 10px; border-radius: 10px; flex-shrink: 0;">${priorityLabel}</span>
+        </div>
+      `;
+    }).join('') : `
+      <div style="text-align: center; padding: 40px 0; color: var(--color-text-tertiary); font-size: 13px;">
+        暂无提醒
+      </div>
+    `;
+
+    return `
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--color-card-bg); border: 1px solid var(--color-border-light); border-radius: 12px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--color-text-primary);">联系提醒</h3>
+            <button class="ai-remind-btn" data-require-ollama style="padding: 6px 14px; border-radius: 6px; border: 1px solid #FF7D97; background: rgba(255,125,151,0.1); color: #FF7D97; font-size: 12px; cursor: pointer;">
+              AI 智能提醒
+            </button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${remindersHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  bindTabEvents(tabName) {
+    // AI 按钮
+    document.querySelectorAll('.ai-contact-btn, .ai-eq-btn, .ai-remind-btn').forEach(btn => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', async () => {
+        const text = btn.textContent.trim();
+        const validation = await YunxiAPI.validateSystem({ ollama: true });
+        if (!validation.pass) {
+          YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+          return;
+        }
+
+        // 根据按钮类型选择对应的 prompt 和 fallback
+        let promptKey = 'contact';
+        if (btn.classList.contains('ai-eq-btn')) promptKey = 'eq';
+        else if (btn.classList.contains('ai-remind-btn')) promptKey = 'remind';
+
+        const prompt = AIHelper.prompts[promptKey]();
+        const fallback = AIHelper.fallbacks[promptKey] || (text + '完成');
+        const result = await AIHelper.callAI(
+          prompt,
+          fallback,
+          'AI 正在' + text.replace('AI ', '') + '...'
+        );
+        if (result.success) {
+          YunxiAPI.showToast(text + '完成', 'success');
+          console.log('[AI] ' + text + '结果:', result.data);
+        }
+      });
+    });
+
+    // 交往记录点击
+    document.querySelectorAll('.contact-record').forEach(item => {
+      if (item.dataset.bound) return;
+      item.dataset.bound = 'true';
+      item.addEventListener('click', () => {
+        YunxiAPI.showToast('查看交往详情', 'info');
+      });
+    });
+
+    // 提醒项点击（点击勾选框切换完成状态，其他区域查看详情）
+    document.querySelectorAll('.reminder-checkbox').forEach(checkbox => {
+      if (checkbox.dataset.bound) return;
+      checkbox.dataset.bound = 'true';
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rid = checkbox.dataset.reminderId;
+        if (typeof SocialUI !== 'undefined') {
+          SocialUI.toggleReminderDone(rid);
+        }
+      });
+    });
+
+    // 提醒项点击（除勾选框外）
+    document.querySelectorAll('.reminder-item').forEach(item => {
+      if (item.dataset.bound) return;
+      item.dataset.bound = 'true';
+      item.addEventListener('click', (e) => {
+        // 如果点击的是勾选框，不触发
+        if (e.target.closest('.reminder-checkbox')) return;
+        YunxiAPI.showToast('查看提醒详情', 'info');
+      });
+    });
+  },
+
+  bindContactListEvents() {
+    // 联系人列表项点击
+    document.querySelectorAll('.contact-list-item').forEach(item => {
+      if (item.dataset.bound) return;
+      item.dataset.bound = 'true';
+      item.addEventListener('click', () => {
+        const cid = item.dataset.contactId;
+        if (cid && typeof showPersonCard === 'function') {
+          showPersonCard(cid);
+        }
+      });
+      // hover 效果
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--color-page-bg)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'transparent';
+      });
+    });
+  }
+};
+
+// ===== AI 调用辅助模块 =====
+const AIHelper = {
+  /**
+   * 调用真实 LLM API，失败时使用降级方案
+   */
+  async callAI(prompt, fallback, loadingText) {
+    if (loadingText) {
+      YunxiAPI.showLoading(loadingText);
+    }
+    try {
+      const data = await YunxiAPI.request('POST', '/chat/send', {
+        body: { message: prompt, stream: false }
+      });
+      const response = data.response || fallback;
+      return { success: true, data: response, fromAPI: true };
+    } catch (error) {
+      console.warn('[AI] API 调用失败，使用降级方案:', error.message);
+      await new Promise(r => setTimeout(r, 500));
+      YunxiAPI.showToast('AI 服务暂时不可用，展示示例结果', 'warning');
+      return { success: true, data: fallback, fromAPI: false };
+    } finally {
+      if (loadingText) {
+        YunxiAPI.hideLoading();
+      }
+    }
+  },
+
+  // 人际关系模式 - 各功能的 prompt 构建
+  prompts: {
+    contact: () => {
+      return `请作为人际关系顾问，帮我分析和优化我的人脉网络。
+要求：
+1. 分析当前人脉关系结构（亲密朋友、同事、合作伙伴等）
+2. 识别重要关系和需要维护的关系
+3. 给出关系维护建议和频率
+4. 推荐拓展人脉的方向和方法
+5. 提供沟通技巧和注意事项
+
+请给出实用、可操作的建议。`;
+    },
+
+    eq: () => {
+      return `请作为情商提升教练，帮我分析和提升沟通能力。
+要求：
+1. 评估常见沟通场景的应对方式
+2. 识别可能的沟通盲区和问题
+3. 提供高情商沟通技巧和话术
+4. 给出冲突处理和化解矛盾的方法
+5. 推荐日常练习和提升路径
+
+请结合具体场景给出实用建议。`;
+    },
+
+    remind: () => {
+      return `请作为社交提醒助手，帮我生成智能社交提醒。
+要求：
+1. 重要日期提醒（生日、纪念日等）
+2. 定期联系提醒（老朋友、师长、客户等）
+3. 社交礼仪和注意事项
+4. 礼物推荐和心意建议
+5. 沟通话题和破冰技巧
+
+请给出温暖、贴心的提醒方案。`;
+    }
+  },
+
+  // 降级结果（模拟数据）
+  fallbacks: {
+    contact: '人脉分析完成：\n【关系结构】亲密朋友 8 人、同事 25 人、合作伙伴 12 人\n【重点维护】3 位长期未联系的老朋友\n【建议】每周联系 2-3 位朋友，每月组织一次小聚\n【拓展方向】参加行业活动、加入兴趣社群',
+    eq: '沟通能力分析完成：\n【优势】倾听能力强、善于换位思考\n【提升点】表达观点时可以更直接自信\n【技巧】使用"我感觉"代替"你总是"、先肯定再建议\n【练习】每天尝试一次主动赞美他人',
+    remind: '社交提醒已生成：\n【近期提醒】下周三朋友生日、本月底客户回访\n【建议联系】3 位超过半年未联系的老朋友\n【礼物推荐】定制书签、手写信、咖啡券\n【破冰话题】最近看的电影、美食推荐、旅行计划'
+  }
+};
+
+// ===== 右侧面板 Tab 切换 =====
+(function() {
+  const rightPanel = document.querySelector('.right-panel, .social-right-panel');
+  if (!rightPanel) {
+    const panels = document.querySelectorAll('[class*="right"]');
+    if (panels.length === 0) return;
+  }
+  const panel = rightPanel || document.querySelector('[class*="right"]');
+  if (!panel) return;
+
+  const tabContainer = document.createElement('div');
+  tabContainer.className = 'right-panel-tabs';
+  tabContainer.style.cssText = `
+    display: flex; gap: 2px; background: var(--color-page-bg);
+    border-radius: 8px; padding: 3px; margin-bottom: 12px;
+  `;
+
+  const tabs = [
+    { id: 'tools', name: '工具' },
+    { id: 'history', name: '记录' },
+    { id: 'settings', name: '设置' },
+  ];
+
+  tabs.forEach((tab, idx) => {
+    const tabBtn = document.createElement('button');
+    tabBtn.className = 'right-panel-tab' + (idx === 0 ? ' active' : '');
+    tabBtn.dataset.tab = tab.id;
+    tabBtn.textContent = tab.name;
+    tabBtn.style.cssText = `
+      flex: 1; padding: 6px 0; border: none; border-radius: 6px;
+      background: ${idx === 0 ? '#fff' : 'transparent'};
+      font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+      color: ${idx === 0 ? '#FF7D97' : 'var(--color-text-tertiary)'};
+    `;
+    tabBtn.addEventListener('click', () => {
+      document.querySelectorAll('.right-panel-tab').forEach(t => {
+        t.classList.remove('active');
+        t.style.color = 'var(--color-text-tertiary)';
+        t.style.background = 'transparent';
+      });
+      tabBtn.classList.add('active');
+      tabBtn.style.color = '#FF7D97';
+      tabBtn.style.background = '#fff';
+      YunxiAPI.showToast('已切换到: ' + tab.name, 'info');
+    });
+    tabContainer.appendChild(tabBtn);
+  });
+
+  panel.insertBefore(tabContainer, panel.firstChild);
+})();
+
+// ===== 用户头像 & 状态 =====
+(function() {
+  const avatar = document.querySelector('.user-avatar, .header-avatar');
+  if (avatar) {
+    avatar.style.cursor = 'pointer';
+    avatar.addEventListener('click', () => {
+      YunxiAPI.showToast('用户菜单开发中...', 'info');
+    });
+  }
+})();
+
+// ===== 对话功能管理 =====
+const ChatManager = {
+  messages: [],
+  STORAGE_KEY: 'yunxi_social_chat',
+
+  init() {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (stored) {
+      try { this.messages = JSON.parse(stored); } catch(e) { this.messages = []; }
+    }
+  },
+
+  addMessage(role, content) {
+    this.messages.push({ id: Date.now(), role, content, time: new Date().toISOString() });
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.messages));
+  },
+
+  clearMessages() {
+    this.messages = [];
+    localStorage.removeItem(this.STORAGE_KEY);
+  },
+
+  getMessages() { return this.messages; }
+};
+
+// ===== 对话操作（新建/清空/导出） =====
+const ChatActions = {
+  init() {},
+
+  newChat() {
+    ChatManager.clearMessages();
+    YunxiAPI.showToast('已新建对话', 'success');
+  },
+
+  async clearChat() {
+    const confirmed = await YunxiAPI.showConfirm('确定要清空当前对话吗？此操作不可恢复。', '清空对话');
+    if (confirmed) {
+      ChatManager.clearMessages();
+      YunxiAPI.showToast('对话已清空', 'success');
+    }
+  },
+
+  exportChat() {
+    const messages = ChatManager.getMessages();
+    if (messages.length === 0) {
+      YunxiAPI.showToast('暂无对话可导出', 'warning');
+      return;
+    }
+    const content = messages.map(m => `[${m.role}] ${m.content}`).join('\n\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'social-chat-' + new Date().toISOString().slice(0,10) + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    YunxiAPI.showToast('对话已导出', 'success');
+  }
+};
+
+// ===== 数据导出确认 =====
+const ExportManager = {
+  async exportContacts() {
+    const confirmed = await YunxiAPI.showConfirm(
+      '确定要导出人脉数据吗？',
+      '导出确认'
+    );
+    if (!confirmed) return false;
+
+    YunxiAPI.showLoading('正在导出...');
+    setTimeout(() => {
+      YunxiAPI.hideLoading();
+      YunxiAPI.showToast('人脉数据导出成功', 'success');
+    }, 1000);
+    return true;
+  },
+
+  async clearData(label) {
+    const confirmed = await YunxiAPI.showConfirm(
+      '确定要清空' + label + '吗？此操作不可恢复。',
+      '清空确认'
+    );
+    if (!confirmed) return false;
+
+    YunxiAPI.showToast('已清空' + label, 'success');
+    return true;
+  }
+};
+
+// ===== 初始化 =====
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(async () => {
+    try {
+      SocialTabs.init();
+      ChatManager.init();
+      ChatActions.init();
+      if (typeof SocialUI !== 'undefined') {
+        SocialUI.init();
+      }
+
+      // 加载所有后端数据并更新 UI
+      if (typeof SocialData !== 'undefined') {
+        await SocialData.loadAll();
+        if (typeof UIUpdater !== 'undefined') {
+          await UIUpdater.updateAll();
+        }
+      }
+
+      // 同步按钮状态
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+        YunxiAPI.updateButtonsBySystemStatus();
+      }
+
+      // 定期同步
+      setInterval(() => {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+          YunxiAPI.updateButtonsBySystemStatus();
+        }
+      }, 30000);
+    } catch (e) {
+      console.error('[Init] 初始化异常:', e);
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('初始化部分功能失败，请刷新页面', 'warning');
+      }
+    }
+  }, 200);
+});
+</script>
+
+<!-- 联系人表单弹窗 -->
+<div id="contactFormModal" style="display:none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 10000; align-items: center; justify-content: center;">
+  <div style="background: white; border-radius: 12px; padding: 24px; width: 480px; max-height: 85vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,0.2);">
+    <h3 id="contactFormTitle" style="font-size: 16px; font-weight: 600; color: #1A2B4A; margin-bottom: 16px;">添加联系人</h3>
+    <form id="contactForm" onsubmit="return false;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">姓名 *</label>
+          <input type="text" id="cfName" required style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">头像 (emoji)</label>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;" id="cfAvatarOptions">
+            <span class="cf-avatar-opt" data-avatar="👤" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👤</span>
+            <span class="cf-avatar-opt" data-avatar="👨‍💼" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👨‍💼</span>
+            <span class="cf-avatar-opt" data-avatar="👩‍💼" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👩‍💼</span>
+            <span class="cf-avatar-opt" data-avatar="👨‍🎓" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👨‍🎓</span>
+            <span class="cf-avatar-opt" data-avatar="👩‍🎓" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👩‍🎓</span>
+            <span class="cf-avatar-opt" data-avatar="👨‍🏫" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👨‍🏫</span>
+            <span class="cf-avatar-opt" data-avatar="👩‍💻" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👩‍💻</span>
+            <span class="cf-avatar-opt" data-avatar="🧑‍🎨" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">🧑‍🎨</span>
+            <span class="cf-avatar-opt" data-avatar="👨‍🔬" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👨‍🔬</span>
+            <span class="cf-avatar-opt" data-avatar="👩‍⚕️" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👩‍⚕️</span>
+            <span class="cf-avatar-opt" data-avatar="👨‍🍳" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👨‍🍳</span>
+            <span class="cf-avatar-opt" data-avatar="👩‍🎨" style="cursor:pointer; padding:4px 8px; border-radius:6px; font-size:18px; border:2px solid transparent;">👩‍🎨</span>
+          </div>
+          <input type="hidden" id="cfAvatar" value="👤">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">关系类型</label>
+            <select id="cfRelation" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+              <option value="朋友">朋友</option>
+              <option value="同事">同事</option>
+              <option value="同学">同学</option>
+              <option value="家人">家人</option>
+              <option value="导师">导师</option>
+              <option value="合作伙伴">合作伙伴</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">重要度</label>
+            <select id="cfCloseness" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+              <option value="90">非常重要 (90)</option>
+              <option value="75" selected>重要 (75)</option>
+              <option value="60">一般 (60)</option>
+              <option value="40">较低 (40)</option>
+              <option value="50">中等 (50)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">电话</label>
+            <input type="text" id="cfPhone" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">邮箱</label>
+            <input type="email" id="cfEmail" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">标签（用逗号分隔）</label>
+          <input type="text" id="cfTags" placeholder="工作, 朋友, 项目组" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">备注</label>
+          <textarea id="cfNote" rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; resize: vertical; box-sizing: border-box; font-family: inherit;"></textarea>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" onclick="SocialUI.closeContactForm()" style="padding: 8px 20px; border-radius: 6px; border: 1px solid #d1d5db; background: white; color: #4A5F80; font-size: 13px; cursor: pointer;">取消</button>
+        <button type="button" onclick="SocialUI.submitContactForm()" style="padding: 8px 20px; border-radius: 6px; border: none; background: linear-gradient(135deg, #FF7D97, #F55778); color: white; font-size: 13px; cursor: pointer; font-weight: 500;">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 交往记录表单弹窗 -->
+<div id="interactionFormModal" style="display:none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 10000; align-items: center; justify-content: center;">
+  <div style="background: white; border-radius: 12px; padding: 24px; width: 460px; max-height: 85vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,0.2);">
+    <h3 style="font-size: 16px; font-weight: 600; color: #1A2B4A; margin-bottom: 16px;">记录交往</h3>
+    <form id="interactionForm" onsubmit="return false;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">联系人 *</label>
+          <select id="ifContact" required style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+            <option value="">请选择联系人</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">交往类型</label>
+          <select id="ifType" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+            <option value="聊天">聊天</option>
+            <option value="电话">电话</option>
+            <option value="会议">会议</option>
+            <option value="微信">微信</option>
+            <option value="聚餐">聚餐</option>
+            <option value="邮件">邮件</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">交往内容 *</label>
+          <textarea id="ifContent" rows="4" required placeholder="记录一下这次交往的内容和感受..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; resize: vertical; box-sizing: border-box; font-family: inherit;"></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">时长（分钟）</label>
+            <input type="number" id="ifDuration" value="30" min="0" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">心情</label>
+            <select id="ifEmotion" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+              <option value="positive">😊 积极</option>
+              <option value="neutral" selected>😐 中性</option>
+              <option value="negative">😔 消极</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #4A5F80; margin-bottom: 4px; font-weight: 500;">地点（可选）</label>
+          <input type="text" id="ifLocation" placeholder="如：公司会议室、星巴克、家里..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" onclick="SocialUI.closeInteractionForm()" style="padding: 8px 20px; border-radius: 6px; border: 1px solid #d1d5db; background: white; color: #4A5F80; font-size: 13px; cursor: pointer;">取消</button>
+        <button type="button" onclick="SocialUI.submitInteractionForm()" style="padding: 8px 20px; border-radius: 6px; border: none; background: linear-gradient(135deg, #FF7D97, #F55778); color: white; font-size: 13px; cursor: pointer; font-weight: 500;">保存记录</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// SocialUI — 人际关系模式 UI 交互模块（表单、弹窗、操作）
+// ═══════════════════════════════════════════════════════════
+const SocialUI = {
+  // 当前正在编辑的联系人 ID
+  _editingContactId: null,
+  // 当前查看的联系人 ID（用于详情浮层的编辑/删除）
+  _currentContactId: null,
+
+  // ===== 联系人表单 =====
+  openAddContactForm() {
+    this._editingContactId = null;
+    document.getElementById('contactFormTitle').textContent = '添加联系人';
+    document.getElementById('cfName').value = '';
+    document.getElementById('cfAvatar').value = '👤';
+    document.getElementById('cfRelation').value = '朋友';
+    document.getElementById('cfCloseness').value = '50';
+    document.getElementById('cfPhone').value = '';
+    document.getElementById('cfEmail').value = '';
+    document.getElementById('cfTags').value = '';
+    document.getElementById('cfNote').value = '';
+    this._updateAvatarSelection('👤');
+    this._showModal('contactFormModal');
+  },
+
+  openEditContactForm(contactId) {
+    const contact = SocialData.cache.contactMap[contactId];
+    if (!contact) {
+      YunxiAPI.showToast('未找到联系人信息', 'error');
+      return;
+    }
+    this._editingContactId = contactId;
+    document.getElementById('contactFormTitle').textContent = '编辑联系人';
+    document.getElementById('cfName').value = contact.name || '';
+    const avatar = contact.avatar || '👤';
+    document.getElementById('cfAvatar').value = avatar;
+    document.getElementById('cfRelation').value = contact.relation || '朋友';
+    document.getElementById('cfCloseness').value = contact.closeness != null ? contact.closeness : '50';
+    document.getElementById('cfPhone').value = contact.phone || '';
+    document.getElementById('cfEmail').value = contact.email || '';
+    document.getElementById('cfTags').value = (contact.tags || []).join(', ');
+    document.getElementById('cfNote').value = contact.note || '';
+    this._updateAvatarSelection(avatar);
+    this._showModal('contactFormModal');
+  },
+
+  closeContactForm() {
+    this._editingContactId = null;
+    this._hideModal('contactFormModal');
+  },
+
+  async submitContactForm() {
+    const name = document.getElementById('cfName').value.trim();
+    if (!name) {
+      YunxiAPI.showToast('请输入姓名', 'warning');
+      return;
+    }
+
+    const tagsStr = document.getElementById('cfTags').value.trim();
+    const tags = tagsStr ? tagsStr.split(/[,，]/).map(t => t.trim()).filter(t => t) : [];
+
+    const contactData = {
+      name: name,
+      avatar: document.getElementById('cfAvatar').value,
+      relation: document.getElementById('cfRelation').value,
+      closeness: parseInt(document.getElementById('cfCloseness').value) || 50,
+      phone: document.getElementById('cfPhone').value.trim(),
+      email: document.getElementById('cfEmail').value.trim(),
+      tags: tags,
+      note: document.getElementById('cfNote').value.trim(),
+    };
+
+    YunxiAPI.showLoading('保存中...');
+    try {
+      let result;
+      if (this._editingContactId) {
+        result = await SocialData.updateContact(this._editingContactId, contactData);
+      } else {
+        result = await SocialData.createContact(contactData);
+      }
+
+      if (result) {
+        YunxiAPI.showToast(this._editingContactId ? '联系人更新成功' : '联系人添加成功', 'success');
+        this.closeContactForm();
+        this._refreshAllUI();
+      }
+    } finally {
+      YunxiAPI.hideLoading();
+    }
+  },
+
+  _updateAvatarSelection(selectedAvatar) {
+    const opts = document.querySelectorAll('.cf-avatar-opt');
+    opts.forEach(opt => {
+      if (opt.dataset.avatar === selectedAvatar) {
+        opt.style.borderColor = '#FF7D97';
+        opt.style.background = 'rgba(255,125,151,0.1)';
+      } else {
+        opt.style.borderColor = 'transparent';
+        opt.style.background = 'transparent';
+      }
+    });
+  },
+
+  // ===== 交往记录表单 =====
+  openInteractionForm() {
+    // 填充联系人下拉列表
+    const select = document.getElementById('ifContact');
+    const contacts = SocialData.cache.contacts || [];
+    select.innerHTML = '<option value="">请选择联系人</option>' +
+      contacts.map(c => `<option value="${c.id}">${c.name} (${c.relation || ''})</option>`).join('');
+
+    document.getElementById('ifContent').value = '';
+    document.getElementById('ifDuration').value = '30';
+    document.getElementById('ifLocation').value = '';
+    document.getElementById('ifType').value = '聊天';
+    document.getElementById('ifEmotion').value = 'neutral';
+
+    this._showModal('interactionFormModal');
+  },
+
+  closeInteractionForm() {
+    this._hideModal('interactionFormModal');
+  },
+
+  async submitInteractionForm() {
+    const contactId = document.getElementById('ifContact').value;
+    const content = document.getElementById('ifContent').value.trim();
+
+    if (!contactId) {
+      YunxiAPI.showToast('请选择联系人', 'warning');
+      return;
+    }
+    if (!content) {
+      YunxiAPI.showToast('请输入交往内容', 'warning');
+      return;
+    }
+
+    const contact = SocialData.cache.contactMap[contactId];
+    const contactName = contact ? contact.name : '';
+
+    const interactionData = {
+      contact_id: parseInt(contactId),
+      contact_name: contactName,
+      type: document.getElementById('ifType').value,
+      content: content,
+      emotion: document.getElementById('ifEmotion').value,
+      duration_minutes: parseInt(document.getElementById('ifDuration').value) || 0,
+      location: document.getElementById('ifLocation').value.trim(),
+    };
+
+    YunxiAPI.showLoading('保存中...');
+    try {
+      const result = await SocialData.createInteraction(interactionData);
+      if (result) {
+        YunxiAPI.showToast('交往记录添加成功', 'success');
+        this.closeInteractionForm();
+        this._refreshAllUI();
+      }
+    } finally {
+      YunxiAPI.hideLoading();
+    }
+  },
+
+  // ===== 提醒操作 =====
+  async toggleReminderDone(reminderId) {
+    const reminder = (SocialData.cache.reminders || []).find(r => r.id === reminderId);
+    if (!reminder) return;
+
+    const newStatus = reminder.status === 'done' ? 'pending' : 'done';
+    const result = await SocialData.updateReminder(reminderId, newStatus);
+    if (result) {
+      YunxiAPI.showToast(newStatus === 'done' ? '已标记完成' : '已取消完成', 'success');
+      this._refreshAllUI();
+    }
+  },
+
+  // ===== 联系人详情浮层操作 =====
+  setCurrentContact(contactId) {
+    this._currentContactId = contactId;
+  },
+
+  editCurrentContact() {
+    if (this._currentContactId) {
+      closePersonCard();
+      this.openEditContactForm(this._currentContactId);
+    }
+  },
+
+  async deleteCurrentContact() {
+    if (!this._currentContactId) return;
+    const contact = SocialData.cache.contactMap[this._currentContactId];
+    const name = contact ? contact.name : '该联系人';
+
+    const confirmed = await YunxiAPI.showConfirm(
+      '确定要删除联系人 "' + name + '" 吗？相关的交往记录和提醒也会被删除，此操作不可恢复。',
+      '删除联系人'
+    );
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('删除中...');
+    try {
+      const success = await SocialData.deleteContact(this._currentContactId);
+      if (success) {
+        YunxiAPI.showToast('联系人已删除', 'success');
+        closePersonCard();
+        this._currentContactId = null;
+        this._refreshAllUI();
+      }
+    } finally {
+      YunxiAPI.hideLoading();
+    }
+  },
+
+  // ===== 工具方法 =====
+  _showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  },
+
+  _hideModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  },
+
+  _refreshAllUI() {
+    // 重新渲染所有 UI
+    if (typeof SocialTabs !== 'undefined' && SocialTabs.currentTab) {
+      SocialTabs.renderTabContent(SocialTabs.currentTab);
+    }
+    // 更新统计等
+    if (typeof UIUpdater !== 'undefined') {
+      UIUpdater.updateStats();
+      UIUpdater.updateStrategies();
+      UIUpdater.updateTimeline();
+      UIUpdater.updateRankList();
+      UIUpdater.updateEmotionSummary();
+    }
+    // 更新关系图谱
+    if (typeof RelationGraph !== 'undefined' && RelationGraph.chart) {
+      (async () => {
+        if (SocialData.cache.relationGraph) {
+          await SocialData.fetchRelationGraph();
+          RelationGraph.loadData();
+        }
+      })();
+    }
+  },
+
+  // 初始化：绑定头像选择、弹窗点击外部关闭等
+  init() {
+    // 头像选择
+    document.querySelectorAll('.cf-avatar-opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const avatar = opt.dataset.avatar;
+        document.getElementById('cfAvatar').value = avatar;
+        this._updateAvatarSelection(avatar);
+      });
+    });
+
+    // 点击弹窗外部关闭
+    ['contactFormModal', 'interactionFormModal'].forEach(modalId => {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      }
+    });
+
+    // ESC 关闭弹窗
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['contactFormModal', 'interactionFormModal'].forEach(modalId => {
+          const modal = document.getElementById(modalId);
+          if (modal && modal.style.display === 'flex') {
+            modal.style.display = 'none';
+          }
+        });
+      }
+    });
+  }
+};
+</script>
+</body>
+</html>

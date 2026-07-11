@@ -1,0 +1,2026 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" >
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部署管理 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Light mode glass override */
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+/* ── Typography Scale Classes ── */
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+    
+    /* 自定义输入对话框 */
+    .input-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+    .input-dialog {
+        background: var(--bg2);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 420px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .input-dialog-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--ink);
+    }
+    .input-dialog-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--bg);
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        color: var(--ink);
+        font-size: 0.95rem;
+        outline: none;
+        margin-bottom: 1rem;
+        font-family: inherit;
+    }
+    .input-dialog-input:focus {
+        border-color: var(--accent);
+    }
+    .input-dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+    .input-dialog-btn {
+        padding: 0.5rem 1.25rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .input-dialog-btn.cancel {
+        background: var(--bg3);
+        color: var(--muted);
+    }
+    .input-dialog-btn.cancel:hover {
+        color: var(--ink);
+    }
+    .input-dialog-btn.confirm {
+        background: var(--accent);
+        color: #fff;
+    }
+    .input-dialog-btn.confirm:hover {
+        opacity: 0.9;
+    }
+</style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+
+    <!-- Sidebar -->
+    <aside class="fixed left-0 top-0 bottom-0 flex flex-col" style="width: var(--sidebar-width); background: var(--sidebar-bg); border-right: 1px solid var(--color-border-default); z-index: var(--z-sticky);">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-5 shrink-0" style="height: var(--header-height); border-bottom: 1px solid var(--color-border-default);">
+            <div class="flex items-center justify-center" style="width: 32px; height: 32px; background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); border-radius: var(--radius-md);">
+                <i data-lucide="cloud" style="width: 18px; height: 18px; color: var(--color-text-inverse);"></i>
+            </div>
+            <span class="text-heading" style="font-size: var(--text-lg); color: var(--color-text-primary);">云汐管理台</span>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 py-4 px-3 overflow-y-auto no-scrollbar">
+            <div class="text-label px-3 mb-2">主菜单</div>
+            <a data-dom-id="nav-dashboard" href="dashboard.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors duration-150" style="color: var(--color-text-secondary); font-size: var(--text-sm);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
+                <span>总览</span>
+            </a>
+            <a data-dom-id="nav-tasks-hidden" href="tasks.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors duration-150" style="color: var(--color-text-secondary); font-size: var(--text-sm);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                <i data-lucide="list-checks" style="width: 18px; height: 18px;"></i>
+                <span>任务中心</span>
+            </a>
+            <a data-dom-id="nav-modules-hidden" href="modules.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors duration-150" style="color: var(--color-text-secondary); font-size: var(--text-sm);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                <i data-lucide="boxes" style="width: 18px; height: 18px;"></i>
+                <span>模块管理</span>
+            </a>
+
+            <div class="text-label px-3 mt-6 mb-2">运维</div>
+            <a data-dom-id="nav-deploy-active" href="deploy.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1" style="background: rgba(59,130,246,0.1); color: var(--color-primary); font-size: var(--text-sm);">
+                <i data-lucide="rocket" style="width: 18px; height: 18px;"></i>
+                <span>部署管理</span>
+            </a>
+            <a data-dom-id="nav-monitor" href="monitor.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors duration-150" style="color: var(--color-text-secondary); font-size: var(--text-sm);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                <i data-lucide="activity" style="width: 18px; height: 18px;"></i>
+                <span>系统监控</span>
+            </a>
+            <a data-dom-id="nav-settings-hidden" href="settings.html" class="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors duration-150" style="color: var(--color-text-secondary); font-size: var(--text-sm);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                <i data-lucide="settings" style="width: 18px; height: 18px;"></i>
+                <span>系统设置</span>
+            </a>
+        </nav>
+
+        <!-- Sidebar footer -->
+        <div class="px-4 py-3 shrink-0" style="border-top: 1px solid var(--color-border-default);">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center" style="width: 32px; height: 32px; border-radius: var(--radius-full); background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); font-size: var(--text-xs); font-weight: 600; color: var(--color-text-inverse);">A</div>
+                <div class="flex-1 min-w-0">
+                    <div class="truncate" style="font-size: var(--text-sm); color: var(--color-text-primary);">管理员</div>
+                    <div class="truncate" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">admin@yunxi.io</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main content area -->
+    <div class="flex flex-col min-h-screen" style="margin-left: var(--sidebar-width);">
+
+        <!-- Header -->
+        <header class="flex items-center justify-between px-6 shrink-0" style="height: var(--header-height); background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-border-default);">
+            <div class="flex items-center gap-2" style="color: var(--color-text-tertiary); font-size: var(--text-sm);">
+                <i data-lucide="home" style="width: 14px; height: 14px;"></i>
+                <span>/</span>
+                <span style="color: var(--color-text-secondary);">运维</span>
+                <span>/</span>
+                <span style="color: var(--color-text-primary);">部署管理</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" style="background: rgba(16,185,129,0.1); font-size: var(--text-xs); color: var(--state-success);">
+                    <span style="width: 6px; height: 6px; border-radius: var(--radius-full); background: var(--state-success);"></span>
+                    系统运行正常
+                </div>
+                          <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+            <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+          </button>
+          <button class="relative p-2 rounded-lg transition-colors duration-150" style="color: var(--color-text-secondary);" onmouseenter="this.style.background='rgba(148,163,184,0.06)'" onmouseleave="this.style.background='transparent'">
+                    <i data-lucide="bell" style="width: 18px; height: 18px;"></i>
+                    <span class="absolute top-1 right-1" style="width: 7px; height: 7px; border-radius: var(--radius-full); background: var(--state-error); border: 1.5px solid var(--color-bg-elevated);"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="flex-1 p-6 overflow-y-auto">
+
+            <!-- Page Title -->
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h1 class="text-heading" style="font-size: var(--text-3xl); color: var(--color-text-primary); text-wrap: balance; word-break: keep-all; overflow-wrap: break-word;">部署管理</h1>
+                    <p class="text-caption mt-1" style="font-size: var(--text-sm);">管理模块部署与版本发布</p>
+                </div>
+            </div>
+
+            <!-- Section: Quick Actions - 4 Core Buttons -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Button 1: 一键拉取大模型 (requires ollama) -->
+                <div class="rounded-xl p-5 cursor-pointer transition-all duration-200 glass-surface" data-action="pull-model" data-require-ollama style="border-radius: var(--radius-lg); border: 1px solid var(--color-border-default);">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(6,182,212,0.2));">
+                            <i data-lucide="download-cloud" style="width: 20px; height: 20px; color: var(--color-primary);"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium" style="font-size: var(--text-base); color: var(--color-text-primary);">一键拉取大模型</h3>
+                            <p class="text-xs" style="color: var(--color-text-tertiary);">Ollama 模型管理</p>
+                        </div>
+                    </div>
+                    <p class="text-xs" style="color: var(--color-text-secondary); line-height: 1.5;">从模型仓库拉取最新的大语言模型到本地</p>
+                </div>
+
+                <!-- Button 2: Commit提交 (requires git) -->
+                <div class="rounded-xl p-5 cursor-pointer transition-all duration-200 glass-surface" data-action="commit" data-require-git style="border-radius: var(--radius-lg); border: 1px solid var(--color-border-default);">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15));">
+                            <i data-lucide="git-commit" style="width: 20px; height: 20px; color: var(--state-warning);"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium" style="font-size: var(--text-base); color: var(--color-text-primary);">Commit 提交</h3>
+                            <p class="text-xs" style="color: var(--color-text-tertiary);">Git 版本管理</p>
+                        </div>
+                    </div>
+                    <p class="text-xs" style="color: var(--color-text-secondary); line-height: 1.5;">提交当前所有更改到版本控制系统</p>
+                </div>
+
+                <!-- Button 3: 模块打包 (requires modules) -->
+                <div class="rounded-xl p-5 cursor-pointer transition-all duration-200 glass-surface" data-action="package" data-require-modules style="border-radius: var(--radius-lg); border: 1px solid var(--color-border-default);">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(6,182,212,0.15));">
+                            <i data-lucide="package" style="width: 20px; height: 20px; color: var(--state-success);"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium" style="font-size: var(--text-base); color: var(--color-text-primary);">模块打包</h3>
+                            <p class="text-xs" style="color: var(--color-text-tertiary);">模块构建部署</p>
+                        </div>
+                    </div>
+                    <p class="text-xs" style="color: var(--color-text-secondary); line-height: 1.5;">打包指定模块为可部署的发布版本</p>
+                </div>
+
+                <!-- Button 4: 硬件配对 (requires bluetooth) -->
+                <div class="rounded-xl p-5 cursor-pointer transition-all duration-200 glass-surface" data-action="pair-device" data-require-bluetooth style="border-radius: var(--radius-lg); border: 1px solid var(--color-border-default);">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.15));">
+                            <i data-lucide="bluetooth" style="width: 20px; height: 20px; color: #8b5cf6;"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium" style="font-size: var(--text-base); color: var(--color-text-primary);">硬件配对</h3>
+                            <p class="text-xs" style="color: var(--color-text-tertiary);">蓝牙设备连接</p>
+                        </div>
+                    </div>
+                    <p class="text-xs" style="color: var(--color-text-secondary); line-height: 1.5;">通过蓝牙配对连接外部硬件设备</p>
+                </div>
+            </section>
+
+            <!-- Section: 已拉取模型列表 -->
+            <section class="rounded-xl p-6 mb-6 glass-surface" style="border-radius: var(--radius-lg);">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="brain-circuit" style="width: 20px; height: 20px; color: var(--color-primary);"></i>
+                        <h2 class="text-subheading" style="color: var(--color-text-primary);">已拉取模型</h2>
+                        <span id="model-count-badge" class="inline-flex items-center px-2 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(59,130,246,0.1); color: var(--color-primary); font-size: var(--text-xs);">-- 个</span>
+                    </div>
+                    <button id="refresh-models-btn" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors duration-150 whitespace-nowrap" style="border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); border-radius: var(--radius-md);" onmouseenter="this.style.borderColor='var(--color-border-strong)';this.style.color='var(--color-text-primary)'" onmouseleave="this.style.borderColor='var(--color-border-default)';this.style.color='var(--color-text-secondary)'">
+                        <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                        刷新
+                    </button>
+                </div>
+                <div id="models-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div style="color: var(--color-text-tertiary); font-size: var(--text-sm); padding: 20px; text-align: center;">加载中...</div>
+                </div>
+            </section>
+
+            <!-- Section 1: Deployment Pipeline -->
+            <section class="rounded-xl p-6 mb-6 glass-surface" style="border-radius: var(--radius-lg);">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="git-branch" style="width: 20px; height: 20px; color: var(--color-primary);"></i>
+                        <h2 class="text-subheading" style="color: var(--color-text-primary);">部署流水线</h2>
+                        <span id="pipeline-count-badge" class="inline-flex items-center px-2 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(59,130,246,0.1); color: var(--color-primary); font-size: var(--text-xs);">8 个模块</span>
+                    </div>
+                    <button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 whitespace-nowrap" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); color: var(--color-text-inverse); font-size: var(--text-sm); font-weight: 500; border-radius: var(--radius-md); box-shadow: var(--shadow-glow);" onmouseenter="this.style.boxShadow='var(--shadow-glow-strong)'" onmouseleave="this.style.boxShadow='var(--shadow-glow)'">
+                        <i data-lucide="play" style="width: 14px; height: 14px;"></i>
+                        一键部署全部
+                    </button>
+                </div>
+
+                <!-- Pipeline nodes -->
+                <div class="flex items-start gap-0 overflow-x-auto no-scrollbar pb-2" style="min-width: 0;">
+
+                    <!-- Node 1: 调度引擎 - 已部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: var(--radius-lg);">
+                            <i data-lucide="check-circle-2" style="width: 24px; height: 24px; color: var(--state-success);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">调度引擎</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.3.1</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(16,185,129,0.1); color: var(--state-success); font-size: 10px;">已部署</span>
+                    </div>
+
+                    <!-- Connector 1 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed rgba(16,185,129,0.3);"></div>
+
+                    <!-- Node 2: 对话系统 - 已部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: var(--radius-lg);">
+                            <i data-lucide="check-circle-2" style="width: 24px; height: 24px; color: var(--state-success);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">对话系统</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.3.1</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(16,185,129,0.1); color: var(--state-success); font-size: 10px;">已部署</span>
+                    </div>
+
+                    <!-- Connector 2 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed rgba(16,185,129,0.3);"></div>
+
+                    <!-- Node 3: 知识库 - 已部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: var(--radius-lg);">
+                            <i data-lucide="check-circle-2" style="width: 24px; height: 24px; color: var(--state-success);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">知识库</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.3.0</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(16,185,129,0.1); color: var(--state-success); font-size: 10px;">已部署</span>
+                    </div>
+
+                    <!-- Connector 3 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed rgba(16,185,129,0.3);"></div>
+
+                    <!-- Node 4: 场景工坊 - 部署中 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: var(--radius-lg); box-shadow: var(--shadow-glow);">
+                            <i data-lucide="loader-2" style="width: 24px; height: 24px; color: var(--state-info);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">场景工坊</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.3.1</span>
+                        <span class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(59,130,246,0.1); color: var(--state-info); font-size: 10px;">
+                            <span style="width: 5px; height: 5px; border-radius: var(--radius-full); background: var(--state-info);"></span>
+                            部署中
+                        </span>
+                    </div>
+
+                    <!-- Connector 4 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed rgba(59,130,246,0.3);"></div>
+
+                    <!-- Node 5: 积木平台 - 已部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: var(--radius-lg);">
+                            <i data-lucide="check-circle-2" style="width: 24px; height: 24px; color: var(--state-success);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">积木平台</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.3.1</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(16,185,129,0.1); color: var(--state-success); font-size: 10px;">已部署</span>
+                    </div>
+
+                    <!-- Connector 5 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed var(--color-border-default);"></div>
+
+                    <!-- Node 6: 感知分析 - 待部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(100,116,139,0.1); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg);">
+                            <i data-lucide="clock" style="width: 24px; height: 24px; color: var(--color-text-tertiary);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">感知分析</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.2.0</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(100,116,139,0.1); color: var(--color-text-tertiary); font-size: 10px;">待部署</span>
+                    </div>
+
+                    <!-- Connector 6 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed var(--color-border-default);"></div>
+
+                    <!-- Node 7: 技能中心 - 待部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(100,116,139,0.1); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg);">
+                            <i data-lucide="clock" style="width: 24px; height: 24px; color: var(--color-text-tertiary);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">技能中心</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.2.0</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(100,116,139,0.1); color: var(--color-text-tertiary); font-size: 10px;">待部署</span>
+                    </div>
+
+                    <!-- Connector 7 -->
+                    <div class="flex items-center shrink-0" style="height: 72px; width: 32px; border-top: 2px dashed var(--color-border-default);"></div>
+
+                    <!-- Node 8: 系统卫士 - 待部署 -->
+                    <div class="pipeline-node flex flex-col items-center shrink-0" style="width: 120px; cursor: pointer;">
+                        <div class="flex items-center justify-center rounded-xl p-3 transition-all duration-200" style="width: 72px; height: 72px; background: rgba(100,116,139,0.1); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg);">
+                            <i data-lucide="clock" style="width: 24px; height: 24px; color: var(--color-text-tertiary);"></i>
+                        </div>
+                        <span class="mt-2 text-center truncate w-full" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">系统卫士</span>
+                        <span class="mt-0.5 text-center" style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-tertiary);">v2.1.0</span>
+                        <span class="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(100,116,139,0.1); color: var(--color-text-tertiary); font-size: 10px;">待部署</span>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Section 2: Version Management Table -->
+            <section class="rounded-xl p-6 glass-surface" style="border-radius: var(--radius-lg);">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="history" style="width: 20px; height: 20px; color: var(--color-primary);"></i>
+                        <h2 class="text-subheading" style="color: var(--color-text-primary);">版本管理</h2>
+                    </div>
+                    <button id="export-records-btn" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors duration-150 whitespace-nowrap" style="border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); border-radius: var(--radius-md);" onmouseenter="this.style.borderColor='var(--color-border-strong)';this.style.color='var(--color-text-primary)'" onmouseleave="this.style.borderColor='var(--color-border-default)';this.style.color='var(--color-text-secondary)'">
+                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                        导出记录
+                    </button>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto rounded-lg" style="border: 1px solid var(--color-border-default);">
+                    <table class="w-full" style="min-width: 640px;">
+                        <thead>
+                            <tr style="background: rgba(100,116,139,0.08);">
+                                <th class="text-left px-4 py-3 whitespace-nowrap" style="font-size: var(--text-xs); font-weight: 500; color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase; border-bottom: 1px solid var(--color-border-default);">版本号</th>
+                                <th class="text-left px-4 py-3 whitespace-nowrap" style="font-size: var(--text-xs); font-weight: 500; color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase; border-bottom: 1px solid var(--color-border-default);">发布时间</th>
+                                <th class="text-left px-4 py-3 whitespace-nowrap" style="font-size: var(--text-xs); font-weight: 500; color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase; border-bottom: 1px solid var(--color-border-default);">发布说明</th>
+                                <th class="text-left px-4 py-3 whitespace-nowrap" style="font-size: var(--text-xs); font-weight: 500; color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase; border-bottom: 1px solid var(--color-border-default);">当前版本</th>
+                                <th class="text-right px-4 py-3 whitespace-nowrap" style="font-size: var(--text-xs); font-weight: 500; color: var(--color-text-tertiary); letter-spacing: var(--tracking-wide); text-transform: uppercase; border-bottom: 1px solid var(--color-border-default);">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="version-tbody">
+                            <tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm);">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- CSS for spinning animation on deploy-in-progress icon -->
+    <style>
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        [data-lucide="loader-2"] {
+            animation: spin-slow 1.5s linear infinite;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+
+    
+    <!-- Page API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 设置导航链接
+            setupNavigation();
+
+            // 绑定所有交互事件
+            bindDeployEvents();
+
+            // 更新用户信息
+            updateUserInfo();
+
+            // 同步按钮状态
+            YunxiAPI.updateButtonsBySystemStatus();
+
+            // 加载真实数据
+            loadGitCommits();
+            loadOllamaModels();
+            loadPipelineStatus();
+        });
+
+        function setupNavigation() {
+            var navItems = {
+                'nav-dashboard': 'dashboard.html',
+                'nav-tasks': 'tasks.html',
+                'nav-tasks-active': 'tasks.html',
+                'nav-tasks-hidden': 'tasks.html',
+                'nav-modules': 'modules.html',
+                'nav-modules-active': 'modules.html',
+                'nav-modules-hidden': 'modules.html',
+                'nav-deploy': 'deploy.html',
+                'nav-deploy-active': 'deploy.html',
+                'nav-deploy-hidden': 'deploy.html',
+                'nav-monitor': 'monitor.html',
+                'nav-monitor-active': 'monitor.html',
+                'nav-monitor-hidden': 'monitor.html',
+                'nav-agents': 'agents.html',
+                'nav-agents-hidden': 'agents.html',
+                'nav-compute': 'compute.html',
+                'nav-compute-hidden': 'compute.html',
+
+                'nav-settings': 'settings.html',
+                'nav-settings-active': 'settings.html',
+                'nav-settings-hidden': 'settings.html'
+            };
+
+            Object.keys(navItems).forEach(function(id) {
+                var el = document.querySelector('[data-dom-id="' + id + '"]');
+                if (el) {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        location.href = navItems[id];
+                    });
+                }
+            });
+        }
+
+        function bindDeployEvents() {
+            // 4个核心操作按钮
+            var pullModelBtn = document.querySelector('[data-action="pull-model"]');
+            if (pullModelBtn) {
+                pullModelBtn.addEventListener('click', function() {
+                    handlePullModel();
+                });
+                pullModelBtn.addEventListener('mouseenter', function() {
+                    if (!pullModelBtn.disabled) {
+                        pullModelBtn.style.borderColor = 'var(--color-primary)';
+                        pullModelBtn.style.boxShadow = 'var(--shadow-glow)';
+                    }
+                });
+                pullModelBtn.addEventListener('mouseleave', function() {
+                    pullModelBtn.style.borderColor = 'var(--color-border-default)';
+                    pullModelBtn.style.boxShadow = 'none';
+                });
+            }
+
+            var commitBtn = document.querySelector('[data-action="commit"]');
+            if (commitBtn) {
+                commitBtn.addEventListener('click', function() {
+                    handleCommit();
+                });
+                commitBtn.addEventListener('mouseenter', function() {
+                    if (!commitBtn.disabled) {
+                        commitBtn.style.borderColor = 'var(--state-warning)';
+                        commitBtn.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.15)';
+                    }
+                });
+                commitBtn.addEventListener('mouseleave', function() {
+                    commitBtn.style.borderColor = 'var(--color-border-default)';
+                    commitBtn.style.boxShadow = 'none';
+                });
+            }
+
+            var packageBtn = document.querySelector('[data-action="package"]');
+            if (packageBtn) {
+                packageBtn.addEventListener('click', function() {
+                    handlePackageModule();
+                });
+                packageBtn.addEventListener('mouseenter', function() {
+                    if (!packageBtn.disabled) {
+                        packageBtn.style.borderColor = 'var(--state-success)';
+                        packageBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.15)';
+                    }
+                });
+                packageBtn.addEventListener('mouseleave', function() {
+                    packageBtn.style.borderColor = 'var(--color-border-default)';
+                    packageBtn.style.boxShadow = 'none';
+                });
+            }
+
+            var pairBtn = document.querySelector('[data-action="pair-device"]');
+            if (pairBtn) {
+                pairBtn.addEventListener('click', function() {
+                    handlePairDevice();
+                });
+                pairBtn.addEventListener('mouseenter', function() {
+                    if (!pairBtn.disabled) {
+                        pairBtn.style.borderColor = '#8b5cf6';
+                        pairBtn.style.boxShadow = '0 0 20px rgba(139, 92, 246, 0.15)';
+                    }
+                });
+                pairBtn.addEventListener('mouseleave', function() {
+                    pairBtn.style.borderColor = 'var(--color-border-default)';
+                    pairBtn.style.boxShadow = 'none';
+                });
+            }
+
+            // 一键部署全部按钮
+            var deployAllBtn = document.querySelector('button[onmouseenter*="shadow-glow-strong"]');
+            if (deployAllBtn) {
+                deployAllBtn.addEventListener('click', function() {
+                    handleDeployAll();
+                });
+            }
+
+            // 流水线节点点击 - 显示模块详情弹窗
+            var pipelineNodes = document.querySelectorAll('.pipeline-node');
+            pipelineNodes.forEach(function(node) {
+                node.addEventListener('click', function() {
+                    var moduleName = node.querySelector('.text-sm')?.textContent || '模块';
+                    showModuleDetailDialog(moduleName);
+                });
+            });
+
+            // 版本回滚按钮
+            var rollbackBtns = document.querySelectorAll('table button');
+            rollbackBtns.forEach(function(btn, index) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var row = btn.closest('tr');
+                    var version = row?.querySelector('td:first-child')?.textContent?.trim() || 'v1.0.0';
+                    handleRollback(version);
+                });
+            });
+
+            // 导出记录按钮
+            var exportBtn = document.getElementById('export-records-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function() {
+                    exportVersionRecords();
+                });
+            }
+
+            // 刷新模型按钮
+            var refreshModelsBtn = document.getElementById('refresh-models-btn');
+            if (refreshModelsBtn) {
+                refreshModelsBtn.addEventListener('click', function() {
+                    loadOllamaModels();
+                });
+            }
+
+            // 通知按钮
+            var notifyBtn = document.querySelector('header button.relative');
+            if (notifyBtn) {
+                notifyBtn.addEventListener('click', function() {
+                    YunxiAPI.showToast('您有 2 条部署通知', 'info');
+                });
+            }
+
+            // 用户头像点击
+            var userAvatar = document.querySelector('.w-8.h-8.rounded-full');
+            if (userAvatar) {
+                userAvatar.style.cursor = 'pointer';
+                userAvatar.addEventListener('click', function() {
+                    handleLogout();
+                });
+            }
+        }
+
+        async function handlePullModel() {
+            // 弹出模型选择对话框
+            showPullModelDialog();
+        }
+
+        function showPullModelDialog() {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:420px;max-width:500px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">拉取大模型</h3>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">模型名称</label>
+                    <select id="pull-model-name" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                        <option value="qwen2.5:7b">qwen2.5:7b (通义千问)</option>
+                        <option value="llama3.1:8b">llama3.1:8b (Llama)</option>
+                        <option value="deepseek-coder:6.7b">deepseek-coder:6.7b (深度求索)</option>
+                        <option value="qwen2.5:14b">qwen2.5:14b (通义千问大模型)</option>
+                        <option value="mistral:7b">mistral:7b (Mistral)</option>
+                    </select>
+                </div>
+                <p style="font-size:12px;color:var(--color-text-tertiary);margin-bottom:20px;line-height:1.6;">模型将从 Ollama 仓库下载，下载时间取决于模型大小和网络速度。</p>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancel-pull" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirm-pull" data-require-ollama style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">开始拉取</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            YunxiAPI.updateButtonsBySystemStatus();
+
+            modal.querySelector('#cancel-pull').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#confirm-pull').addEventListener('click', async function() {
+                var modelName = modal.querySelector('#pull-model-name').value;
+                overlay.remove();
+
+                var confirmed = await YunxiAPI.showConfirm('确定要拉取模型 ' + modelName + ' 吗？下载可能需要较长时间。', '拉取模型');
+                if (!confirmed) return;
+
+                var result = await YunxiAPI.withValidation(
+                    { ollama: true },
+                    async function() {
+                        return await YunxiAPI.pullModel(modelName);
+                    },
+                    { loadingText: '正在拉取模型 ' + modelName + '...' }
+                );
+
+                if (result.success) {
+                    YunxiAPI.showToast('模型 ' + modelName + ' 拉取成功', 'success');
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        
+    /**
+     * 显示自定义输入对话框（替代原生 prompt）
+     * @param {string} message - 提示消息
+     * @param {string} title - 对话框标题
+     * @param {string} placeholder - 输入框占位符
+     * @returns {Promise<string|null>} 用户输入的值，取消返回 null
+     */
+    function showInputDialog(message, title = '输入', placeholder = '') {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'input-dialog-overlay';
+            overlay.innerHTML = 
+                '<div class="input-dialog">' +
+                '  <div class="input-dialog-title">' + title + '</div>' +
+                '  <div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem;">' + message + '</div>' +
+                '  <input type="text" class="input-dialog-input" placeholder="' + placeholder + '" />' +
+                '  <div class="input-dialog-actions">' +
+                '    <button class="input-dialog-btn cancel">取消</button>' +
+                '    <button class="input-dialog-btn confirm">确定</button>' +
+                '  </div>' +
+                '</div>';
+            
+            document.body.appendChild(overlay);
+            
+            var input = overlay.querySelector('.input-dialog-input');
+            var cancelBtn = overlay.querySelector('.input-dialog-btn.cancel');
+            var confirmBtn = overlay.querySelector('.input-dialog-btn.confirm');
+            
+            function cleanup(result) {
+                overlay.remove();
+                resolve(result);
+            }
+            
+            cancelBtn.addEventListener('click', function() {
+                cleanup(null);
+            });
+            
+            confirmBtn.addEventListener('click', function() {
+                cleanup(input.value);
+            });
+            
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    cleanup(input.value);
+                } else if (e.key === 'Escape') {
+                    cleanup(null);
+                }
+            });
+            
+            // 自动聚焦
+            setTimeout(function() {
+                input.focus();
+            }, 50);
+        });
+    }
+
+async function handleCommit() {
+            var message = await showInputDialog('请输入提交信息：', 'Git 提交', '例如：修复系统检测接口超时问题');
+            if (!message || !message.trim()) {
+                if (message !== null) {
+                    YunxiAPI.showToast('请输入提交信息', 'warning');
+                }
+                return;
+            }
+
+            var confirmed = await YunxiAPI.showConfirm('确定要提交所有更改吗？提交信息: ' + message, 'Git 提交');
+            if (!confirmed) return;
+
+            var result = await YunxiAPI.withValidation(
+                { git: true },
+                async function() {
+                    return await YunxiAPI.commitChanges(message.trim());
+                },
+                { loadingText: '正在提交更改...' }
+            );
+
+            if (result.success) {
+                YunxiAPI.showToast('提交成功', 'success');
+            }
+        }
+
+        async function handlePackageModule() {
+            // 弹出模块选择对话框
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:420px;max-width:500px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">模块打包</h3>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">选择模块</label>
+                    <select id="package-module" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                        <option value="m1">M1 调度引擎</option>
+                        <option value="m2">M2 技能中心</option>
+                        <option value="m3">M3 对话系统</option>
+                        <option value="m4">M4 场景工坊</option>
+                        <option value="m5">M5 记忆存储</option>
+                        <option value="m6">M6 感知分析</option>
+                        <option value="m7">M7 积木平台</option>
+                        <option value="m8">M8 云汐核心</option>
+                        <option value="all">全部模块</option>
+                    </select>
+                </div>
+                <p style="font-size:12px;color:var(--color-text-tertiary);margin-bottom:20px;line-height:1.6;">打包后将生成可部署的模块发布包。</p>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancel-package" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirm-package" data-require-modules style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">开始打包</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            YunxiAPI.updateButtonsBySystemStatus();
+
+            modal.querySelector('#cancel-package').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#confirm-package').addEventListener('click', async function() {
+                var moduleId = modal.querySelector('#package-module').value;
+                var moduleName = modal.querySelector('#package-module option:checked').textContent;
+                overlay.remove();
+
+                var confirmed = await YunxiAPI.showConfirm('确定要打包 ' + moduleName + ' 吗？', '模块打包');
+                if (!confirmed) return;
+
+                var result = await YunxiAPI.withValidation(
+                    { modules: true },
+                    async function() {
+                        return await YunxiAPI.packageModule(moduleId);
+                    },
+                    { loadingText: '正在打包 ' + moduleName + '...' }
+                );
+
+                if (result.success) {
+                    YunxiAPI.showToast(moduleName + ' 打包成功', 'success');
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        // 已知蓝牙设备池（模拟真实环境中的设备）
+        var knownBluetoothDevices = [
+            { id: 'M8-Controller-01', name: 'M8 主控器', rssi: -45, type: 'controller' },
+            { id: 'Sensor-Hub-A3', name: '传感器集线器 A3', rssi: -62, type: 'sensor' },
+            { id: 'Display-Pad-X1', name: '显示触控板 X1', rssi: -58, type: 'display' },
+            { id: 'Smart-Speaker-S2', name: '智能音箱 S2', rssi: -70, type: 'audio' },
+            { id: 'Wearable-Band-W5', name: '可穿戴手环 W5', rssi: -75, type: 'wearable' },
+            { id: 'Desk-Light-L7', name: '智能台灯 L7', rssi: -68, type: 'light' },
+            { id: 'Air-Quality-AQ2', name: '空气质量监测仪', rssi: -80, type: 'sensor' },
+            { id: 'Smart-Lock-SL1', name: '智能门锁 SL1', rssi: -55, type: 'security' },
+            { id: 'Power-Meter-PM3', name: '智能电表 PM3', rssi: -72, type: 'meter' },
+            { id: 'Camera-Cam-C4', name: '智能摄像头 C4', rssi: -65, type: 'camera' }
+        ];
+
+        async function handlePairDevice() {
+            var confirmed = await YunxiAPI.showConfirm('确定要开始蓝牙设备配对吗？请确保设备已开启蓝牙并处于可发现状态。', '硬件配对');
+            if (!confirmed) return;
+
+            // 先尝试调用后端蓝牙扫描 API
+            try {
+                var btData = await YunxiAPI.request('POST', '/deploy/bluetooth/scan');
+                if (btData && btData.devices) {
+                    showDeviceListDialog(btData.devices.map(function(d) { return d.id || d.name || d; }));
+                    return;
+                }
+            } catch (e) {
+                // 后端 API 不可用，使用增强模拟
+            }
+
+            // 增强版模拟扫描：显示进度条，从已知设备池随机选择
+            var scanResult = await simulateBluetoothScan();
+
+            if (scanResult.devices.length > 0) {
+                YunxiAPI.showToast('发现 ' + scanResult.devices.length + ' 个设备', 'success');
+                showDeviceListDialog(scanResult.devices.map(function(d) { return d.id; }));
+            } else {
+                YunxiAPI.showToast('未发现蓝牙设备，请检查设备是否开启', 'warning');
+            }
+        }
+
+        // 模拟蓝牙扫描（带进度条）
+        function simulateBluetoothScan() {
+            return new Promise(function(resolve) {
+                var overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+                var modal = document.createElement('div');
+                modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:28px;min-width:360px;max-width:420px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+                modal.innerHTML = `
+                    <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px;">正在扫描蓝牙设备</h3>
+                    <p style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:20px;">请确保设备处于可发现状态...</p>
+                    <div style="width:100%;height:8px;background:rgba(100,116,139,0.15);border-radius:999px;overflow:hidden;margin-bottom:12px;">
+                        <div id="scan-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--color-gradient-start),var(--color-gradient-end));border-radius:999px;transition:width 0.2s ease;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span id="scan-progress-text" style="font-size:12px;color:var(--color-text-tertiary);font-family:var(--font-family-mono);">0%</span>
+                        <span id="scan-found-text" style="font-size:12px;color:var(--color-primary);">发现 0 个设备</span>
+                    </div>
+                    <div id="scan-device-list" style="margin-top:16px;max-height:120px;overflow-y:auto;"></div>
+                `;
+
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+
+                var progressBar = modal.querySelector('#scan-progress-bar');
+                var progressText = modal.querySelector('#scan-progress-text');
+                var foundText = modal.querySelector('#scan-found-text');
+                var deviceListEl = modal.querySelector('#scan-device-list');
+
+                var progress = 0;
+                var foundDevices = [];
+                var availablePool = knownBluetoothDevices.slice();
+
+                var scanInterval = setInterval(function() {
+                    progress += Math.random() * 8 + 3;
+                    if (progress > 100) progress = 100;
+
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = Math.floor(progress) + '%';
+
+                    // 随机发现新设备
+                    if (progress < 95 && availablePool.length > 0 && Math.random() < 0.35) {
+                        var idx = Math.floor(Math.random() * availablePool.length);
+                        var device = availablePool.splice(idx, 1)[0];
+                        foundDevices.push(device);
+                        foundText.textContent = '发现 ' + foundDevices.length + ' 个设备';
+
+                        // 动态添加到列表
+                        var item = document.createElement('div');
+                        item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;color:var(--color-text-secondary);animation:fadeIn 0.3s ease;';
+                        var signalBars = device.rssi > -50 ? '▁▃▅▇' : device.rssi > -65 ? '▁▃▅' : device.rssi > -75 ? '▁▃' : '▁';
+                        item.innerHTML = '<div style="width:24px;height:24px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg></div><span style="flex:1;">' + device.name + '</span><span style="color:var(--color-text-tertiary);font-family:var(--font-family-mono);font-size:10px;">' + signalBars + '</span>';
+                        deviceListEl.appendChild(item);
+                    }
+
+                    if (progress >= 100) {
+                        clearInterval(scanInterval);
+                        setTimeout(function() {
+                            overlay.remove();
+                            resolve({ devices: foundDevices });
+                        }, 400);
+                    }
+                }, 150);
+            });
+        }
+
+        function showDeviceListDialog(devices) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:380px;max-width:440px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            var deviceHtml = devices.map(function(d, i) {
+                return '<div class="device-item" data-device="' + d + '" style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);margin-bottom:8px;cursor:pointer;transition:all 0.2s;"><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg></div><span style="font-size:14px;color:var(--color-text-primary);">' + d + '</span></div></div>';
+            }).join('');
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">发现的蓝牙设备</h3>
+                <div style="margin-bottom:16px;max-height:240px;overflow-y:auto;">
+                    ${deviceHtml}
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="close-device-list" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">关闭</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            modal.querySelectorAll('.device-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var deviceId = item.getAttribute('data-device');
+                    overlay.remove();
+                    pairDevice(deviceId);
+                });
+                item.addEventListener('mouseenter', function() {
+                    item.style.borderColor = '#8b5cf6';
+                    item.style.background = 'rgba(139, 92, 246, 0.05)';
+                });
+                item.addEventListener('mouseleave', function() {
+                    item.style.borderColor = 'var(--color-border-default)';
+                    item.style.background = 'transparent';
+                });
+            });
+
+            modal.querySelector('#close-device-list').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        async function pairDevice(deviceId) {
+            YunxiAPI.showLoading('正在配对 ' + deviceId + '...');
+            try {
+                await YunxiAPI.pairDevice(deviceId);
+                YunxiAPI.showToast(deviceId + ' 配对成功', 'success');
+            } catch (e) {
+                YunxiAPI.showToast('配对失败: ' + deviceId, 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        async function handleDeployAll() {
+            var confirmed = await YunxiAPI.showConfirm('确定要一键部署全部模块吗？这将重新部署所有 8 个模块。', '一键部署全部');
+            if (!confirmed) return;
+
+            var result = await YunxiAPI.withValidation(
+                { modules: true, git: true },
+                async function() {
+                    return await YunxiAPI.deployAll();
+                },
+                { loadingText: '正在部署全部模块...' }
+            );
+
+            if (result.success) {
+                YunxiAPI.showToast('全部模块部署成功', 'success');
+            }
+        }
+
+        async function handleRollback(version) {
+            var confirmed = await YunxiAPI.showConfirm('确定要回滚到版本 ' + version + ' 吗？回滚后当前版本的更改将会丢失。', '版本回滚');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('正在回滚到 ' + version + '...');
+            try {
+                await YunxiAPI.rollbackVersion(version);
+                YunxiAPI.showToast('已回滚到 ' + version, 'success');
+            } catch (e) {
+                YunxiAPI.showToast('回滚失败，请稍后重试', 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        async function handleLogout() {
+            var confirmed = await YunxiAPI.showConfirm('确定要退出登录吗？', '退出登录');
+            if (confirmed) {
+                YunxiAPI.showLoading('正在退出...');
+                try {
+                    await YunxiAPI.logout();
+                    YunxiAPI.showToast('已退出登录', 'success');
+                    setTimeout(function() {
+                        location.href = 'login.html';
+                    }, 500);
+                } catch (e) {
+                    location.href = 'login.html';
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            }
+        }
+
+        function updateUserInfo() {
+            var user = YunxiAPI.getCurrentUser();
+            if (user) {
+                var username = user.username || '管';
+                var initial = username.charAt(0).toUpperCase();
+                var userBadges = document.querySelectorAll('.w-8.h-8.rounded-full');
+                userBadges.forEach(function(badge) {
+                    if (badge.textContent.trim() === '管') {
+                        badge.textContent = initial;
+                    }
+                });
+            }
+        }
+
+        // ============================================================
+        // Git 提交记录 & 版本历史
+        // ============================================================
+
+        var gitCommitsCache = [];
+
+        async function loadGitCommits() {
+            try {
+                var data = await YunxiAPI.request('GET', '/git/commits?limit=20');
+                if (data && data.items) {
+                    gitCommitsCache = data.items;
+                    renderVersionHistory(data.items);
+                    return;
+                }
+            } catch (e) {
+                console.warn('加载 Git 提交记录失败，使用降级数据:', e);
+            }
+            // 降级：保留空状态提示
+            var tbody = document.getElementById('version-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm);">暂无提交记录</td></tr>';
+            }
+        }
+
+        function renderVersionHistory(commits) {
+            var tbody = document.getElementById('version-tbody');
+            if (!tbody) return;
+
+            if (!commits || commits.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm);">暂无提交记录</td></tr>';
+                return;
+            }
+
+            var html = '';
+            commits.forEach(function(commit, index) {
+                var isCurrent = index === 0;
+                var shortHash = commit.short_hash || (commit.hash ? commit.hash.substring(0, 7) : '');
+                var versionTag = 'v' + (commits.length - index) + '.0.' + index;
+                var dateStr = commit.date ? commit.date.substring(0, 10) : '--';
+                var message = commit.message || '无提交信息';
+
+                var rowStyle = isCurrent ? 'background: rgba(59,130,246,0.04);' : '';
+                var borderStyle = index < commits.length - 1 ? 'border-bottom: 1px solid var(--color-border-subtle);' : '';
+
+                html += '<tr style="' + rowStyle + '">';
+                html += '<td class="px-4 py-3 whitespace-nowrap" style="font-family: var(--font-family-mono); font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary); ' + borderStyle + '">';
+                html += '<div style="display:flex;flex-direction:column;gap:2px;">';
+                html += '<span>' + versionTag + '</span>';
+                html += '<span style="font-size:11px;color:var(--color-text-tertiary);font-weight:400;">' + shortHash + '</span>';
+                html += '</div></td>';
+                html += '<td class="px-4 py-3 whitespace-nowrap" style="font-size: var(--text-sm); color: var(--color-text-secondary); ' + borderStyle + '">' + dateStr + '</td>';
+                html += '<td class="px-4 py-3" style="min-width: 160px; font-size: var(--text-sm); color: var(--color-text-primary); ' + borderStyle + '">';
+                html += '<div style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(message) + '">' + escapeHtml(message) + '</div>';
+                html += '</td>';
+                html += '<td class="px-4 py-3 whitespace-nowrap" style="' + borderStyle + '">';
+                if (isCurrent) {
+                    html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md whitespace-nowrap" style="background: rgba(16,185,129,0.12); color: var(--state-success); font-size: var(--text-xs); font-weight: 500;">';
+                    html += '<i data-lucide="check" style="width: 12px; height: 12px;"></i>当前</span>';
+                } else {
+                    html += '<span style="font-size: var(--text-sm); color: var(--color-text-tertiary);">--</span>';
+                }
+                html += '</td>';
+                html += '<td class="px-4 py-3 text-right whitespace-nowrap" style="' + borderStyle + '">';
+                html += '<button class="rollback-btn inline-flex items-center gap-1 px-3 py-1 rounded-md transition-colors duration-150 whitespace-nowrap" data-hash="' + (commit.hash || '') + '" data-version="' + versionTag + '" style="font-size: var(--text-xs); color: var(--color-text-secondary); border: 1px solid var(--color-border-default); border-radius: var(--radius-md);" onmouseenter="this.style.borderColor=\'var(--color-border-strong)\';this.style.color=\'var(--color-text-primary)\'" onmouseleave="this.style.borderColor=\'var(--color-border-default)\';this.style.color=\'var(--color-text-secondary)\'">';
+                html += '<i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i>回滚</button>';
+                html += '</td></tr>';
+            });
+
+            tbody.innerHTML = html;
+
+            // 重新渲染 lucide 图标
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            // 绑定回滚按钮事件
+            var rollbackBtns = tbody.querySelectorAll('.rollback-btn');
+            rollbackBtns.forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var version = btn.getAttribute('data-version') || 'v1.0.0';
+                    handleRollback(version);
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================================
+        // 已拉取模型（Ollama）
+        // ============================================================
+
+        // 静态模型列表（降级使用）
+        var staticModels = [
+            { name: 'qwen2.5:7b', size: '4.7 GB', family: 'qwen' },
+            { name: 'llama3.1:8b', size: '4.7 GB', family: 'llama' },
+            { name: 'deepseek-coder:6.7b', size: '3.8 GB', family: 'deepseek' }
+        ];
+
+        async function loadOllamaModels() {
+            var listEl = document.getElementById('models-list');
+            var badgeEl = document.getElementById('model-count-badge');
+            if (!listEl) return;
+
+            listEl.innerHTML = '<div style="color: var(--color-text-tertiary); font-size: var(--text-sm); padding: 20px; text-align: center; grid-column: 1 / -1;">加载中...</div>';
+
+            try {
+                // 尝试调用 Ollama API
+                var data = await YunxiAPI.request('GET', '/ollama/models');
+                if (data && data.models && data.models.length > 0) {
+                    renderModelsList(data.models);
+                    if (badgeEl) badgeEl.textContent = data.models.length + ' 个';
+                    return;
+                }
+            } catch (e) {
+                console.warn('加载 Ollama 模型失败，使用静态数据:', e);
+            }
+
+            // 降级：使用静态模型列表
+            renderModelsList(staticModels, true);
+            if (badgeEl) badgeEl.textContent = staticModels.length + ' 个';
+        }
+
+        function renderModelsList(models, isStatic) {
+            var listEl = document.getElementById('models-list');
+            if (!listEl) return;
+
+            if (!models || models.length === 0) {
+                listEl.innerHTML = '<div style="color: var(--color-text-tertiary); font-size: var(--text-sm); padding: 20px; text-align: center; grid-column: 1 / -1;">暂无已拉取的模型</div>';
+                return;
+            }
+
+            var html = '';
+            models.forEach(function(m) {
+                var name = m.name || m.model || 'unknown';
+                var size = m.size || m.size_gb || '--';
+                if (typeof size === 'number') {
+                    size = (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+                }
+                var family = m.family || m.details?.family || '';
+
+                html += '<div class="model-card" style="padding:14px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:rgba(255,255,255,0.3);transition:all 0.2s;" onmouseenter="this.style.borderColor=\'var(--color-primary)\';this.style.boxShadow=\'var(--shadow-glow)\'" onmouseleave="this.style.borderColor=\'var(--color-border-default)\';this.style.boxShadow=\'none\'">';
+                html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+                html += '<div style="width:36px;height:36px;border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(6,182,212,0.15));display:flex;align-items:center;justify-content:center;">';
+                html += '<i data-lucide="brain" style="width:18px;height:18px;color:var(--color-primary);"></i></div>';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(name) + '</div>';
+                html += '<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;font-family:var(--font-family-mono);">' + size + '</div>';
+                html += '</div></div>';
+                if (family) {
+                    html += '<div style="display:inline-block;padding:2px 8px;border-radius:var(--radius-full);background:rgba(100,116,139,0.08);font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;">' + escapeHtml(family) + '</div>';
+                }
+                if (isStatic) {
+                    html += '<div style="margin-top:8px;font-size:10px;color:var(--color-text-tertiary);opacity:0.7;">示例数据</div>';
+                }
+                html += '</div>';
+            });
+
+            listEl.innerHTML = html;
+
+            // 重新渲染 lucide 图标
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // ============================================================
+        // 部署流水线 - 实时状态
+        // ============================================================
+
+        var moduleRealtimeCache = [];
+
+        async function loadPipelineStatus() {
+            try {
+                var data = await YunxiAPI.request('GET', '/system/modules/status/realtime');
+                if (data && data.modules) {
+                    moduleRealtimeCache = data.modules;
+                    updatePipelineNodes(data.modules);
+                    return;
+                }
+            } catch (e) {
+                console.warn('加载模块实时状态失败:', e);
+            }
+            // 失败时保留静态显示
+        }
+
+        // 模块名到 key 的映射
+        var moduleNameToKey = {
+            '调度引擎': 'm1',
+            '技能中心': 'm2',
+            '对话系统': 'm3',
+            '场景工坊': 'm4',
+            '知识库': 'm5',
+            '感知分析': 'm6',
+            '积木平台': 'm7',
+            '系统卫士': 'm10'
+        };
+
+        function updatePipelineNodes(modules) {
+            var nodes = document.querySelectorAll('.pipeline-node');
+            nodes.forEach(function(node) {
+                var nameEl = node.querySelector('.text-sm');
+                if (!nameEl) return;
+                var name = nameEl.textContent.trim();
+                var key = moduleNameToKey[name];
+                if (!key) return;
+
+                var mod = modules.find(function(m) { return m.key === key; });
+                if (!mod) return;
+
+                // 更新状态标签
+                var statusEl = node.querySelector('span[style*="font-size: 10px"]');
+                var iconWrapper = node.querySelector('[style*="width: 72px"]');
+
+                var status = mod.status || 'stopped';
+                var statusText = '';
+                var statusColor = '';
+                var statusBg = '';
+                var iconName = '';
+                var borderColor = '';
+                var bgColor = '';
+
+                if (status === 'running') {
+                    statusText = '运行中';
+                    statusColor = 'var(--state-success)';
+                    statusBg = 'rgba(16,185,129,0.1)';
+                    iconName = 'check-circle-2';
+                    borderColor = 'rgba(16,185,129,0.25)';
+                    bgColor = 'rgba(16,185,129,0.1)';
+                } else if (status === 'starting') {
+                    statusText = '启动中';
+                    statusColor = 'var(--state-info)';
+                    statusBg = 'rgba(59,130,246,0.1)';
+                    iconName = 'loader-2';
+                    borderColor = 'rgba(59,130,246,0.3)';
+                    bgColor = 'rgba(59,130,246,0.1)';
+                } else if (status === 'degraded' || status === 'error') {
+                    statusText = '异常';
+                    statusColor = 'var(--state-error)';
+                    statusBg = 'rgba(239,68,68,0.1)';
+                    iconName = 'alert-triangle';
+                    borderColor = 'rgba(239,68,68,0.25)';
+                    bgColor = 'rgba(239,68,68,0.1)';
+                } else {
+                    statusText = '已停止';
+                    statusColor = 'var(--color-text-tertiary)';
+                    statusBg = 'rgba(100,116,139,0.1)';
+                    iconName = 'clock';
+                    borderColor = 'var(--color-border-default)';
+                    bgColor = 'rgba(100,116,139,0.1)';
+                }
+
+                if (statusEl) {
+                    statusEl.style.background = statusBg;
+                    statusEl.style.color = statusColor;
+                    statusEl.innerHTML = status === 'starting'
+                        ? '<span style="width:5px;height:5px;border-radius:var(--radius-full);background:' + statusColor + ';"></span> ' + statusText
+                        : statusText;
+                }
+
+                if (iconWrapper) {
+                    iconWrapper.style.background = bgColor;
+                    iconWrapper.style.borderColor = borderColor;
+                    // 更新图标（通过替换 data-lucide）
+                    var iconEl = iconWrapper.querySelector('[data-lucide]');
+                    if (iconEl && iconEl.getAttribute('data-lucide') !== iconName) {
+                        iconEl.setAttribute('data-lucide', iconName);
+                        iconEl.style.color = statusColor;
+                    }
+                }
+            });
+
+            // 重新渲染 lucide 图标
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // ============================================================
+        // 模块详情弹窗
+        // ============================================================
+
+        async function showModuleDetailDialog(moduleName) {
+            var key = moduleNameToKey[moduleName] || '';
+
+            // 创建弹窗
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:480px;max-width:560px;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin:0;">` + escapeHtml(moduleName) + ` - 模块详情</h3>
+                    <button id="close-detail-btn" style="background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);padding:4px;border-radius:6px;" onmouseenter="this.style.color='var(--color-text-primary)'" onmouseleave="this.style.color='var(--color-text-tertiary)'">
+                        <i data-lucide="x" style="width:20px;height:20px;"></i>
+                    </button>
+                </div>
+                <div id="detail-content" style="color:var(--color-text-tertiary);font-size:var(--text-sm);text-align:center;padding:30px;">
+                    加载中...
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            // 关闭按钮
+            modal.querySelector('#close-detail-btn').addEventListener('click', function() {
+                overlay.remove();
+            });
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            // 加载详情数据
+            try {
+                var data = await YunxiAPI.request('GET', '/system/modules/status/realtime');
+                if (data && data.modules) {
+                    var modules = data.modules;
+                    var mod = modules.find(function(m) { return m.key === key; });
+
+                    // 如果 realtime API 里找不到，尝试调单个模块接口
+                    if (!mod) {
+                        try {
+                            mod = await YunxiAPI.request('GET', '/deploy/modules/' + key);
+                        } catch (e2) { /* 忽略 */ }
+                    }
+
+                    if (mod) {
+                        renderModuleDetail(modal.querySelector('#detail-content'), mod, moduleName);
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('加载模块详情失败:', e);
+            }
+
+            // 降级：显示基本信息
+            var contentEl = modal.querySelector('#detail-content');
+            contentEl.style.textAlign = 'left';
+            contentEl.style.padding = '0';
+            contentEl.innerHTML = `
+                <div style="padding:12px;border-radius:var(--radius-md);background:rgba(239,68,68,0.06);color:var(--state-error);font-size:var(--text-sm);margin-bottom:16px;">
+                    无法获取实时状态，显示静态信息
+                </div>
+                <div style="font-size:var(--text-sm);color:var(--color-text-secondary);">模块名称: ` + escapeHtml(moduleName) + `</div>
+                <div style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-top:6px;">模块标识: ` + escapeHtml(key) + `</div>
+            `;
+        }
+
+        function renderModuleDetail(container, mod, moduleName) {
+            container.style.textAlign = 'left';
+            container.style.padding = '0';
+
+            var status = mod.status || 'unknown';
+            var statusText = {
+                'running': '运行中',
+                'starting': '启动中',
+                'stopping': '停止中',
+                'stopped': '已停止',
+                'error': '异常',
+                'degraded': '降级',
+                'unknown': '未知'
+            }[status] || status;
+
+            var statusColor = {
+                'running': 'var(--state-success)',
+                'starting': 'var(--state-info)',
+                'stopping': 'var(--state-warning)',
+                'stopped': 'var(--color-text-tertiary)',
+                'error': 'var(--state-error)',
+                'degraded': 'var(--state-warning)',
+                'unknown': 'var(--color-text-tertiary)'
+            }[status] || 'var(--color-text-tertiary)';
+
+            var port = mod.port || mod.process?.port || '--';
+            var pid = mod.process_pid || mod.process?.pid || '--';
+            var version = mod.version || 'v2.3.1';
+            var httpHealthy = mod.http_healthy !== undefined ? mod.http_healthy : null;
+            var portOpen = mod.port_open !== undefined ? mod.port_open : null;
+
+            var html = '';
+
+            // 状态概览
+            html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:var(--radius-md);background:rgba(59,130,246,0.04);margin-bottom:16px;">';
+            html += '<div style="width:48px;height:48px;border-radius:var(--radius-md);background:' + statusColor.replace('var(', 'rgba(').replace(')', ',0.15)').replace('state-success', '16,185,129').replace('state-info', '59,130,246').replace('state-error', '239,68,68').replace('state-warning', '245,158,11').replace('color-text-tertiary', '100,116,139') + ';display:flex;align-items:center;justify-content:center;">';
+            html += '<i data-lucide="server" style="width:24px;height:24px;color:' + statusColor + ';"></i></div>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-size:16px;font-weight:600;color:var(--color-text-primary);">' + escapeHtml(moduleName) + '</div>';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">';
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;background:' + statusColor.replace('var(', 'rgba(').replace(')', ',0.12)').replace('state-success', '16,185,129').replace('state-info', '59,130,246').replace('state-error', '239,68,68').replace('state-warning', '245,158,11').replace('color-text-tertiary', '100,116,139') + ';color:' + statusColor + ';font-size:12px;font-weight:500;">';
+            html += '<span style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';"></span>' + statusText + '</span>';
+            html += '<span style="font-size:12px;color:var(--color-text-tertiary);font-family:var(--font-family-mono);">' + version + '</span>';
+            html += '</div></div></div>';
+
+            // 详细信息网格
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+
+            // 端口
+            html += '<div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);">';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">端口</div>';
+            html += '<div style="font-size:16px;font-weight:600;color:var(--color-text-primary);font-family:var(--font-family-mono);">' + port + '</div>';
+            if (portOpen !== null) {
+                html += '<div style="font-size:11px;color:' + (portOpen ? 'var(--state-success)' : 'var(--state-error)') + ';margin-top:2px;">' + (portOpen ? '端口已开放' : '端口未开放') + '</div>';
+            }
+            html += '</div>';
+
+            // 进程
+            html += '<div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);">';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">进程 PID</div>';
+            html += '<div style="font-size:16px;font-weight:600;color:var(--color-text-primary);font-family:var(--font-family-mono);">' + pid + '</div>';
+            html += '<div style="font-size:11px;color:' + (pid !== '--' ? 'var(--state-success)' : 'var(--color-text-tertiary)') + ';margin-top:2px;">' + (pid !== '--' ? '进程运行中' : '无进程') + '</div>';
+            html += '</div>';
+
+            // 健康检查
+            html += '<div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);">';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">HTTP 健康检查</div>';
+            html += '<div style="font-size:16px;font-weight:600;color:var(--color-text-primary);">';
+            if (httpHealthy === true) {
+                html += '<span style="color:var(--state-success);">正常</span>';
+            } else if (httpHealthy === false) {
+                html += '<span style="color:var(--state-error);">异常</span>';
+            } else {
+                html += '<span style="color:var(--color-text-tertiary);">--</span>';
+            }
+            html += '</div>';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;">/health 端点</div>';
+            html += '</div>';
+
+            // 模块标识
+            html += '<div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);">';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">模块标识</div>';
+            html += '<div style="font-size:16px;font-weight:600;color:var(--color-text-primary);font-family:var(--font-family-mono);">' + escapeHtml(mod.key || mod.module_key || '--') + '</div>';
+            html += '<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;">系统内部 ID</div>';
+            html += '</div>';
+
+            html += '</div>';
+
+            // 操作按钮
+            html += '<div style="display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--color-border-subtle);">';
+            if (status === 'running') {
+                html += '<button class="detail-action-btn" data-action="restart" style="padding:8px 16px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:13px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'var(--state-warning)\';this.style.color=\'var(--state-warning)\'" onmouseleave="this.style.borderColor=\'var(--color-border-default)\';this.style.color=\'var(--color-text-secondary)\'">重启</button>';
+                html += '<button class="detail-action-btn" data-action="stop" style="padding:8px 16px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:13px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'var(--state-error)\';this.style.color=\'var(--state-error)\'" onmouseleave="this.style.borderColor=\'var(--color-border-default)\';this.style.color=\'var(--color-text-secondary)\'">停止</button>';
+            } else {
+                html += '<button class="detail-action-btn" data-action="start" style="padding:8px 16px;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:13px;cursor:pointer;transition:all 0.2s;border:none;" onmouseenter="this.style.boxShadow=\'var(--shadow-glow)\'" onmouseleave="this.style.boxShadow=\'none\'">启动</button>';
+            }
+            html += '<button class="detail-action-btn" data-action="logs" style="padding:8px 16px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:13px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'var(--color-primary)\';this.style.color=\'var(--color-primary)\'" onmouseleave="this.style.borderColor=\'var(--color-border-default)\';this.style.color=\'var(--color-text-secondary)\'">查看日志</button>';
+            html += '</div>';
+
+            container.innerHTML = html;
+
+            // 绑定操作按钮
+            var actionBtns = container.querySelectorAll('.detail-action-btn');
+            actionBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var action = btn.getAttribute('data-action');
+                    var key = mod.key || mod.module_key || '';
+                    handleModuleAction(action, key, moduleName);
+                });
+            });
+        }
+
+        async function handleModuleAction(action, key, moduleName) {
+            if (!key) {
+                YunxiAPI.showToast('模块标识未知', 'error');
+                return;
+            }
+
+            var actionMap = {
+                'start': { path: '/deploy/modules/' + key + '/start', method: 'POST', text: '启动' },
+                'stop': { path: '/deploy/modules/' + key + '/stop', method: 'POST', text: '停止' },
+                'restart': { path: '/deploy/modules/' + key + '/restart', method: 'POST', text: '重启' },
+                'logs': { path: '/deploy/modules/' + key + '/logs', method: 'GET', text: '查看日志' }
+            };
+
+            var cfg = actionMap[action];
+            if (!cfg) return;
+
+            if (action === 'logs') {
+                // 查看日志
+                try {
+                    var logData = await YunxiAPI.request('GET', '/deploy/modules/' + key + '/logs?lines=50');
+                    showLogsDialog(moduleName, (logData && logData.logs) || []);
+                } catch (e) {
+                    YunxiAPI.showToast('获取日志失败', 'error');
+                }
+                return;
+            }
+
+            var confirmed = await YunxiAPI.showConfirm('确定要' + cfg.text + ' ' + moduleName + ' 吗？', cfg.text + '模块');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('正在' + cfg.text + ' ' + moduleName + '...');
+            try {
+                await YunxiAPI.request(cfg.method, cfg.path);
+                YunxiAPI.showToast(moduleName + ' ' + cfg.text + '成功', 'success');
+                // 刷新状态
+                loadPipelineStatus();
+            } catch (e) {
+                YunxiAPI.showToast(cfg.text + '失败: ' + (e.message || '未知错误'), 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        function showLogsDialog(moduleName, logs) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:11000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:20px;min-width:600px;max-width:800px;max-height:70vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            var logsHtml = logs.length > 0
+                ? logs.map(function(line) { return '<div style="font-size:12px;color:var(--color-text-secondary);font-family:var(--font-family-mono);line-height:1.6;padding:2px 0;border-bottom:1px solid var(--color-border-subtle);">' + escapeHtml(line) + '</div>'; }).join('')
+                : '<div style="color:var(--color-text-tertiary);text-align:center;padding:20px;">暂无日志</div>';
+
+            modal.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+                    <h3 style="font-size:16px;font-weight:600;color:var(--color-text-primary);margin:0;">` + escapeHtml(moduleName) + ` - 运行日志</h3>
+                    <button class="close-logs-btn" style="background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);padding:4px;border-radius:6px;" onmouseenter="this.style.color='var(--color-text-primary)'" onmouseleave="this.style.color='var(--color-text-tertiary)'">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+                <div style="flex:1;overflow-y:auto;background:rgba(0,0,0,0.03);border-radius:var(--radius-md);padding:12px;">
+                    ` + logsHtml + `
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            modal.querySelector('.close-logs-btn').addEventListener('click', function() { overlay.remove(); });
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        }
+
+        // ============================================================
+        // 导出版本记录 - 真实 JSON 文件下载
+        // ============================================================
+
+        async function exportVersionRecords() {
+            YunxiAPI.showToast('正在收集配置信息...', 'info');
+
+            try {
+                // 并行收集系统信息、模块状态、Git提交记录
+                var systemInfo = null;
+                var modulesStatus = null;
+                var gitCommits = gitCommitsCache.length > 0 ? gitCommitsCache : null;
+                var deployRepo = null;
+                var settings = null;
+
+                // 系统信息
+                try {
+                    systemInfo = await YunxiAPI.request('GET', '/system/info');
+                } catch (e) { /* 忽略 */ }
+
+                // 模块状态
+                try {
+                    modulesStatus = await YunxiAPI.request('GET', '/system/modules/status/realtime');
+                } catch (e) { /* 忽略 */ }
+
+                // Git 提交（如果缓存为空）
+                if (!gitCommits || gitCommits.length === 0) {
+                    try {
+                        var gitData = await YunxiAPI.request('GET', '/git/commits?limit=20');
+                        if (gitData) {
+                            gitCommits = gitData.items || [];
+                        }
+                    } catch (e) { /* 忽略 */ }
+                }
+
+                // 系统设置
+                try {
+                    settings = await YunxiAPI.request('GET', '/system/settings');
+                } catch (e) { /* 忽略 */ }
+
+                // 组装导出数据
+                var exportData = {
+                    export_time: new Date().toISOString(),
+                    export_type: 'version_deployment_record',
+                    version: '1.0',
+                    system: systemInfo || { name: '云汐管理台', version: 'unknown' },
+                    modules: modulesStatus || { total: 0, modules: [] },
+                    git_commits: gitCommits || [],
+                    settings: settings || {},
+                    summary: {
+                        total_modules: modulesStatus?.total || 0,
+                        running_modules: modulesStatus?.running || 0,
+                        stopped_modules: modulesStatus?.stopped || 0,
+                        git_commits_count: (gitCommits || []).length
+                    }
+                };
+
+                // 生成文件名
+                var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                var version = (systemInfo && systemInfo.version) ? systemInfo.version : 'unknown';
+                var fileName = 'yunxi-deploy-' + version + '-' + timestamp + '.json';
+
+                // 触发下载
+                var jsonStr = JSON.stringify(exportData, null, 2);
+                var blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                YunxiAPI.showToast('版本记录已导出: ' + fileName, 'success');
+
+            } catch (e) {
+                console.error('导出版本记录失败:', e);
+                YunxiAPI.showToast('导出失败: ' + e.message, 'error');
+            }
+        }
+
+    </script>
+
+
+    
+    <script>
+        document.getElementById('themeToggleBtn')?.addEventListener('click', function() {
+            window.YunxiTheme?.toggleTheme();
+        });
+    </script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
+
+
+

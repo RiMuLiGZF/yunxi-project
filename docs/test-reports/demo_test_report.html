@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试报告 - 云汐系统 v1.1</title>
+    <style>
+        /* ============================================================
+           云汐系统测试报告 - 深色主题
+           ============================================================ */
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --border: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-tertiary: #64748b;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.3);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --info: #3b82f6;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                         'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #38bdf8, #22d3ee, #10b981);
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #38bdf8, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* 状态横幅 */
+        .status-banner {
+            padding: 16px 24px;
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+        .status-banner.passed {
+            background: var(--success-bg);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        .status-banner.failed {
+            background: var(--danger-bg);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        .status-banner.empty {
+            background: rgba(107, 114, 128, 0.1);
+            border-color: var(--text-tertiary);
+            color: var(--text-secondary);
+        }
+        .status-banner .icon { font-size: 28px; }
+
+        /* 统计卡片网格 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .stat-card.pass .value { color: var(--success); }
+        .stat-card.fail .value { color: var(--danger); }
+        .stat-card.skip .value { color: var(--warning); }
+        .stat-card.rate .value { color: var(--accent); }
+
+        /* 图表区域 */
+        .chart-section {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 768px) {
+            .chart-section { grid-template-columns: 1fr; }
+        }
+
+        .pie-chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .pie-chart {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--success) 0% var(--chart-pass-end),
+                var(--danger) var(--chart-pass-end) var(--chart-fail-end),
+                var(--warning) var(--chart-fail-end) var(--chart-skip-end),
+                var(--text-tertiary) var(--chart-skip-end) 100%
+            );
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .pie-chart::after {
+            content: '';
+            position: absolute;
+            top: 20%; left: 20%;
+            width: 60%; height: 60%;
+            background: var(--bg-card);
+            border-radius: 50%;
+        }
+        .pie-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1;
+        }
+        .pie-center .rate {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .pie-center .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .pie-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .legend-dot.pass { background: var(--success); }
+        .legend-dot.fail { background: var(--danger); }
+        .legend-dot.skip { background: var(--warning); }
+        .legend-dot.error { background: #8b5cf6; }
+        .legend-value {
+            margin-left: auto;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 卡片通用样式 */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-body { padding: 20px; }
+
+        /* 模块表格 */
+        .module-section { margin-bottom: 24px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: rgba(56, 189, 248, 0.05);
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tr:hover td { background: var(--bg-hover); }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        td.pass { color: var(--success); }
+        td.fail { color: var(--danger); }
+        td.skip { color: var(--warning); }
+        .module-name {
+            font-weight: 500;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+        }
+
+        .progress-bar {
+            width: 100px;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .progress-fill.pass { background: var(--success); }
+        .progress-fill.fail { background: var(--danger); }
+        .progress-text {
+            margin-left: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 失败用例 */
+        .failure-section { margin-bottom: 24px; }
+        .failure-item {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .failure-item:hover { border-color: var(--danger); }
+        .failure-header {
+            padding: 12px 16px;
+            background: var(--danger-bg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+        }
+        .failure-icon {
+            color: var(--danger);
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .failure-name {
+            flex: 1;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .failure-toggle {
+            color: var(--text-tertiary);
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .failure-detail {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-primary);
+        }
+        .failure-error {
+            color: var(--danger);
+            font-weight: 500;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: var(--danger-bg);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+        }
+        .failure-traceback {
+            background: #0a0f1a;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .no-failures {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--success);
+        }
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        /* 环境信息 */
+        .env-section { margin-bottom: 24px; }
+        .env-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .env-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-sm);
+        }
+        .env-item .key {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .env-item .value {
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* 页脚 */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>🌊 云汐系统 v1.1 · 测试报告</h1>
+            <div class="subtitle">自动化测试执行报告 · 生成时间: 2026-07-08 16:11:49</div>
+        </div>
+
+        <!-- 状态横幅 -->
+        <div class="status-banner failed">
+            <span class="icon">✕</span>
+            <span>测试结果: 未通过</span>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="value">42</div>
+                <div class="label">总用例数</div>
+            </div>
+            <div class="stat-card pass">
+                <div class="value">37</div>
+                <div class="label">通过</div>
+            </div>
+            <div class="stat-card fail">
+                <div class="value">3</div>
+                <div class="label">失败</div>
+            </div>
+            <div class="stat-card skip">
+                <div class="value">2</div>
+                <div class="label">跳过</div>
+            </div>
+            <div class="stat-card rate">
+                <div class="value">88.1%</div>
+                <div class="label">通过率</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">12.53s</div>
+                <div class="label">总耗时</div>
+            </div>
+        </div>
+
+        <!-- 图表区 -->
+        <div class="chart-section">
+            <div class="pie-chart-container">
+                <div class="pie-chart" style="  --chart-pass: #10b981;
+  --chart-pass-start: 0%;
+  --chart-pass-end: 88.09523809523809%;
+  --chart-fail: #ef4444;
+  --chart-fail-start: 88.09523809523809%;
+  --chart-fail-end: 95.23809523809523%;
+  --chart-skip: #f59e0b;
+  --chart-skip-start: 95.23809523809523%;
+  --chart-skip-end: 99.99999999999999%;
+  --chart-error: #8b5cf6;
+  --chart-error-start: 99.99999999999999%;
+  --chart-error-end: 99.99999999999999%;
+">
+                    <div class="pie-center">
+                        <div class="rate">88.1%</div>
+                        <div class="label">通过率</div>
+                    </div>
+                </div>
+                <div class="pie-legend">
+                    <div class="legend-item">
+                        <span class="legend-dot pass"></span>
+                        <span>通过</span>
+                        <span class="legend-value">37 (88.1%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot fail"></span>
+                        <span>失败</span>
+                        <span class="legend-value">3 (7.1%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot skip"></span>
+                        <span>跳过</span>
+                        <span class="legend-value">2 (4.8%)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块统计 -->
+            <div class="card module-section">
+                <div class="card-header">📦 按模块统计</div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>模块</th>
+                                <th class="num">总数</th>
+                                <th class="num">通过</th>
+                                <th class="num">失败</th>
+                                <th class="num">跳过</th>
+                                <th>通过率</th>
+                                <th class="num">耗时</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                    <tr>
+                        <td><span class="module-name">tests</span></td>
+                        <td class="num">36</td>
+                        <td class="num pass">31</td>
+                        <td class="num fail">3</td>
+                        <td class="num skip">2</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill fail" style="width: 86.1%"></div>
+                            </div>
+                            <span class="progress-text">86.1%</span>
+                        </td>
+                        <td class="num">19.74s</td>
+                    </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 失败用例详情 -->
+        <div class="card failure-section">
+            <div class="card-header">❌ 失败用例详情 (3)</div>
+            <div class="card-body">
+                
+                    <div class="failure-item">
+                        <div class="failure-header" onclick="toggleFailure(0)">
+                            <span class="failure-icon">✕</span>
+                            <span class="failure-name" title="tests/test_m8/test_auth_api.py::TestAuth::test_token_refresh">tests/test_m8/test_auth_api.py::TestAuth::test_token_refresh</span>
+                            <span class="failure-toggle" id="toggle-0">▼</span>
+                        </div>
+                        <div class="failure-detail" id="detail-0" style="display: none;">
+                            <div class="failure-error">AssertionError</div>
+                            <pre class="failure-traceback">AssertionError: 预期返回新 token，但返回了 None
+
+Stacktrace:
+  File "test_auth_api.py", line 45, in test_token_refresh
+    assert result['access_token'] is not None
+AssertionError</pre>
+                        </div>
+                    </div>
+                    <div class="failure-item">
+                        <div class="failure-header" onclick="toggleFailure(1)">
+                            <span class="failure-icon">✕</span>
+                            <span class="failure-name" title="tests/test_m1/test_m8_integration.py::TestM8Integration::test_agent_registration">tests/test_m1/test_m8_integration.py::TestM8Integration::test_agent_registration</span>
+                            <span class="failure-toggle" id="toggle-1">▼</span>
+                        </div>
+                        <div class="failure-detail" id="detail-1" style="display: none;">
+                            <div class="failure-error">ConnectionError: Connection refused on port 18080</div>
+                            <pre class="failure-traceback">ConnectionError: 无法连接到 M8 管理台
+
+Stacktrace:
+  File "test_m8_integration.py", line 78, in test_agent_registration
+    response = client.post('/api/agents/register', json=agent_data)
+  File "client.py", line 120, in post
+    raise ConnectionError(f"Connection failed: {e}")
+ConnectionError: Connection refused on port 18080</pre>
+                        </div>
+                    </div>
+                    <div class="failure-item">
+                        <div class="failure-header" onclick="toggleFailure(2)">
+                            <span class="failure-icon">✕</span>
+                            <span class="failure-name" title="tests/test_m3/test_graph_query.py::TestGraph::test_complex_query">tests/test_m3/test_graph_query.py::TestGraph::test_complex_query</span>
+                            <span class="failure-toggle" id="toggle-2">▼</span>
+                        </div>
+                        <div class="failure-detail" id="detail-2" style="display: none;">
+                            <div class="failure-error">ValueError: Result count mismatch</div>
+                            <pre class="failure-traceback">ValueError: 图谱查询返回结果数量不匹配
+  期望: 5
+  实际: 3
+
+Stacktrace:
+  File "test_graph_query.py", line 112, in test_complex_query
+    assert len(results) == 5
+ValueError: Result count mismatch</pre>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        <!-- 环境信息 -->
+        <div class="card env-section">
+            <div class="card-header">🖥️ 运行环境</div>
+            <div class="card-body">
+                <div class="env-grid">
+                    <div class="env-item">
+                        <span class="key">项目</span>
+                        <span class="value">云汐系统 v1.1</span>
+                    </div>
+                    <div class="env-item">
+                        <span class="key">Python 版本</span>
+                        <span class="value">3.10.11</span>
+                    </div>
+                    <div class="env-item">
+                        <span class="key">操作系统</span>
+                        <span class="value">Windows</span>
+                    </div>
+                    <div class="env-item">
+                        <span class="key">平台</span>
+                        <span class="value">Windows-10-10.0.26200-SP0</span>
+                    </div>
+                    <div class="env-item">
+                        <span class="key">架构</span>
+                        <span class="value">AMD64</span>
+                    </div>
+                    <div class="env-item">
+                        <span class="key">测试时间</span>
+                        <span class="value">2026-07-08 16:11:49</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer">
+            本报告由云汐系统自动化测试框架生成 · 2026-07-08 16:11:49
+        </div>
+    </div>
+
+    <script>
+        // 折叠/展开失败用例详情
+        function toggleFailure(index) {
+            const detail = document.getElementById('detail-' + index);
+            const toggle = document.getElementById('toggle-' + index);
+            if (detail.style.display === 'none') {
+                detail.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                detail.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+    </script>
+</body>
+</html>

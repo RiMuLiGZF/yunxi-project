@@ -1,0 +1,14 @@
+# Yunxi System Version
+# 云汐系统统一版本号
+
+VERSION=0.4.0
+VERSION_TAG=V0.4.0
+RELEASE_DATE=2026-07-09
+CODENAME=GPU-Acceleration
+MODULES=M1,M2,M3,M4,M5,M6,M7,M8,M9,M10
+
+# V0.4.0 - GPU 加速版
+# - M5: 向量检索支持 Faiss GPU 加速
+# - M10: GPU 监控增强，多 GPU 设备 + 进程级监控
+# - M8: GPU 算力源接入，任务调度与状态同步
+# - M2: ONNX Runtime GPU 加速引擎

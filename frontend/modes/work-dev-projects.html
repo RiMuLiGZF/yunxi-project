@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="work-dev">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目管理 — 云汐开发模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+    }
+    .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .top-bar {
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: var(--color-header-bg); border-bottom: 1px solid var(--color-header-border);
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      color: var(--color-text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px;
+      transition: all .2s;
+    }
+    .back-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+    .page-title { font-size: 16px; font-weight: 600; }
+    .main-body { flex: 1; overflow: auto; padding: 24px; }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--color-card-bg); border: 1px solid var(--color-border);
+      border-radius: 12px; padding: 20px;
+    }
+    .stat-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    .stat-label { font-size: 13px; color: var(--color-text-secondary); }
+    .stat-change { font-size: 12px; margin-top: 6px; }
+    .stat-change.up { color: #00B42A; }
+    .stat-change.down { color: #F53F3F; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .section-title { font-size: 15px; font-weight: 600; }
+    .btn-primary {
+      background: var(--color-primary); color: white; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; font-weight: 500; transition: opacity .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-secondary {
+      background: var(--color-card-bg); color: var(--color-text-primary);
+      border: 1px solid var(--color-border); border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-secondary:hover { background: var(--color-hover-bg); }
+
+    .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card {
+      background: var(--color-card-bg); border: 1px solid var(--color-border);
+      border-radius: 12px; padding: 20px;
+    }
+    
+    .project-list { display: flex; flex-direction: column; gap: 12px; }
+    .project-item {
+      display: flex; align-items: center; gap: 14px; padding: 14px;
+      border: 1px solid var(--color-border); border-radius: 10px;
+      cursor: pointer; transition: all .2s;
+    }
+    .project-item:hover { background: var(--color-hover-bg); border-color: var(--color-primary-light); }
+    .project-icon {
+      width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .project-info { flex: 1; }
+    .project-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .project-desc { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
+    .project-meta { display: flex; gap: 12px; font-size: 11px; color: var(--color-text-tertiary); }
+    
+    .progress-bar {
+      height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; margin-top: 8px;
+    }
+    .progress-fill { height: 100%; background: var(--color-primary); border-radius: 2px; transition: width .3s; }
+    
+    .status-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+    }
+    .status-tag.active { background: rgba(0,180,42,0.1); color: #00B42A; }
+    .status-tag.planning { background: rgba(255,125,0,0.1); color: #FF7D00; }
+    .status-tag.archived { background: rgba(128,128,128,0.1); color: #86909C; }
+
+    .chart-container { position: relative; height: 200px; }
+
+    .task-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .task-item:last-child { border-bottom: none; }
+    .task-checkbox {
+      width: 18px; height: 18px; border-radius: 4px; border: 2px solid var(--color-border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: all .2s;
+    }
+    .task-checkbox.done { background: #00B42A; border-color: #00B42A; }
+    .task-checkbox.done::after { content: '✓'; color: white; font-size: 12px; font-weight: bold; }
+    .task-checkbox.in-progress { border-color: var(--color-primary); border-style: dashed; }
+    .task-title { flex: 1; font-size: 13px; }
+    .task-title.done { text-decoration: line-through; color: var(--color-text-tertiary); }
+    .priority-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .priority-dot.high { background: #F53F3F; }
+    .priority-dot.medium { background: #FF7D00; }
+    .priority-dot.low { background: #00B42A; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-content {
+      background: var(--color-card-bg);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 720px;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(20px);
+      transition: transform .2s;
+    }
+    .modal-overlay.show .modal-content {
+      transform: translateY(0);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--color-text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover {
+      background: var(--color-hover-bg);
+      color: var(--color-text-primary);
+    }
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    /* Project detail sections */
+    .detail-section {
+      margin-bottom: 20px;
+    }
+    .detail-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .detail-section-title .view-all {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--color-primary);
+      cursor: pointer;
+    }
+    .detail-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .detail-info-item {
+      font-size: 13px;
+    }
+    .detail-info-label {
+      color: var(--color-text-tertiary);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .detail-info-value {
+      color: var(--color-text-primary);
+      font-weight: 500;
+    }
+    .detail-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .detail-stat-card {
+      background: var(--color-page-bg);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .detail-stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+    .detail-stat-label {
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      margin-top: 4px;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-danger {
+      background: rgba(245, 63, 63, 0.1);
+      color: #F53F3F;
+      border: 1px solid rgba(245, 63, 63, 0.2);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-danger:hover {
+      background: rgba(245, 63, 63, 0.15);
+    }
+
+    /* Form inputs */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--color-text-primary);
+      background: var(--color-card-bg);
+      outline: none;
+      transition: border-color .2s;
+      box-sizing: border-box;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--color-primary);
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+
+    /* Commit list in modal */
+    .commit-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: 12px;
+    }
+    .commit-item:last-child { border-bottom: none; }
+    .commit-hash {
+      font-family: monospace;
+      color: var(--color-primary);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .commit-msg {
+      flex: 1;
+      color: var(--color-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .commit-time {
+      color: var(--color-text-tertiary);
+      flex-shrink: 0;
+    }
+
+    /* Confirm dialog */
+    .confirm-dialog {
+      max-width: 400px;
+    }
+    .confirm-body {
+      padding: 24px;
+      text-align: center;
+    }
+    .confirm-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(245, 63, 63, 0.1);
+      color: #F53F3F;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .confirm-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .confirm-desc {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="back-btn" onclick="location.href='work-dev.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          返回开发模式
+        </div>
+        <div class="page-title">项目管理</div>
+      </div>
+      <div>
+        <button class="btn-primary" onclick="createNewProject()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          新建项目
+        </button>
+      </div>
+    </div>
+    <div class="main-body">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-projects">3</div>
+          <div class="stat-label">总项目数</div>
+          <div class="stat-change up">+1 本月</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-active">2</div>
+          <div class="stat-label">进行中</div>
+          <div class="stat-change up">+0 本周</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-tasks">8</div>
+          <div class="stat-label">总任务数</div>
+          <div class="stat-change up">+3 本周</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-lines">0</div>
+          <div class="stat-label">代码行数</div>
+          <div class="stat-change up">+500 本周</div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="section-header">
+            <div class="section-title">项目列表</div>
+            <button class="btn-secondary" style="padding:4px 10px;font-size:12px;">查看全部</button>
+          </div>
+          <div class="project-list" id="project-list">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-header">
+            <div class="section-title">最近任务</div>
+            <button class="btn-secondary" style="padding:4px 10px;font-size:12px;">任务看板</button>
+          </div>
+          <div id="task-list">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="section-header">
+          <div class="section-title">代码提交趋势</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-secondary" style="padding:4px 10px;font-size:12px;">周</button>
+            <button class="btn-secondary" style="padding:4px 10px;font-size:12px;background:var(--color-primary-light);border-color:var(--color-primary-light);">月</button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="commitChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Detail Modal -->
+  <div class="modal-overlay" id="projectDetailModal" onclick="if(event.target===this)closeProjectDetail()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="detailModalTitle">项目详情</div>
+        <button class="modal-close" onclick="closeProjectDetail()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="projectDetailBody">
+        <!-- Dynamic content -->
+      </div>
+      <div class="modal-footer" id="projectDetailFooter">
+        <!-- Dynamic actions -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var projectColors = {
+      python: { bg: 'rgba(55,118,171,0.1)', icon: '🐍' },
+      javascript: { bg: 'rgba(247,223,30,0.1)', icon: '📜' },
+      typescript: { bg: 'rgba(49,120,198,0.1)', icon: '🔷' },
+      go: { bg: 'rgba(0,173,216,0.1)', icon: '🔵' },
+    };
+
+    var currentProject = null;
+    var commitChartInstance = null;
+
+    function statusText(s) {
+      return s === 'active' ? '进行中' : s === 'planning' ? '规划中' : s === 'completed' ? '已完成' : '已归档';
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      var d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function formatTimeAgo(dateStr) {
+      if (!dateStr) return '';
+      var d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      var diff = Date.now() - d.getTime();
+      var mins = Math.floor(diff / 60000);
+      if (mins < 1) return '刚刚';
+      if (mins < 60) return mins + ' 分钟前';
+      var hours = Math.floor(mins / 60);
+      if (hours < 24) return hours + ' 小时前';
+      var days = Math.floor(hours / 24);
+      if (days < 30) return days + ' 天前';
+      return formatDate(dateStr);
+    }
+
+    // ===== 概览统计 =====
+    async function loadOverview() {
+      try {
+        var res = await YunxiAPI.request('GET', 'work-dev/overview');
+        var stats = res.data.stats;
+        document.getElementById('stat-projects').textContent = stats.total_projects;
+        document.getElementById('stat-active').textContent = stats.active_projects;
+        document.getElementById('stat-tasks').textContent = stats.total_tasks;
+        document.getElementById('stat-lines').textContent = (stats.total_lines || 0).toLocaleString();
+      } catch (e) {
+        console.error('加载概览失败', e);
+      }
+    }
+
+    // ===== 项目列表 =====
+    async function loadProjects() {
+      try {
+        var res = await YunxiAPI.request('GET', 'work-dev/projects');
+        var projects = res.data;
+        var listEl = document.getElementById('project-list');
+        listEl.innerHTML = projects.map(function(p) {
+          var color = projectColors[p.language] || { bg: 'rgba(128,128,128,0.1)', icon: '📁' };
+          var progress = p.task_count > 0 ? Math.round(p.done_count / p.task_count * 100) : 0;
+          return (
+            '<div class="project-item" onclick="openProject(' + p.id + ')">' +
+              '<div class="project-icon" style="background:' + color.bg + '">' + color.icon + '</div>' +
+              '<div class="project-info">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                  '<div class="project-name">' + p.name + '</div>' +
+                  '<span class="status-tag ' + p.status + '">' + statusText(p.status) + '</span>' +
+                '</div>' +
+                '<div class="project-desc">' + p.description + '</div>' +
+                '<div class="project-meta">' +
+                  '<span>' + p.file_count + ' 个文件</span>' +
+                  '<span>' + (p.line_count || 0).toLocaleString() + ' 行代码</span>' +
+                  '<span>' + p.commit_count + ' 次提交</span>' +
+                '</div>' +
+                '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
+              '</div>' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>' +
+            '</div>'
+          );
+        }).join('');
+      } catch (e) {
+        document.getElementById('project-list').innerHTML = '<div style="color:var(--color-text-tertiary);text-align:center;padding:20px;">加载失败</div>';
+      }
+    }
+
+    // ===== 任务列表 =====
+    async function loadTasks() {
+      try {
+        var res = await YunxiAPI.request('GET', 'work-dev/tasks');
+        var tasks = res.data.slice(0, 8);
+        var listEl = document.getElementById('task-list');
+        listEl.innerHTML = tasks.map(function(t) {
+          return (
+            '<div class="task-item">' +
+              '<div class="task-checkbox ' + t.status + '" onclick="toggleTaskStatus(' + t.id + ', \'' + t.status + '\')"></div>' +
+              '<div class="priority-dot ' + t.priority + '"></div>' +
+              '<div class="task-title ' + (t.status === 'done' ? 'done' : '') + '">' + t.title + '</div>' +
+            '</div>'
+          );
+        }).join('');
+      } catch (e) {
+        document.getElementById('task-list').innerHTML = '<div style="color:var(--color-text-tertiary);text-align:center;padding:20px;">加载失败</div>';
+      }
+    }
+
+    async function toggleTaskStatus(taskId, currentStatus) {
+      var nextStatus = currentStatus === 'done' ? 'todo' : currentStatus === 'todo' ? 'in_progress' : 'done';
+      try {
+        await YunxiAPI.request('PUT', 'work-dev/tasks/' + taskId + '/status?status=' + nextStatus);
+        loadTasks();
+        loadOverview();
+        YunxiAPI.showToast('任务状态已更新', 'success');
+      } catch (e) {
+        YunxiAPI.showToast('更新失败', 'error');
+      }
+    }
+
+    // ===== 项目详情 =====
+    async function openProject(id) {
+      currentProject = { id: id };
+      var modal = document.getElementById('projectDetailModal');
+      var body = document.getElementById('projectDetailBody');
+      modal.classList.add('show');
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">加载中...</div>';
+      document.getElementById('projectDetailFooter').innerHTML = '';
+      document.getElementById('detailModalTitle').textContent = '项目详情';
+
+      try {
+        var projRes = await YunxiAPI.request('GET', 'work-dev/projects/' + id);
+        var statsRes = await YunxiAPI.request('GET', 'work-dev/projects/' + id + '/stats');
+        var tasksRes = await YunxiAPI.request('GET', 'work-dev/tasks?project_id=' + id);
+        var commitsRes = await YunxiAPI.request('GET', 'work-dev/commits?project_id=' + id + '&limit=5');
+
+        currentProject = projRes.data;
+        var stats = statsRes.data;
+        var tasks = tasksRes.data.slice(0, 5);
+        var commits = commitsRes.data;
+
+        renderProjectDetail(projRes.data, stats, tasks, commits);
+      } catch (e) {
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">加载失败: ' + (e.message || '未知错误') + '</div>';
+        console.error('加载项目详情失败', e);
+      }
+    }
+
+    function renderProjectDetail(project, stats, tasks, commits) {
+      var color = projectColors[project.language] || { bg: 'rgba(128,128,128,0.1)', icon: '📁' };
+      document.getElementById('detailModalTitle').textContent = project.name;
+
+      var body = document.getElementById('projectDetailBody');
+      var html = '';
+
+      // 基本信息
+      html += (
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">基本信息</div>' +
+          '<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;">' +
+            '<div class="project-icon" style="background:' + color.bg + ';width:48px;height:48px;font-size:24px;">' + color.icon + '</div>' +
+            '<div style="flex:1;">' +
+              '<div style="font-size:16px;font-weight:600;margin-bottom:4px;">' + project.name +
+                ' <span class="status-tag ' + project.status + '">' + statusText(project.status) + '</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">' + project.description + '</div>' +
+              '<div style="font-size:11px;color:var(--color-text-tertiary);">创建于 ' + formatDate(project.created_at) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="detail-info-grid">' +
+            '<div class="detail-info-item"><div class="detail-info-label">项目ID</div><div class="detail-info-value">#' + project.id + '</div></div>' +
+            '<div class="detail-info-item"><div class="detail-info-label">主要语言</div><div class="detail-info-value">' + project.language + '</div></div>' +
+            '<div class="detail-info-item"><div class="detail-info-label">文件数</div><div class="detail-info-value">' + (project.file_count || 0) + '</div></div>' +
+            '<div class="detail-info-item"><div class="detail-info-label">更新时间</div><div class="detail-info-value">' + formatDate(project.updated_at) + '</div></div>' +
+          '</div>' +
+        '</div>'
+      );
+
+      // 统计卡片
+      var completionRate = stats.completion_rate !== undefined ? stats.completion_rate :
+        (stats.total_tasks > 0 ? Math.round(stats.done_tasks / stats.total_tasks * 100) : 0);
+      html += (
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">项目统计</div>' +
+          '<div class="detail-stats-grid">' +
+            '<div class="detail-stat-card"><div class="detail-stat-value">' + stats.total_tasks + '</div><div class="detail-stat-label">任务总数</div></div>' +
+            '<div class="detail-stat-card"><div class="detail-stat-value">' + completionRate + '%</div><div class="detail-stat-label">完成率</div></div>' +
+            '<div class="detail-stat-card"><div class="detail-stat-value">' + (stats.total_commits || 0) + '</div><div class="detail-stat-label">提交数</div></div>' +
+            '<div class="detail-stat-card"><div class="detail-stat-value">' + (stats.line_count || 0).toLocaleString() + '</div><div class="detail-stat-label">代码行数</div></div>' +
+          '</div>' +
+        '</div>'
+      );
+
+      // 任务列表
+      html += (
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">任务列表 <span class="view-all" onclick="YunxiAPI.showToast(\'任务看板开发中...\', \'info\')">查看全部</span></div>'
+      );
+      if (tasks.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:12px;">暂无任务</div>';
+      } else {
+        tasks.forEach(function(t) {
+          html += (
+            '<div class="task-item">' +
+              '<div class="task-checkbox ' + t.status + '"></div>' +
+              '<div class="priority-dot ' + t.priority + '"></div>' +
+              '<div class="task-title ' + (t.status === 'done' ? 'done' : '') + '">' + t.title + '</div>' +
+            '</div>'
+          );
+        });
+      }
+      html += '</div>';
+
+      // 最近提交
+      html += (
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">最近提交 <span class="view-all" onclick="YunxiAPI.showToast(\'代码管理开发中...\', \'info\')">查看全部</span></div>'
+      );
+      if (commits.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:12px;">暂无提交记录</div>';
+      } else {
+        commits.forEach(function(c) {
+          html += (
+            '<div class="commit-item">' +
+              '<span class="commit-hash">' + c.hash + '</span>' +
+              '<span class="commit-msg">' + c.message + '</span>' +
+              '<span class="commit-time">' + formatTimeAgo(c.created_at) + '</span>' +
+            '</div>'
+          );
+        });
+      }
+      html += '</div>';
+
+      body.innerHTML = html;
+
+      // Footer actions
+      document.getElementById('projectDetailFooter').innerHTML = (
+        '<button class="btn-secondary" onclick="openProjectInVSCode()">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>' +
+          '在 VS Code 中打开' +
+        '</button>' +
+        '<button class="btn-secondary" onclick="editProject()">编辑</button>' +
+        '<button class="btn-danger" onclick="deleteProject()">删除</button>'
+      );
+    }
+
+    function closeProjectDetail() {
+      document.getElementById('projectDetailModal').classList.remove('show');
+      currentProject = null;
+    }
+
+    function openProjectInVSCode() {
+      YunxiAPI.showToast('VS Code 集成开发中...', 'info');
+    }
+
+    // ===== 编辑项目 =====
+    function editProject() {
+      if (!currentProject) return;
+      var p = currentProject;
+      var body = document.getElementById('projectDetailBody');
+      document.getElementById('detailModalTitle').textContent = '编辑项目';
+
+      body.innerHTML = (
+        '<div class="form-group">' +
+          '<label class="form-label">项目名称</label>' +
+          '<input type="text" class="form-input" id="editProjectName" value="' + p.name + '">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">项目描述</label>' +
+          '<textarea class="form-textarea" id="editProjectDesc">' + p.description + '</textarea>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div class="form-group">' +
+            '<label class="form-label">状态</label>' +
+            '<select class="form-select" id="editProjectStatus">' +
+              '<option value="planning"' + (p.status === 'planning' ? ' selected' : '') + '>规划中</option>' +
+              '<option value="active"' + (p.status === 'active' ? ' selected' : '') + '>进行中</option>' +
+              '<option value="completed"' + (p.status === 'completed' ? ' selected' : '') + '>已完成</option>' +
+              '<option value="archived"' + (p.status === 'archived' ? ' selected' : '') + '>已归档</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">主要语言</label>' +
+            '<select class="form-select" id="editProjectLang">' +
+              '<option value="python"' + (p.language === 'python' ? ' selected' : '') + '>Python</option>' +
+              '<option value="javascript"' + (p.language === 'javascript' ? ' selected' : '') + '>JavaScript</option>' +
+              '<option value="typescript"' + (p.language === 'typescript' ? ' selected' : '') + '>TypeScript</option>' +
+              '<option value="go"' + (p.language === 'go' ? ' selected' : '') + '>Go</option>' +
+              '<option value="rust"' + (p.language === 'rust' ? ' selected' : '') + '>Rust</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>'
+      );
+
+      document.getElementById('projectDetailFooter').innerHTML = (
+        '<button class="btn-secondary" onclick="openProject(' + p.id + ')">取消</button>' +
+        '<button class="btn-primary" onclick="saveProject()">保存</button>'
+      );
+    }
+
+    async function saveProject() {
+      if (!currentProject) return;
+      var name = document.getElementById('editProjectName').value.trim();
+      if (!name) {
+        YunxiAPI.showToast('项目名称不能为空', 'error');
+        return;
+      }
+      try {
+        await YunxiAPI.request('PUT', 'work-dev/projects/' + currentProject.id, {
+          name: name,
+          description: document.getElementById('editProjectDesc').value,
+          status: document.getElementById('editProjectStatus').value,
+          language: document.getElementById('editProjectLang').value,
+        });
+        YunxiAPI.showToast('项目已更新', 'success');
+        loadProjects();
+        loadOverview();
+        openProject(currentProject.id);
+      } catch (e) {
+        YunxiAPI.showToast('保存失败: ' + (e.message || '未知错误'), 'error');
+      }
+    }
+
+    // ===== 删除项目 =====
+    function deleteProject() {
+      if (!currentProject) return;
+      var body = document.getElementById('projectDetailBody');
+      document.getElementById('detailModalTitle').textContent = '确认删除';
+
+      body.innerHTML = (
+        '<div class="confirm-body">' +
+          '<div class="confirm-icon">' +
+            '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
+          '</div>' +
+          '<div class="confirm-title">确定要删除项目「' + currentProject.name + '」吗？</div>' +
+          '<div class="confirm-desc">删除后将同时移除该项目的所有任务和提交记录，此操作不可撤销。</div>' +
+        '</div>'
+      );
+
+      document.getElementById('projectDetailFooter').innerHTML = (
+        '<button class="btn-secondary" onclick="openProject(' + currentProject.id + ')">取消</button>' +
+        '<button class="btn-danger" onclick="confirmDeleteProject()">确认删除</button>'
+      );
+    }
+
+    async function confirmDeleteProject() {
+      if (!currentProject) return;
+      try {
+        await YunxiAPI.request('DELETE', 'work-dev/projects/' + currentProject.id);
+        YunxiAPI.showToast('项目已删除', 'success');
+        closeProjectDetail();
+        loadProjects();
+        loadOverview();
+      } catch (e) {
+        YunxiAPI.showToast('删除失败: ' + (e.message || '未知错误'), 'error');
+      }
+    }
+
+    // ===== 新建项目 =====
+    function createNewProject() {
+      var name = prompt('请输入项目名称：');
+      if (!name) return;
+      YunxiAPI.request('POST', 'work-dev/projects', { name: name, description: '新建项目', language: 'python' })
+        .then(function() {
+          loadProjects();
+          loadOverview();
+          YunxiAPI.showToast('项目创建成功', 'success');
+        })
+        .catch(function() { YunxiAPI.showToast('创建失败', 'error'); });
+    }
+
+    // ===== 提交趋势图 =====
+    async function loadCommitChart() {
+      try {
+        var res = await YunxiAPI.request('GET', 'work-dev/commits/stats');
+        var data = res.data;
+        var labels = data.daily_commits.map(function(d) {
+          var date = new Date(d.date);
+          var days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+          return days[date.getDay()];
+        });
+        var counts = data.daily_commits.map(function(d) { return d.count; });
+
+        var ctx = document.getElementById('commitChart').getContext('2d');
+        if (commitChartInstance) {
+          commitChartInstance.destroy();
+        }
+        commitChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: '提交次数',
+              data: counts,
+              borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#165DFF',
+              backgroundColor: 'rgba(22, 93, 255, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { font: { size: 11 }, stepSize: 1 }
+              },
+              x: {
+                grid: { display: false },
+                ticks: { font: { size: 11 } }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('加载提交趋势失败', e);
+      }
+    }
+
+    // 初始化
+    loadOverview();
+    loadProjects();
+    loadTasks();
+    setTimeout(loadCommitChart, 200);
+  </script>
+</body>
+</html>

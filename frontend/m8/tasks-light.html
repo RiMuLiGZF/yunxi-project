@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务中心 - 云汐管理台</title>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Light mode glass override */
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+/* ── Typography Scale Classes ── */
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+    <main class="flex min-h-screen">
+
+        <!-- ═══════════ Sidebar ═══════════ -->
+        <aside class="fixed top-0 left-0 bottom-0 flex flex-col w-[var(--sidebar-width)] border-r border-[var(--color-border-default)]" style="background: rgba(255, 255, 255, 0.85);">
+            <!-- Logo -->
+            <div class="flex items-center gap-3 px-5 h-[var(--header-height)] border-b border-[var(--color-border-default)]">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));">
+                    <i data-lucide="hexagon" class="w-4 h-4" style="color:var(--color-text-inverse);"></i>
+                </div>
+                <span class="text-subheading truncate" style="color:var(--color-text-primary);">云汐管理台</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 px-3 flex flex-col gap-1">
+                <a href="dashboard.html" data-dom-id="nav-dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">
+                    <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate">总览</span>
+                </a>
+                <a href="tasks.html" data-dom-id="nav-tasks-active" data-active="true" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body" style="background:rgba(59,130,246,0.1);color:var(--color-primary);border-left:2px solid var(--color-primary);">
+                    <i data-lucide="list-checks" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate font-medium">任务中心</span>
+                </a>
+                <a href="modules.html" data-dom-id="nav-modules" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">
+                    <i data-lucide="puzzle" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate">模块管理</span>
+                </a>
+                <a href="deploy.html" data-dom-id="nav-deploy-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">
+                    <i data-lucide="rocket" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate">部署管理</span>
+                </a>
+                <a href="monitor.html" data-dom-id="nav-monitor-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">
+                    <i data-lucide="activity" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate">系统监控</span>
+                </a>
+                <a href="settings.html" data-dom-id="nav-settings-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">
+                    <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
+                    <span class="truncate">系统设置</span>
+                </a>
+            </nav>
+
+            <!-- Sidebar footer -->
+            <div class="px-3 py-4 border-t border-[var(--color-border-default)]">
+                <div class="flex items-center gap-3 px-3 py-2">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style="background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:var(--color-text-inverse);">A</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-body truncate" style="color:var(--color-text-primary);">Admin</div>
+                        <div class="text-caption truncate" style="font-size:var(--text-xs);">admin@yunxi.io</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══════════ Main content area ═══════════ -->
+        <div class="flex-1 flex flex-col ml-[var(--sidebar-width)]">
+
+            <!-- Header -->
+            <header class="flex items-center justify-between px-6 h-[var(--header-height)] border-b border-[var(--color-border-default)]" style="background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px);">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-heading" style="color:var(--color-text-primary);">任务中心</h1>
+                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">128 个任务</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-border-default)]" style="background:var(--color-bg-surface);">
+                        <i data-lucide="search" class="w-4 h-4" style="color:var(--color-text-tertiary);"></i>
+                        <input type="text" placeholder="搜索任务..." class="bg-transparent border-none outline-none text-body placeholder-[var(--color-text-tertiary)] w-48" style="color:var(--color-text-primary);">
+                    </div>
+                    <button class="relative p-2 rounded-lg transition-colors duration-150" style="color:var(--color-text-secondary);" onmouseover="this.style.background='var(--color-border-subtle)'" onmouseout="this.style.background='transparent'">
+                        <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
+                        <span class="absolute top-1 right-1 w-2 h-2 rounded-full" style="background:var(--state-error);"></span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Page content -->
+            <div class="flex-1 p-6 overflow-y-auto" style="background:var(--color-bg-base);">
+
+                <!-- Action bar: filter tabs + new task button -->
+                <div class="flex items-center justify-between mb-6">
+                    <!-- Filter tabs -->
+                    <div class="flex items-center gap-1 flex-nowrap overflow-x-auto">
+                        <button class="task-filter-tab px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150" style="background:rgba(59,130,246,0.1);color:var(--color-primary);border-bottom:2px solid var(--color-primary);border-radius:var(--radius-md) var(--radius-md) 0 0;">
+                            全部<span class="ml-1.5 text-caption" style="font-size:var(--text-xs);opacity:0.7;">128</span>
+                        </button>
+                        <button class="task-filter-tab px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150" style="color:var(--color-text-secondary);border-bottom:2px solid transparent;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">
+                            运行中<span class="ml-1.5 text-caption" style="font-size:var(--text-xs);opacity:0.7;">12</span>
+                        </button>
+                        <button class="task-filter-tab px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150" style="color:var(--color-text-secondary);border-bottom:2px solid transparent;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">
+                            已完成<span class="ml-1.5 text-caption" style="font-size:var(--text-xs);opacity:0.7;">98</span>
+                        </button>
+                        <button class="task-filter-tab px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150" style="color:var(--color-text-secondary);border-bottom:2px solid transparent;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">
+                            失败<span class="ml-1.5 text-caption" style="font-size:var(--text-xs);opacity:0.7;">8</span>
+                        </button>
+                        <button class="task-filter-tab px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150" style="color:var(--color-text-secondary);border-bottom:2px solid transparent;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">
+                            排队中<span class="ml-1.5 text-caption" style="font-size:var(--text-xs);opacity:0.7;">10</span>
+                        </button>
+                    </div>
+
+                    <!-- New Task button -->
+                    <button data-dom-id="cta-new-task" class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-body font-medium whitespace-nowrap transition-shadow duration-200" style="background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:var(--color-text-inverse);border:none;cursor:pointer;box-shadow:var(--shadow-glow);" onmouseover="this.style.boxShadow='var(--shadow-glow-strong)'" onmouseout="this.style.boxShadow='var(--shadow-glow)'">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        新建任务
+                    </button>
+                </div>
+
+                <!-- Task list -->
+                <div class="flex flex-col gap-3">
+
+                    <!-- Task Card 1: 文档智能摘要生成 — completed -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(16,185,129,0.1);">
+                                <i data-lucide="file-text" class="w-5 h-5" style="color:var(--state-success);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">文档智能摘要生成</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M2技能</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(16,185,129,0.1);color:var(--state-success);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--state-success);"></span>
+                                        已完成
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <i data-lucide="clock" class="w-3 h-3 inline-block align-middle mr-0.5" style="vertical-align:middle;"></i>
+                                        2m 30s
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 10:24
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Card 2: 产品场景配置部署 — running 67% -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(59,130,246,0.1);">
+                                <i data-lucide="rocket" class="w-5 h-5" style="color:var(--state-info);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">产品场景配置部署</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M4场景</span>
+                                </div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--state-info);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--state-info);animation:pulse-dot 1.5s infinite;"></span>
+                                        运行中
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <i data-lucide="clock" class="w-3 h-3 inline-block align-middle mr-0.5" style="vertical-align:middle;"></i>
+                                        5m 12s
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 10:18
+                                    </span>
+                                </div>
+                                <!-- Progress bar -->
+                                <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:var(--color-border-subtle);">
+                                    <div class="h-full rounded-full" style="width:67%;background:linear-gradient(90deg,var(--color-gradient-start),var(--color-gradient-end));transition:width var(--transition-slow);"></div>
+                                </div>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-caption" style="font-size:var(--text-xs);color:var(--color-text-tertiary);">67%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--state-error);border-color:rgba(239,68,68,0.2);background:transparent;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">取消</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Card 3: 用户画像分析报告 — completed -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(16,185,129,0.1);">
+                                <i data-lucide="bar-chart-3" class="w-5 h-5" style="color:var(--state-success);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">用户画像分析报告</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M1调度</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(16,185,129,0.1);color:var(--state-success);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--state-success);"></span>
+                                        已完成
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <i data-lucide="clock" class="w-3 h-3 inline-block align-middle mr-0.5" style="vertical-align:middle;"></i>
+                                        1m 45s
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 09:56
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Card 4: 多模态对话测试 — failed -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(239,68,68,0.1);">
+                                <i data-lucide="message-square-warning" class="w-5 h-5" style="color:var(--state-error);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">多模态对话测试</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M3对话</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(239,68,68,0.1);color:var(--state-error);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--state-error);"></span>
+                                        失败
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <i data-lucide="clock" class="w-3 h-3 inline-block align-middle mr-0.5" style="vertical-align:middle;"></i>
+                                        3m 20s
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 09:42
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--state-error);border-color:rgba(239,68,68,0.2);background:transparent;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">取消</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Card 5: 知识库更新同步 — running 34% -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(59,130,246,0.1);">
+                                <i data-lucide="database" class="w-5 h-5" style="color:var(--state-info);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">知识库更新同步</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M5记忆</span>
+                                </div>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--state-info);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--state-info);animation:pulse-dot 1.5s infinite;"></span>
+                                        运行中
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <i data-lucide="clock" class="w-3 h-3 inline-block align-middle mr-0.5" style="vertical-align:middle;"></i>
+                                        8m 05s
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 10:12
+                                    </span>
+                                </div>
+                                <!-- Progress bar -->
+                                <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:var(--color-border-subtle);">
+                                    <div class="h-full rounded-full" style="width:34%;background:linear-gradient(90deg,var(--color-gradient-start),var(--color-gradient-end));transition:width var(--transition-slow);"></div>
+                                </div>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-caption" style="font-size:var(--text-xs);color:var(--color-text-tertiary);">34%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--state-error);border-color:rgba(239,68,68,0.2);background:transparent;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">取消</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Card 6: 积木组件批量生成 — queued -->
+                    <div class="flex items-center gap-5 p-5 rounded-xl border transition-shadow duration-200" style="background:var(--color-bg-elevated);border-color:var(--color-border-default);" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.borderColor='var(--color-border-strong)'" onmouseout="this.style.boxShadow='none';this.style.borderColor='var(--color-border-default)'">
+                        <div class="flex-1 min-w-0 flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(148,163,184,0.1);">
+                                <i data-lucide="blocks" class="w-5 h-5" style="color:var(--color-text-tertiary);"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-body font-medium truncate" style="color:var(--color-text-primary);">积木组件批量生成</span>
+                                    <span class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(59,130,246,0.1);color:var(--color-primary);font-size:var(--text-xs);">M7积木</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-caption whitespace-nowrap shrink-0" style="background:rgba(148,163,184,0.1);color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-text-tertiary);"></span>
+                                        排队中
+                                    </span>
+                                    <span class="text-caption whitespace-nowrap" style="color:var(--color-text-tertiary);font-size:var(--text-xs);">
+                                        2026-07-06 10:26
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">查看</button>
+                            <button class="px-3 py-1.5 rounded-lg text-caption whitespace-nowrap transition-colors duration-150 border" style="color:var(--state-error);border-color:rgba(239,68,68,0.2);background:transparent;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">取消</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ New Task Modal ═══════════ -->
+        <div class="fixed inset-0 flex items-center justify-center" style="z-index:var(--z-modal-backdrop);">
+            <!-- Backdrop -->
+            <div data-dom-id="modal-backdrop-close" class="absolute inset-0" style="background:rgba(15,23,42,0.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);"></div>
+
+            <!-- Modal -->
+            <div class="relative w-full max-w-lg mx-4 rounded-xl p-6" style="background:rgba(255, 255, 255, 0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--color-border-default);box-shadow:var(--shadow-lg);z-index:var(--z-modal);">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-subheading" style="color:var(--color-text-primary);">新建任务</h2>
+                    <button class="p-1.5 rounded-lg transition-colors duration-150" style="color:var(--color-text-tertiary);" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-tertiary)'">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Modal body -->
+                <div class="flex flex-col gap-4">
+                    <!-- Title -->
+                    <div>
+                        <label class="block text-caption mb-1.5" style="color:var(--color-text-secondary);font-size:var(--text-xs);font-weight:500;">任务标题</label>
+                        <input type="text" placeholder="输入任务标题" class="w-full px-3 py-2.5 rounded-lg border text-body outline-none transition-colors duration-150" style="background:var(--color-bg-base);border-color:var(--color-border-default);color:var(--color-text-primary);" onfocus="this.style.borderColor='var(--color-primary)';this.style.boxShadow='0 0 0 2px rgba(59,130,246,0.15)'" onblur="this.style.borderColor='var(--color-border-default)';this.style.boxShadow='none'">
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block text-caption mb-1.5" style="color:var(--color-text-secondary);font-size:var(--text-xs);font-weight:500;">任务描述</label>
+                        <textarea rows="3" placeholder="描述任务详情..." class="w-full px-3 py-2.5 rounded-lg border text-body outline-none resize-none transition-colors duration-150" style="background:var(--color-bg-base);border-color:var(--color-border-default);color:var(--color-text-primary);" onfocus="this.style.borderColor='var(--color-primary)';this.style.boxShadow='0 0 0 2px rgba(59,130,246,0.15)'" onblur="this.style.borderColor='var(--color-border-default)';this.style.boxShadow='none'"></textarea>
+                    </div>
+
+                    <!-- Module -->
+                    <div>
+                        <label class="block text-caption mb-1.5" style="color:var(--color-text-secondary);font-size:var(--text-xs);font-weight:500;">目标模块</label>
+                        <select class="w-full px-3 py-2.5 rounded-lg border text-body outline-none transition-colors duration-150 appearance-none" style="background:var(--color-bg-base);border-color:var(--color-border-default);color:var(--color-text-primary);background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2394a3b8%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;" onfocus="this.style.borderColor='var(--color-primary)'" onblur="this.style.borderColor='var(--color-border-default)'">
+                            <option value="">选择模块</option>
+                            <option value="m1">M1调度</option>
+                            <option value="m2">M2技能</option>
+                            <option value="m4">M4场景</option>
+                            <option value="m7">M7积木</option>
+                        </select>
+                    </div>
+
+                    <!-- Priority -->
+                    <div>
+                        <label class="block text-caption mb-1.5" style="color:var(--color-text-secondary);font-size:var(--text-xs);font-weight:500;">优先级</label>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center gap-2 text-body cursor-pointer" style="color:var(--color-text-primary);">
+                                <input type="radio" name="priority" value="high" class="w-4 h-4 accent-[var(--state-error)]">
+                                <span>高</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-body cursor-pointer" style="color:var(--color-text-primary);">
+                                <input type="radio" name="priority" value="medium" checked class="w-4 h-4 accent-[var(--state-warning)]">
+                                <span>中</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-body cursor-pointer" style="color:var(--color-text-primary);">
+                                <input type="radio" name="priority" value="low" class="w-4 h-4 accent-[var(--state-info)]">
+                                <span>低</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal footer -->
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[var(--color-border-default)]">
+                    <button class="px-4 py-2 rounded-lg text-body whitespace-nowrap transition-colors duration-150 border" style="color:var(--color-text-secondary);border-color:var(--color-border-default);background:transparent;" onmouseover="this.style.background='var(--color-border-subtle)';this.style.color='var(--color-text-primary)'" onmouseout="this.style.background='transparent';this.style.color='var(--color-text-secondary)'">取消</button>
+                    <button class="px-4 py-2.5 rounded-lg text-body font-medium whitespace-nowrap transition-shadow duration-200" style="background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:var(--color-text-inverse);border:none;cursor:pointer;box-shadow:var(--shadow-glow);" onmouseover="this.style.boxShadow='var(--shadow-glow-strong)'" onmouseout="this.style.boxShadow='var(--shadow-glow)'">创建任务</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <!-- Tasks API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 设置导航链接
+            setupNavigation();
+
+            // 更新用户信息
+            updateUserInfo();
+
+            // 加载任务列表
+            loadTasks();
+        });
+
+        function setupNavigation() {
+            var navItems = {
+            'nav-dashboard': 'dashboard.html',
+            'nav-tasks': 'tasks.html',
+            'nav-tasks-active': 'tasks.html',
+            'nav-tasks-hidden': 'tasks.html',
+            'nav-modules': 'modules.html',
+            'nav-modules-active': 'modules.html',
+            'nav-modules-hidden': 'modules.html',
+            'nav-deploy': 'deploy.html',
+            'nav-deploy-active': 'deploy.html',
+            'nav-deploy-hidden': 'deploy.html',
+            'nav-monitor': 'monitor.html',
+            'nav-monitor-active': 'monitor.html',
+            'nav-monitor-hidden': 'monitor.html',
+            'nav-settings': 'settings.html',
+            'nav-settings-active': 'settings.html',
+            'nav-settings-hidden': 'settings.html'
+        };
+
+            Object.keys(navItems).forEach(function(id) {
+                var el = document.querySelector('[data-dom-id="' + id + '"]');
+                if (el) {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        location.href = navItems[id];
+                    });
+                }
+            });
+
+            // 新建任务按钮
+            var newTaskBtn = document.querySelector('[data-dom-id="cta-new-task"]');
+            if (newTaskBtn) {
+                newTaskBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    YunxiAPI.showToast('新建任务功能开发中', 'info');
+                });
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                var data = await YunxiAPI.listTasks({ limit: 50 });
+                var tasks = data.tasks || data.list || data || [];
+                renderTasks(tasks);
+            } catch (error) {
+                console.error('加载任务列表失败:', error);
+                YunxiAPI.showToast('加载任务失败: ' + error.message, 'error');
+            }
+        }
+
+        function renderTasks(tasks) {
+            // 更新任务统计
+            var stats = {
+                total: tasks.length,
+                running: tasks.filter(function(t) { return t.status === 'running'; }).length,
+                completed: tasks.filter(function(t) { return t.status === 'completed' || t.status === 'success'; }).length,
+                failed: tasks.filter(function(t) { return t.status === 'failed' || t.status === 'error'; }).length,
+            };
+
+            // 查找并更新任务表格
+            var tableBody = document.querySelector('table tbody');
+            if (tableBody && tasks.length > 0) {
+                // 保留第一行模板样式，动态更新行内容
+                var rows = tableBody.querySelectorAll('tr');
+                tasks.forEach(function(task, index) {
+                    if (index < rows.length) {
+                        updateTaskRow(rows[index], task);
+                    }
+                });
+            }
+        }
+
+        function updateTaskRow(row, task) {
+            var cells = row.querySelectorAll('td');
+            if (cells.length >= 6) {
+                // 任务ID
+                cells[0].textContent = '#' + (task.id || task.task_id || '---');
+                // 标题
+                cells[1].textContent = task.title || task.name || '未命名任务';
+                // 模块
+                cells[2].textContent = task.module || task.module_name || '--';
+                // 状态
+                var statusSpan = cells[3].querySelector('span');
+                if (statusSpan) {
+                    var statusInfo = getStatusInfo(task.status);
+                    statusSpan.textContent = statusInfo.text;
+                    statusSpan.style.background = statusInfo.bg;
+                    statusSpan.style.color = statusInfo.color;
+                }
+                // 耗时
+                cells[4].textContent = task.duration || task.elapsed || '--';
+                // 开始时间
+                cells[5].textContent = task.start_time || task.created_at || '--';
+            }
+        }
+
+        function getStatusInfo(status) {
+            var map = {
+                'running': { text: '运行中', bg: 'rgba(59, 130, 246, 0.15)', color: 'var(--state-info)' },
+                'completed': { text: '已完成', bg: 'rgba(16, 185, 129, 0.15)', color: 'var(--state-success)' },
+                'success': { text: '已完成', bg: 'rgba(16, 185, 129, 0.15)', color: 'var(--state-success)' },
+                'failed': { text: '失败', bg: 'rgba(239, 68, 68, 0.15)', color: 'var(--state-error)' },
+                'error': { text: '失败', bg: 'rgba(239, 68, 68, 0.15)', color: 'var(--state-error)' },
+                'pending': { text: '排队中', bg: 'rgba(148, 163, 184, 0.1)', color: 'var(--color-text-tertiary)' },
+                'queued': { text: '排队中', bg: 'rgba(148, 163, 184, 0.1)', color: 'var(--color-text-tertiary)' },
+            };
+            return map[status] || { text: status || '未知', bg: 'rgba(148, 163, 184, 0.1)', color: 'var(--color-text-tertiary)' };
+        }
+
+        function updateUserInfo() {
+            var user = YunxiAPI.getCurrentUser();
+            if (user) {
+                var username = user.username || '管';
+                var initial = username.charAt(0).toUpperCase();
+                var userBadges = document.querySelectorAll('.w-8.h-8.rounded-full');
+                userBadges.forEach(function(badge) {
+                    if (badge.textContent.trim() === '管') {
+                        badge.textContent = initial;
+                    }
+                });
+            }
+        }
+    </script>
+
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>

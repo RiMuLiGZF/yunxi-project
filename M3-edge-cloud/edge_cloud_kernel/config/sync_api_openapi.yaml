@@ -1,0 +1,415 @@
+"""OpenAPI 3.0.3 规范 — M3 标准同步接口.
+
+供架构组更新《云汐接口对照表》使用。
+对应评审报告 REV-20250628-M3-002 遗留项 N02。
+"""
+
+openapi: 3.0.3
+info:
+  title: 云汐 M3 端云同步 API
+  version: 2.1.1
+  description: |
+    端云协同调度内核（M3）对外暴露的 4 个标准 HTTPS/JSON 同步接口。
+    职责边界：M3 仅负责数据同步、通信网关、资源监控；推理调度归板块1。
+
+servers:
+  - url: https://{yunxi_cloud_host}/api/v1
+    description: 云端同步网关
+    variables:
+      yunxi_cloud_host:
+        default: sync.yunxi.internal
+        description: 云端同步服务域名
+
+paths:
+  /sync/session:
+    post:
+      summary: 创建同步会话
+      description: |
+        客户端启动同步流程前调用，M3 创建会话并返回 session_id。
+        会话 TTL 默认 1 小时，过期后自动清理。
+      operationId: createSyncSession
+      tags:
+        - SyncSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncSessionRequest'
+            example:
+              device_id: "desktop_dev_001"
+              scopes:
+                - user_preferences
+                - agent_configs
+                - session_history
+      responses:
+        '201':
+          description: 会话创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSessionResponse'
+              example:
+                session_id: "550e8400-e29b-41d4-a716-446655440000"
+                server_version: "2.1.1"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: 请求频率超限（RateLimiter 触发）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sync/{session_id}/push:
+    post:
+      summary: 推送本地变更到云端
+      description: |
+        客户端将本地增量变更推送到云端。
+        携带 version_vector 用于乐观锁并发控制。
+        云端返回 accepted（已接受）/ rejected（拒绝）/ conflicts（冲突）三类结果。
+      operationId: pushSyncChanges
+      tags:
+        - SyncData
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: 同步会话 ID（由 POST /sync/session 创建）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+            example:
+              changes:
+                - item_id: "pref_001"
+                  item_type: "user_preferences"
+                  content_hash: "a3f5c2..."
+                  version: 5
+                  timestamp: 1719900000.0
+                  metadata:
+                    agent: "agent_emotion"
+              version_vector:
+                desktop_dev_001: 5
+      responses:
+        '200':
+          description: 推送处理完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPushResponse'
+              example:
+                accepted:
+                  - "pref_001"
+                rejected: []
+                conflicts:
+                  - item_id: "pref_002"
+                    reason: "version_conflict"
+        '404':
+          description: 会话不存在或已过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 版本冲突（乐观锁失败）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sync/{session_id}/pull:
+    get:
+      summary: 拉取云端变更到本地
+      description: |
+        客户端从云端拉取自上次同步以来的增量变更。
+        通过 since_version 查询参数指定本地已知的最新版本向量。
+      operationId: pullSyncChanges
+      tags:
+        - SyncData
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: since_version
+          in: query
+          required: false
+          schema:
+            type: object
+            additionalProperties:
+              type: integer
+          description: |
+            本地已知的最新版本向量（JSON 序列化字符串）。
+            例：{"desktop_dev_001": 3, "laptop_dev_002": 1}
+      responses:
+        '200':
+          description: 拉取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPullResponse'
+              example:
+                changes:
+                  - item_id: "pref_003"
+                    item_type: "user_preferences"
+                    content_hash: "b7e1d9..."
+                    version: 4
+                    timestamp: 1719900500.0
+                    metadata:
+                      agent: "agent_dev"
+                server_version: "2.1.1"
+        '404':
+          description: 会话不存在或已过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sync/{session_id}/resolve:
+    post:
+      summary: 解决同步冲突
+      description: |
+        客户端对 push/pull 过程中发现的冲突进行人工或自动裁决。
+        resolution 字段取值：local（以本地为准）、remote（以云端为准）、merge（尝试自动合并）。
+      operationId: resolveSyncConflicts
+      tags:
+        - SyncConflict
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncResolveRequest'
+            example:
+              conflict_ids:
+                - "pref_002"
+                - "agent_cfg_005"
+              resolution: "local"
+      responses:
+        '200':
+          description: 冲突解决完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResolveResponse'
+              example:
+                resolved:
+                  - "pref_002"
+                failed:
+                  - "agent_cfg_005"
+        '400':
+          description: 请求参数错误（如非法 resolution 值）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 会话不存在或已过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SyncSessionRequest:
+      type: object
+      required:
+        - device_id
+      properties:
+        device_id:
+          type: string
+          description: 设备唯一标识
+          example: "desktop_dev_001"
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - user_preferences
+              - agent_configs
+              - note_metadata
+              - review_reports
+              - session_history
+              - health_data
+              - activity_logs
+          description: 需要同步的数据范围列表
+          default: []
+
+    SyncSessionResponse:
+      type: object
+      required:
+        - session_id
+        - server_version
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: 会话唯一标识
+        server_version:
+          type: string
+          description: 服务端版本号
+          example: "2.1.1"
+
+    SyncDelta:
+      type: object
+      required:
+        - item_id
+        - item_type
+        - content_hash
+        - version
+        - timestamp
+      properties:
+        item_id:
+          type: string
+          description: 条目唯一标识
+        item_type:
+          type: string
+          description: 数据类型
+          example: "user_preferences"
+        content_hash:
+          type: string
+          description: 内容 SHA-256 哈希
+          example: "a3f5c2..."
+        content:
+          type: string
+          format: byte
+          description: 原始内容（Base64 编码，pull 时可选填充）
+        metadata:
+          type: object
+          description: 附加元数据
+          default: {}
+        timestamp:
+          type: number
+          format: float
+          description: 变更时间戳（Unix 秒）
+        version:
+          type: integer
+          description: 数据版本号（单调递增）
+          minimum: 1
+
+    SyncPushRequest:
+      type: object
+      required:
+        - changes
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncDelta'
+          description: 待推送的增量变更列表
+        version_vector:
+          type: object
+          additionalProperties:
+            type: integer
+          description: 设备版本向量（乐观锁）
+          default: {}
+
+    SyncPushResponse:
+      type: object
+      properties:
+        accepted:
+          type: array
+          items:
+            type: string
+          description: 已接受的 item_id 列表
+        rejected:
+          type: array
+          items:
+            type: string
+          description: 被拒绝的 item_id 列表
+        conflicts:
+          type: array
+          items:
+            type: object
+          description: 冲突项列表（含 item_id 和 reason）
+
+    SyncPullResponse:
+      type: object
+      required:
+        - changes
+        - server_version
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncDelta'
+          description: 云端增量变更列表
+        server_version:
+          type: string
+          description: 服务端版本号
+
+    SyncResolveRequest:
+      type: object
+      required:
+        - conflict_ids
+        - resolution
+      properties:
+        conflict_ids:
+          type: array
+          items:
+            type: string
+          description: 待解决的冲突项 ID 列表
+        resolution:
+          type: string
+          enum:
+            - local
+            - remote
+            - merge
+          description: 冲突解决策略
+
+    SyncResolveResponse:
+      type: object
+      properties:
+        resolved:
+          type: array
+          items:
+            type: string
+          description: 已成功解决的 item_id 列表
+        failed:
+          type: array
+          items:
+            type: string
+          description: 解决失败的 item_id 列表
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: 错误描述
+        code:
+          type: string
+          description: 错误码
+        details:
+          type: object
+          description: 附加错误信息
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 从 POST /sync/session 获取的会话 token

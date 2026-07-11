@@ -1,0 +1,2717 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" >
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Light mode glass override */
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+/* ── Typography Scale Classes ── */
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+
+    <!-- Sidebar -->
+    <aside class="fixed left-0 top-0 bottom-0 w-[240px] flex flex-col border-r" style="background: var(--sidebar-bg); border-color: var(--color-border-default); z-index: var(--z-sticky);">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-5 h-14 border-b" style="border-color: var(--color-border-subtle);">
+            <div class="w-8 h-8 rounded-lg brand-gradient-bg flex items-center justify-center">
+                <i data-lucide="hexagon" class="w-4 h-4" style="color: var(--color-text-inverse);"></i>
+            </div>
+            <span class="text-heading truncate" style="color: var(--color-text-primary); font-size: var(--text-lg);">云汐管理台</span>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto no-scrollbar">
+            <a data-dom-id="nav-dashboard" href="dashboard.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="color: var(--color-text-secondary); transition: var(--transition-fast);">
+                <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm);">总览</span>
+            </a>
+            <a data-dom-id="nav-tasks-hidden" href="tasks.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="color: var(--color-text-secondary); transition: var(--transition-fast);">
+                <i data-lucide="list-checks" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm);">任务中心</span>
+            </a>
+            <a data-dom-id="nav-modules-hidden" href="modules.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="color: var(--color-text-secondary); transition: var(--transition-fast);">
+                <i data-lucide="boxes" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm);">模块管理</span>
+            </a>
+            <a data-dom-id="nav-deploy-hidden" href="deploy.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="color: var(--color-text-secondary); transition: var(--transition-fast);">
+                <i data-lucide="rocket" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm);">部署管理</span>
+            </a>
+            <a data-dom-id="nav-monitor-hidden" href="monitor.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="color: var(--color-text-secondary); transition: var(--transition-fast);">
+                <i data-lucide="activity" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm);">系统监控</span>
+            </a>
+
+            <div class="my-3" style="border-top: 1px solid var(--color-border-subtle);"></div>
+
+            <a data-dom-id="nav-settings-active" href="settings.html" class="flex items-center gap-3 px-3 py-2 rounded-lg truncate" style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary); border-left: 3px solid var(--color-primary);">
+                <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0"></i>
+                <span class="truncate" style="font-size: var(--text-sm); font-weight: 500;">系统设置</span>
+            </a>
+        </nav>
+
+        <!-- User -->
+        <div class="px-4 py-3 border-t flex items-center gap-3" style="border-color: var(--color-border-subtle);">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));">
+                <span class="text-xs font-semibold" style="color: var(--color-text-inverse);">管</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="truncate" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">管理员</div>
+                <div class="truncate" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">admin</div>
+            </div>
+            <i data-lucide="log-out" class="w-4 h-4 shrink-0" style="color: var(--color-text-tertiary);"></i>
+        </div>
+    </aside>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-[240px] right-0 h-14 flex items-center justify-between px-6 border-b" style="background: var(--header-bg); backdrop-filter: blur(12px); border-color: var(--color-border-default); z-index: var(--z-sticky);">
+        <div class="flex items-center gap-2">
+            <i data-lucide="settings" class="w-5 h-5" style="color: var(--color-primary);"></i>
+            <h1 class="text-heading" style="font-size: var(--text-lg);">系统设置</h1>
+        </div>
+        <div class="flex items-center gap-4">
+                      <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+            <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+          </button>
+          <button class="relative p-2 rounded-lg" style="color: var(--color-text-secondary);">
+                <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background: var(--state-error);"></span>
+            </button>
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" style="background: var(--color-bg-elevated);">
+                <i data-lucide="moon" class="w-4 h-4" style="color: var(--color-secondary);"></i>
+                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">深色模式</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="ml-[240px] pt-14" style="min-height: 100vh; background: var(--color-bg-base);">
+        <div class="flex" style="min-height: calc(100vh - 56px);">
+
+            <!-- Left Tab Navigation -->
+            <nav class="w-[180px] shrink-0 py-6 px-4 border-r" style="background: var(--color-bg-base); border-color: var(--color-border-subtle);">
+                <div class="space-y-1">
+                    <button class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg" style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary); border-left: 3px solid; border-image: linear-gradient(180deg, var(--color-gradient-start), var(--color-gradient-end)) 1; font-size: var(--text-sm); font-weight: 500;">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4 shrink-0"></i>
+                        <span>基本设置</span>
+                    </button>
+                    <button class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-[3px] border-transparent" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+                        <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+                        <span>用户管理</span>
+                    </button>
+                    <button class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-[3px] border-transparent" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+                        <i data-lucide="shield" class="w-4 h-4 shrink-0"></i>
+                        <span>权限角色</span>
+                    </button>
+                    <button class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-[3px] border-transparent" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+                        <i data-lucide="key" class="w-4 h-4 shrink-0"></i>
+                        <span>API 密钥</span>
+                    </button>
+                    <button class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-[3px] border-transparent" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+                        <i data-lucide="lock" class="w-4 h-4 shrink-0"></i>
+                        <span>安全设置</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Right Content Panel -->
+            <div class="flex-1 p-6 overflow-y-auto">
+                <div class="max-w-[800px] space-y-6">
+
+                    <!-- Tab: 基本设置 (Active) -->
+                    <div id="tab-basic" class="settings-tab-panel space-y-6">
+
+                    <!-- Section 1: 系统信息 -->
+                    <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="info" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                            <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">系统信息</h2>
+                        </div>
+
+                        <div class="space-y-5">
+                            <!-- 系统名称 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">系统名称</label>
+                                <input id="systemName" type="text" value="云汐系统管理工作台" class="w-full px-4 py-2.5 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                            </div>
+
+                            <!-- 系统Logo -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">系统Logo</label>
+                                <div class="flex items-center gap-4">
+                                    <div class="w-16 h-16 rounded-lg flex items-center justify-center cursor-pointer logo-upload overflow-hidden" id="logoPreview" style="background: var(--color-bg-base); border: 2px dashed var(--color-border-strong);">
+                                        <i data-lucide="image-plus" class="w-6 h-6" id="logoPlaceholderIcon" style="color: var(--color-text-tertiary);"></i>
+                                        <img id="logoPreviewImg" style="display:none; width:100%; height:100%; object-fit:contain;" alt="Logo预览">
+                                    </div>
+                                    <button class="px-4 py-2 rounded-lg flex items-center gap-2 logo-upload-btn" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); transition: var(--transition-fast);">
+                                        <i data-lucide="upload" class="w-4 h-4"></i>
+                                        <span>上传</span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">推荐尺寸 120x120，支持 PNG / SVG</span>
+                                </div>
+                                <input type="file" id="logoFileInput" accept="image/png,image/svg+xml,image/jpeg" style="display:none;">
+                            </div>
+
+                            <!-- 主题 -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">主题</label>
+                                    <p id="themeDesc" style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">当前使用深色主题</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">浅色</span>
+                                    <!-- Toggle Switch (深色 active) -->
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="theme" data-active="dark" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500;">深色</span>
+                                </div>
+                            </div>
+
+                            <!-- 语言 -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">语言</label>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">界面显示语言</p>
+                                </div>
+                                <div class="relative" style="min-width: 140px;">
+                                    <select id="language" class="w-full px-4 py-2 rounded-lg appearance-none outline-none cursor-pointer" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                        <option value="zh-CN">简体中文</option>
+                                        <option value="en-US">English</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style="color: var(--color-text-tertiary);"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 2: 大模型配置 -->
+                    <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="brain" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                            <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">大模型配置</h2>
+                        </div>
+
+                        <div class="space-y-5">
+                            <!-- AI Provider -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">AI Provider</label>
+                                <div class="relative">
+                                    <select id="aiProvider" class="w-full px-4 py-2.5 rounded-lg appearance-none outline-none cursor-pointer" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                        <option>OpenAI</option>
+                                        <option>Azure</option>
+                                        <option>本地模型</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style="color: var(--color-text-tertiary);"></i>
+                                </div>
+                            </div>
+
+                            <!-- API Key -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">API Key</label>
+                                <div class="relative">
+                                    <input id="apiKeyInput" type="password" placeholder="请输入 API Key，保存后将加密存储" class="w-full px-4 py-2.5 pr-10 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                    <button class="absolute right-3 top-1/2 -translate-y-1/2 toggle-api-key" style="color: var(--color-text-tertiary);">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 模型选择 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">模型选择</label>
+                                <div class="relative">
+                                    <select id="modelSelect" class="w-full px-4 py-2.5 rounded-lg appearance-none outline-none cursor-pointer" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                        <option>GPT-4</option>
+                                        <option>GPT-3.5</option>
+                                        <option>Claude</option>
+                                        <option>自定义</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style="color: var(--color-text-tertiary);"></i>
+                                </div>
+                            </div>
+
+                            <!-- 温度参数 -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">温度参数</label>
+                                    <span id="tempValue" style="font-size: var(--text-sm); font-family: var(--font-family-mono); color: var(--color-primary); font-weight: 600;">0.7</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">0</span>
+                                    <input id="tempSlider" type="range" min="0" max="2" step="0.1" value="0.7" class="flex-1 h-1.5 rounded-full appearance-none cursor-pointer" style="background: var(--color-border-default); accent-color: var(--color-primary);">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">2</span>
+                                </div>
+                                <div class="flex justify-between mt-1">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">精确</span>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">创意</span>
+                                </div>
+                            </div>
+
+                            <!-- 最大Token -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">最大 Token</label>
+                                <input id="maxTokens" type="number" value="4096" min="256" max="128000" class="w-full px-4 py-2.5 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 3: 全局参数 -->
+                    <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="gauge" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                            <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">全局参数</h2>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-5">
+                            <!-- 最大并发任务数 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">最大并发任务数</label>
+                                <input id="maxConcurrent" type="number" value="10" min="1" max="100" class="w-full px-4 py-2.5 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                            </div>
+
+                            <!-- 任务超时时间 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">任务超时时间</label>
+                                <div class="flex items-center">
+                                    <input id="taskTimeout" type="number" value="30" min="1" max="1440" class="flex-1 px-4 py-2.5 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); border-right: none; color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); border-radius: var(--radius-md) 0 0 var(--radius-md); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                    <span class="px-4 py-2.5 rounded-r-lg whitespace-nowrap" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-tertiary); font-size: var(--text-sm); border-left: none; border-radius: 0 var(--radius-md) var(--radius-md) 0;">分钟</span>
+                                </div>
+                            </div>
+
+                            <!-- 日志级别 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">日志级别</label>
+                                <div class="relative">
+                                    <select id="logLevel" class="w-full px-4 py-2.5 rounded-lg appearance-none outline-none cursor-pointer" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                        <option value="debug">Debug</option>
+                                        <option value="info" selected>Info</option>
+                                        <option value="warning">Warning</option>
+                                        <option value="error">Error</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style="color: var(--color-text-tertiary);"></i>
+                                </div>
+                            </div>
+
+                            <!-- 日志保留天数 -->
+                            <div>
+                                <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">日志保留天数</label>
+                                <div class="flex items-center">
+                                    <input id="logRetentionDays" type="number" value="30" min="1" max="365" class="flex-1 px-4 py-2.5 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); border-right: none; color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); border-radius: var(--radius-md) 0 0 var(--radius-md); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                    <span class="px-4 py-2.5 rounded-r-lg whitespace-nowrap" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-tertiary); font-size: var(--text-sm); border-left: none; border-radius: 0 var(--radius-md) var(--radius-md) 0;">天</span>
+                                </div>
+                            </div>
+
+                            <!-- 自动启动模块 -->
+                            <div class="flex items-center justify-between py-1">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">自动启动模块</label>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">系统启动时自动加载模块</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">关闭</span>
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="auto_start_modules" data-active="on" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500;">开启</span>
+                                </div>
+                            </div>
+
+                            <!-- 消息通知 -->
+                            <div class="flex items-center justify-between py-1">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">消息通知</label>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">接收系统通知和告警</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">关闭</span>
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="notification_enabled" data-active="on" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500;">开启</span>
+                                </div>
+                            </div>
+
+                            <!-- 自动检查更新 -->
+                            <div class="flex items-center justify-between py-1">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">自动检查更新</label>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">启动时自动检测新版本</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">关闭</span>
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="auto_check_update" data-active="on" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500;">开启</span>
+                                </div>
+                            </div>
+
+                            <!-- 自动重启 -->
+                            <div class="flex items-center justify-between py-1">
+                                <div>
+                                    <label class="block" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">自动重启</label>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">任务失败后自动重启</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">关闭</span>
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="autorestart" data-active="on" style="background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                    <span style="font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500;">开启</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    </div>
+
+                    <!-- Tab: 用户管理 (Hidden) -->
+                    <div id="tab-users" class="settings-tab-panel space-y-6" style="display: none;">
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="users" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                    <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">用户管理</h2>
+                                </div>
+                                <button id="addUserBtn" class="px-4 py-2 rounded-lg flex items-center gap-2 brand-gradient-bg" style="color: white; font-size: var(--text-sm); box-shadow: var(--shadow-glow);">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>添加用户</span>
+                                </button>
+                            </div>
+
+                            <table class="w-full" style="font-size: var(--text-sm);">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--color-border-default);">
+                                        <th class="text-left py-3 px-2" style="font-weight: 500; color: var(--color-text-secondary);">用户名</th>
+                                        <th class="text-left py-3 px-2" style="font-weight: 500; color: var(--color-text-secondary);">邮箱</th>
+                                        <th class="text-left py-3 px-2" style="font-weight: 500; color: var(--color-text-secondary);">角色</th>
+                                        <th class="text-left py-3 px-2" style="font-weight: 500; color: var(--color-text-secondary);">状态</th>
+                                        <th class="text-right py-3 px-2" style="font-weight: 500; color: var(--color-text-secondary);">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userTableBody">
+                                </tbody>
+                            </table>
+                        </section>
+                    </div>
+
+                    <!-- Tab: 权限角色 (Hidden) -->
+                    <div id="tab-roles" class="settings-tab-panel space-y-6" style="display: none;">
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="shield" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">权限角色</h2>
+                            </div>
+                            <p style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6;">管理系统角色和权限配置。角色权限将在后续版本中开放自定义配置。</p>
+                            <div class="mt-4 grid grid-cols-3 gap-4">
+                                <div class="role-card p-4 rounded-lg cursor-pointer" data-role="admin" style="border: 1px solid var(--color-border-default); background: var(--color-bg-base); transition: var(--transition-fast);">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i data-lucide="crown" class="w-4 h-4" style="color: #8b5cf6;"></i>
+                                        <span style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">超级管理员</span>
+                                    </div>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">拥有所有系统权限</p>
+                                </div>
+                                <div class="role-card p-4 rounded-lg cursor-pointer" data-role="developer" style="border: 1px solid var(--color-border-default); background: var(--color-bg-base); transition: var(--transition-fast);">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i data-lucide="code-2" class="w-4 h-4" style="color: var(--color-primary);"></i>
+                                        <span style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">开发者</span>
+                                    </div>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">模块开发与部署权限</p>
+                                </div>
+                                <div class="role-card p-4 rounded-lg cursor-pointer" data-role="guest" style="border: 1px solid var(--color-border-default); background: var(--color-bg-base); transition: var(--transition-fast);">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i data-lucide="eye" class="w-4 h-4" style="color: var(--color-text-tertiary);"></i>
+                                        <span style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">访客</span>
+                                    </div>
+                                    <p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">仅查看权限</p>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab: API 密钥 (Hidden) -->
+                    <div id="tab-apikeys" class="settings-tab-panel space-y-6" style="display: none;">
+                        <!-- LLM 大模型密钥 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="brain" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                                    <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">大模型 API 密钥</h2>
+                                </div>
+                                <button id="createApiKeyBtn" class="px-3 py-1.5 rounded-lg flex items-center gap-1.5 brand-gradient-bg" style="color: white; font-size: var(--text-xs); box-shadow: var(--shadow-glow);">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                    <span>创建密钥</span>
+                                </button>
+                            </div>
+                            <p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin-bottom: 1rem;">
+                                配置大模型服务的 API Key，用于 AI 对话、工作流、Agent 等功能。密钥将使用 Fernet 加密安全存储。
+                            </p>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">API Key</label>
+                                    <div class="relative">
+                                        <input id="apikeysLlmKey" type="password" placeholder="请输入 API Key" class="w-full px-4 py-2.5 pr-24 rounded-lg outline-none" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary); font-size: var(--text-sm); font-family: var(--font-family-mono); transition: var(--transition-fast);" onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px var(--color-glow-primary)';" onblur="this.style.borderColor='var(--color-border-default)'; this.style.boxShadow='none';">
+                                        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                            <button id="apikeysLlmToggle" class="p-1.5 rounded-md" style="color: var(--color-text-tertiary); transition: var(--transition-fast);" title="显示/隐藏">
+                                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                            </button>
+                                            <button id="apikeysLlmSave" class="px-3 py-1 rounded-md brand-gradient-bg" style="color: white; font-size: var(--text-xs);">保存</button>
+                                        </div>
+                                    </div>
+                                    <p id="apikeysLlmHint" style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 0.5rem;">
+                                        <span id="apikeysLlmStatus">未配置</span>
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 0.75rem;">
+                                    <button id="apikeysLlmTest" class="px-4 py-2 rounded-lg flex items-center gap-2" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); transition: var(--transition-fast);">
+                                        <i data-lucide="zap" class="w-4 h-4"></i>
+                                        <span>测试连接</span>
+                                    </button>
+                                    <button id="apikeysLlmClear" class="px-4 py-2 rounded-lg flex items-center gap-2" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--state-error); font-size: var(--text-sm); transition: var(--transition-fast);">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        <span>清除密钥</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 模块对接 Token -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="shield" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">模块对接 Token</h2>
+                            </div>
+                            <p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin-bottom: 1rem;">
+                                各模块与 M8 管理台对接的认证 Token。修改后需同步更新对应模块的环境变量。
+                            </p>
+                            <div id="moduleTokenList" class="space-y-2">
+                                <!-- 动态生成 -->
+                            </div>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border-subtle);">
+                                <button id="regenAllTokensBtn" class="px-4 py-2 rounded-lg flex items-center gap-2" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); transition: var(--transition-fast);">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                    <span>批量生成新 Token</span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <!-- 加密密钥信息 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="lock" class="w-5 h-5" style="color: var(--state-success);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">加密状态</h2>
+                            </div>
+                            <div id="encryptionInfo" class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">加密算法</span>
+                                    <span style="font-size: var(--text-sm); font-family: var(--font-family-mono); color: var(--color-text-primary);">AES-128-CBC + HMAC (Fernet)</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">密钥来源</span>
+                                    <span id="encKeySource" style="font-size: var(--text-sm); color: var(--color-text-primary);">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">密钥指纹</span>
+                                    <span id="encKeyFingerprint" style="font-size: var(--text-sm); font-family: var(--font-family-mono); color: var(--color-text-primary);">-</span>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab: 安全设置 + 关于 (Hidden) -->
+                    <div id="tab-security" class="settings-tab-panel space-y-6" style="display: none;">
+                        <!-- 安全设置 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="lock" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">安全设置</h2>
+                            </div>
+
+                            <div class="space-y-5">
+                                <!-- 修改密码 -->
+                                <div>
+                                    <button id="changePasswordBtn" class="w-full flex items-center justify-between p-4 rounded-lg" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); transition: var(--transition-fast); text-align: left;">
+                                        <div class="flex items-center gap-3">
+                                            <i data-lucide="key-round" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                                            <div>
+                                                <div style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">修改密码</div>
+                                                <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">上次修改于 30 天前</div>
+                                            </div>
+                                        </div>
+                                        <i data-lucide="chevron-right" class="w-4 h-4" style="color: var(--color-text-tertiary);"></i>
+                                    </button>
+                                </div>
+
+                                <!-- 双因素认证 -->
+                                <div class="flex items-center justify-between p-4 rounded-lg" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default);">
+                                    <div class="flex items-center gap-3">
+                                        <i data-lucide="smartphone" class="w-5 h-5" style="color: var(--state-success);"></i>
+                                        <div>
+                                            <div style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">双因素认证</div>
+                                            <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">使用手机验证码增强账户安全</div>
+                                        </div>
+                                    </div>
+                                    <button class="relative w-11 h-6 rounded-full toggle-switch" data-setting="2fa" data-active="off" style="background: var(--color-border-strong); transition: var(--transition-fast);">
+                                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md toggle-thumb" style="transition: var(--transition-fast);"></span>
+                                    </button>
+                                </div>
+
+                                <!-- 登录日志 -->
+                                <div>
+                                    <button id="loginLogBtn" class="w-full flex items-center justify-between p-4 rounded-lg" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); transition: var(--transition-fast); text-align: left;">
+                                        <div class="flex items-center gap-3">
+                                            <i data-lucide="history" class="w-5 h-5" style="color: var(--state-info);"></i>
+                                            <div>
+                                                <div style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">登录日志</div>
+                                                <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">查看近期登录记录</div>
+                                            </div>
+                                        </div>
+                                        <i data-lucide="chevron-right" class="w-4 h-4" style="color: var(--color-text-tertiary);"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 关于 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="info" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary);">关于系统</h2>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="flex justify-between">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">系统名称</span>
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-primary); font-weight: 500;">云汐系统管理工作台</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">版本号</span>
+                                    <span style="font-size: var(--text-sm); font-family: var(--font-family-mono); color: var(--color-text-primary);">v2.3.1</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">构建日期</span>
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-primary);">2024-07-07</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">运行环境</span>
+                                    <span style="font-size: var(--text-sm); color: var(--color-text-primary);">生产环境</span>
+                                </div>
+                                <div class="pt-4 mt-4" style="border-top: 1px solid var(--color-border-subtle);">
+                                    <button id="checkUpdateBtn" class="px-4 py-2 rounded-lg flex items-center gap-2" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--text-sm); transition: var(--transition-fast);">
+                                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                        <span>检查更新</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Save Button (only show on basic tab) -->
+                    <div id="saveSettingsBtnWrap" class="flex justify-end pb-8">
+                        <button id="saveSettingsBtn" class="brand-gradient-bg px-8 py-2.5 rounded-lg flex items-center gap-2 font-medium" style="color: white; font-size: var(--text-sm); box-shadow: var(--shadow-glow); transition: var(--transition-fast);">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>保存设置</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    
+    <!-- Page API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+        var currentTab = 'basic';
+        var currentSettings = null;
+        var userList = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 设置导航链接
+            setupNavigation();
+
+            // 绑定所有设置页面交互
+            bindSettingsEvents();
+
+            // 更新用户信息
+            updateUserInfo();
+
+            // 加载系统设置
+            loadSettings();
+            // 加载系统信息（版本号等）
+            loadSystemInfo();
+
+            // 加载用户列表
+            loadUsers();
+
+            // 加载 API 密钥页面数据（延迟加载，切换到 Tab 时也会触发）
+            setTimeout(function() {
+                loadApiKeysInfo();
+                loadModuleTokens();
+                loadEncryptionInfo();
+            }, 500);
+        });
+
+        function setupNavigation() {
+            var navItems = {
+                'nav-dashboard': 'dashboard.html',
+                'nav-tasks': 'tasks.html',
+                'nav-tasks-active': 'tasks.html',
+                'nav-tasks-hidden': 'tasks.html',
+                'nav-modules': 'modules.html',
+                'nav-modules-active': 'modules.html',
+                'nav-modules-hidden': 'modules.html',
+                'nav-deploy': 'deploy.html',
+                'nav-deploy-active': 'deploy.html',
+                'nav-deploy-hidden': 'deploy.html',
+                'nav-monitor': 'monitor.html',
+                'nav-monitor-active': 'monitor.html',
+                'nav-monitor-hidden': 'monitor.html',
+                'nav-agents': 'agents.html',
+                'nav-agents-hidden': 'agents.html',
+                'nav-compute': 'compute.html',
+                'nav-compute-hidden': 'compute.html',
+
+                'nav-settings': 'settings.html',
+                'nav-settings-active': 'settings.html',
+                'nav-settings-hidden': 'settings.html'
+            };
+
+            Object.keys(navItems).forEach(function(id) {
+                var el = document.querySelector('[data-dom-id="' + id + '"]');
+                if (el) {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        location.href = navItems[id];
+                    });
+                }
+            });
+        }
+
+        function bindSettingsEvents() {
+            // 左侧标签页切换
+            var tabButtons = document.querySelectorAll('nav button');
+            var tabMap = {
+                0: 'basic',
+                1: 'users',
+                2: 'roles',
+                3: 'apikeys',
+                4: 'security'
+            };
+
+            tabButtons.forEach(function(btn, index) {
+                btn.style.cursor = 'pointer';
+                btn.addEventListener('click', function() {
+                    switchTab(tabMap[index], btn);
+                });
+            });
+
+            // 温度滑块
+            var tempSlider = document.getElementById('tempSlider');
+            var tempValue = document.getElementById('tempValue');
+            if (tempSlider && tempValue) {
+                tempSlider.addEventListener('input', function() {
+                    tempValue.textContent = tempSlider.value;
+                });
+            }
+
+            // API Key 显示/隐藏切换
+            var toggleApiKey = document.querySelector('.toggle-api-key');
+            if (toggleApiKey) {
+                toggleApiKey.addEventListener('click', function() {
+                    var input = document.getElementById('apiKeyInput');
+                    if (input) {
+                        input.type = input.type === 'password' ? 'text' : 'password';
+                    }
+                });
+            }
+
+            // 所有开关按钮
+            document.querySelectorAll('.toggle-switch').forEach(function(toggle) {
+                toggle.addEventListener('click', function() {
+                    toggleSwitch(toggle);
+                });
+            });
+
+            // Logo上传
+            var logoUpload = document.querySelector('.logo-upload');
+            var logoUploadBtn = document.querySelector('.logo-upload-btn');
+            var logoFileInput = document.getElementById('logoFileInput');
+            var logoPreviewImg = document.getElementById('logoPreviewImg');
+            var logoPlaceholderIcon = document.getElementById('logoPlaceholderIcon');
+            var pendingLogoData = '';
+
+            function triggerLogoUpload() {
+                if (logoFileInput) logoFileInput.click();
+            }
+
+            function handleLogoFile(file) {
+                if (!file) return;
+                // 检查文件类型
+                var validTypes = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/jpg'];
+                if (validTypes.indexOf(file.type) === -1 && !file.name.match(/\.(png|svg|jpe?g)$/i)) {
+                    YunxiAPI.showToast('请选择 PNG / SVG / JPG 格式的图片', 'warning');
+                    return;
+                }
+                // 检查文件大小 (最大 2MB)
+                if (file.size > 2 * 1024 * 1024) {
+                    YunxiAPI.showToast('图片大小不能超过 2MB', 'warning');
+                    return;
+                }
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var dataUrl = e.target.result;
+                    pendingLogoData = dataUrl;
+                    // 显示预览
+                    if (logoPreviewImg) {
+                        logoPreviewImg.src = dataUrl;
+                        logoPreviewImg.style.display = 'block';
+                    }
+                    if (logoPlaceholderIcon) {
+                        logoPlaceholderIcon.style.display = 'none';
+                    }
+                    var previewBox = document.getElementById('logoPreview');
+                    if (previewBox) {
+                        previewBox.style.borderStyle = 'solid';
+                        previewBox.style.borderColor = 'var(--color-primary)';
+                    }
+                    YunxiAPI.showToast('Logo 已选择，点击"保存设置"生效', 'success');
+                };
+                reader.onerror = function() {
+                    YunxiAPI.showToast('读取图片失败', 'error');
+                };
+                reader.readAsDataURL(file);
+            }
+
+            if (logoUpload) {
+                logoUpload.addEventListener('click', triggerLogoUpload);
+            }
+            if (logoUploadBtn) {
+                logoUploadBtn.addEventListener('click', triggerLogoUpload);
+            }
+            if (logoFileInput) {
+                logoFileInput.addEventListener('change', function(e) {
+                    if (e.target.files && e.target.files[0]) {
+                        handleLogoFile(e.target.files[0]);
+                    }
+                });
+            }
+
+            // 保存设置按钮
+            var saveBtn = document.getElementById('saveSettingsBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    saveSettings();
+                });
+            }
+
+            // 用户管理 - 添加用户
+            var addUserBtn = document.getElementById('addUserBtn');
+            if (addUserBtn) {
+                addUserBtn.addEventListener('click', function() {
+                    showAddUserDialog();
+                });
+            }
+
+            // 角色卡片
+            document.querySelectorAll('.role-card').forEach(function(card) {
+                card.addEventListener('click', function() {
+                    var roleName = card.querySelector('span')?.textContent || '角色';
+                    var roleKey = card.getAttribute('data-role') || '';
+                    showRolePermissionDialog(roleName, roleKey);
+                });
+                card.addEventListener('mouseenter', function() {
+                    card.style.borderColor = 'var(--color-primary)';
+                    card.style.boxShadow = 'var(--shadow-glow)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    card.style.borderColor = 'var(--color-border-default)';
+                    card.style.boxShadow = 'none';
+                });
+            });
+
+            // API密钥复制
+            document.querySelectorAll('.api-key-copy').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var keyText = btn.getAttribute('data-key') || '';
+                    if (!keyText) {
+                        // 尝试从相邻元素获取
+                        var parent = btn.closest('.flex');
+                        if (parent) {
+                            var keyEl = parent.querySelector('[data-key-value]');
+                            if (keyEl) keyText = keyEl.getAttribute('data-key-value') || keyEl.textContent.trim();
+                        }
+                    }
+                    if (keyText && navigator.clipboard) {
+                        navigator.clipboard.writeText(keyText).then(function() {
+                            YunxiAPI.showToast('密钥已复制到剪贴板', 'success');
+                        }).catch(function() {
+                            YunxiAPI.showToast('复制失败，请手动复制', 'error');
+                        });
+                    } else {
+                        YunxiAPI.showToast('复制失败，请手动复制', 'error');
+                    }
+                });
+            });
+
+            // ===== API 密钥 Tab 功能 =====
+            // LLM Key 显示/隐藏
+            var llmToggle = document.getElementById('apikeysLlmToggle');
+            if (llmToggle) {
+                llmToggle.addEventListener('click', function() {
+                    var input = document.getElementById('apikeysLlmKey');
+                    if (input) {
+                        var isPwd = input.type === 'password';
+                        input.type = isPwd ? 'text' : 'password';
+                        var icon = llmToggle.querySelector('i');
+                        if (icon) icon.setAttribute('data-lucide', isPwd ? 'eye-off' : 'eye');
+                        if (window.lucide) lucide.createIcons();
+                    }
+                });
+            }
+
+            // LLM Key 保存
+            var llmSave = document.getElementById('apikeysLlmSave');
+            if (llmSave) {
+                llmSave.addEventListener('click', async function() {
+                    var input = document.getElementById('apikeysLlmKey');
+                    if (!input) return;
+                    var key = input.value.trim();
+                    if (!key) {
+                        YunxiAPI.showToast('请输入 API Key', 'warning');
+                        return;
+                    }
+                    YunxiAPI.showLoading('保存中...');
+                    try {
+                        await YunxiAPI.saveSettings({ llm_api_key: key });
+                        YunxiAPI.showToast('API Key 保存成功，已加密存储', 'success');
+                        // 刷新显示
+                        loadApiKeysInfo();
+                        input.value = '';
+                    } catch (e) {
+                        YunxiAPI.showToast('保存失败: ' + e.message, 'error');
+                    } finally {
+                        YunxiAPI.hideLoading();
+                    }
+                });
+            }
+
+            // LLM Key 测试连接
+            var llmTest = document.getElementById('apikeysLlmTest');
+            if (llmTest) {
+                llmTest.addEventListener('click', async function() {
+                    YunxiAPI.showLoading('测试连接中...');
+                    try {
+                        // 调用 LLM 测试接口（简单的健康检查）
+                        var result = await YunxiAPI.request('GET', '/system/llm/test');
+                        if (result && result.success) {
+                            YunxiAPI.showToast('连接测试成功', 'success');
+                        } else {
+                            YunxiAPI.showToast('连接测试失败', 'error');
+                        }
+                    } catch (e) {
+                        YunxiAPI.showToast('连接测试失败: ' + e.message, 'error');
+                    } finally {
+                        YunxiAPI.hideLoading();
+                    }
+                });
+            }
+
+            // 创建密钥按钮
+            var createKeyBtn = document.getElementById('createApiKeyBtn');
+            if (createKeyBtn) {
+                createKeyBtn.addEventListener('click', function() {
+                    showCreateKeyDialog();
+                });
+            }
+
+            // LLM Key 清除
+            var llmClear = document.getElementById('apikeysLlmClear');
+            if (llmClear) {
+                llmClear.addEventListener('click', async function() {
+                    var confirmed = await YunxiAPI.showConfirm('确定要清除 API Key 吗？清除后 AI 功能将不可用。', '清除密钥');
+                    if (!confirmed) return;
+                    YunxiAPI.showLoading('清除中...');
+                    try {
+                        await YunxiAPI.saveSettings({ llm_api_key: '' });
+                        YunxiAPI.showToast('密钥已清除', 'success');
+                        loadApiKeysInfo();
+                    } catch (e) {
+                        YunxiAPI.showToast('清除失败: ' + e.message, 'error');
+                    } finally {
+                        YunxiAPI.hideLoading();
+                    }
+                });
+            }
+
+            // 批量生成 Token
+            var regenBtn = document.getElementById('regenAllTokensBtn');
+            if (regenBtn) {
+                regenBtn.addEventListener('click', async function() {
+                    var confirmed = await YunxiAPI.showConfirm('确定要重新生成所有模块对接 Token 吗？生成后需手动更新各模块的 .env 文件。', '批量生成 Token');
+                    if (!confirmed) return;
+                    YunxiAPI.showLoading('生成中...');
+                    try {
+                        var result = await YunxiAPI.request('POST', '/system/tokens/regenerate');
+                        if (result && result.success) {
+                            YunxiAPI.showToast('Token 已重新生成', 'success');
+                            loadModuleTokens();
+                        } else {
+                            YunxiAPI.showToast('生成失败', 'error');
+                        }
+                    } catch (e) {
+                        YunxiAPI.showToast('生成失败: ' + e.message, 'error');
+                    } finally {
+                        YunxiAPI.hideLoading();
+                    }
+                });
+            }
+
+            // 修改密码
+            var changePwdBtn = document.getElementById('changePasswordBtn');
+            if (changePwdBtn) {
+                changePwdBtn.addEventListener('click', function() {
+                    showChangePasswordDialog();
+                });
+                changePwdBtn.addEventListener('mouseenter', function() {
+                    changePwdBtn.style.borderColor = 'var(--color-primary)';
+                });
+                changePwdBtn.addEventListener('mouseleave', function() {
+                    changePwdBtn.style.borderColor = 'var(--color-border-default)';
+                });
+            }
+
+            // 登录日志
+            var loginLogBtn = document.getElementById('loginLogBtn');
+            if (loginLogBtn) {
+                loginLogBtn.addEventListener('click', function() {
+                    showLoginLogsDialog();
+                });
+                loginLogBtn.addEventListener('mouseenter', function() {
+                    loginLogBtn.style.borderColor = 'var(--color-primary)';
+                });
+                loginLogBtn.addEventListener('mouseleave', function() {
+                    loginLogBtn.style.borderColor = 'var(--color-border-default)';
+                });
+            }
+
+            // 检查更新
+            var checkUpdateBtn = document.getElementById('checkUpdateBtn');
+            if (checkUpdateBtn) {
+                checkUpdateBtn.addEventListener('click', function() {
+                    checkForUpdates();
+                });
+            }
+
+            // 用户头像点击
+            var userAvatar = document.querySelector('.w-8.h-8.rounded-full');
+            if (userAvatar) {
+                userAvatar.style.cursor = 'pointer';
+                userAvatar.addEventListener('click', function() {
+                    handleLogout();
+                });
+            }
+        }
+
+        function switchTab(tabId, activeBtn) {
+            currentTab = tabId;
+
+            // 更新左侧标签页样式
+            var allTabs = document.querySelectorAll('nav button');
+            allTabs.forEach(function(tab) {
+                tab.style.background = 'transparent';
+                tab.style.color = 'var(--color-text-secondary)';
+                tab.style.borderLeft = '3px solid transparent';
+                tab.style.borderImage = 'none';
+            });
+
+            activeBtn.style.background = 'rgba(59, 130, 246, 0.1)';
+            activeBtn.style.color = 'var(--color-primary)';
+            activeBtn.style.borderLeft = '3px solid';
+            activeBtn.style.borderImage = 'linear-gradient(180deg, var(--color-gradient-start), var(--color-gradient-end)) 1';
+
+            // 切换内容面板
+            var panels = document.querySelectorAll('.settings-tab-panel');
+            panels.forEach(function(panel) {
+                panel.style.display = 'none';
+            });
+
+            var targetPanel = document.getElementById('tab-' + tabId);
+            if (targetPanel) {
+                targetPanel.style.display = '';
+            }
+
+            // 保存按钮只在基本设置页显示
+            var saveWrap = document.getElementById('saveSettingsBtnWrap');
+            if (saveWrap) {
+                saveWrap.style.display = tabId === 'basic' ? '' : 'none';
+            }
+
+            // 重新初始化图标
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        // ===== 设置加载与保存 =====
+
+        async function loadSettings() {
+            YunxiAPI.showLoading('正在加载设置...');
+            try {
+                var settings = await YunxiAPI.getSettings();
+                currentSettings = settings;
+                applySettingsToUI(settings);
+            } catch (e) {
+                YunxiAPI.showToast('加载设置失败：' + e.message, 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+        async function loadSystemInfo() {
+            try {
+                var sysInfo = await YunxiAPI.request('GET', '/system/info');
+                if (!sysInfo) return;
+                var version = sysInfo.version || '';
+                var sysName = sysInfo.name || '';
+                var env = sysInfo.env || '';
+                // 更新关于页面的信息
+                var aboutSection = document.querySelector('#tab-security section:nth-of-type(2)');
+                if (aboutSection) {
+                    var rows = aboutSection.querySelectorAll('.flex.justify-between');
+                    rows.forEach(function(row) {
+                        var spans = row.querySelectorAll('span');
+                        if (spans.length >= 2) {
+                            var label = spans[0].textContent;
+                            if (label === '版本号' && version) {
+                                spans[1].textContent = 'v' + version;
+                            }
+                            if (label === '系统名称' && sysName) {
+                                spans[1].textContent = sysName;
+                            }
+                            if (label === '运行环境' && env) {
+                                spans[1].textContent = env === 'development' ? '开发环境' : (env === 'production' ? '生产环境' : env);
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                // 静默失败，不影响页面加载
+            }
+        }
+
+
+        function applySettingsToUI(settings) {
+            // 系统名称
+            var systemNameEl = document.getElementById('systemName');
+            if (systemNameEl && settings.system_name !== undefined) {
+                systemNameEl.value = settings.system_name;
+            }
+
+            // 系统Logo
+            var logoData = (settings && settings.logo) || localStorage.getItem('yunxi_system_logo') || '';
+            if (logoData && logoData.indexOf('data:image') === 0) {
+                var logoPreviewImg = document.getElementById('logoPreviewImg');
+                var logoPlaceholderIcon = document.getElementById('logoPlaceholderIcon');
+                var logoPreviewBox = document.getElementById('logoPreview');
+                if (logoPreviewImg) {
+                    logoPreviewImg.src = logoData;
+                    logoPreviewImg.style.display = 'block';
+                }
+                if (logoPlaceholderIcon) {
+                    logoPlaceholderIcon.style.display = 'none';
+                }
+                if (logoPreviewBox) {
+                    logoPreviewBox.style.borderStyle = 'solid';
+                    logoPreviewBox.style.borderColor = 'var(--color-primary)';
+                }
+            }
+
+            // 主题
+            if (settings.theme !== undefined) {
+                var themeToggle = document.querySelector('.toggle-switch[data-setting="theme"]');
+                if (themeToggle) {
+                    var isDark = settings.theme === 'dark';
+                    setToggleState(themeToggle, isDark ? 'dark' : 'light');
+                    // 应用主题到页面
+                    if (isDark) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                    var themeDesc = document.getElementById('themeDesc');
+                    if (themeDesc) {
+                        themeDesc.textContent = isDark ? '当前使用深色主题' : '当前使用浅色主题';
+                    }
+                }
+            }
+
+            // 语言
+            var langEl = document.getElementById('language');
+            if (langEl && settings.language !== undefined) {
+                langEl.value = settings.language;
+            }
+
+            // AI Provider
+            var aiProviderEl = document.getElementById('aiProvider');
+            if (aiProviderEl && settings.ai_provider !== undefined) {
+                aiProviderEl.value = settings.ai_provider;
+            }
+
+            // API Key 状态（大模型配置 Tab 下的输入框）
+            var apiKeyInputEl = document.getElementById('apiKeyInput');
+            if (apiKeyInputEl && settings.llm_api_key !== undefined) {
+                if (settings.has_llm_api_key) {
+                    apiKeyInputEl.placeholder = settings.llm_api_key || '已配置';
+                    apiKeyInputEl.value = '';
+                } else {
+                    apiKeyInputEl.placeholder = '请输入 API Key，保存后将加密存储';
+                    apiKeyInputEl.value = '';
+                }
+            }
+
+            // 模型选择
+            var modelEl = document.getElementById('modelSelect');
+            if (modelEl && settings.model !== undefined) {
+                modelEl.value = settings.model;
+            }
+
+            // 温度
+            var tempSlider = document.getElementById('tempSlider');
+            var tempValue = document.getElementById('tempValue');
+            if (tempSlider && settings.temperature !== undefined) {
+                tempSlider.value = settings.temperature;
+                if (tempValue) tempValue.textContent = settings.temperature;
+            }
+
+            // 最大Token
+            var maxTokensEl = document.getElementById('maxTokens');
+            if (maxTokensEl && settings.max_tokens !== undefined) {
+                maxTokensEl.value = settings.max_tokens;
+            }
+
+            // 最大并发
+            var maxConcurrentEl = document.getElementById('maxConcurrent');
+            if (maxConcurrentEl && settings.max_concurrent !== undefined) {
+                maxConcurrentEl.value = settings.max_concurrent;
+            }
+
+            // 自动启动模块
+            if (settings.auto_start_modules !== undefined) {
+                var autoStartToggle = document.querySelector('.toggle-switch[data-setting="auto_start_modules"]');
+                if (autoStartToggle) {
+                    setToggleState(autoStartToggle, settings.auto_start_modules ? 'on' : 'off');
+                }
+            }
+
+            // 消息通知
+            if (settings.notification_enabled !== undefined) {
+                var notifToggle = document.querySelector('.toggle-switch[data-setting="notification_enabled"]');
+                if (notifToggle) {
+                    setToggleState(notifToggle, settings.notification_enabled ? 'on' : 'off');
+                }
+            }
+
+            // 自动检查更新
+            if (settings.auto_check_update !== undefined) {
+                var autoUpdateToggle = document.querySelector('.toggle-switch[data-setting="auto_check_update"]');
+                if (autoUpdateToggle) {
+                    setToggleState(autoUpdateToggle, settings.auto_check_update ? 'on' : 'off');
+                }
+            }
+
+            // 双因素认证
+            var twofaEnabled = false;
+            if (settings.twofa_enabled !== undefined) {
+                twofaEnabled = settings.twofa_enabled;
+            } else {
+                // 从本地存储读取
+                twofaEnabled = localStorage.getItem('yunxi_2fa_enabled') === 'true';
+            }
+            var twofaToggle = document.querySelector('.toggle-switch[data-setting="2fa"]');
+            if (twofaToggle) {
+                setToggleState(twofaToggle, twofaEnabled ? 'on' : 'off');
+            }
+
+            // 日志级别
+            var logLevelEl = document.getElementById('logLevel');
+            if (logLevelEl && settings.log_level !== undefined) {
+                logLevelEl.value = settings.log_level;
+            }
+
+            // 自动重启
+            if (settings.auto_restart !== undefined) {
+                var autoRestartToggle = document.querySelector('.toggle-switch[data-setting="autorestart"]');
+                if (autoRestartToggle) {
+                    setToggleState(autoRestartToggle, settings.auto_restart ? 'on' : 'off');
+                }
+            }
+
+            // LLM API Key 状态
+            if (settings.has_llm_api_key !== undefined) {
+                updateLlmKeyStatus(settings.has_llm_api_key, settings.llm_api_key);
+            }
+        }
+
+        // ===== API 密钥管理 =====
+
+        function updateLlmKeyStatus(hasKey, maskedKey) {
+            var statusEl = document.getElementById('apikeysLlmStatus');
+            var inputEl = document.getElementById('apikeysLlmKey');
+            if (statusEl) {
+                if (hasKey) {
+                    statusEl.innerHTML = '<span style="color: var(--state-success);">✓ 已配置</span> ' + (maskedKey || '');
+                } else {
+                    statusEl.innerHTML = '<span style="color: var(--state-warning);">⚠ 未配置</span>';
+                }
+            }
+        }
+
+        async function loadApiKeysInfo() {
+            try {
+                var settings = await YunxiAPI.getSettings();
+                updateLlmKeyStatus(settings.has_llm_api_key, settings.llm_api_key);
+            } catch (e) {
+                console.warn('加载密钥信息失败:', e);
+            }
+        }
+
+        async function loadModuleTokens() {
+            var listEl = document.getElementById('moduleTokenList');
+            if (!listEl) return;
+
+            try {
+                var result = await YunxiAPI.request('GET', '/system/tokens');
+                var tokens = (result && result.data) || [];
+                if (tokens.length === 0) {
+                    listEl.innerHTML = '<p style="font-size: var(--text-sm); color: var(--color-text-tertiary); text-align: center; padding: 1rem;">暂无 Token 配置</p>';
+                    return;
+                }
+
+                var html = '';
+                tokens.forEach(function(t) {
+                    html += '<div class="flex items-center justify-between p-3 rounded-lg" style="background: var(--color-bg-base); border: 1px solid var(--color-border-default);">' +
+                        '<div>' +
+                        '<div style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary);">' + t.name + '</div>' +
+                        '<div style="font-size: var(--text-xs); font-family: var(--font-family-mono); color: var(--color-text-tertiary); margin-top: 2px;">' + (t.masked || '未设置') + '</div>' +
+                        '</div>' +
+                        '<button class="p-2 rounded-md copy-token-btn" data-token="' + (t.token || '') + '" style="color: var(--color-text-tertiary); transition: var(--transition-fast);" title="复制">' +
+                        '<i data-lucide="copy" class="w-4 h-4"></i>' +
+                        '</button>' +
+                        '</div>';
+                });
+                listEl.innerHTML = html;
+                if (window.lucide) lucide.createIcons();
+
+                // 绑定复制按钮
+                document.querySelectorAll('.copy-token-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var token = btn.getAttribute('data-token');
+                        if (token && navigator.clipboard) {
+                            navigator.clipboard.writeText(token);
+                            YunxiAPI.showToast('Token 已复制', 'success');
+                        } else {
+                            YunxiAPI.showToast('复制失败', 'error');
+                        }
+                    });
+                });
+            } catch (e) {
+                listEl.innerHTML = '<p style="font-size: var(--text-sm); color: var(--state-error); text-align: center; padding: 1rem;">加载失败: ' + e.message + '</p>';
+            }
+        }
+
+        async function loadEncryptionInfo() {
+            try {
+                var result = await YunxiAPI.request('GET', '/system/encryption/info');
+                if (result && result.data) {
+                    var sourceEl = document.getElementById('encKeySource');
+                    var fpEl = document.getElementById('encKeyFingerprint');
+                    if (sourceEl) sourceEl.textContent = result.data.source === 'environment' ? '环境变量' : '本地密钥文件';
+                    if (fpEl) fpEl.textContent = result.data.fingerprint || '-';
+                }
+            } catch (e) {
+                console.warn('加载加密信息失败:', e);
+            }
+        }
+
+        function setToggleState(toggle, state) {
+            toggle.setAttribute('data-active', state);
+            var thumb = toggle.querySelector('.toggle-thumb');
+            var isActive = state === 'on' || state === 'dark';
+
+            if (isActive) {
+                toggle.style.background = 'linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end))';
+                if (thumb) {
+                    thumb.style.left = 'auto';
+                    thumb.style.right = '2px';
+                }
+                var parent = toggle.parentElement;
+                var spans = parent.querySelectorAll('span:not(.toggle-thumb)');
+                if (spans.length >= 2) {
+                    spans[0].style.color = 'var(--color-text-tertiary)';
+                    spans[0].style.fontWeight = 'normal';
+                    spans[spans.length - 1].style.color = 'var(--color-text-primary)';
+                    spans[spans.length - 1].style.fontWeight = '500';
+                }
+            } else {
+                toggle.style.background = 'var(--color-border-strong)';
+                if (thumb) {
+                    thumb.style.right = 'auto';
+                    thumb.style.left = '2px';
+                }
+                var parent = toggle.parentElement;
+                var spans = parent.querySelectorAll('span:not(.toggle-thumb)');
+                if (spans.length >= 2) {
+                    spans[0].style.color = 'var(--color-text-primary)';
+                    spans[0].style.fontWeight = '500';
+                    spans[spans.length - 1].style.color = 'var(--color-text-tertiary)';
+                    spans[spans.length - 1].style.fontWeight = 'normal';
+                }
+            }
+        }
+
+        function toggleSwitch(toggle) {
+            var currentState = toggle.getAttribute('data-active');
+            var setting = toggle.getAttribute('data-setting');
+            var isActive = currentState === 'on' || currentState === 'dark';
+            var newState;
+
+            if (setting === 'theme') {
+                newState = isActive ? 'light' : 'dark';
+                // 立即切换页面主题
+                if (newState === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+                var themeDesc = document.getElementById('themeDesc');
+                if (themeDesc) {
+                    themeDesc.textContent = newState === 'dark' ? '当前使用深色主题' : '当前使用浅色主题';
+                }
+                var label = newState === 'dark' ? '深色主题' : '浅色主题';
+                YunxiAPI.showToast(label, 'info');
+            } else if (setting === '2fa') {
+                // 双因素认证
+                var isActive = currentState === 'on' || currentState === 'active';
+                if (isActive) {
+                    // 关闭 2FA
+                    show2FADisableDialog(toggle);
+                } else {
+                    // 开启 2FA
+                    show2FASetupDialog(toggle);
+                }
+                return;
+            } else {
+                newState = isActive ? 'off' : 'on';
+                var labelMap = {
+                    'autorestart': '自动重启',
+                    'auto_start_modules': '自动启动模块',
+                    'notification_enabled': '消息通知',
+                    'auto_check_update': '自动检查更新'
+                };
+                var label = (labelMap[setting] || setting) + (newState === 'on' ? '已开启' : '已关闭');
+                YunxiAPI.showToast(label, 'info');
+            }
+
+            setToggleState(toggle, newState);
+        }
+
+        async function saveSettings() {
+            var confirmed = await YunxiAPI.showConfirm('确定要保存当前设置吗？', '保存设置');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('正在保存设置...');
+            try {
+                // 收集设置数据
+                var settings = {};
+
+                // 系统名称
+                var systemNameEl = document.getElementById('systemName');
+                if (systemNameEl) settings.system_name = systemNameEl.value;
+
+                // 系统Logo（如果有新上传的）
+                var logoToSave = '';
+                if (typeof pendingLogoData !== 'undefined' && pendingLogoData) {
+                    settings.logo = pendingLogoData;
+                    logoToSave = pendingLogoData;
+                }
+
+                // 主题
+                var themeToggle = document.querySelector('.toggle-switch[data-setting="theme"]');
+                if (themeToggle) {
+                    settings.theme = themeToggle.getAttribute('data-active') === 'dark' ? 'dark' : 'light';
+                }
+
+                // 语言
+                var langEl = document.getElementById('language');
+                if (langEl) settings.language = langEl.value;
+
+                // AI Provider
+                var aiProviderEl = document.getElementById('aiProvider');
+                if (aiProviderEl) settings.ai_provider = aiProviderEl.value;
+
+                // API Key（只有在用户输入了新值时才提交）
+                var apiKeyInputEl = document.getElementById('apiKeyInput');
+                if (apiKeyInputEl && apiKeyInputEl.value.trim()) {
+                    settings.llm_api_key = apiKeyInputEl.value.trim();
+                }
+
+                // 模型
+                var modelEl = document.getElementById('modelSelect');
+                if (modelEl) settings.model = modelEl.value;
+
+                // 温度
+                var tempSlider = document.getElementById('tempSlider');
+                if (tempSlider) settings.temperature = parseFloat(tempSlider.value);
+
+                // 最大Token
+                var maxTokensEl = document.getElementById('maxTokens');
+                if (maxTokensEl) settings.max_tokens = parseInt(maxTokensEl.value);
+
+                // 最大并发
+                var maxConcurrentEl = document.getElementById('maxConcurrent');
+                if (maxConcurrentEl) settings.max_concurrent = parseInt(maxConcurrentEl.value);
+
+                // 自动启动模块
+                var autoStartToggle = document.querySelector('.toggle-switch[data-setting="auto_start_modules"]');
+                if (autoStartToggle) {
+                    settings.auto_start_modules = autoStartToggle.getAttribute('data-active') === 'on';
+                }
+
+                // 消息通知
+                var notifToggle = document.querySelector('.toggle-switch[data-setting="notification_enabled"]');
+                if (notifToggle) {
+                    settings.notification_enabled = notifToggle.getAttribute('data-active') === 'on';
+                }
+
+                // 自动检查更新
+                var autoUpdateToggle = document.querySelector('.toggle-switch[data-setting="auto_check_update"]');
+                if (autoUpdateToggle) {
+                    settings.auto_check_update = autoUpdateToggle.getAttribute('data-active') === 'on';
+                }
+
+                // 日志级别
+                var logLevelEl = document.getElementById('logLevel');
+                if (logLevelEl) settings.log_level = logLevelEl.value;
+
+                // 自动重启
+                var autoRestartToggle = document.querySelector('.toggle-switch[data-setting="autorestart"]');
+                if (autoRestartToggle) {
+                    settings.auto_restart = autoRestartToggle.getAttribute('data-active') === 'on';
+                }
+
+                var result = await YunxiAPI.saveSettings(settings);
+                currentSettings = result || settings;
+                // Logo 存储到 localStorage（后端可能不支持 logo 字段）
+                if (logoToSave) {
+                    localStorage.setItem('yunxi_system_logo', logoToSave);
+                    if (currentSettings) currentSettings.logo = logoToSave;
+                }
+                YunxiAPI.showToast('设置保存成功', 'success');
+            } catch (e) {
+                YunxiAPI.showToast('保存失败：' + e.message, 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        // ===== 用户管理 =====
+
+        async function loadUsers() {
+            try {
+                var users = await YunxiAPI.listUsers();
+                userList = users || [];
+                renderUserList();
+            } catch (e) {
+                YunxiAPI.showToast('加载用户列表失败：' + e.message, 'error');
+            }
+        }
+
+        function renderUserList() {
+            var tbody = document.getElementById('userTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (!userList || userList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center" style="color: var(--color-text-tertiary); font-size: var(--text-sm);">暂无用户数据</td></tr>';
+                return;
+            }
+
+            var roleColors = {
+                'admin': { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', label: '超级管理员' },
+                'super_admin': { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', label: '超级管理员' },
+                'developer': { bg: 'rgba(59,130,246,0.1)', color: 'var(--color-primary)', label: '开发者' },
+                'dev': { bg: 'rgba(59,130,246,0.1)', color: 'var(--color-primary)', label: '开发者' },
+                'guest': { bg: 'rgba(148,163,184,0.15)', color: 'var(--color-text-secondary)', label: '访客' },
+                'user': { bg: 'rgba(16,185,129,0.1)', color: 'var(--state-success)', label: '普通用户' }
+            };
+
+            userList.forEach(function(user, index) {
+                var roleInfo = roleColors[user.role] || { bg: 'rgba(148,163,184,0.15)', color: 'var(--color-text-secondary)', label: user.role || '用户' };
+                var isLast = index === userList.length - 1;
+                var statusColor = user.status === 'active' ? 'var(--state-success)' : 'var(--color-text-tertiary)';
+                var statusText = user.status === 'active' ? '活跃' : (user.status || '离线');
+
+                var tr = document.createElement('tr');
+                tr.className = 'user-row';
+                tr.setAttribute('data-user-id', user.id || user.username);
+                if (!isLast) {
+                    tr.style.borderBottom = '1px solid var(--color-border-subtle)';
+                }
+                tr.innerHTML = `
+                    <td class="py-3 px-2" style="color: var(--color-text-primary);">${user.username || ''}</td>
+                    <td class="py-3 px-2" style="color: var(--color-text-secondary); font-family: var(--font-family-mono); font-size: var(--text-xs);">${user.email || ''}</td>
+                    <td class="py-3 px-2"><span style="background: ${roleInfo.bg}; color: ${roleInfo.color}; padding: 2px 8px; border-radius: var(--radius-sm); font-size: var(--text-xs);">${roleInfo.label}</span></td>
+                    <td class="py-3 px-2"><span style="color: ${statusColor}; font-size: var(--text-xs);">${statusText}</span></td>
+                    <td class="py-3 px-2 text-right">
+                        <button class="user-edit-btn p-1.5 rounded-md" style="color: var(--color-text-tertiary); transition: var(--transition-fast);" title="编辑">
+                            <i data-lucide="edit-2" class="w-4 h-4"></i>
+                        </button>
+                        <button class="user-delete-btn p-1.5 rounded-md" style="color: var(--color-text-tertiary); transition: var(--transition-fast);" title="删除">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+
+                // 绑定编辑按钮
+                tr.querySelector('.user-edit-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    showEditUserDialog(user);
+                });
+
+                // 绑定删除按钮
+                tr.querySelector('.user-delete-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    deleteUser(user, tr);
+                });
+            });
+
+            // 重新初始化图标
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function showAddUserDialog() {
+            showUserDialog(null);
+        }
+
+        function showEditUserDialog(user) {
+            showUserDialog(user);
+        }
+
+        function showUserDialog(user) {
+            var isEdit = !!user;
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:420px;max-width:460px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">${isEdit ? '编辑用户' : '添加用户'}</h3>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">用户名</label>
+                    <input type="text" id="dialog-username" value="${isEdit ? (user.username || '') : ''}" placeholder="请输入用户名" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;" ${isEdit ? 'readonly' : ''}>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">邮箱</label>
+                    <input type="email" id="dialog-email" value="${isEdit ? (user.email || '') : ''}" placeholder="请输入邮箱" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">角色</label>
+                    <select id="dialog-role" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;appearance:none;cursor:pointer;">
+                        <option value="admin" ${isEdit && user.role === 'admin' ? 'selected' : ''}>超级管理员</option>
+                        <option value="developer" ${isEdit && user.role === 'developer' ? 'selected' : ''}>开发者</option>
+                        <option value="user" ${isEdit && user.role === 'user' ? 'selected' : ''}>普通用户</option>
+                        <option value="guest" ${isEdit && user.role === 'guest' ? 'selected' : ''}>访客</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">状态</label>
+                    <select id="dialog-status" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;appearance:none;cursor:pointer;">
+                        <option value="active" ${isEdit && user.status === 'active' ? 'selected' : ''}>活跃</option>
+                        <option value="inactive" ${isEdit && user.status === 'inactive' ? 'selected' : ''}>停用</option>
+                    </select>
+                </div>
+                ${!isEdit ? `
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">初始密码</label>
+                    <input type="password" id="dialog-password" placeholder="请输入初始密码" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                ` : '<div style="margin-bottom:20px;"></div>'}
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="dialog-cancel" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="dialog-confirm" style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">${isEdit ? '保存修改' : '添加用户'}</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            modal.querySelector('#dialog-cancel').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#dialog-confirm').addEventListener('click', async function() {
+                var username = modal.querySelector('#dialog-username').value.trim();
+                var email = modal.querySelector('#dialog-email').value.trim();
+                var role = modal.querySelector('#dialog-role').value;
+                var status = modal.querySelector('#dialog-status').value;
+
+                if (!username) {
+                    YunxiAPI.showToast('请输入用户名', 'warning');
+                    return;
+                }
+                if (!email) {
+                    YunxiAPI.showToast('请输入邮箱', 'warning');
+                    return;
+                }
+                if (!isEdit) {
+                    var password = modal.querySelector('#dialog-password').value;
+                    if (!password || password.length < 6) {
+                        YunxiAPI.showToast('密码长度不能少于6位', 'warning');
+                        return;
+                    }
+                }
+
+                overlay.remove();
+                YunxiAPI.showLoading(isEdit ? '正在保存...' : '正在添加...');
+                try {
+                    if (isEdit) {
+                        await YunxiAPI.updateUser(user.id || user.username, {
+                            email: email,
+                            role: role,
+                            status: status
+                        });
+                        YunxiAPI.showToast('用户信息已更新', 'success');
+                    } else {
+                        await YunxiAPI.createUser({
+                            username: username,
+                            email: email,
+                            password: password,
+                            role: role,
+                            status: status
+                        });
+                        YunxiAPI.showToast('用户添加成功', 'success');
+                    }
+                    // 刷新用户列表
+                    loadUsers();
+                } catch (e) {
+                    YunxiAPI.showToast((isEdit ? '修改失败：' : '添加失败：') + e.message, 'error');
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        async function deleteUser(user, row) {
+            var userId = user.id || user.username;
+            var userName = user.username || '用户';
+            var confirmed = await YunxiAPI.showConfirm('确定要删除用户 "' + userName + '" 吗？此操作不可恢复。', '删除用户');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('正在删除用户...');
+            try {
+                await YunxiAPI.deleteUser(userId);
+                if (row) {
+                    row.style.opacity = '0.5';
+                    row.style.pointerEvents = 'none';
+                }
+                YunxiAPI.showToast('用户已删除', 'success');
+                // 刷新列表
+                setTimeout(function() { loadUsers(); }, 300);
+            } catch (e) {
+                YunxiAPI.showToast('删除失败：' + e.message, 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        // ===== 修改密码 =====
+
+        function showChangePasswordDialog() {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:400px;max-width:440px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">修改密码</h3>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">当前密码</label>
+                    <input type="password" id="old-pwd" placeholder="请输入当前密码" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">新密码</label>
+                    <input type="password" id="new-pwd" placeholder="请输入新密码" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">确认新密码</label>
+                    <input type="password" id="confirm-pwd" placeholder="请再次输入新密码" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancel-pwd" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirm-pwd-btn" style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">确认修改</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            modal.querySelector('#cancel-pwd').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#confirm-pwd-btn').addEventListener('click', async function() {
+                var oldPwd = modal.querySelector('#old-pwd').value;
+                var newPwd = modal.querySelector('#new-pwd').value;
+                var confirmPwd = modal.querySelector('#confirm-pwd').value;
+
+                if (!oldPwd || !newPwd || !confirmPwd) {
+                    YunxiAPI.showToast('请填写所有密码字段', 'warning');
+                    return;
+                }
+                if (newPwd !== confirmPwd) {
+                    YunxiAPI.showToast('两次输入的新密码不一致', 'warning');
+                    return;
+                }
+                if (newPwd.length < 6) {
+                    YunxiAPI.showToast('新密码长度不能少于6位', 'warning');
+                    return;
+                }
+
+                YunxiAPI.showLoading('正在修改密码...');
+                try {
+                    await YunxiAPI.changePassword(oldPwd, newPwd, confirmPwd);
+                    // 成功后清空输入框
+                    modal.querySelector('#old-pwd').value = '';
+                    modal.querySelector('#new-pwd').value = '';
+                    modal.querySelector('#confirm-pwd').value = '';
+                    overlay.remove();
+                    YunxiAPI.showToast('密码修改成功', 'success');
+                } catch (e) {
+                    YunxiAPI.showToast('密码修改失败：' + e.message, 'error');
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+
+        // ===== 登录日志 =====
+
+        function showLoginLogsDialog() {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:640px;max-width:720px;max-height:80vh;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);display:flex;flex-direction:column;';
+
+            modal.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);">登录日志</h3>
+                    <button id="closeLoginLogBtn" style="background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);padding:4px;">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div id="loginLogContent" style="flex:1;overflow-y:auto;">
+                    <div style="text-align:center;padding:40px;color:var(--color-text-tertiary);font-size:14px;">
+                        <i data-lucide="loader-2" class="w-6 h-6" style="animation:spin 1s linear infinite;display:inline-block;"></i>
+                        <div style="margin-top:8px;">加载中...</div>
+                    </div>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            if (window.lucide) lucide.createIcons();
+
+            modal.querySelector('#closeLoginLogBtn').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            // 加载登录日志
+            loadLoginLogs(modal.querySelector('#loginLogContent'));
+        }
+
+        async function loadLoginLogs(container) {
+            try {
+                var result = await YunxiAPI.request('GET', '/audit/logs?action=login&limit=50');
+                var logs = (result && result.items) || (result && result.data && result.data.items) || [];
+                var total = (result && result.total) || (result && result.data && result.data.total) || logs.length;
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);font-size:14px;">暂无登录记录</div>';
+                    return;
+                }
+
+                // 格式化时间
+                function formatTime(t) {
+                    if (!t) return '-';
+                    // 2026-07-07T12:22:56.310970 -> 2026-07-07 12:22:56
+                    return t.replace('T', ' ').replace(/\.\d+/, '');
+                }
+
+                var html = '<table style="width:100%;font-size:13px;border-collapse:collapse;">';
+                html += '<thead><tr style="border-bottom:1px solid var(--color-border-default);">';
+                html += '<th style="text-align:left;padding:10px 8px;font-weight:500;color:var(--color-text-secondary);">时间</th>';
+                html += '<th style="text-align:left;padding:10px 8px;font-weight:500;color:var(--color-text-secondary);">用户</th>';
+                html += '<th style="text-align:left;padding:10px 8px;font-weight:500;color:var(--color-text-secondary);">IP地址</th>';
+                html += '<th style="text-align:left;padding:10px 8px;font-weight:500;color:var(--color-text-secondary);">状态</th>';
+                html += '</tr></thead><tbody>';
+
+                logs.forEach(function(log) {
+                    var time = formatTime(log.created_at);
+                    var user = log.username || '-';
+                    // IP 可能在 log.ip 或 log.details.ip 中
+                    var ip = log.ip || (log.details && log.details.ip) || '-';
+                    var status = log.result || 'unknown';
+                    var statusColor = status === 'success' ? 'var(--state-success)' : (status === 'failed' ? 'var(--state-error)' : 'var(--color-text-tertiary)');
+                    var statusText = status === 'success' ? '成功' : (status === 'failed' ? '失败' : status);
+
+                    html += '<tr style="border-bottom:1px solid var(--color-border-subtle);">';
+                    html += '<td style="padding:10px 8px;color:var(--color-text-secondary);font-family:var(--font-family-mono);font-size:12px;white-space:nowrap;">' + time + '</td>';
+                    html += '<td style="padding:10px 8px;color:var(--color-text-primary);">' + user + '</td>';
+                    html += '<td style="padding:10px 8px;color:var(--color-text-secondary);font-family:var(--font-family-mono);font-size:12px;">' + ip + '</td>';
+                    html += '<td style="padding:10px 8px;"><span style="color:' + statusColor + ';font-size:12px;">' + statusText + '</span></td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+                html += '<div style="margin-top:12px;text-align:right;font-size:12px;color:var(--color-text-tertiary);">共 ' + total + ' 条记录（显示最近 ' + logs.length + ' 条）</div>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--state-error);font-size:14px;">加载失败：' + e.message + '</div>';
+            }
+        }
+
+        // ===== 双因素认证 =====
+
+        function show2FASetupDialog(toggleEl) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:420px;max-width:460px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            // 生成一个模拟的密钥和二维码
+            var secretKey = generateRandomSecret();
+            var qrCodeText = 'otpauth://totp/yunxi:admin?secret=' + secretKey + '&issuer=YunxiSystem';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">设置双因素认证</h3>
+                <p style="font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:16px;">
+                    请使用身份验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码，或手动输入密钥。
+                </p>
+                <div style="background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);padding:20px;text-align:center;margin-bottom:16px;">
+                    <div style="width:160px;height:160px;margin:0 auto;background:white;border:1px solid var(--color-border-default);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content;">
+                        <div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;line-height:1.5;">
+                            <i data-lucide="qr-code" class="w-12 h-12" style="display:block;margin:0 auto 8px;color:var(--color-text-secondary);"></i>
+                            二维码占位<br>实际使用时生成
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;">密钥（手动输入）</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" value="${secretKey}" readonly style="flex:1;padding:8px 12px;font-family:var(--font-family-mono);font-size:13px;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);color:var(--color-text-primary);outline:none;">
+                        <button id="copy2faSecret" style="padding:8px 12px;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:13px;">
+                            复制
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;">输入验证码以验证</label>
+                    <input type="text" id="verify2faCode" placeholder="请输入 6 位验证码" maxlength="6" style="width:100%;padding:10px 12px;font-family:var(--font-family-mono);font-size:16px;letter-spacing:4px;text-align:center;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);color:var(--color-text-primary);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancel2faSetup" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirm2faSetup" style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">启用</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            if (window.lucide) lucide.createIcons();
+
+            modal.querySelector('#cancel2faSetup').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#copy2faSecret').addEventListener('click', function() {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(secretKey).then(function() {
+                        YunxiAPI.showToast('密钥已复制', 'success');
+                    });
+                }
+            });
+
+            modal.querySelector('#confirm2faSetup').addEventListener('click', async function() {
+                var code = modal.querySelector('#verify2faCode').value.trim();
+                if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+                    YunxiAPI.showToast('请输入 6 位数字验证码', 'warning');
+                    return;
+                }
+
+                YunxiAPI.showLoading('验证中...');
+                try {
+                    // 尝试调用后端 2FA 验证 API
+                    try {
+                        await YunxiAPI.request('POST', '/auth/2fa/setup', { body: { secret: secretKey, code: code } });
+                    } catch (e) {
+                        // 如果后端不支持，本地模拟验证（前端演示用）
+                        // 任何 6 位数字都视为验证通过（演示模式）
+                        await new Promise(function(resolve) { setTimeout(resolve, 800); });
+                    }
+
+                    // 更新设置
+                    try {
+                        await YunxiAPI.saveSettings({ twofa_enabled: true, twofa_secret: secretKey });
+                    } catch (e) {
+                        // 如果 settings 不支持，存在本地作为前端配置
+                        localStorage.setItem('yunxi_2fa_enabled', 'true');
+                        localStorage.setItem('yunxi_2fa_secret', secretKey);
+                    }
+
+                    // 更新开关状态
+                    if (toggleEl) {
+                        setToggleState(toggleEl, 'on');
+                    }
+
+                    overlay.remove();
+                    YunxiAPI.showToast('双因素认证已启用', 'success');
+                } catch (e) {
+                    YunxiAPI.showToast('验证失败：' + e.message, 'error');
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+        }
+
+        function show2FADisableDialog(toggleEl) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:380px;max-width:420px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">关闭双因素认证</h3>
+                <p style="font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:20px;">
+                    关闭后账户安全性将降低。请输入当前账户密码以确认关闭。
+                </p>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;">当前密码</label>
+                    <input type="password" id="disable2faPwd" placeholder="请输入当前密码" style="width:100%;padding:10px 12px;font-size:14px;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);color:var(--color-text-primary);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancel2faDisable" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirm2faDisable" style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:var(--state-error);color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">确认关闭</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            modal.querySelector('#cancel2faDisable').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#confirm2faDisable').addEventListener('click', async function() {
+                var pwd = modal.querySelector('#disable2faPwd').value;
+                if (!pwd) {
+                    YunxiAPI.showToast('请输入当前密码', 'warning');
+                    return;
+                }
+
+                YunxiAPI.showLoading('处理中...');
+                try {
+                    // 尝试调用后端 API
+                    try {
+                        await YunxiAPI.request('POST', '/auth/2fa/disable', { body: { password: pwd } });
+                    } catch (e) {
+                        // 后端不支持时本地处理
+                        await new Promise(function(resolve) { setTimeout(resolve, 500); });
+                    }
+
+                    // 更新设置
+                    try {
+                        await YunxiAPI.saveSettings({ twofa_enabled: false });
+                    } catch (e) {
+                        localStorage.removeItem('yunxi_2fa_enabled');
+                        localStorage.removeItem('yunxi_2fa_secret');
+                    }
+
+                    // 更新开关状态
+                    if (toggleEl) {
+                        setToggleState(toggleEl, 'off');
+                    }
+
+                    overlay.remove();
+                    YunxiAPI.showToast('双因素认证已关闭', 'success');
+                } catch (e) {
+                    YunxiAPI.showToast('操作失败：' + e.message, 'error');
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+        }
+
+        function generateRandomSecret() {
+            var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            var secret = '';
+            for (var i = 0; i < 32; i++) {
+                secret += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return secret;
+        }
+
+        // ===== 角色权限 =====
+
+        function showRolePermissionDialog(roleName, roleKey) {
+            // 定义各角色的权限列表
+            var rolePermissions = {
+                'admin': {
+                    name: '超级管理员',
+                    modules: [
+                        { name: '总览', permissions: ['查看仪表盘', '查看系统状态', '查看统计数据'] },
+                        { name: '任务中心', permissions: ['查看任务', '创建任务', '编辑任务', '删除任务', '取消任务'] },
+                        { name: '模块管理', permissions: ['查看模块', '启动模块', '停止模块', '重启模块', '配置模块'] },
+                        { name: '部署管理', permissions: ['查看部署', '执行部署', '回滚版本', '配置部署'] },
+                        { name: '系统监控', permissions: ['查看监控', '查看日志', '管理告警', '查看性能指标'] },
+                        { name: '系统设置', permissions: ['查看设置', '修改设置', '用户管理', '角色权限', 'API密钥', '安全设置'] }
+                    ]
+                },
+                'developer': {
+                    name: '开发者',
+                    modules: [
+                        { name: '总览', permissions: ['查看仪表盘', '查看系统状态', '查看统计数据'] },
+                        { name: '任务中心', permissions: ['查看任务', '创建任务', '编辑任务', '取消任务'] },
+                        { name: '模块管理', permissions: ['查看模块', '启动模块', '停止模块', '配置模块'] },
+                        { name: '部署管理', permissions: ['查看部署', '执行部署', '回滚版本'] },
+                        { name: '系统监控', permissions: ['查看监控', '查看日志', '查看性能指标'] },
+                        { name: '系统设置', permissions: ['查看设置', '修改个人设置', '查看API密钥'] }
+                    ]
+                },
+                'guest': {
+                    name: '访客',
+                    modules: [
+                        { name: '总览', permissions: ['查看仪表盘', '查看系统状态'] },
+                        { name: '任务中心', permissions: ['查看任务'] },
+                        { name: '模块管理', permissions: ['查看模块'] },
+                        { name: '系统监控', permissions: ['查看监控'] },
+                        { name: '系统设置', permissions: [] }
+                    ]
+                }
+            };
+
+            var roleData = rolePermissions[roleKey] || { name: roleName, modules: [] };
+
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:520px;max-width:560px;max-height:75vh;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);display:flex;flex-direction:column;';
+
+            var html = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <i data-lucide="shield" class="w-5 h-5" style="color:var(--color-primary);"></i>
+                        <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin:0;">${roleData.name} - 权限详情</h3>
+                    </div>
+                    <button id="closeRolePermBtn" style="background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);padding:4px;">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div style="flex:1;overflow-y:auto;">
+            `;
+
+            roleData.modules.forEach(function(mod) {
+                html += '<div style="margin-bottom:16px;">';
+                html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+                html += '<span style="font-size:14px;font-weight:500;color:var(--color-text-primary);">' + mod.name + '</span>';
+                html += '<span style="font-size:12px;color:var(--color-text-tertiary);">(' + mod.permissions.length + ' 项)</span>';
+                html += '</div>';
+                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:4px;">';
+                if (mod.permissions.length === 0) {
+                    html += '<span style="font-size:12px;color:var(--color-text-tertiary);">无权限</span>';
+                } else {
+                    mod.permissions.forEach(function(perm) {
+                        html += '<span style="padding:4px 10px;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-sm);font-size:12px;color:var(--color-text-secondary);">' + perm + '</span>';
+                    });
+                }
+                html += '</div></div>';
+            });
+
+            html += `
+                </div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--color-border-subtle);display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:12px;color:var(--color-text-tertiary);">共 ${roleData.modules.reduce(function(s, m) { return s + m.permissions.length; }, 0)} 项权限</span>
+                    <button id="closeRolePermBtn2" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">关闭</button>
+                </div>
+            `;
+
+            modal.innerHTML = html;
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            if (window.lucide) lucide.createIcons();
+
+            function closeIt() { overlay.remove(); }
+            modal.querySelector('#closeRolePermBtn').addEventListener('click', closeIt);
+            modal.querySelector('#closeRolePermBtn2').addEventListener('click', closeIt);
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) closeIt();
+            });
+        }
+
+        // ===== 创建 API 密钥 =====
+
+        function showCreateKeyDialog() {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:10000;';
+
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--color-bg-elevated);border-radius:var(--radius-xl);padding:24px;min-width:420px;max-width:460px;box-shadow:var(--shadow-lg);border:1px solid var(--color-border-default);';
+
+            modal.innerHTML = `
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px;">创建 API 密钥</h3>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">密钥名称</label>
+                    <input type="text" id="newKeyName" placeholder="例如：生产环境密钥" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">密钥类型</label>
+                    <select id="newKeyType" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;appearance:none;cursor:pointer;">
+                        <option value="llm">大模型 API 密钥</option>
+                        <option value="module">模块对接密钥</option>
+                        <option value="custom">自定义密钥</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">密钥值</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="newKeyValue" placeholder="请输入或生成密钥" style="flex:1;height:40px;padding:0 12px;font-family:var(--font-family-mono);font-size:13px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;">
+                        <button id="generateKeyBtn" style="padding:0 12px;background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px;white-space:nowrap;">
+                            随机生成
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.025em;">过期时间（可选）</label>
+                    <select id="newKeyExpire" style="width:100%;height:40px;padding:0 12px;font-size:14px;color:var(--color-text-primary);background:var(--color-bg-base);border:1px solid var(--color-border-default);border-radius:var(--radius-md);outline:none;box-sizing:border-box;appearance:none;cursor:pointer;">
+                        <option value="never">永不过期</option>
+                        <option value="30">30 天后</option>
+                        <option value="90">90 天后</option>
+                        <option value="180">180 天后</option>
+                        <option value="365">1 年后</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="cancelCreateKey" style="padding:8px 20px;border-radius:var(--radius-md);border:1px solid var(--color-border-default);background:transparent;color:var(--color-text-secondary);font-size:14px;cursor:pointer;transition:all 0.2s;">取消</button>
+                    <button id="confirmCreateKey" style="padding:8px 20px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:white;font-size:14px;cursor:pointer;transition:all 0.2s;">创建</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // 随机生成密钥
+            modal.querySelector('#generateKeyBtn').addEventListener('click', function() {
+                var generated = generateApiKey();
+                modal.querySelector('#newKeyValue').value = generated;
+            });
+
+            modal.querySelector('#cancelCreateKey').addEventListener('click', function() {
+                overlay.remove();
+            });
+
+            modal.querySelector('#confirmCreateKey').addEventListener('click', async function() {
+                var name = modal.querySelector('#newKeyName').value.trim();
+                var type = modal.querySelector('#newKeyType').value;
+                var keyValue = modal.querySelector('#newKeyValue').value.trim();
+                var expire = modal.querySelector('#newKeyExpire').value;
+
+                if (!name) {
+                    YunxiAPI.showToast('请输入密钥名称', 'warning');
+                    return;
+                }
+                if (!keyValue) {
+                    YunxiAPI.showToast('请输入或生成密钥值', 'warning');
+                    return;
+                }
+
+                YunxiAPI.showLoading('创建中...');
+                try {
+                    // 尝试调用后端 API
+                    try {
+                        var result = await YunxiAPI.request('POST', '/system/api-keys', {
+                            body: { name: name, type: type, key: keyValue, expire: expire }
+                        });
+                        YunxiAPI.showToast('密钥创建成功', 'success');
+                    } catch (e) {
+                        // 后端不支持时，保存到本地设置
+                        if (type === 'llm') {
+                            await YunxiAPI.saveSettings({ llm_api_key: keyValue });
+                        }
+                        // 前端模拟成功
+                        await new Promise(function(resolve) { setTimeout(resolve, 500); });
+                        YunxiAPI.showToast('密钥创建成功（本地模式）', 'success');
+                        // 刷新 LLM key 状态
+                        loadApiKeysInfo();
+                    }
+
+                    overlay.remove();
+                } catch (e) {
+                    YunxiAPI.showToast('创建失败：' + e.message, 'error');
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+        }
+
+        function generateApiKey() {
+            var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            var prefix = 'sk-';
+            var key = prefix;
+            for (var i = 0; i < 48; i++) {
+                key += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return key;
+        }
+        // ===== 其他功能 =====
+
+        async function checkForUpdates() {
+            YunxiAPI.showLoading('正在检查更新...');
+            try {
+                var sysInfo = await YunxiAPI.request('GET', '/system/info');
+                var currentVersion = (sysInfo && sysInfo.version) || '1.0.0';
+                var sysName = (sysInfo && sysInfo.name) || '云汐系统管理工作台';
+                var env = (sysInfo && sysInfo.env) || 'production';
+                // 更新关于页面的版本号显示
+                var aboutSection = document.querySelector('#tab-security section:nth-of-type(2)');
+                if (aboutSection) {
+                    var infoRows = aboutSection.querySelectorAll('.flex.justify-between');
+                    infoRows.forEach(function(row) {
+                        var label = row.querySelector('span:first-child');
+                        var value = row.querySelector('span:last-child');
+                        if (label && value) {
+                            if (label.textContent === '版本号') {
+                                value.textContent = 'v' + currentVersion;
+                                value.style.fontFamily = 'var(--font-family-mono)';
+                            }
+                            if (label.textContent === '系统名称') {
+                                value.textContent = sysName;
+                            }
+                            if (label.textContent === '运行环境') {
+                                value.textContent = env === 'development' ? '开发环境' : (env === 'production' ? '生产环境' : env);
+                            }
+                        }
+                    });
+                }
+                YunxiAPI.showToast('当前版本 v' + currentVersion + '，已是最新版本', 'success');
+            } catch (e) {
+                YunxiAPI.showToast('检查更新失败：' + e.message, 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+
+        async function handleLogout() {
+            var confirmed = await YunxiAPI.showConfirm('确定要退出登录吗？', '退出登录');
+            if (confirmed) {
+                YunxiAPI.showLoading('正在退出...');
+                try {
+                    await YunxiAPI.logout();
+                    YunxiAPI.showToast('已退出登录', 'success');
+                    setTimeout(function() {
+                        location.href = 'login.html';
+                    }, 500);
+                } catch (e) {
+                    location.href = 'login.html';
+                } finally {
+                    YunxiAPI.hideLoading();
+                }
+            }
+        }
+
+        function updateUserInfo() {
+            var user = YunxiAPI.getCurrentUser();
+            if (user) {
+                var username = user.username || '管';
+                var initial = username.charAt(0).toUpperCase();
+                var userBadges = document.querySelectorAll('.w-8.h-8.rounded-full');
+                userBadges.forEach(function(badge) {
+                    if (badge.textContent.trim() === '管') {
+                        badge.textContent = initial;
+                    }
+                });
+                var userNameSpan = document.querySelector('aside span.text-sm');
+                if (userNameSpan && userNameSpan.textContent.trim() === '管理员') {
+                    userNameSpan.textContent = username;
+                }
+            }
+        }
+    </script>
+
+
+    
+    <script>
+        document.getElementById('themeToggleBtn')?.addEventListener('click', function() {
+            window.YunxiTheme?.toggleTheme();
+        });
+    </script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,71 @@
+# M3 端云同步内核 — 标准配置示例
+# 版本：v2.1.2
+# 使用说明：复制为 config.yaml 并按需修改；敏感字段通过环境变量注入
+
+basic:
+  name: m3-sync
+  version: "2.1.2"
+  port: 8003
+  log_level: info
+  env: production
+
+security:
+  encryption_key: ${M3_ENCRYPTION_KEY}
+  admin_token: ${M3_ADMIN_TOKEN}
+  cors_origins:
+    - http://localhost:3000
+  # 端到端加密
+  e2ee:
+    enabled: true
+    algorithm: AES-256-GCM
+
+sync:
+  # 同步模式：auto / manual / scheduled
+  mode: auto
+  # 同步间隔（秒），auto 模式下使用
+  interval: 60
+  # 冲突解决策略：server_wins / client_wins / manual / newest_wins
+  conflict_strategy: newest_wins
+  # 最大并发同步数
+  max_concurrent: 10
+  # 单文件大小限制（MB）
+  max_file_size: 100
+
+storage:
+  # 本地存储路径
+  local_path: ./data/sync
+  # 云端存储类型：local / s3 / webdav
+  cloud_type: local
+  cloud_path: ./data/cloud
+  # 缓存大小（MB）
+  cache_size: 512
+
+offline:
+  # 离线队列大小
+  queue_size: 1000
+  # 重试策略
+  retry:
+    max_attempts: 5
+    backoff: exponential
+
+database:
+  type: sqlite
+  path: ./data/m3.db
+
+devices:
+  # 设备注册表类型：memory / sqlite
+  registry_type: memory
+  # SQLite 持久化时的数据库路径
+  db_path: ./data/devices.db
+
+logging:
+  format: json
+  level: info
+  file: ./logs/m3.log
+  max_size: 100MB
+  max_files: 10
+  sensitive_fields:
+    - encryption_key
+    - password
+    - admin_token
+    - api_key

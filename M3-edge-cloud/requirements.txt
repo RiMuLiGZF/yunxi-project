@@ -1,0 +1,37 @@
+# Web 框架
+fastapi>=0.110.0
+uvicorn>=0.27.0
+
+# 数据验证
+pydantic>=2.0
+
+# 配置
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# 日志
+structlog>=24.0
+
+# 异步 HTTP
+aiohttp>=3.10
+
+# 异步文件
+aiofiles>=24.0
+
+# 异步 SQLite
+aiosqlite>=0.20
+
+# 加密
+cryptography>=42.0
+
+# GPU 监控（可选，安装失败不影响启动）
+pynvml>=11.0
+
+# 测试
+pytest>=8.0
+pytest-asyncio>=0.24
+
+# 补充依赖
+httpx
+psutil
+SQLAlchemy

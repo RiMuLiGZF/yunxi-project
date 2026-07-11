@@ -1,0 +1,77 @@
+# 显存策略配置模板
+# 用于 VRAMMonitor 的显存监控策略
+# 此文件为模板，实际使用时复制到 ~/.yunxi/config/vram_policy.yaml
+
+# ============================================================
+# 显存策略配置
+# ============================================================
+
+# 三水位线阈值
+watermark_levels:
+  # 安全水位：使用率低于此值为安全 (0.0-1.0)
+  safe: 0.70
+  # 警戒水位：使用率在 safe 和 critical 之间为警戒
+  warning: 0.85
+  # 说明：
+  #   SAFE     = 使用率 < 70%
+  #   WARNING  = 70% <= 使用率 < 85%
+  #   CRITICAL = 使用率 >= 85%
+
+# 监控配置
+monitor:
+  # 监控采样间隔（秒）
+  interval_s: 5.0
+  # GPU 设备 ID（多 GPU 时指定）
+  device_id: 0
+  # nvidia-smi 命令路径
+  nvidia_smi_path: "nvidia-smi"
+  # 采样超时（秒）
+  sample_timeout_s: 5.0
+
+# 模型显存占用配置（MB）
+# 用于预估模型加载所需显存
+model_vram_requirements:
+  qwen2.5:7b: 4500       # 7B 参数模型约 4.5GB
+  qwen2.5:14b: 9000      # 14B 参数模型约 9GB
+  llama3.2:3b: 2000      # 3B 参数模型约 2GB
+  gemma2:9b: 5500        # 9B 参数模型约 5.5GB
+  # 自定义模型格式：
+  # model_name: vram_mb
+
+# KV-Cache 策略
+kv_cache:
+  # KV-Cache 最大占用比例（占可用显存）
+  max_ratio: 0.30
+  # 批处理时 KV-Cache 前缀共享最大长度（token 数）
+  prefix_share_max_tokens: 2048
+
+# 显存不足时的响应策略
+low_vram_policy:
+  # CRITICAL 时的自动行为
+  on_critical:
+    # 是否自动卸载模型以释放显存
+    auto_offload: true
+    # 卸载哪些模型（优先级从高到低）
+    offload_order:
+      - "gemma2:9b"
+      - "qwen2.5:14b"
+      - "qwen2.5:7b"
+      - "llama3.2:3b"
+    # 卸载后是否自动将排队任务路由到云端
+    reroute_to_cloud: true
+
+  # WARNING 时的建议行为（不自动执行）
+  on_warning:
+    # 是否发出告警通知
+    alert: true
+    # 是否拒绝新的本地推理任务
+    reject_new_tasks: false
+    # 建议切换到云端的复杂度阈值
+    suggest_cloud_threshold: 0.3  # 低于此值也建议云端
+
+# 显存预留（MB）
+reserved:
+  # 系统预留显存，不用于模型加载
+  system_reserve_mb: 500
+  # 紧急预留，用于内核自身使用
+  emergency_reserve_mb: 200

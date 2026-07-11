@@ -1,0 +1,3601 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="life-management">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云汐 M4 — 生活管理模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    /* ── Layout Shell ── */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Decorative Background Accents (forest green) ── */
+    .app-body::before {
+      content: '';
+      position: absolute;
+      top: -120px;
+      right: -80px;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(82,196,26,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .app-body::after {
+      content: '';
+      position: absolute;
+      bottom: -100px;
+      left: 200px;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(82,196,26,0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════
+       TOP NAVIGATION BAR (56px)
+       ═══════════════════════════════════════ */
+    .top-nav {
+      height: var(--header-height);
+      min-height: var(--header-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      z-index: var(--z-header);
+      position: relative;
+    }
+
+    /* Logo area */
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      min-width: 180px;
+    }
+    .nav-logo .logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #52C41A, #389E0D);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.5px;
+      box-shadow: 0 2px 8px rgba(82,196,26,0.25);
+    }
+    .nav-logo .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+    .nav-logo .logo-brand {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo .logo-sub {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Mode tabs */
+    .mode-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--color-primary-light);
+      border-radius: var(--radius-full);
+      padding: 3px;
+    }
+    .mode-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      white-space: nowrap;
+    }
+    .mode-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(255,255,255,0.5);
+    }
+    .mode-tab.active {
+      background: #52C41A;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(82,196,26,0.3);
+    }
+    .mode-tab .tab-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* Right status */
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      min-width: 280px;
+      justify-content: flex-end;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #52C41A; box-shadow: 0 0 6px rgba(82,196,26,0.4); }
+    .status-dot.blue { background: #94D0FF; box-shadow: 0 0 6px rgba(148,208,255,0.4); }
+    .status-dot.orange { background: #FAAD14; box-shadow: 0 0 6px rgba(250,173,20,0.3); }
+
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #52C41A 0%, #73D13D 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      border: 2px solid #fff;
+      box-shadow: 0 2px 8px rgba(82,196,26,0.2);
+      cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+    .user-avatar:hover { transform: scale(1.08); }
+
+    /* ═══════════════════════════════════════
+       LEFT SIDEBAR (240px)
+       ═══════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      height: 100%;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      z-index: var(--z-sidebar);
+      position: relative;
+    }
+
+    /* User profile */
+    .sidebar-profile {
+      padding: var(--spacing-lg) var(--spacing-base);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .profile-card:hover { background: var(--color-primary-light); }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: var(--font-weight-bold);
+      flex-shrink: 0;
+    }
+    .profile-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .profile-name {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-role {
+      font-size: var(--font-size-xs);
+      color: #389E0D;
+      background: #F0FFF0;
+      padding: 1px 8px;
+      border-radius: var(--radius-full);
+      font-weight: var(--font-weight-medium);
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+    }
+
+    /* Sidebar navigation */
+    .sidebar-nav {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+      overflow-y: auto;
+    }
+    .nav-section-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+      padding: var(--spacing-base) var(--spacing-sm) var(--spacing-sm);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      margin-bottom: 2px;
+      position: relative;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      text-decoration: none;
+    }
+    .nav-item:hover {
+      background: #F6FFED;
+      color: #52C41A;
+    }
+    .nav-item.active {
+      background: #F0FFF0;
+      color: #52C41A;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      border-radius: 0 3px 3px 0;
+      background: #52C41A;
+    }
+    .nav-item .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .nav-item .nav-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      padding: var(--spacing-sm);
+      border-top: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-footer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      width: 100%;
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      color: var(--color-text-tertiary);
+      font-size: var(--font-size-sm);
+      background: transparent;
+      border: none;
+    }
+    .sidebar-footer-btn:hover {
+      background: #F6FFED;
+      color: #52C41A;
+    }
+    .sidebar-footer-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+    }
+
+    /* ═══════════════════════════════════════
+       MAIN CONTENT AREA
+       ═══════════════════════════════════════ */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Right panel - life management style */
+    .right-panel {
+      width: 320px;
+      min-width: 320px;
+      padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-xl) 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+      overflow-y: auto;
+    }
+
+    .ai-panel-card {
+      background: var(--color-card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-light);
+      overflow: hidden;
+    }
+
+    .ai-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .ai-panel-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ai-panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      flex: 1;
+    }
+
+    .ai-panel-badge {
+      font-size: 11px;
+      background: var(--color-success-light);
+      color: var(--color-success);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .ai-panel-body {
+      padding: 12px 16px;
+    }
+
+    .model-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 4px;
+    }
+
+    .model-option:hover { background: var(--color-page-bg); }
+    .model-option.active { background: rgba(82,196,26,0.08); }
+
+    .model-info { display: flex; flex-direction: column; gap: 2px; }
+    .model-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+    .model-desc { font-size: 11px; color: var(--color-text-tertiary); }
+    .model-check { display: none; color: #52C41A; }
+    .model-option.active .model-check { display: flex; }
+
+    .life-stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .life-stat-item:last-child { border-bottom: none; }
+    .life-stat-label { font-size: 12px; color: var(--color-text-secondary); }
+    .life-stat-value { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+
+    .quick-action-btn {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--color-border-light);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 12px;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      margin-bottom: 6px;
+      text-align: left;
+    }
+    .quick-action-btn:hover {
+      border-color: #52C41A;
+      background: rgba(82,196,26,0.04);
+    }
+    .quick-action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── Content Panel Switching ── */
+    .content-panel {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .content-panel.panel-hidden {
+      display: none !important;
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    /* ── Schedule Timeline Section ── */
+    .schedule-section {
+      background: var(--color-card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-light);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .schedule-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-base) var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .schedule-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .schedule-body {
+      display: flex;
+      gap: var(--spacing-xl);
+      padding: var(--spacing-lg);
+    }
+
+    /* Week view */
+    .week-view {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-width: 340px;
+    }
+    .week-days {
+      display: flex;
+      gap: 6px;
+    }
+    .week-day {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: var(--spacing-sm) 4px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      background: transparent;
+      border: none;
+    }
+    .week-day:hover { background: #F6FFED; }
+    .week-day.active {
+      background: #F0FFF0;
+    }
+    .week-day-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+    .week-day.active .week-day-label { color: #389E0D; }
+    .week-day-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-secondary);
+      background: transparent;
+      transition: all var(--transition-fast);
+    }
+    .week-day.active .week-day-num {
+      background: #52C41A;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(82,196,26,0.3);
+    }
+    .week-day-dots {
+      display: flex;
+      gap: 3px;
+      justify-content: center;
+    }
+    .event-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+    .event-dot.green { background: #52C41A; }
+    .event-dot.blue { background: #94D0FF; }
+    .event-dot.orange { background: #FAAD14; }
+    .week-day.active .event-dot { box-shadow: 0 0 4px currentColor; }
+
+    /* Today events list */
+    .today-events {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+    .today-events-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+      margin-bottom: 4px;
+    }
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      padding: var(--spacing-sm) var(--spacing-base);
+      border-radius: var(--radius-md);
+      background: var(--color-page-bg);
+      transition: background var(--transition-fast);
+    }
+    .event-item:hover { background: #F0FFF0; }
+    .event-time {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      min-width: 90px;
+      font-variant-numeric: tabular-nums;
+    }
+    .event-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      white-space: nowrap;
+    }
+    .event-tag.green { background: #E8FFEA; color: #389E0D; }
+    .event-tag.blue { background: #F0F8FF; color: #1890FF; }
+    .event-tag.orange { background: #FFFBE6; color: #D48806; }
+
+    /* ── Device Topology + Right Panel Layout ── */
+    .dashboard-row {
+      display: flex;
+      gap: var(--spacing-base);
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Device Topology Card */
+    .topology-card {
+      flex: 1;
+      background: var(--color-card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-light);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .topology-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-base) var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .topology-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .topology-subtitle {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-left: var(--spacing-sm);
+    }
+    .topology-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-xl);
+      position: relative;
+    }
+    .topology-svg-wrap {
+      width: 100%;
+      max-width: 580px;
+      aspect-ratio: 1;
+      position: relative;
+    }
+
+    /* Hub pulse animation */
+    @keyframes hubPulse {
+      0%   { r: 38; opacity: 0.35; }
+      70%  { r: 58; opacity: 0; }
+      100% { r: 58; opacity: 0; }
+    }
+    @keyframes hubPulse2 {
+      0%   { r: 38; opacity: 0.2; }
+      70%  { r: 72; opacity: 0; }
+      100% { r: 72; opacity: 0; }
+    }
+    .hub-pulse-ring {
+      animation: hubPulse 2.5s ease-out infinite;
+    }
+    .hub-pulse-ring-2 {
+      animation: hubPulse2 2.5s ease-out infinite 0.6s;
+    }
+
+    /* Device node glow for online */
+    @keyframes onlineGlow {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 0.6; }
+    }
+    .device-glow {
+      animation: onlineGlow 3s ease-in-out infinite;
+    }
+
+    /* Battery bar colors */
+    .battery-high  { fill: #52C41A; }
+    .battery-mid   { fill: #FAAD14; }
+    .battery-low   { fill: #F53F3F; }
+
+    /* Connection line */
+    .conn-online  { stroke: #52C41A; stroke-width: 2; stroke-opacity: 0.5; }
+    .conn-offline { stroke: #C9CDD4; stroke-width: 1.5; stroke-dasharray: 6 4; stroke-opacity: 0.6; }
+    .conn-warning { stroke: #FAAD14; stroke-width: 2; stroke-opacity: 0.5; }
+
+    /* ── Right Panel ── */
+    .right-panel {
+      width: 370px;
+      min-width: 370px;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+    }
+
+    .panel-card {
+      background: var(--color-card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-light);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: box-shadow var(--transition-base);
+    }
+    .panel-card:hover { box-shadow: var(--shadow-card-hover); }
+    .panel-card.glass {
+      background: var(--color-glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-glass-border);
+    }
+    .panel-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-base) var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .panel-card-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .panel-card-action {
+      font-size: var(--font-size-xs);
+      color: #52C41A;
+      cursor: pointer;
+      font-weight: var(--font-weight-medium);
+      background: transparent;
+      border: none;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition-fast);
+    }
+    .panel-card-action:hover { background: #F0FFF0; }
+    .panel-card-body {
+      padding: var(--spacing-base) var(--spacing-lg);
+    }
+
+    /* Automation rules */
+    .rule-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .rule-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      border-radius: var(--radius-md);
+      background: var(--color-page-bg);
+      transition: background var(--transition-fast);
+    }
+    .rule-item:hover { background: #F0FFF0; }
+    .rule-text {
+      flex: 1;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+    }
+    .rule-text .rule-if { color: #389E0D; font-weight: var(--font-weight-semibold); }
+    .rule-text .rule-then { color: #52C41A; font-weight: var(--font-weight-semibold); }
+
+    /* Toggle switch */
+    .toggle-switch {
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: #C9CDD4;
+      cursor: pointer;
+      position: relative;
+      transition: background var(--transition-fast);
+      flex-shrink: 0;
+      border: none;
+      padding: 0;
+    }
+    .toggle-switch.on {
+      background: #52C41A;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform var(--transition-fast);
+    }
+    .toggle-switch.on::after {
+      transform: translateX(18px);
+    }
+    .toggle-switch.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Energy monitor */
+    .energy-total {
+      display: flex;
+      align-items: baseline;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-base);
+    }
+    .energy-total-label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+    }
+    .energy-total-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: #389E0D;
+      font-variant-numeric: tabular-nums;
+    }
+    .energy-chart {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+    .energy-row {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .energy-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      width: 64px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+    .energy-bar-track {
+      flex: 1;
+      height: 10px;
+      background: var(--color-border-light);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .energy-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width 0.6s ease;
+    }
+    .energy-bar-fill.green { background: linear-gradient(90deg, #52C41A, #73D13D); }
+    .energy-bar-fill.blue { background: linear-gradient(90deg, #94D0FF, #69C0FF); }
+    .energy-bar-fill.orange { background: linear-gradient(90deg, #FAAD14, #FFC53D); }
+    .energy-bar-fill.gray { background: linear-gradient(90deg, #C9CDD4, #E5E6EB); }
+    .energy-value {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      width: 42px;
+      font-weight: var(--font-weight-medium);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Energy tip */
+    .energy-tip {
+      margin-top: var(--spacing-base);
+      padding: var(--spacing-sm) var(--spacing-base);
+      border-radius: var(--radius-md);
+      background: #F0F8FF;
+      border-left: 3px solid #94D0FF;
+      font-size: var(--font-size-xs);
+      color: #1890FF;
+      line-height: var(--line-height-relaxed);
+    }
+
+    /* Quick Scene Controls */
+    .scene-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-xl);
+    }
+    .scene-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--spacing-sm);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-lg);
+      transition: all var(--transition-fast);
+    }
+    .scene-btn:hover { transform: translateY(-2px); }
+    .scene-btn-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: all var(--transition-fast);
+      border: 2px solid var(--color-border);
+    }
+    .scene-btn.active .scene-btn-circle {
+      background: linear-gradient(135deg, #52C41A, #73D13D);
+      border-color: #52C41A;
+      box-shadow: 0 4px 16px rgba(82,196,26,0.3);
+    }
+    .scene-btn:not(.active) .scene-btn-circle {
+      background: var(--color-card-bg);
+      border-color: var(--color-border);
+    }
+    .scene-btn:not(.active) .scene-btn-circle:hover {
+      border-color: #73D13D;
+      box-shadow: 0 2px 8px rgba(82,196,26,0.15);
+    }
+    .scene-btn-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+    }
+    .scene-btn.active .scene-btn-label { color: #389E0D; font-weight: var(--font-weight-semibold); }
+
+    /* ── Scene button click scale animation ── */
+    @keyframes scenePop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.12); }
+      70%  { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+    .scene-btn.scene-pop .scene-btn-circle {
+      animation: scenePop 0.4s ease;
+    }
+
+    /* ── Toast Notification ── */
+    .toast-notification {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: linear-gradient(135deg, #52C41A, #389E0D);
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      box-shadow: 0 6px 24px rgba(82,196,26,0.35);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      white-space: nowrap;
+    }
+    .toast-notification.toast-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Full-width panel card override ── */
+    .content-panel .panel-card-full {
+      width: 100%;
+    }
+    .content-panel .panel-card-full.glass {
+      background: var(--color-glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-glass-border);
+    }
+
+    /* ── Utility ── */
+    .mono { font-family: var(--font-family-mono); }
+    .tabular { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ═══════════════════════════════════
+         TOP NAVIGATION
+         ═══════════════════════════════════ -->
+    <header class="top-nav">
+      <!-- Left: Logo -->
+      <div class="nav-logo">
+        <div class="logo-icon">YX</div>
+        <div class="logo-text">
+          <span class="logo-brand">云汐</span>
+          <span class="logo-sub">M4 业务引擎</span>
+        </div>
+      </div>
+
+      <!-- Center: Mode Tabs -->
+      <nav class="mode-tabs">
+        <a class="mode-tab" href="main-chat.html">
+          <span class="tab-icon">💬</span>对话
+        </a>
+        <a class="mode-tab" href="work-dev.html">
+          <span class="tab-icon">&#9998;</span>工作开发
+        </a>
+        <a class="mode-tab" href="study-plan.html">
+          <span class="tab-icon">&#128218;</span>学业规划
+        </a>
+        <a class="mode-tab" href="review-summary.html">
+          <span class="tab-icon">&#128200;</span>复盘总结
+        </a>
+        <a class="mode-tab" href="social-relation.html">
+          <span class="tab-icon">&#129309;</span>人际关系
+        </a>
+        <a class="mode-tab" href="emotion-comfort.html">
+          <span class="tab-icon">&#127754;</span>情绪安慰
+        </a>
+        <a class="mode-tab active" href="life-management.html">
+          <span class="tab-icon">&#127968;</span>生活管理
+        </a>
+      </nav>
+
+      <!-- Right: Status -->
+      <div class="nav-status">
+        <div class="status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot blue"></span>
+          <span>M5 86%</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot green"></span>
+          <span>5/6 在线</span>
+        </div>
+        <div class="user-avatar" title="汐舟主理">汐</div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════
+         APP BODY
+         ═══════════════════════════════════ -->
+    <div class="app-body">
+
+      <!-- ── Left Sidebar ── -->
+      <aside class="sidebar">
+        <!-- Profile -->
+        <div class="sidebar-profile">
+          <div class="profile-card">
+            <div class="sidebar-avatar">汐</div>
+            <div class="profile-info">
+              <span class="profile-name">汐舟主理</span>
+              <span class="profile-role">生活管家</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+          <a class="nav-item" href="main-chat.html">
+            <span class="nav-icon">💬</span>
+            <span>对话主页</span>
+          </a>
+          <div class="nav-section-label">日程管理</div>
+          <a class="nav-item active" href="javascript:void(0)" data-panel="panel-schedule">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            </span>
+            日程时间轴
+          </a>
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-automation">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </span>
+            自动化规则
+          </a>
+
+          <div class="nav-section-label" style="margin-top: 8px;">设备中心</div>
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-topology">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"></circle><line x1="12" y1="1" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="23"></line><line x1="1" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="23" y2="12"></line></svg>
+            </span>
+            设备拓扑
+          </a>
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-energy">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"></rect><line x1="12" y1="8" x2="12" y2="14"></line><rect x="10" y="6" width="4" height="8" rx="1" fill="none" stroke-width="1.5"></rect></svg>
+            </span>
+            能耗监控
+          </a>
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-collab">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            </span>
+            协同控制
+          </a>
+        </nav>
+
+        <!-- Footer -->
+        <div class="sidebar-footer">
+          <button class="sidebar-footer-btn">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            收起侧栏
+          </button>
+          <button class="sidebar-footer-btn">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            设置
+          </button>
+        </div>
+      </aside>
+
+      <!-- ── Main Content ── -->
+      <main class="main-content">
+        <div class="content-scroll">
+
+          <!-- ═══════════════════════════════════════════
+               PANEL 1: SCHEDULE TIMELINE (default visible)
+               ═══════════════════════════════════════════ -->
+          <div class="content-panel" id="panel-schedule">
+            <section class="schedule-section">
+              <div class="schedule-header">
+                <span class="schedule-title">日程时间轴</span>
+                <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">2026年7月 · 第27周</span>
+              </div>
+              <div class="schedule-body">
+                <!-- Week View -->
+                <div class="week-view">
+                  <div class="week-days">
+                    <button class="week-day">
+                      <span class="week-day-label">周一</span>
+                      <span class="week-day-num">28</span>
+                      <span class="week-day-dots"><span class="event-dot green"></span></span>
+                    </button>
+                    <button class="week-day">
+                      <span class="week-day-label">周二</span>
+                      <span class="week-day-num">29</span>
+                      <span class="week-day-dots"><span class="event-dot blue"></span><span class="event-dot orange"></span></span>
+                    </button>
+                    <button class="week-day">
+                      <span class="week-day-label">周三</span>
+                      <span class="week-day-num">30</span>
+                      <span class="week-day-dots"><span class="event-dot green"></span></span>
+                    </button>
+                    <button class="week-day active">
+                      <span class="week-day-label">周四</span>
+                      <span class="week-day-num" style="background: #52C41A; color: #fff; box-shadow: 0 2px 8px rgba(82,196,26,0.3);">01</span>
+                      <span class="week-day-dots"><span class="event-dot green"></span><span class="event-dot blue"></span><span class="event-dot orange"></span></span>
+                    </button>
+                    <button class="week-day">
+                      <span class="week-day-label">周五</span>
+                      <span class="week-day-num">02</span>
+                      <span class="week-day-dots"><span class="event-dot green"></span></span>
+                    </button>
+                    <button class="week-day">
+                      <span class="week-day-label">周六</span>
+                      <span class="week-day-num">03</span>
+                      <span class="week-day-dots"><span class="event-dot orange"></span></span>
+                    </button>
+                    <button class="week-day">
+                      <span class="week-day-label">周日</span>
+                      <span class="week-day-num">04</span>
+                      <span class="week-day-dots"></span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Today's Events -->
+                <div class="today-events">
+                  <span class="today-events-label">今日日程 · 07/01 周四</span>
+                  <div class="event-item">
+                    <span class="event-time">09:00 - 10:30</span>
+                    <span>晨间复盘</span>
+                    <span class="event-tag green">固定</span>
+                  </div>
+                  <div class="event-item">
+                    <span class="event-time">14:00 - 15:00</span>
+                    <span>团队站会</span>
+                    <span class="event-tag blue">协作</span>
+                  </div>
+                  <div class="event-item">
+                    <span class="event-time">19:00 - 20:00</span>
+                    <span>运动时间</span>
+                    <span class="event-tag orange">健康</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               PANEL 2: AUTOMATION RULES
+               ═══════════════════════════════════════════ -->
+          <div class="content-panel panel-hidden" id="panel-automation">
+            <div class="panel-card glass panel-card-full">
+              <div class="panel-card-header">
+                <span class="panel-card-title">自动化规则</span>
+                <button class="panel-card-action">管理</button>
+              </div>
+              <div class="panel-card-body">
+                <div class="rule-list">
+                  <div class="rule-item">
+                    <div class="rule-text">
+                      <span class="rule-if">IF</span> 到达23:00 <span class="rule-then">THEN</span> 启用勿扰模式
+                    </div>
+                    <button class="toggle-switch on"></button>
+                  </div>
+                  <div class="rule-item">
+                    <div class="rule-text">
+                      <span class="rule-if">IF</span> 手表检测运动 <span class="rule-then">THEN</span> 切换运动模式
+                    </div>
+                    <button class="toggle-switch on"></button>
+                  </div>
+                  <div class="rule-item">
+                    <div class="rule-text">
+                      <span class="rule-if">IF</span> 电量&lt;20% <span class="rule-then">THEN</span> 发送低电量提醒
+                    </div>
+                    <button class="toggle-switch on"></button>
+                  </div>
+                  <div class="rule-item" style="opacity: 0.55;">
+                    <div class="rule-text">
+                      <span class="rule-if">IF</span> 离开家 <span class="rule-then">THEN</span> 开启安防模式
+                    </div>
+                    <button class="toggle-switch disabled"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               PANEL 3: DEVICE TOPOLOGY
+               ═══════════════════════════════════════════ -->
+          <div class="content-panel panel-hidden" id="panel-topology">
+            <div class="topology-card">
+              <div class="topology-header">
+                <span class="topology-title">G1 设备拓扑</span>
+                <span class="topology-subtitle">6 台设备 · 5 在线 · 1 离线</span>
+              </div>
+              <div class="topology-body">
+                <div class="topology-svg-wrap">
+                  <svg viewBox="0 0 500 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <radialGradient id="hubGrad" cx="40%" cy="40%">
+                        <stop offset="0%" stop-color="#73D13D"/>
+                        <stop offset="100%" stop-color="#389E0D"/>
+                      </radialGradient>
+                      <radialGradient id="onlineGrad" cx="40%" cy="40%">
+                        <stop offset="0%" stop-color="#FFFFFF"/>
+                        <stop offset="100%" stop-color="#F0FFF0"/>
+                      </radialGradient>
+                      <radialGradient id="offlineGrad" cx="40%" cy="40%">
+                        <stop offset="0%" stop-color="#FFFFFF"/>
+                        <stop offset="100%" stop-color="#F2F3F5"/>
+                      </radialGradient>
+                      <filter id="greenGlow">
+                        <feGaussianBlur stdDeviation="4" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                      </filter>
+                      <filter id="yellowGlow">
+                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                      </filter>
+                    </defs>
+
+                    <!-- ── Connection Lines ── -->
+                    <!-- 智能手表 (online) - top -->
+                    <line x1="250" y1="250" x2="250" y2="72" class="conn-online"/>
+                    <!-- 智能戒指 (online) - top-right -->
+                    <line x1="250" y1="250" x2="404" y2="134" class="conn-online"/>
+                    <!-- 桌面终端 (online) - bottom-right -->
+                    <line x1="250" y1="250" x2="404" y2="366" class="conn-online"/>
+                    <!-- AR眼镜 (offline) - bottom -->
+                    <line x1="250" y1="250" x2="250" y2="428" class="conn-offline"/>
+                    <!-- 改装无人机 (warning) - bottom-left -->
+                    <line x1="250" y1="250" x2="96" y2="366" class="conn-warning"/>
+                    <!-- 笔记本 (online) - top-left -->
+                    <line x1="250" y1="250" x2="96" y2="134" class="conn-online"/>
+
+                    <!-- ── Central Hub: 云汐中枢 ── -->
+                    <!-- Pulse rings -->
+                    <circle cx="250" cy="250" r="38" fill="none" stroke="#52C41A" stroke-width="1.5" class="hub-pulse-ring" opacity="0.35"/>
+                    <circle cx="250" cy="250" r="38" fill="none" stroke="#52C41A" stroke-width="1" class="hub-pulse-ring-2" opacity="0.2"/>
+                    <!-- Hub circle -->
+                    <circle cx="250" cy="250" r="38" fill="url(#hubGrad)" filter="url(#greenGlow)"/>
+                    <text x="250" y="246" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" font-family="Inter, PingFang SC, sans-serif">云汐</text>
+                    <text x="250" y="262" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-size="10" font-weight="500" font-family="Inter, PingFang SC, sans-serif">中枢</text>
+
+                    <!-- ── Device: 智能手表 (Online, 78%) — TOP ── -->
+                    <g>
+                      <!-- Glow -->
+                      <circle cx="250" cy="72" r="30" fill="#52C41A" opacity="0.08" class="device-glow"/>
+                      <!-- Node -->
+                      <circle cx="250" cy="72" r="26" fill="url(#onlineGrad)" stroke="#52C41A" stroke-width="2"/>
+                      <!-- Icon (watch) -->
+                      <rect x="241" y="62" width="18" height="20" rx="4" fill="none" stroke="#389E0D" stroke-width="1.5"/>
+                      <line x1="250" y1="58" x2="250" y2="62" stroke="#389E0D" stroke-width="2"/>
+                      <line x1="250" y1="82" x2="250" y2="86" stroke="#389E0D" stroke-width="2"/>
+                      <circle cx="250" cy="72" r="1.5" fill="#52C41A"/>
+                      <!-- Battery bar -->
+                      <rect x="234" y="94" width="32" height="5" rx="2.5" fill="#E5E6EB"/>
+                      <rect x="234" y="94" width="25" height="5" rx="2.5" class="battery-high"/>
+                      <text x="250" y="112" text-anchor="middle" fill="#1D2129" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">智能手表</text>
+                      <!-- Status badge -->
+                      <circle cx="272" cy="55" r="5" fill="#52C41A" stroke="#fff" stroke-width="1.5"/>
+                      <text x="250" y="124" text-anchor="middle" fill="#86909C" font-size="9" font-family="Inter, PingFang SC, sans-serif">78%</text>
+                    </g>
+
+                    <!-- ── Device: 智能戒指 (Online, 92%) — TOP-RIGHT ── -->
+                    <g>
+                      <circle cx="404" cy="134" r="30" fill="#52C41A" opacity="0.08" class="device-glow"/>
+                      <circle cx="404" cy="134" r="26" fill="url(#onlineGrad)" stroke="#52C41A" stroke-width="2"/>
+                      <!-- Ring icon -->
+                      <circle cx="404" cy="131" r="10" fill="none" stroke="#389E0D" stroke-width="2.5"/>
+                      <circle cx="404" cy="131" r="5" fill="none" stroke="#52C41A" stroke-width="1.5"/>
+                      <!-- Battery -->
+                      <rect x="388" y="156" width="32" height="5" rx="2.5" fill="#E5E6EB"/>
+                      <rect x="388" y="156" width="29" height="5" rx="2.5" class="battery-high"/>
+                      <text x="404" y="174" text-anchor="middle" fill="#1D2129" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">智能戒指</text>
+                      <circle cx="426" cy="117" r="5" fill="#52C41A" stroke="#fff" stroke-width="1.5"/>
+                      <text x="404" y="186" text-anchor="middle" fill="#86909C" font-size="9" font-family="Inter, PingFang SC, sans-serif">92%</text>
+                    </g>
+
+                    <!-- ── Device: 桌面终端 (Online, no battery shown) — BOTTOM-RIGHT ── -->
+                    <g>
+                      <circle cx="404" cy="366" r="30" fill="#52C41A" opacity="0.08" class="device-glow"/>
+                      <circle cx="404" cy="366" r="26" fill="url(#onlineGrad)" stroke="#52C41A" stroke-width="2"/>
+                      <!-- Monitor icon -->
+                      <rect x="392" y="356" width="24" height="16" rx="2" fill="none" stroke="#389E0D" stroke-width="1.5"/>
+                      <line x1="404" y1="372" x2="404" y2="378" stroke="#389E0D" stroke-width="1.5"/>
+                      <line x1="398" y1="378" x2="410" y2="378" stroke="#389E0D" stroke-width="1.5"/>
+                      <!-- Battery (not shown for desktop) -->
+                      <text x="404" y="404" text-anchor="middle" fill="#1D2129" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">桌面终端</text>
+                      <circle cx="426" cy="349" r="5" fill="#52C41A" stroke="#fff" stroke-width="1.5"/>
+                      <text x="404" y="416" text-anchor="middle" fill="#86909C" font-size="9" font-family="Inter, PingFang SC, sans-serif">在线</text>
+                    </g>
+
+                    <!-- ── Device: AR眼镜 (Offline) — BOTTOM ── -->
+                    <g opacity="0.55">
+                      <circle cx="250" cy="428" r="26" fill="url(#offlineGrad)" stroke="#C9CDD4" stroke-width="1.5"/>
+                      <!-- Glasses icon -->
+                      <circle cx="244" cy="426" r="7" fill="none" stroke="#86909C" stroke-width="1.5"/>
+                      <circle cx="260" cy="426" r="7" fill="none" stroke="#86909C" stroke-width="1.5"/>
+                      <line x1="251" y1="426" x2="253" y2="426" stroke="#86909C" stroke-width="1.2"/>
+                      <!-- Offline badge -->
+                      <circle cx="272" cy="411" r="5" fill="#C9CDD4" stroke="#fff" stroke-width="1.5"/>
+                      <line x1="270" y1="411" x2="274" y2="411" stroke="#fff" stroke-width="1.2"/>
+                      <text x="250" y="466" text-anchor="middle" fill="#86909C" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">AR眼镜</text>
+                      <text x="250" y="478" text-anchor="middle" fill="#C9CDD4" font-size="9" font-family="Inter, PingFang SC, sans-serif">离线</text>
+                    </g>
+
+                    <!-- ── Device: 改装无人机 (Online, 45% WARNING) — BOTTOM-LEFT ── -->
+                    <g>
+                      <circle cx="96" cy="366" r="30" fill="#FAAD14" opacity="0.1" class="device-glow"/>
+                      <circle cx="96" cy="366" r="26" fill="url(#onlineGrad)" stroke="#FAAD14" stroke-width="2" filter="url(#yellowGlow)"/>
+                      <!-- Drone icon -->
+                      <line x1="96" y1="358" x2="96" y2="374" stroke="#D48806" stroke-width="1.5"/>
+                      <line x1="84" y1="362" x2="108" y2="362" stroke="#D48806" stroke-width="1.5"/>
+                      <circle cx="84" cy="362" r="5" fill="none" stroke="#D48806" stroke-width="1"/>
+                      <circle cx="108" cy="362" r="5" fill="none" stroke="#D48806" stroke-width="1"/>
+                      <circle cx="96" cy="370" r="2" fill="#FAAD14"/>
+                      <!-- Battery -->
+                      <rect x="80" y="388" width="32" height="5" rx="2.5" fill="#E5E6EB"/>
+                      <rect x="80" y="388" width="14" height="5" rx="2.5" class="battery-mid"/>
+                      <text x="96" y="406" text-anchor="middle" fill="#1D2129" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">改装无人机</text>
+                      <circle cx="118" cy="349" r="5" fill="#FAAD14" stroke="#fff" stroke-width="1.5"/>
+                      <text x="96" y="418" text-anchor="middle" fill="#D48806" font-size="9" font-weight="500" font-family="Inter, PingFang SC, sans-serif">45% !</text>
+                    </g>
+
+                    <!-- ── Device: 笔记本 (Online, no battery shown) — TOP-LEFT ── -->
+                    <g>
+                      <circle cx="96" cy="134" r="30" fill="#52C41A" opacity="0.08" class="device-glow"/>
+                      <circle cx="96" cy="134" r="26" fill="url(#onlineGrad)" stroke="#52C41A" stroke-width="2"/>
+                      <!-- Laptop icon -->
+                      <rect x="82" y="124" width="28" height="18" rx="2" fill="none" stroke="#389E0D" stroke-width="1.5"/>
+                      <path d="M78 144 L114 144" stroke="#389E0D" stroke-width="1.5" stroke-linecap="round"/>
+                      <text x="96" y="170" text-anchor="middle" fill="#1D2129" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">笔记本</text>
+                      <circle cx="118" cy="117" r="5" fill="#52C41A" stroke="#fff" stroke-width="1.5"/>
+                      <text x="96" y="182" text-anchor="middle" fill="#86909C" font-size="9" font-family="Inter, PingFang SC, sans-serif">在线</text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               PANEL 4: ENERGY MONITOR
+               ═══════════════════════════════════════════ -->
+          <div class="content-panel panel-hidden" id="panel-energy">
+            <div class="panel-card panel-card-full">
+              <div class="panel-card-header">
+                <span class="panel-card-title">能耗监控</span>
+                <button class="panel-card-action">详情</button>
+              </div>
+              <div class="panel-card-body">
+                <div class="energy-total">
+                  <span class="energy-total-label">今日总功耗:</span>
+                  <span class="energy-total-value">2.4kWh</span>
+                </div>
+                <div class="energy-chart">
+                  <div class="energy-row">
+                    <span class="energy-label">桌面终端</span>
+                    <div class="energy-bar-track">
+                      <div class="energy-bar-fill green" style="width: 65%;"></div>
+                    </div>
+                    <span class="energy-value">1.2kWh</span>
+                  </div>
+                  <div class="energy-row">
+                    <span class="energy-label">笔记本</span>
+                    <div class="energy-bar-track">
+                      <div class="energy-bar-fill blue" style="width: 30%;"></div>
+                    </div>
+                    <span class="energy-value">0.6kWh</span>
+                  </div>
+                  <div class="energy-row">
+                    <span class="energy-label">智能手表</span>
+                    <div class="energy-bar-track">
+                      <div class="energy-bar-fill orange" style="width: 15%;"></div>
+                    </div>
+                    <span class="energy-value">0.3kWh</span>
+                  </div>
+                  <div class="energy-row">
+                    <span class="energy-label">其他</span>
+                    <div class="energy-bar-track">
+                      <div class="energy-bar-fill gray" style="width: 15%;"></div>
+                    </div>
+                    <span class="energy-value">0.3kWh</span>
+                  </div>
+                </div>
+                <div class="energy-tip">
+                  节能建议: 桌面终端功耗偏高，建议启用省电模式
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               PANEL 5: COLLABORATIVE CONTROL (Quick Scene)
+               ═══════════════════════════════════════════ -->
+          <div class="content-panel panel-hidden" id="panel-collab">
+            <div class="panel-card panel-card-full">
+              <div class="panel-card-header">
+                <span class="panel-card-title">快捷场景</span>
+              </div>
+              <div class="panel-card-body">
+                <div class="scene-controls">
+                  <button class="scene-btn active" data-scene="home">
+                    <div class="scene-btn-circle">&#127968;</div>
+                    <span class="scene-btn-label">居家模式</span>
+                  </button>
+                  <button class="scene-btn" data-scene="work">
+                    <div class="scene-btn-circle">&#128188;</div>
+                    <span class="scene-btn-label">工作模式</span>
+                  </button>
+                  <button class="scene-btn" data-scene="sport">
+                    <div class="scene-btn-circle">&#127939;</div>
+                    <span class="scene-btn-label">运动模式</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Right Panel ── -->
+        <aside class="right-panel" id="lifeRightPanel">
+
+          <!-- Model Selection -->
+          <div class="ai-panel-card">
+            <div class="ai-panel-header">
+              <div class="ai-panel-icon" style="background: linear-gradient(135deg, #52C41A, #389E0D);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <span class="ai-panel-title">大模型选择</span>
+            </div>
+            <div class="ai-panel-body">
+              <div class="model-selector">
+                <div class="model-option active">
+                  <div class="model-info">
+                    <span class="model-name">Yunxi-M4</span>
+                    <span class="model-desc">生活助手 · 均衡模型</span>
+                  </div>
+                  <div class="model-check">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52C41A" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                </div>
+                <div class="model-option">
+                  <div class="model-info">
+                    <span class="model-name">Yunxi-Lite</span>
+                    <span class="model-desc">轻量模型 · 极速响应</span>
+                  </div>
+                  <div class="model-check">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52C41A" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                </div>
+                <div class="model-option">
+                  <div class="model-info">
+                    <span class="model-name">DeepSeek-V3</span>
+                    <span class="model-desc">外部模型 · 深度推理</span>
+                  </div>
+                  <div class="model-check">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52C41A" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today Stats -->
+          <div class="ai-panel-card">
+            <div class="ai-panel-header">
+              <div class="ai-panel-icon" style="background: linear-gradient(135deg, #FAAD14, #F77234);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <span class="ai-panel-title">今日概览</span>
+            </div>
+            <div class="ai-panel-body">
+              <div class="life-stat-item">
+                <span class="life-stat-label">待办完成</span>
+                <span class="life-stat-value">5/8</span>
+              </div>
+              <div class="life-stat-item">
+                <span class="life-stat-label">习惯打卡</span>
+                <span class="life-stat-value">3/5</span>
+              </div>
+              <div class="life-stat-item">
+                <span class="life-stat-label">今日消费</span>
+                <span class="life-stat-value">¥128</span>
+              </div>
+              <div class="life-stat-item">
+                <span class="life-stat-label">步数目标</span>
+                <span class="life-stat-value">6,842</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="ai-panel-card">
+            <div class="ai-panel-header">
+              <div class="ai-panel-icon" style="background: linear-gradient(135deg, #722ED1, #9254DE);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <span class="ai-panel-title">快捷操作</span>
+            </div>
+            <div class="ai-panel-body">
+              <button class="quick-action-btn" data-action="new-todo" data-require-ollama>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                AI 智能规划今日
+              </button>
+              <button class="quick-action-btn" data-action="ai-suggest">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                生活建议
+              </button>
+              <button class="quick-action-btn" data-action="export">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                导出数据
+              </button>
+              <button class="quick-action-btn" data-action="settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                偏好设置
+              </button>
+            </div>
+          </div>
+
+        </aside>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Notification Element -->
+  <div class="toast-notification" id="sceneToast"></div>
+
+  <script>
+  /* ============================================================
+     生活管理模式 - 完整交互功能
+     ============================================================ */
+
+  // ===== 模式导航 =====
+  const ModeNav = {
+    modes: [
+      { id: 'main-chat', name: '对话', icon: '&#128172;', file: 'main-chat.html' },
+      { id: 'work-dev', name: '工作开发', icon: '&#9998;', file: 'work-dev.html' },
+      { id: 'study-plan', name: '学业规划', icon: '&#128218;', file: 'study-plan.html' },
+      { id: 'review-summary', name: '复盘总结', icon: '&#128200;', file: 'review-summary.html' },
+      { id: 'social-relation', name: '人际关系', icon: '&#129309;', file: 'social-relation.html' },
+      { id: 'emotion-comfort', name: '情绪安慰', icon: '&#127754;', file: 'emotion-comfort.html' },
+      { id: 'life-management', name: '生活管理', icon: '&#127968;', file: 'life-management.html' },
+    ],
+
+    init() {
+      document.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const href = tab.getAttribute('href');
+          if (href && !href.includes('life-management.html')) {
+            YunxiAPI.showLoading('切换模式中...');
+            setTimeout(() => {
+              YunxiAPI.hideLoading();
+              window.location.href = href;
+            }, 300);
+          }
+        });
+      });
+    }
+  };
+
+  // ===== 侧边栏导航（原有面板切换 + 增强） =====
+  const SidebarNav = {
+    init() {
+      // 保留原有面板切换逻辑
+      const navItems = document.querySelectorAll('.sidebar-nav .nav-item[data-panel]');
+      const panels = document.querySelectorAll('.content-panel');
+      const contentScroll = document.querySelector('.content-scroll');
+
+      function switchPanel(panelId) {
+        panels.forEach(function(p) { p.classList.add('panel-hidden'); });
+        var target = document.getElementById(panelId);
+        if (target) { target.classList.remove('panel-hidden'); }
+        if (contentScroll) { contentScroll.scrollTop = 0; }
+      }
+
+      function setActiveNav(clickedItem) {
+        navItems.forEach(function(item) { item.classList.remove('active'); });
+        clickedItem.classList.add('active');
+      }
+
+      navItems.forEach(function(item) {
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
+          var panelId = this.getAttribute('data-panel');
+          if (panelId) {
+            setActiveNav(this);
+            switchPanel(panelId);
+            const label = this.textContent.trim();
+            YunxiAPI.showToast('已切换到: ' + label, 'success');
+          }
+        });
+      });
+
+      switchPanel('panel-schedule');
+
+      // 对话主页链接
+      const homeLink = document.querySelector('.sidebar-nav .nav-item[href="main-chat.html"]');
+      if (homeLink) {
+        homeLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          YunxiAPI.showLoading('切换中...');
+          setTimeout(() => {
+            YunxiAPI.hideLoading();
+            window.location.href = 'main-chat.html';
+          }, 300);
+        });
+      }
+
+      // 收起侧栏
+      const collapseBtn = document.querySelector('.sidebar-footer-btn:first-child');
+      if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+            sidebar.style.display = sidebar.style.display === 'none' ? '' : 'none';
+            YunxiAPI.showToast(sidebar.style.display === 'none' ? '侧栏已收起' : '侧栏已展开', 'info');
+          }
+        });
+      }
+
+      // 设置按钮
+      const settingsBtn = document.querySelector('.sidebar-footer-btn:last-child');
+      if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+          YunxiAPI.showToast('设置功能开发中...', 'info');
+        });
+      }
+    }
+  };
+
+  // ===== 场景模式切换（原有功能保留） =====
+  const SceneMode = {
+    init() {
+      var sceneBtns = document.querySelectorAll('.scene-btn[data-scene]');
+      var sceneNames = {
+        'home': '居家模式', 'work': '工作模式', 'sport': '运动模式'
+      };
+
+      sceneBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var scene = this.getAttribute('data-scene');
+          sceneBtns.forEach(function(b) { b.classList.remove('active'); });
+          this.classList.add('active');
+          this.classList.remove('scene-pop');
+          void this.offsetWidth;
+          this.classList.add('scene-pop');
+          setTimeout(function() { btn.classList.remove('scene-pop'); }, 450);
+          var name = sceneNames[scene] || scene;
+          YunxiAPI.showToast('已切换至 ' + name, 'success');
+        });
+      });
+    }
+  };
+
+  // ===== Toggle 开关（原有功能保留） =====
+  const ToggleSwitches = {
+    init() {
+      var toggles = document.querySelectorAll('.toggle-switch:not(.disabled)');
+      toggles.forEach(function(toggle) {
+        if (toggle.dataset.bound) return;
+        toggle.dataset.bound = 'true';
+        toggle.addEventListener('click', function() {
+          this.classList.toggle('on');
+          const isOn = this.classList.contains('on');
+          const parent = this.closest('.rule-item, .schedule-item, .panel-card');
+          if (parent) {
+            const label = parent.querySelector('.rule-text, .schedule-title, .panel-card-title');
+            if (label) {
+              YunxiAPI.showToast(label.textContent.trim() + ': ' + (isOn ? '已开启' : '已关闭'), 'info');
+            }
+          }
+        });
+      });
+    }
+  };
+
+  // ===== 对话功能管理 =====
+  const ChatManager = (function() {
+    let messages = [];
+    let isSending = false;
+    const STORAGE_KEY = 'yunxi_life_chat';
+
+    function init() {
+      loadMessages();
+    }
+
+    function loadMessages() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try { messages = JSON.parse(stored); } catch(e) { messages = []; }
+      }
+    }
+
+    function saveMessages() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+
+    function addMessage(role, content) {
+      const msg = {
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        role, content,
+        time: new Date().toISOString()
+      };
+      messages.push(msg);
+      saveMessages();
+      return msg;
+    }
+
+    function clearMessages() {
+      messages = [];
+      saveMessages();
+    }
+
+    function getMessages() { return messages; }
+    function getIsSending() { return isSending; }
+    function setSending(v) { isSending = v; }
+
+    return { init, addMessage, clearMessages, getMessages, getIsSending, setSending };
+  })();
+
+  // ===== 生活管理数据模块（API + Fallback） =====
+  const LifeData = {
+    // 缓存数据
+    cache: {
+      overview: null,
+      schedules: null,
+      weekDays: null,
+      rules: null,
+      devices: null,
+      deviceStats: null,
+      energy: null,
+      scenes: null,
+      todos: null,
+      habits: null,
+      financeOverview: null,
+      financeCategories: null,
+      assistantTools: null,
+    },
+
+    // 当前选中的日期
+    currentDate: new Date().toISOString().slice(0, 10),
+
+    // 兜底静态数据（与页面原有硬编码数据一致）
+    fallback: {
+      overview: {
+        stats: {
+          todo_total: 8,
+          todo_done: 5,
+          habit_total: 5,
+          habit_done: 3,
+          device_total: 6,
+          device_online: 5,
+          today_spending: 128,
+        },
+        life_stats: {
+          todo_completed: "5/8",
+          habit_checked: "3/5",
+          today_spending: "¥128",
+          steps: "6,842",
+        },
+        current_scene: "home",
+      },
+
+      schedules: [
+        { id: 1, time: "09:00 - 10:30", title: "晨间复盘", tag: "固定", tag_color: "green", date: new Date().toISOString().slice(0, 10) },
+        { id: 2, time: "14:00 - 15:00", title: "团队站会", tag: "协作", tag_color: "blue", date: new Date().toISOString().slice(0, 10) },
+        { id: 3, time: "19:00 - 20:00", title: "运动时间", tag: "健康", tag_color: "orange", date: new Date().toISOString().slice(0, 10) },
+      ],
+
+      weekDays: {
+        week_days: [
+          { label: "周一", day_num: 28, date: "2026-06-28", event_dots: ["green"], active: false },
+          { label: "周二", day_num: 29, date: "2026-06-29", event_dots: ["blue", "orange"], active: false },
+          { label: "周三", day_num: 30, date: "2026-06-30", event_dots: ["green"], active: false },
+          { label: "周四", day_num: 1, date: "2026-07-01", event_dots: ["green", "blue", "orange"], active: true },
+          { label: "周五", day_num: 2, date: "2026-07-02", event_dots: ["green"], active: false },
+          { label: "周六", day_num: 3, date: "2026-07-03", event_dots: ["orange"], active: false },
+          { label: "周日", day_num: 4, date: "2026-07-04", event_dots: [], active: false },
+        ]
+      },
+
+      rules: [
+        { id: 1, condition: "到达23:00", action: "启用勿扰模式", enabled: true },
+        { id: 2, condition: "手表检测运动", action: "切换运动模式", enabled: true },
+        { id: 3, condition: "电量<20%", action: "发送低电量提醒", enabled: true },
+        { id: 4, condition: "离开家", action: "开启安防模式", enabled: false },
+      ],
+
+      devices: [
+        { id: 1, name: "智能手表", status: "online", battery: 78, icon_type: "watch", position: { x: 250, y: 72 } },
+        { id: 2, name: "智能戒指", status: "online", battery: 92, icon_type: "ring", position: { x: 404, y: 134 } },
+        { id: 3, name: "桌面终端", status: "online", battery: null, icon_type: "monitor", position: { x: 404, y: 366 } },
+        { id: 4, name: "AR眼镜", status: "offline", battery: null, icon_type: "glasses", position: { x: 250, y: 428 } },
+        { id: 5, name: "改装无人机", status: "warning", battery: 45, icon_type: "drone", position: { x: 96, y: 366 } },
+        { id: 6, name: "笔记本", status: "online", battery: null, icon_type: "laptop", position: { x: 96, y: 134 } },
+      ],
+
+      deviceStats: {
+        total: 6,
+        online: 5,
+        offline: 1,
+        warning: 1,
+      },
+
+      energy: {
+        categories: [
+          { id: 1, label: "桌面终端", value: 1.2, percentage: 50, color: "green" },
+          { id: 2, label: "笔记本", value: 0.6, percentage: 25, color: "blue" },
+          { id: 3, label: "智能手表", value: 0.3, percentage: 12.5, color: "orange" },
+          { id: 4, label: "其他", value: 0.3, percentage: 12.5, color: "gray" },
+        ],
+        total: {
+          total: 2.4,
+          today: 2.4,
+          week: 15.6,
+          month: 68.4,
+        }
+      },
+
+      scenes: [
+        { key: "home", label: "居家模式", icon: "&#127968;", active: true },
+        { key: "work", label: "工作模式", icon: "&#128188;", active: false },
+        { key: "sport", label: "运动模式", icon: "&#127939;", active: false },
+      ],
+
+      todos: [
+        { id: 1, title: "晨跑30分钟", status: "todo", progress: 0, category: "健康" },
+        { id: 2, title: "阅读《深度工作》第3章", status: "todo", progress: 0, category: "学习" },
+        { id: 3, title: "超市采购生活用品", status: "todo", progress: 0, category: "生活" },
+        { id: 4, title: "写周总结报告", status: "in-progress", progress: 40, category: "工作" },
+        { id: 5, title: "学习新菜谱", status: "in-progress", progress: 60, category: "生活" },
+        { id: 6, title: "吃早餐", status: "done", progress: 100, category: "健康" },
+        { id: 7, title: "整理房间", status: "done", progress: 100, category: "生活" },
+        { id: 8, title: "回复邮件", status: "done", progress: 100, category: "工作" },
+      ],
+
+      habits: [
+        { id: 1, name: "早起", icon: "&#9728;&#65039;", streak: 15, done: true },
+        { id: 2, name: "阅读30分钟", icon: "&#128214;", streak: 8, done: true },
+        { id: 3, name: "运动", icon: "&#127939;", streak: 5, done: false },
+        { id: 4, name: "喝8杯水", icon: "&#128167;", streak: 12, done: false },
+        { id: 5, name: "冥想", icon: "&#129496;", streak: 3, done: false },
+      ],
+
+      financeOverview: {
+        total_expense: 3280,
+        budget: 5000,
+        today_spending: 128,
+        month_progress: 65.6,
+      },
+
+      financeCategories: [
+        { id: 1, name: "餐饮美食", amount: 1280, percentage: 39, color: "#FAAD14" },
+        { id: 2, name: "交通出行", amount: 680, percentage: 21, color: "#165DFF" },
+        { id: 3, name: "购物消费", amount: 560, percentage: 17, color: "#722ED1" },
+        { id: 4, name: "娱乐休闲", amount: 420, percentage: 13, color: "#F77234" },
+        { id: 5, name: "其他", amount: 340, percentage: 10, color: "#86909C" },
+      ],
+
+      assistantTools: [
+        { type: "weather", title: "天气查询", desc: "今日 26°C 晴", icon: "&#9728;&#65039;" },
+        { type: "cook", title: "菜谱推荐", desc: "今日吃什么", icon: "&#127859;" },
+        { type: "travel", title: "出行规划", desc: "路线推荐", icon: "&#9992;&#65039;" },
+        { type: "health", title: "健康建议", desc: "运动饮食", icon: "&#127973;" },
+      ],
+    },
+
+    // 统一请求封装：失败时返回 fallback 并提示
+    async fetchWithFallback(key, method, path, options = {}) {
+      try {
+        const res = await YunxiAPI.request(method, path, options);
+        const data = res && res.data !== undefined ? res.data : res;
+        this.cache[key] = data;
+        return { data, fromAPI: true };
+      } catch (error) {
+        console.warn('[LifeData] API 调用失败，使用降级数据:', path, error.message);
+        const fallback = this.fallback[key];
+        this.cache[key] = fallback;
+        return { data: fallback, fromAPI: false, error: error.message };
+      }
+    },
+
+    // 批量加载所有数据
+    async loadAll() {
+      const today = this.currentDate;
+      const results = await Promise.all([
+        this.fetchWithFallback('overview', 'GET', '/api/life-management/overview'),
+        this.fetchWithFallback('schedules', 'GET', '/api/life-management/schedules?date=' + today),
+        this.fetchWithFallback('weekDays', 'GET', '/api/life-management/schedules/week'),
+        this.fetchWithFallback('rules', 'GET', '/api/life-management/rules'),
+        this.fetchWithFallback('devices', 'GET', '/api/life-management/devices'),
+        this.fetchWithFallback('deviceStats', 'GET', '/api/life-management/devices/stats'),
+        this.fetchWithFallback('energy', 'GET', '/api/life-management/energy'),
+        this.fetchWithFallback('scenes', 'GET', '/api/life-management/scenes'),
+        this.fetchWithFallback('todos', 'GET', '/api/life-management/todos'),
+        this.fetchWithFallback('habits', 'GET', '/api/life-management/habits'),
+        this.fetchWithFallback('financeOverview', 'GET', '/api/life-management/finance/overview'),
+        this.fetchWithFallback('financeCategories', 'GET', '/api/life-management/finance/categories'),
+        this.fetchWithFallback('assistantTools', 'GET', '/api/life-management/assistant/tools'),
+      ]);
+
+      // 统计失败数量
+      const failed = results.filter(r => !r.fromAPI).length;
+      if (failed > 0) {
+        YunxiAPI.showToast('部分数据加载失败，已使用本地缓存（' + failed + '项）', 'warning');
+      }
+
+      return results;
+    },
+
+    // ===== 概览 =====
+    async getOverview() {
+      if (this.cache.overview) return this.cache.overview;
+      const { data } = await this.fetchWithFallback('overview', 'GET', '/api/life-management/overview');
+      return data;
+    },
+
+    // ===== 日程 =====
+    async getSchedules(date) {
+      const d = date || this.currentDate;
+      const { data } = await this.fetchWithFallback('schedules', 'GET', '/api/life-management/schedules?date=' + d);
+      return data;
+    },
+
+    async getWeekDays() {
+      if (this.cache.weekDays) return this.cache.weekDays;
+      const { data } = await this.fetchWithFallback('weekDays', 'GET', '/api/life-management/schedules/week');
+      return data;
+    },
+
+    async addSchedule(scheduleData) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/schedules', { body: scheduleData });
+        const data = res && res.data ? res.data : res;
+        this.cache.schedules = null;
+        this.cache.weekDays = null;
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('添加日程失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async deleteSchedule(id) {
+      try {
+        await YunxiAPI.request('DELETE', 'life-management/schedules/' + id);
+        if (this.cache.schedules && Array.isArray(this.cache.schedules)) {
+          this.cache.schedules = this.cache.schedules.filter(s => s.id !== id);
+        }
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除日程失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    // ===== 自动化规则 =====
+    async getRules() {
+      if (this.cache.rules) return this.cache.rules;
+      const { data } = await this.fetchWithFallback('rules', 'GET', '/api/life-management/rules');
+      return data;
+    },
+
+    async addRule(ruleData) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/rules', { body: ruleData });
+        const data = res && res.data ? res.data : res;
+        this.cache.rules = null;
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('添加规则失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async toggleRule(id) {
+      try {
+        const res = await YunxiAPI.request('PUT', 'life-management/rules/' + id + '/toggle');
+        const data = res && res.data ? res.data : res;
+        // 更新本地缓存
+        if (this.cache.rules && Array.isArray(this.cache.rules)) {
+          const item = this.cache.rules.find(r => r.id === id);
+          if (item) item.enabled = !item.enabled;
+        }
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('操作失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async deleteRule(id) {
+      try {
+        await YunxiAPI.request('DELETE', 'life-management/rules/' + id);
+        if (this.cache.rules && Array.isArray(this.cache.rules)) {
+          this.cache.rules = this.cache.rules.filter(r => r.id !== id);
+        }
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除规则失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    // ===== 设备 =====
+    async getDevices() {
+      if (this.cache.devices) return this.cache.devices;
+      const { data } = await this.fetchWithFallback('devices', 'GET', '/api/life-management/devices');
+      return data;
+    },
+
+    async getDeviceStats() {
+      if (this.cache.deviceStats) return this.cache.deviceStats;
+      const { data } = await this.fetchWithFallback('deviceStats', 'GET', '/api/life-management/devices/stats');
+      return data;
+    },
+
+    // ===== 能耗 =====
+    async getEnergy() {
+      if (this.cache.energy) return this.cache.energy;
+      const { data } = await this.fetchWithFallback('energy', 'GET', '/api/life-management/energy');
+      return data;
+    },
+
+    // ===== 场景 =====
+    async getScenes() {
+      if (this.cache.scenes) return this.cache.scenes;
+      const { data } = await this.fetchWithFallback('scenes', 'GET', '/api/life-management/scenes');
+      return data;
+    },
+
+    async switchScene(sceneKey) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/scenes/switch', { body: { scene_key: sceneKey } });
+        const data = res && res.data ? res.data : res;
+        // 更新本地缓存
+        if (this.cache.scenes && Array.isArray(this.cache.scenes)) {
+          this.cache.scenes.forEach(s => {
+            s.active = s.key === sceneKey;
+          });
+        }
+        if (this.cache.overview) {
+          this.cache.overview.current_scene = sceneKey;
+        }
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('切换场景失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    // ===== 待办 =====
+    async getTodos(status) {
+      const url = status ? '/api/life-management/todos?status=' + status : '/api/life-management/todos';
+      const { data } = await this.fetchWithFallback('todos', 'GET', url);
+      return data;
+    },
+
+    async addTodo(todoData) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/todos', { body: todoData });
+        const data = res && res.data ? res.data : res;
+        this.cache.todos = null;
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('添加待办失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async updateTodoStatus(id, status) {
+      try {
+        const res = await YunxiAPI.request('PUT', 'life-management/todos/' + id + '/status?status=' + status);
+        const data = res && res.data ? res.data : res;
+        // 更新本地缓存
+        if (this.cache.todos && Array.isArray(this.cache.todos)) {
+          const item = this.cache.todos.find(t => t.id === id);
+          if (item) {
+            item.status = status;
+            item.progress = status === 'done' ? 100 : item.progress;
+          }
+        }
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('更新待办失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async deleteTodo(id) {
+      try {
+        await YunxiAPI.request('DELETE', 'life-management/todos/' + id);
+        if (this.cache.todos && Array.isArray(this.cache.todos)) {
+          this.cache.todos = this.cache.todos.filter(t => t.id !== id);
+        }
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除待办失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    // ===== 习惯 =====
+    async getHabits() {
+      if (this.cache.habits) return this.cache.habits;
+      const { data } = await this.fetchWithFallback('habits', 'GET', '/api/life-management/habits');
+      return data;
+    },
+
+    async addHabit(habitData) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/habits', { body: habitData });
+        const data = res && res.data ? res.data : res;
+        this.cache.habits = null;
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('添加习惯失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async checkinHabit(id) {
+      try {
+        const res = await YunxiAPI.request('POST', 'life-management/habits/' + id + '/checkin');
+        const data = res && res.data ? res.data : res;
+        // 更新本地缓存
+        if (this.cache.habits && Array.isArray(this.cache.habits)) {
+          const item = this.cache.habits.find(h => h.id === id);
+          if (item) {
+            item.done = true;
+            item.streak = (item.streak || 0) + 1;
+          }
+        }
+        return { data, success: true };
+      } catch (error) {
+        YunxiAPI.showToast('打卡失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    async deleteHabit(id) {
+      try {
+        await YunxiAPI.request('DELETE', 'life-management/habits/' + id);
+        if (this.cache.habits && Array.isArray(this.cache.habits)) {
+          this.cache.habits = this.cache.habits.filter(h => h.id !== id);
+        }
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除习惯失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    },
+
+    // ===== 财务 =====
+    async getFinanceOverview() {
+      if (this.cache.financeOverview) return this.cache.financeOverview;
+      const { data } = await this.fetchWithFallback('financeOverview', 'GET', '/api/life-management/finance/overview');
+      return data;
+    },
+
+    async getFinanceCategories() {
+      if (this.cache.financeCategories) return this.cache.financeCategories;
+      const { data } = await this.fetchWithFallback('financeCategories', 'GET', '/api/life-management/finance/categories');
+      return data;
+    },
+
+    // ===== 生活助手 =====
+    async getAssistantTools() {
+      if (this.cache.assistantTools) return this.cache.assistantTools;
+      const { data } = await this.fetchWithFallback('assistantTools', 'GET', '/api/life-management/assistant/tools');
+      return data;
+    },
+  };
+
+  // ===== 生活管理页面渲染模块 =====
+  const LifeRenderer = {
+    // 渲染概览数据（右侧今日概览面板）
+    async renderOverview() {
+      const overview = await LifeData.getOverview();
+      const lifeStats = overview.life_stats || {};
+
+      const statItems = document.querySelectorAll('.ai-panel-card .life-stat-item');
+      if (statItems.length >= 4) {
+        const values = [
+          lifeStats.todo_completed || '0/0',
+          lifeStats.habit_checked || '0/0',
+          lifeStats.today_spending || '¥0',
+          lifeStats.steps || '0',
+        ];
+        statItems.forEach((item, idx) => {
+          const valueEl = item.querySelector('.life-stat-value');
+          if (valueEl && values[idx]) valueEl.textContent = values[idx];
+        });
+      }
+    },
+
+    // 渲染日程时间轴
+    async renderSchedule() {
+      const [schedules, weekData] = await Promise.all([
+        LifeData.getSchedules(),
+        LifeData.getWeekDays(),
+      ]);
+
+      // 渲染周视图
+      const weekDaysEl = document.querySelector('.week-days');
+      if (weekDaysEl && weekData && weekData.week_days) {
+        weekDaysEl.innerHTML = weekData.week_days.map(day => `
+          <button class="week-day ${day.active ? 'active' : ''}" data-date="${day.date}">
+            <span class="week-day-label">${day.label}</span>
+            <span class="week-day-num" ${day.active ? 'style="background: #52C41A; color: #fff; box-shadow: 0 2px 8px rgba(82,196,26,0.3);"' : ''}>${String(day.day_num).padStart(2, '0')}</span>
+            <span class="week-day-dots">
+              ${(day.event_dots || []).map(dot => `<span class="event-dot ${dot}"></span>`).join('')}
+            </span>
+          </button>
+        `).join('');
+
+        // 绑定周日期点击事件
+        weekDaysEl.querySelectorAll('.week-day').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const date = btn.dataset.date;
+            if (!date) return;
+            LifeData.currentDate = date;
+            // 更新 active 状态
+            weekDaysEl.querySelectorAll('.week-day').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const dayNum = btn.querySelector('.week-day-num');
+            if (dayNum) {
+              dayNum.style.background = '#52C41A';
+              dayNum.style.color = '#fff';
+              dayNum.style.boxShadow = '0 2px 8px rgba(82,196,26,0.3)';
+            }
+            // 重新加载当日日程
+            LifeData.cache.schedules = null;
+            await this.renderScheduleEvents();
+          });
+        });
+      }
+
+      // 渲染今日日程列表
+      this.renderScheduleEvents(schedules);
+
+      // 更新日期标签
+      const dateLabel = document.querySelector('.today-events-label');
+      if (dateLabel && weekData && weekData.week_days) {
+        const activeDay = weekData.week_days.find(d => d.active);
+        if (activeDay) {
+          const dateStr = activeDay.date || '';
+          const parts = dateStr.split('-');
+          if (parts.length === 3) {
+            dateLabel.textContent = `今日日程 · ${parts[1]}/${parts[2]} ${activeDay.label}`;
+          }
+        }
+      }
+    },
+
+    renderScheduleEvents(schedules) {
+      const eventsList = document.querySelector('.today-events');
+      if (!eventsList) return;
+
+      const list = schedules || LifeData.cache.schedules || [];
+      // 保留 label
+      const labelEl = eventsList.querySelector('.today-events-label');
+      const labelHtml = labelEl ? labelEl.outerHTML : '';
+
+      eventsList.innerHTML = labelHtml + list.map(event => `
+        <div class="event-item" data-id="${event.id}">
+          <span class="event-time">${event.time}</span>
+          <span>${event.title}</span>
+          <span class="event-tag ${event.tag_color || 'green'}">${event.tag}</span>
+        </div>
+      `).join('');
+
+      // 重新绑定事件
+      eventsList.querySelectorAll('.event-item').forEach(item => {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+          YunxiAPI.showToast('查看日程详情', 'info');
+        });
+      });
+    },
+
+    // 渲染自动化规则
+    async renderRules() {
+      const rules = await LifeData.getRules();
+      const ruleList = document.querySelector('.rule-list');
+      if (!ruleList) return;
+
+      ruleList.innerHTML = rules.map(rule => `
+        <div class="rule-item" data-id="${rule.id}" style="${rule.enabled ? '' : 'opacity: 0.55;'}">
+          <div class="rule-text">
+            <span class="rule-if">IF</span> ${rule.condition} <span class="rule-then">THEN</span> ${rule.action}
+          </div>
+          <button class="toggle-switch ${rule.enabled ? 'on' : ''}" data-rule-id="${rule.id}"></button>
+        </div>
+      `).join('');
+
+      // 绑定 toggle 事件
+      ruleList.querySelectorAll('.toggle-switch').forEach(toggle => {
+        toggle.addEventListener('click', async () => {
+          const id = toggle.dataset.ruleId;
+          if (!id) return;
+          const result = await LifeData.toggleRule(id);
+          if (result.success) {
+            toggle.classList.toggle('on');
+            const ruleItem = toggle.closest('.rule-item');
+            if (ruleItem) {
+              ruleItem.style.opacity = toggle.classList.contains('on') ? '' : '0.55';
+            }
+            const isOn = toggle.classList.contains('on');
+            YunxiAPI.showToast('规则已' + (isOn ? '开启' : '关闭'), 'success');
+          }
+        });
+      });
+    },
+
+    // 渲染设备拓扑
+    async renderDevices() {
+      const [devices, stats] = await Promise.all([
+        LifeData.getDevices(),
+        LifeData.getDeviceStats(),
+      ]);
+
+      // 更新拓扑标题副标题
+      const subtitle = document.querySelector('.topology-subtitle');
+      if (subtitle && stats) {
+        subtitle.textContent = `${stats.total} 台设备 · ${stats.online} 在线 · ${stats.offline} 离线`;
+      }
+
+      // 动态渲染 SVG 设备节点
+      const svgWrap = document.querySelector('.topology-svg-wrap svg');
+      if (!svgWrap) return;
+
+      // 找到 <defs> 后面的位置插入连线和设备
+      const defsEl = svgWrap.querySelector('defs');
+      if (!defsEl) return;
+
+      // 清除旧的连接和设备（保留 defs）
+      const existingLines = svgWrap.querySelectorAll('line');
+      existingLines.forEach(l => l.remove());
+      const existingGroups = svgWrap.querySelectorAll('g');
+      existingGroups.forEach(g => g.remove());
+      // 清除中心 hub（circle 和 text）
+      const hubCircles = svgWrap.querySelectorAll('circle[cx="250"][cy="250"]');
+      hubCircles.forEach(c => {
+        if (c.getAttribute('r') === '38' || c.classList.contains('hub-pulse-ring') || c.classList.contains('hub-pulse-ring-2')) {
+          // 保留 hub
+        }
+      });
+      // 简单起见，重建除 defs 外的所有内容
+      const afterDefs = defsEl.nextSibling;
+      while (afterDefs) {
+        const next = afterDefs.nextSibling;
+        svgWrap.removeChild(afterDefs);
+        break; // 只移除第一个，循环处理
+      }
+      // 更彻底：获取 defs 后面所有元素
+      const allChildren = Array.from(svgWrap.children);
+      const defsIndex = allChildren.indexOf(defsEl);
+      for (let i = allChildren.length - 1; i > defsIndex; i--) {
+        svgWrap.removeChild(allChildren[i]);
+      }
+
+      const hubX = 250, hubY = 250;
+
+      // 渲染连线
+      devices.forEach(device => {
+        const pos = device.position || { x: 0, y: 0 };
+        const statusClass = device.status === 'online' ? 'conn-online' :
+                           device.status === 'warning' ? 'conn-warning' : 'conn-offline';
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', hubX);
+        line.setAttribute('y1', hubY);
+        line.setAttribute('x2', pos.x);
+        line.setAttribute('y2', pos.y);
+        line.setAttribute('class', statusClass);
+        svgWrap.appendChild(line);
+      });
+
+      // 渲染中心 hub
+      const hubGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      hubGroup.innerHTML = `
+        <circle cx="${hubX}" cy="${hubY}" r="38" fill="none" stroke="#52C41A" stroke-width="1.5" class="hub-pulse-ring" opacity="0.35"/>
+        <circle cx="${hubX}" cy="${hubY}" r="38" fill="none" stroke="#52C41A" stroke-width="1" class="hub-pulse-ring-2" opacity="0.2"/>
+        <circle cx="${hubX}" cy="${hubY}" r="38" fill="url(#hubGrad)" filter="url(#greenGlow)"/>
+        <text x="${hubX}" y="${hubY - 4}" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" font-family="Inter, PingFang SC, sans-serif">云汐</text>
+        <text x="${hubX}" y="${hubY + 12}" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-size="10" font-weight="500" font-family="Inter, PingFang SC, sans-serif">中枢</text>
+      `;
+      svgWrap.appendChild(hubGroup);
+
+      // 渲染设备节点
+      devices.forEach(device => {
+        const pos = device.position || { x: 0, y: 0 };
+        const isOnline = device.status === 'online';
+        const isWarning = device.status === 'warning';
+        const isOffline = device.status === 'offline';
+        const strokeColor = isWarning ? '#FAAD14' : (isOnline ? '#52C41A' : '#C9CDD4');
+        const fillGradient = isOffline ? 'url(#offlineGrad)' : 'url(#onlineGrad)';
+        const glowColor = isWarning ? '#FAAD14' : '#52C41A';
+        const glowFilter = isWarning ? 'url(#yellowGlow)' : (isOnline ? 'url(#greenGlow)' : '');
+
+        const iconSvg = this.getDeviceIcon(device.icon_type, pos.x, pos.y, isOffline ? '#86909C' : '#389E0D');
+
+        // 电池状态
+        const batteryLevel = device.battery;
+        let batteryClass = 'battery-high';
+        if (batteryLevel !== null && batteryLevel !== undefined) {
+          if (batteryLevel < 30) batteryClass = 'battery-low';
+          else if (batteryLevel < 60) batteryClass = 'battery-mid';
+        }
+
+        // 状态徽章位置
+        const badgeX = pos.x + 22;
+        const badgeY = pos.y - 17;
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        if (isOffline) g.setAttribute('opacity', '0.55');
+
+        const batteryWidth = batteryLevel !== null && batteryLevel !== undefined ? (batteryLevel / 100) * 32 : 0;
+        const showBattery = batteryLevel !== null && batteryLevel !== undefined;
+        const statusText = isOffline ? '离线' : (showBattery ? batteryLevel + '%' : '在线');
+        const statusColor = isOffline ? '#C9CDD4' : (isWarning ? '#D48806' : '#86909C');
+
+        g.innerHTML = `
+          ${isOnline || isWarning ? `<circle cx="${pos.x}" cy="${pos.y}" r="30" fill="${glowColor}" opacity="0.08" class="device-glow"/>` : ''}
+          <circle cx="${pos.x}" cy="${pos.y}" r="26" fill="${fillGradient}" stroke="${strokeColor}" stroke-width="${isWarning ? 2 : (isOnline ? 2 : 1.5)}" ${glowFilter ? `filter="${glowFilter}"` : ''}/>
+          ${iconSvg}
+          ${showBattery ? `
+            <rect x="${pos.x - 16}" y="${pos.y + 22}" width="32" height="5" rx="2.5" fill="#E5E6EB"/>
+            <rect x="${pos.x - 16}" y="${pos.y + 22}" width="${batteryWidth}" height="5" rx="2.5" class="${batteryClass}"/>
+          ` : ''}
+          <text x="${pos.x}" y="${pos.y + (showBattery ? 50 : 38)}" text-anchor="middle" fill="${isOffline ? '#86909C' : '#1D2129'}" font-size="11" font-weight="600" font-family="Inter, PingFang SC, sans-serif">${device.name}</text>
+          <circle cx="${badgeX}" cy="${badgeY}" r="5" fill="${strokeColor}" stroke="#fff" stroke-width="1.5"/>
+          ${isOffline ? `<line x1="${badgeX - 2}" y1="${badgeY}" x2="${badgeX + 2}" y2="${badgeY}" stroke="#fff" stroke-width="1.2"/>` : ''}
+          <text x="${pos.x}" y="${pos.y + (showBattery ? 62 : 50)}" text-anchor="middle" fill="${statusColor}" font-size="9" font-family="Inter, PingFang SC, sans-serif" font-weight="${isWarning ? '500' : '400'}">${isWarning ? statusText + ' !' : statusText}</text>
+        `;
+        svgWrap.appendChild(g);
+      });
+    },
+
+    getDeviceIcon(type, cx, cy, color) {
+      const icons = {
+        watch: `
+          <rect x="${cx - 9}" y="${cy - 10}" width="18" height="20" rx="4" fill="none" stroke="${color}" stroke-width="1.5"/>
+          <line x1="${cx}" y1="${cy - 14}" x2="${cx}" y2="${cy - 10}" stroke="${color}" stroke-width="2"/>
+          <line x1="${cx}" y1="${cy + 10}" x2="${cx}" y2="${cy + 14}" stroke="${color}" stroke-width="2"/>
+          <circle cx="${cx}" cy="${cy}" r="1.5" fill="${color}"/>
+        `,
+        ring: `
+          <circle cx="${cx}" cy="${cy - 3}" r="10" fill="none" stroke="${color}" stroke-width="2.5"/>
+          <circle cx="${cx}" cy="${cy - 3}" r="5" fill="none" stroke="#52C41A" stroke-width="1.5"/>
+        `,
+        monitor: `
+          <rect x="${cx - 12}" y="${cy - 10}" width="24" height="16" rx="2" fill="none" stroke="${color}" stroke-width="1.5"/>
+          <line x1="${cx}" y1="${cy + 6}" x2="${cx}" y2="${cy + 12}" stroke="${color}" stroke-width="1.5"/>
+          <line x1="${cx - 6}" y1="${cy + 12}" x2="${cx + 6}" y2="${cy + 12}" stroke="${color}" stroke-width="1.5"/>
+        `,
+        glasses: `
+          <circle cx="${cx - 6}" cy="${cy - 2}" r="7" fill="none" stroke="${color}" stroke-width="1.5"/>
+          <circle cx="${cx + 10}" cy="${cy - 2}" r="7" fill="none" stroke="${color}" stroke-width="1.5"/>
+          <line x1="${cx + 1}" y1="${cy - 2}" x2="${cx + 3}" y2="${cy - 2}" stroke="${color}" stroke-width="1.2"/>
+        `,
+        drone: `
+          <line x1="${cx}" y1="${cy - 8}" x2="${cx}" y2="${cy + 8}" stroke="${color}" stroke-width="1.5"/>
+          <line x1="${cx - 12}" y1="${cy - 4}" x2="${cx + 12}" y2="${cy - 4}" stroke="${color}" stroke-width="1.5"/>
+          <circle cx="${cx - 12}" cy="${cy - 4}" r="5" fill="none" stroke="${color}" stroke-width="1"/>
+          <circle cx="${cx + 12}" cy="${cy - 4}" r="5" fill="none" stroke="${color}" stroke-width="1"/>
+          <circle cx="${cx}" cy="${cy + 4}" r="2" fill="#FAAD14"/>
+        `,
+        laptop: `
+          <rect x="${cx - 14}" y="${cy - 10}" width="28" height="18" rx="2" fill="none" stroke="${color}" stroke-width="1.5"/>
+          <path d="M${cx - 18} ${cy + 10} L${cx + 18} ${cy + 10}" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+        `,
+      };
+      return icons[type] || icons.watch;
+    },
+
+    // 渲染能耗监控
+    async renderEnergy() {
+      const energy = await LifeData.getEnergy();
+      const panel = document.getElementById('panel-energy');
+      if (!panel) return;
+
+      const categories = energy.categories || [];
+      const total = energy.total || {};
+
+      // 更新总功耗
+      const totalValue = panel.querySelector('.energy-total-value');
+      if (totalValue) {
+        totalValue.textContent = (total.today || total.total || 0) + 'kWh';
+      }
+
+      // 渲染能耗分类
+      const chart = panel.querySelector('.energy-chart');
+      if (chart) {
+        chart.innerHTML = categories.map(cat => `
+          <div class="energy-row">
+            <span class="energy-label">${cat.label}</span>
+            <div class="energy-bar-track">
+              <div class="energy-bar-fill ${cat.color || 'green'}" style="width: ${cat.percentage}%;"></div>
+            </div>
+            <span class="energy-value">${cat.value}kWh</span>
+          </div>
+        `).join('');
+      }
+    },
+
+    // 渲染快捷场景
+    async renderScenes() {
+      const scenes = await LifeData.getScenes();
+      const container = document.querySelector('.scene-controls');
+      if (!container) return;
+
+      container.innerHTML = scenes.map(scene => `
+        <button class="scene-btn ${scene.active ? 'active' : ''}" data-scene="${scene.key}">
+          <div class="scene-btn-circle">${scene.icon}</div>
+          <span class="scene-btn-label">${scene.label}</span>
+        </button>
+      `).join('');
+
+      // 绑定场景切换事件
+      container.querySelectorAll('.scene-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sceneKey = btn.dataset.scene;
+          if (!sceneKey) return;
+          const sceneLabel = btn.querySelector('.scene-btn-label')?.textContent || sceneKey;
+
+          // 动画
+          btn.classList.remove('scene-pop');
+          void btn.offsetWidth;
+          btn.classList.add('scene-pop');
+          setTimeout(() => btn.classList.remove('scene-pop'), 450);
+
+          const result = await LifeData.switchScene(sceneKey);
+          if (result.success) {
+            container.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            YunxiAPI.showToast('已切换至 ' + sceneLabel, 'success');
+          }
+        });
+      });
+    },
+
+    // 渲染所有主面板数据
+    async renderAll() {
+      await Promise.all([
+        this.renderOverview(),
+        this.renderSchedule(),
+        this.renderRules(),
+        this.renderDevices(),
+        this.renderEnergy(),
+        this.renderScenes(),
+      ]);
+    },
+  };
+
+  // ===== 生活功能标签页（待办清单/习惯打卡/财务管理/生活助手） =====
+  const LifeTabs = {
+    tabs: ['待办清单', '习惯打卡', '财务管理', '生活助手'],
+    currentTab: '待办清单',
+    tabContentContainer: null,
+
+    init() {
+      const contentScroll = document.querySelector('.content-scroll');
+      if (!contentScroll) return;
+
+      // 创建 tab 栏
+      const tabBar = document.createElement('div');
+      tabBar.className = 'life-tab-bar';
+      tabBar.style.cssText = `
+        display: flex; gap: 4px; padding: 0 0 0 0;
+        border-bottom: 1px solid var(--color-border-light);
+        margin-bottom: 20px;
+      `;
+
+      this.tabs.forEach((tab, idx) => {
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'life-tab-btn' + (idx === 0 ? ' active' : '');
+        tabBtn.dataset.tab = tab;
+        tabBtn.textContent = tab;
+        tabBtn.style.cssText = `
+          padding: 10px 20px; border: none; border-radius: 8px 8px 0 0;
+          background: transparent; font-size: 13px; font-weight: 500;
+          cursor: pointer; transition: all 0.2s;
+          color: ${idx === 0 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)'};
+          border-bottom: 2px solid ${idx === 0 ? '#52C41A' : 'transparent'};
+        `;
+        tabBtn.addEventListener('click', () => this.switchTab(tab));
+        tabBar.appendChild(tabBtn);
+      });
+
+      // 在 contentScroll 最前面插入 tab 栏
+      contentScroll.insertBefore(tabBar, contentScroll.firstChild);
+
+      // 创建内容容器
+      const tabContent = document.createElement('div');
+      tabContent.className = 'life-tab-content';
+      tabContent.style.cssText = 'margin-bottom: 24px;';
+      this.tabContentContainer = tabContent;
+      contentScroll.insertBefore(tabContent, tabBar.nextSibling);
+
+      this.renderTabContent('待办清单');
+    },
+
+    switchTab(tabName) {
+      document.querySelectorAll('.life-tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tabName;
+        btn.classList.toggle('active', isActive);
+        btn.style.color = isActive ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)';
+        btn.style.borderBottom = isActive ? '2px solid #52C41A' : '2px solid transparent';
+      });
+      this.currentTab = tabName;
+      this.renderTabContent(tabName);
+      YunxiAPI.showToast('已切换到: ' + tabName, 'success');
+    },
+
+    async renderTabContent(tabName) {
+      if (!this.tabContentContainer) return;
+
+      const renderers = {
+        '待办清单': () => this.renderTodoList(),
+        '习惯打卡': () => this.renderHabits(),
+        '财务管理': () => this.renderFinance(),
+        '生活助手': () => this.renderLifeAssistant(),
+      };
+
+      const renderer = renderers[tabName] || renderers['待办清单'];
+      this.tabContentContainer.innerHTML = await renderer();
+      this.bindTabEvents(tabName);
+    },
+
+    async renderTodoList() {
+      const todos = await LifeData.getTodos();
+      const todoList = Array.isArray(todos) ? todos : [];
+
+      const todoItems = todoList.filter(t => t.status === 'todo');
+      const inProgressItems = todoList.filter(t => t.status === 'in-progress');
+      const doneItems = todoList.filter(t => t.status === 'done');
+
+      const todoItemHtml = (item) => `
+        <div class="life-todo-item" data-id="${item.id}" data-status="${item.status}" style="background:#fff;border:1px solid var(--color-border-light);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="todo-checkbox" style="width:16px;height:16px;border:2px solid #C9CDD4;border-radius:4px;flex-shrink:0;"></div>
+            <span style="font-size:12px;color:var(--color-text-primary);">${item.title}</span>
+          </div>
+        </div>
+      `;
+
+      const inProgressHtml = (item) => `
+        <div class="life-todo-item" data-id="${item.id}" data-status="${item.status}" style="background:#fff;border:1px solid var(--color-border-light);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;">
+          <div style="font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;">${item.title}</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);">进度: ${item.progress || 0}%</div>
+          <div style="height:4px;background:var(--color-border-light);border-radius:2px;margin-top:6px;">
+            <div style="width:${item.progress || 0}%;height:100%;background:#52C41A;border-radius:2px;"></div>
+          </div>
+        </div>
+      `;
+
+      const doneHtml = (item) => `
+        <div class="life-todo-item done" data-id="${item.id}" data-status="${item.status}" style="background:#fff;border:1px solid var(--color-border-light);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;opacity:0.6;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="todo-checkbox" style="width:16px;height:16px;background:#52C41A;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span style="font-size:12px;color:var(--color-text-tertiary);text-decoration:line-through;">${item.title}</span>
+          </div>
+        </div>
+      `;
+
+      return `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;font-weight:600;color:var(--color-text-primary);">今日待办</span>
+              <span style="font-size:11px;background:rgba(250,173,20,0.1);color:#FAAD14;padding:2px 8px;border-radius:10px;">${todoItems.length}</span>
+            </div>
+            ${todoItems.map(todoItemHtml).join('')}
+          </div>
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;font-weight:600;color:var(--color-text-primary);">进行中</span>
+              <span style="font-size:11px;background:rgba(82,196,26,0.1);color:#52C41A;padding:2px 8px;border-radius:10px;">${inProgressItems.length}</span>
+            </div>
+            ${inProgressItems.map(inProgressHtml).join('')}
+          </div>
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;font-weight:600;color:var(--color-text-primary);">已完成</span>
+              <span style="font-size:11px;background:rgba(82,196,26,0.1);color:#52C41A;padding:2px 8px;border-radius:10px;">${doneItems.length}</span>
+            </div>
+            ${doneItems.map(doneHtml).join('')}
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          <button class="life-action-btn ai-gen-todo" data-require-ollama style="padding:8px 16px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            AI 智能规划
+          </button>
+          <button class="life-action-btn add-manual-todo" style="padding:8px 16px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            手动添加
+          </button>
+        </div>
+      `;
+    },
+
+    async renderHabits() {
+      const habits = await LifeData.getHabits();
+      const habitList = Array.isArray(habits) ? habits : [];
+
+      const doneCount = habitList.filter(h => h.done).length;
+      const maxStreak = habitList.reduce((max, h) => Math.max(max, h.streak || 0), 0);
+      const totalCheckins = habitList.reduce((sum, h) => sum + (h.streak || 0), 0);
+
+      return `
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(habitList.length, 5)},1fr);gap:12px;margin-bottom:20px;">
+          ${habitList.map(h => `
+            <div class="habit-card" data-habit-id="${h.id}" data-habit-name="${h.name}" style="background:var(--color-page-bg);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;border:2px solid ${h.done ? '#52C41A' : 'transparent'};">
+              <div style="font-size:28px;margin-bottom:8px;">${h.icon}</div>
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;">${h.name}</div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);">连续 ${h.streak} 天</div>
+              ${h.done ? '<div style="font-size:11px;color:#52C41A;margin-top:4px;font-weight:500;">已打卡</div>' : ''}
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">本周打卡日历</div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center;">
+              ${['一','二','三','四','五','六','日'].map((d,i) => `
+                <div>
+                  <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:6px;">周${d}</div>
+                  <div style="width:32px;height:32px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;
+                    background:${i < 5 ? '#52C41A' : 'var(--color-border-light)'};
+                    color:${i < 5 ? '#fff' : 'var(--color-text-tertiary)'};
+                    font-size:11px;font-weight:500;">
+                    ${i < 5 ? '&#10003;' : '-'}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">打卡统计</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:var(--color-text-secondary);">本周完成</span>
+                <span style="font-weight:600;color:#52C41A;">${doneCount}/${habitList.length}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:var(--color-text-secondary);">最长连续</span>
+                <span style="font-weight:600;color:var(--color-text-primary);">${maxStreak}天</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:var(--color-text-secondary);">总打卡</span>
+                <span style="font-weight:600;color:var(--color-text-primary);">${totalCheckins}次</span>
+              </div>
+            </div>
+            <button class="life-action-btn ai-habit-suggest" data-require-ollama style="width:100%;margin-top:12px;padding:8px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--color-text-primary);">
+              AI 习惯建议
+            </button>
+          </div>
+        </div>
+      `;
+    },
+
+    async renderFinance() {
+      const [overview, categories] = await Promise.all([
+        LifeData.getFinanceOverview(),
+        LifeData.getFinanceCategories(),
+      ]);
+
+      const catList = Array.isArray(categories) ? categories : [];
+      const totalExpense = overview?.total_expense || 0;
+      const budget = overview?.budget || 0;
+      const progress = overview?.month_progress || (budget > 0 ? (totalExpense / budget * 100) : 0);
+
+      return `
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;">
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">本月概览</div>
+            <div style="text-align:center;padding:16px 0;">
+              <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px;">本月支出</div>
+              <div style="font-size:28px;font-weight:700;color:var(--color-text-primary);">¥${totalExpense.toLocaleString()}</div>
+              <div style="font-size:11px;color:#52C41A;margin-top:4px;">比上月减少 12%</div>
+            </div>
+            <div style="border-top:1px solid var(--color-border-light);padding-top:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+                <span style="color:var(--color-text-secondary);">预算</span>
+                <span style="font-weight:500;">¥${budget.toLocaleString()}</span>
+              </div>
+              <div style="height:6px;background:var(--color-border-light);border-radius:3px;">
+                <div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#52C41A,#73D13D);border-radius:3px;"></div>
+              </div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:4px;text-align:right;">已用 ${progress.toFixed(1)}%</div>
+            </div>
+          </div>
+          <div style="background:var(--color-page-bg);border-radius:10px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-size:13px;font-weight:600;color:var(--color-text-primary);">支出分类</span>
+              <button class="finance-detail-btn" style="font-size:11px;color:#52C41A;background:transparent;border:none;cursor:pointer;">详情</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              ${catList.map(cat => `
+                <div class="finance-cat-item" data-cat="${cat.name}" style="cursor:pointer;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                    <span style="color:var(--color-text-secondary);">${cat.name}</span>
+                    <span style="font-weight:500;">¥${cat.amount.toLocaleString()}</span>
+                  </div>
+                  <div style="height:6px;background:var(--color-border-light);border-radius:3px;">
+                    <div style="width:${cat.percentage}%;height:100%;background:${cat.color || '#52C41A'};border-radius:3px;"></div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          <button class="life-action-btn ai-finance" data-require-ollama style="padding:8px 16px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            AI 财务分析
+          </button>
+          <button class="life-action-btn export-finance" style="padding:8px 16px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出账单
+          </button>
+        </div>
+      `;
+    },
+
+    async renderLifeAssistant() {
+      const tools = await LifeData.getAssistantTools();
+      const toolList = Array.isArray(tools) ? tools : [];
+
+      return `
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(toolList.length, 4)},1fr);gap:12px;margin-bottom:20px;">
+          ${toolList.map(tool => `
+            <div class="assistant-card" data-type="${tool.type}" style="background:var(--color-page-bg);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;">
+              <div style="font-size:24px;margin-bottom:8px;">${tool.icon}</div>
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;">${tool.title}</div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);">${tool.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="background:var(--color-page-bg);border-radius:10px;padding:16px;">
+          <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">AI 生活助手</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <button class="life-assist-btn" data-action="schedule" data-require-ollama style="padding:14px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;text-align:left;transition:all 0.2s;">
+              <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px;">智能日程安排</div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);">AI 帮你规划一天</div>
+            </button>
+            <button class="life-assist-btn" data-action="recipe" data-require-ollama style="padding:14px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;text-align:left;transition:all 0.2s;">
+              <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px;">营养配餐</div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);">健康饮食推荐</div>
+            </button>
+            <button class="life-assist-btn" data-action="budget" data-require-ollama style="padding:14px;border:1px solid var(--color-border-light);border-radius:8px;background:#fff;cursor:pointer;text-align:left;transition:all 0.2s;">
+              <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px;">省钱建议</div>
+              <div style="font-size:11px;color:var(--color-text-tertiary);">智能理财规划</div>
+            </button>
+          </div>
+        </div>
+      `;
+    },
+
+    bindTabEvents(tabName) {
+      const self = this;
+      // 待办清单事件 - 点击切换完成状态
+      document.querySelectorAll('.life-todo-item').forEach(item => {
+        if (item.dataset.bound) return;
+        item.dataset.bound = 'true';
+        item.addEventListener('click', async () => {
+          const id = item.dataset.id;
+          const status = item.dataset.status;
+          if (!id) return;
+
+          if (status === 'todo') {
+            // 待办 -> 进行中
+            const result = await LifeData.updateTodoStatus(id, 'in-progress');
+            if (result.success) {
+              YunxiAPI.showToast('已开始处理任务', 'success');
+              LifeData.cache.todos = null;
+              self.renderTabContent(self.currentTab);
+            }
+          } else if (status === 'in-progress') {
+            // 进行中 -> 完成
+            const result = await LifeData.updateTodoStatus(id, 'done');
+            if (result.success) {
+              YunxiAPI.showToast('任务已完成', 'success');
+              LifeData.cache.todos = null;
+              self.renderTabContent(self.currentTab);
+              // 更新概览
+              LifeData.cache.overview = null;
+              LifeRenderer.renderOverview();
+            }
+          } else if (status === 'done') {
+            YunxiAPI.showToast('该任务已完成', 'info');
+          }
+        });
+      });
+
+      // AI 生成待办
+      const aiGenBtn = document.querySelector('.ai-gen-todo');
+      if (aiGenBtn && !aiGenBtn.dataset.bound) {
+        aiGenBtn.dataset.bound = 'true';
+        aiGenBtn.addEventListener('click', async () => {
+          const validation = await YunxiAPI.validateSystem({ ollama: true });
+          if (!validation.pass) {
+            YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+            return;
+          }
+          const prompt = AIHelper.prompts.todo();
+          const result = await AIHelper.callAI(
+            prompt,
+            AIHelper.fallbacks.todo,
+            'AI 正在规划中...'
+          );
+          if (result.success) {
+            YunxiAPI.showToast('已为您生成今日智能规划', 'success');
+            console.log('[AI] 智能规划结果:', result.data);
+          }
+        });
+      }
+
+      // 手动添加待办
+      const addBtn = document.querySelector('.add-manual-todo');
+      if (addBtn && !addBtn.dataset.bound) {
+        addBtn.dataset.bound = 'true';
+        addBtn.addEventListener('click', async () => {
+          const title = prompt('请输入待办事项标题:');
+          if (!title || !title.trim()) return;
+          const result = await LifeData.addTodo({
+            title: title.trim(),
+            status: 'todo',
+            category: '生活'
+          });
+          if (result.success) {
+            YunxiAPI.showToast('待办添加成功', 'success');
+            LifeData.cache.todos = null;
+            self.renderTabContent(self.currentTab);
+          }
+        });
+      }
+
+      // 习惯卡片 - 打卡
+      document.querySelectorAll('.habit-card').forEach(card => {
+        if (card.dataset.bound) return;
+        card.dataset.bound = 'true';
+        card.addEventListener('click', async () => {
+          const habitId = card.dataset.habitId;
+          const habitName = card.dataset.habitName;
+          if (!habitId) return;
+
+          // 检查是否已打卡
+          const isDone = card.style.borderColor === 'rgb(82, 196, 26)' || card.style.borderColor === '#52C41A';
+          if (isDone) {
+            YunxiAPI.showToast(habitName + ' 今日已打卡', 'info');
+            return;
+          }
+
+          YunxiAPI.showLoading('打卡中...');
+          const result = await LifeData.checkinHabit(habitId);
+          YunxiAPI.hideLoading();
+
+          if (result.success) {
+            YunxiAPI.showToast(habitName + ' 打卡成功', 'success');
+            card.style.borderColor = '#52C41A';
+            // 更新 streak 显示
+            const streakEl = card.querySelector('div:nth-child(3)');
+            if (streakEl) {
+              const text = streakEl.textContent;
+              const match = text.match(/(\d+)/);
+              if (match) {
+                const newStreak = parseInt(match[1]) + 1;
+                streakEl.textContent = '连续 ' + newStreak + ' 天';
+              }
+            }
+            // 添加"已打卡"文字
+            const doneLabel = document.createElement('div');
+            doneLabel.style.cssText = 'font-size:11px;color:#52C41A;margin-top:4px;font-weight:500;';
+            doneLabel.textContent = '已打卡';
+            card.appendChild(doneLabel);
+            // 更新概览
+            LifeData.cache.overview = null;
+            LifeRenderer.renderOverview();
+          }
+        });
+      });
+
+      // AI 习惯建议
+      const aiHabitBtn = document.querySelector('.ai-habit-suggest');
+      if (aiHabitBtn && !aiHabitBtn.dataset.bound) {
+        aiHabitBtn.dataset.bound = 'true';
+        aiHabitBtn.addEventListener('click', async () => {
+          const validation = await YunxiAPI.validateSystem({ ollama: true });
+          if (!validation.pass) {
+            YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+            return;
+          }
+          const prompt = AIHelper.prompts.habit();
+          const result = await AIHelper.callAI(
+            prompt,
+            AIHelper.fallbacks.habit,
+            'AI 分析中...'
+          );
+          if (result.success) {
+            YunxiAPI.showToast('已生成个性化习惯建议', 'success');
+            console.log('[AI] 习惯建议结果:', result.data);
+          }
+        });
+      }
+
+      // 财务分类
+      document.querySelectorAll('.finance-cat-item').forEach(item => {
+        if (item.dataset.bound) return;
+        item.dataset.bound = 'true';
+        item.addEventListener('click', () => {
+          YunxiAPI.showToast('查看' + item.dataset.cat + '明细', 'info');
+        });
+      });
+
+      // AI 财务分析
+      const aiFinanceBtn = document.querySelector('.ai-finance');
+      if (aiFinanceBtn && !aiFinanceBtn.dataset.bound) {
+        aiFinanceBtn.dataset.bound = 'true';
+        aiFinanceBtn.addEventListener('click', async () => {
+          const validation = await YunxiAPI.validateSystem({ ollama: true });
+          if (!validation.pass) {
+            YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+            return;
+          }
+          const prompt = AIHelper.prompts.finance();
+          const result = await AIHelper.callAI(
+            prompt,
+            AIHelper.fallbacks.finance,
+            'AI 分析财务数据...'
+          );
+          if (result.success) {
+            YunxiAPI.showToast('财务分析报告已生成', 'success');
+            console.log('[AI] 财务分析结果:', result.data);
+          }
+        });
+      }
+
+      // 导出账单
+      const exportBtn = document.querySelector('.export-finance');
+      if (exportBtn && !exportBtn.dataset.bound) {
+        exportBtn.dataset.bound = 'true';
+        exportBtn.addEventListener('click', async () => {
+          const confirmed = await YunxiAPI.showConfirm('确定要导出本月账单吗？', '导出确认');
+          if (!confirmed) return;
+          YunxiAPI.showLoading('正在导出...');
+          setTimeout(() => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('账单导出成功', 'success');
+          }, 1000);
+        });
+      }
+
+      // 生活助手卡片
+      document.querySelectorAll('.assistant-card').forEach(card => {
+        if (card.dataset.bound) return;
+        card.dataset.bound = 'true';
+        card.addEventListener('click', () => {
+          const type = card.dataset.type;
+          const names = { weather: '天气查询', cook: '菜谱推荐', travel: '出行规划', health: '健康建议' };
+          YunxiAPI.showToast('打开' + (names[type] || type), 'info');
+        });
+      });
+
+      // 生活助手按钮
+      document.querySelectorAll('.life-assist-btn').forEach(btn => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.action;
+          const names = { schedule: '智能日程安排', recipe: '营养配餐', budget: '省钱建议' };
+          const validation = await YunxiAPI.validateSystem({ ollama: true });
+          if (!validation.pass) {
+            YunxiAPI.showToast('无法执行：' + validation.message, 'warning');
+            return;
+          }
+          const name = names[action] || '生活助手';
+          const prompt = AIHelper.prompts.lifeAssist(action);
+          const fallback = (AIHelper.fallbacks.lifeAssist && AIHelper.fallbacks.lifeAssist[action]) || (name + '完成');
+          const result = await AIHelper.callAI(
+            prompt,
+            fallback,
+            'AI 正在' + name + '...'
+          );
+          if (result.success) {
+            YunxiAPI.showToast(name + '完成', 'success');
+            console.log('[AI] ' + name + '结果:', result.data);
+          }
+        });
+      });
+    }
+  };
+
+  // ===== AI 调用辅助模块 =====
+  const AIHelper = {
+    /**
+     * 调用真实 LLM API，失败时使用降级方案
+     */
+    async callAI(prompt, fallback, loadingText) {
+      if (loadingText) {
+        YunxiAPI.showLoading(loadingText);
+      }
+      try {
+        const data = await YunxiAPI.request('POST', '/chat/send', {
+          body: { message: prompt, stream: false }
+        });
+        const response = data.response || fallback;
+        return { success: true, data: response, fromAPI: true };
+      } catch (error) {
+        console.warn('[AI] API 调用失败，使用降级方案:', error.message);
+        await new Promise(r => setTimeout(r, 500));
+        YunxiAPI.showToast('AI 服务暂时不可用，展示示例结果', 'warning');
+        return { success: true, data: fallback, fromAPI: false };
+      } finally {
+        if (loadingText) {
+          YunxiAPI.hideLoading();
+        }
+      }
+    },
+
+    // 生活管理模式 - 各功能的 prompt 构建
+    prompts: {
+      todo: () => {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('zh-CN');
+        return `请作为生活管理助手，为我生成今日（${dateStr}）的智能日程规划。
+要求：
+1. 合理安排一天的时间，从早上起床到晚上睡觉
+2. 包含工作/学习、运动、休息、娱乐等多个方面
+3. 留出弹性时间应对突发情况
+4. 注意劳逸结合，避免过度安排
+5. 给出具体的时间块和任务内容
+6. 兼顾效率和生活品质
+
+请输出详细的一日规划表。`;
+      },
+
+      habit: () => {
+        return `请作为习惯养成教练，为我生成个性化的习惯建议。
+要求：
+1. 分析常见的好习惯类别（健康、学习、效率、心理等）
+2. 推荐 5 个适合普通人培养的好习惯
+3. 每个习惯说明：怎么做、为什么、注意事项
+4. 给出习惯养成的方法和技巧
+5. 提供循序渐进的实施计划
+
+请给出实用、可操作的建议。`;
+      },
+
+      finance: () => {
+        return `请作为理财顾问，帮我生成一份个人财务分析报告。
+要求：
+1. 分析常见的消费结构和问题
+2. 给出储蓄建议和目标
+3. 推荐实用的记账和预算方法
+4. 提供省钱技巧和消费优化建议
+5. 给出长期理财规划方向
+6. 语言通俗易懂，避免专业术语
+
+请输出结构化的财务分析和建议。`;
+      },
+
+      lifeAssist: (action) => {
+        const templates = {
+          schedule: `请作为生活助手，帮我生成一份智能日程安排。
+要求：结合工作、生活、健康、娱乐等多方面，合理安排时间，确保高效而不疲惫。
+请输出具体的时间规划方案。`,
+          recipe: `请作为营养师，为我推荐一周营养配餐方案。
+要求：
+1. 早中晚三餐搭配合理
+2. 营养均衡（蛋白质、碳水、蔬菜、水果）
+3. 简单易做，食材常见
+4. 兼顾美味和健康
+5. 可以按周一到周日安排
+
+请输出详细的食谱方案。`,
+          budget: `请作为省钱小助手，帮我制定省钱建议。
+要求：
+1. 分析日常消费中的常见浪费
+2. 给出实用的省钱技巧
+3. 推荐预算管理方法
+4. 不降低生活品质的前提下节省开支
+5. 给出具体的行动建议
+
+请输出详细的省钱方案。`
+        };
+        return templates[action] || `请帮我完成生活管理相关的建议。`;
+      },
+
+      quickTodo: () => {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('zh-CN');
+        return `请作为高效生活助手，为我规划今日（${dateStr}）的核心任务。
+要求：
+1. 选出最重要的 3 件事
+2. 安排合理的时间段
+3. 留出休息和缓冲时间
+4. 兼顾工作和生活
+
+请输出简洁明了的今日规划。`;
+      },
+
+      aiSuggest: () => {
+        return `请作为生活教练，给我一些实用的生活建议。
+要求：
+1. 涵盖健康、效率、心理、人际关系等方面
+2. 建议要具体、可操作
+3. 温暖而有力量
+4. 适合日常践行
+
+请输出 5-8 条精选生活建议。`;
+      }
+    },
+
+    // 降级结果（模拟数据）
+    fallbacks: {
+      todo: '今日智能规划已生成：\n07:00 起床 + 晨间运动（30分钟）\n08:00 营养早餐\n09:00-12:00 高效工作/学习\n12:00-13:30 午餐 + 午休\n13:30-17:30 下午工作/学习\n17:30-18:30 运动/散步\n18:30-20:00 晚餐 + 休闲\n20:00-21:30 个人成长/阅读\n21:30-22:30 放松准备睡觉\n23:00 前入睡',
+      habit: '个性化习惯建议已生成：\n【推荐习惯】\n1. 早起喝一杯温水 - 促进新陈代谢\n2. 每天运动30分钟 - 保持身体健康\n3. 睡前阅读20分钟 - 提升知识积累\n4. 每日冥想5分钟 - 保持内心平静\n5. 每周复盘一次 - 持续进步\n【养成方法】21天习惯养成法，从小目标开始',
+      finance: '财务分析报告已生成：\n【消费分析】餐饮30%、交通10%、购物25%、娱乐15%、其他20%\n【储蓄建议】建议每月储蓄收入的20%\n【省钱技巧】\n1. 记账追踪每笔支出\n2. 购物前列清单，避免冲动消费\n3. 定期断舍离\n【长期规划】建立应急基金（3-6个月生活费）',
+      lifeAssist: {
+        schedule: '智能日程安排完成：已生成平衡工作与生活的一日规划。',
+        recipe: '营养配餐完成：已生成一周健康食谱，营养均衡、简单易做。',
+        budget: '省钱建议完成：已生成实用省钱方案，每月可节省约30%开支。'
+      },
+      quickTodo: '今日规划已生成：\n1.【上午】完成最重要的工作任务\n2.【下午】处理沟通和协调事项\n3.【晚上】运动 + 个人成长学习',
+      aiSuggest: '生活建议已生成：\n1. 每天保持7-8小时睡眠\n2. 多喝水，每天至少1500ml\n3. 每周至少运动3次\n4. 每天花10分钟整理环境\n5. 定期和朋友家人联系\n6. 留出独处和思考的时间\n7. 保持学习和成长的心态'
+    }
+  };
+
+  // ===== 右侧面板 - 模型选择 =====
+  const ModelSelector = {
+    init() {
+      document.querySelectorAll('.model-option').forEach(option => {
+        if (option.dataset.bound) return;
+        option.dataset.bound = 'true';
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.model-option').forEach(o => {
+            o.classList.remove('active');
+          });
+          option.classList.add('active');
+          const modelName = option.querySelector('.model-name').textContent;
+          YunxiAPI.showToast('已切换模型: ' + modelName, 'success');
+          YunxiAPI.updateButtonsBySystemStatus();
+        });
+      });
+    }
+  };
+
+  // ===== 右侧面板 - 快捷操作 =====
+  const QuickActions = {
+    init() {
+      document.querySelectorAll('.quick-action-btn').forEach(btn => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.action;
+          switch(action) {
+            case 'new-todo':
+              const validation1 = await YunxiAPI.validateSystem({ ollama: true });
+              if (!validation1.pass) {
+                YunxiAPI.showToast('无法执行：' + validation1.message, 'warning');
+                break;
+              }
+              const prompt1 = AIHelper.prompts.quickTodo();
+              const result1 = await AIHelper.callAI(
+                prompt1,
+                AIHelper.fallbacks.quickTodo,
+                'AI 智能规划中...'
+              );
+              if (result1.success) {
+                YunxiAPI.showToast('今日规划已生成', 'success');
+                console.log('[AI] 快速规划结果:', result1.data);
+              }
+              break;
+            case 'ai-suggest':
+              const validation2 = await YunxiAPI.validateSystem({ ollama: true });
+              if (!validation2.pass) {
+                YunxiAPI.showToast('无法执行：' + validation2.message, 'warning');
+                break;
+              }
+              const prompt2 = AIHelper.prompts.aiSuggest();
+              const result2 = await AIHelper.callAI(
+                prompt2,
+                AIHelper.fallbacks.aiSuggest,
+                'AI 思考中...'
+              );
+              if (result2.success) {
+                YunxiAPI.showToast('生活建议已生成', 'success');
+                console.log('[AI] 生活建议结果:', result2.data);
+              }
+              break;
+            case 'export':
+              const confirmed = await YunxiAPI.showConfirm('确定要导出生活数据吗？', '导出确认');
+              if (confirmed) {
+                YunxiAPI.showLoading('正在导出...');
+                setTimeout(() => {
+                  YunxiAPI.hideLoading();
+                  YunxiAPI.showToast('数据导出成功', 'success');
+                }, 1000);
+              }
+              break;
+            case 'settings':
+              YunxiAPI.showToast('偏好设置开发中...', 'info');
+              break;
+          }
+        });
+      });
+    }
+  };
+
+  // ===== 右侧面板 Tab 切换 =====
+  const RightPanelTabs = {
+    init() {
+      const rightPanel = document.querySelector('.right-panel');
+      if (!rightPanel) return;
+
+      // 保存原有内容
+      this.originalContent = rightPanel.innerHTML;
+
+      const tabContainer = document.createElement('div');
+      tabContainer.className = 'right-panel-tabs';
+      tabContainer.style.cssText = `
+        display: flex; gap: 2px; background: var(--color-page-bg);
+        border-radius: 8px; padding: 3px; margin-bottom: 12px;
+      `;
+
+      const tabs = [
+        { id: 'tools', name: '工具' },
+        { id: 'history', name: '记录' },
+        { id: 'settings', name: '设置' },
+      ];
+
+      tabs.forEach((tab, idx) => {
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'right-panel-tab' + (idx === 0 ? ' active' : '');
+        tabBtn.dataset.tab = tab.id;
+        tabBtn.textContent = tab.name;
+        tabBtn.style.cssText = `
+          flex: 1; padding: 6px 0; border: none; border-radius: 6px;
+          background: ${idx === 0 ? '#fff' : 'transparent'};
+          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+          color: ${idx === 0 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)'};
+        `;
+        tabBtn.addEventListener('click', () => {
+          document.querySelectorAll('.right-panel-tab').forEach(t => {
+            t.classList.remove('active');
+            t.style.color = 'var(--color-text-tertiary)';
+            t.style.background = 'transparent';
+          });
+          tabBtn.classList.add('active');
+          tabBtn.style.color = 'var(--color-primary-text)';
+          tabBtn.style.background = '#fff';
+          this.switchTab(tab.id);
+        });
+        tabContainer.appendChild(tabBtn);
+      });
+
+      rightPanel.insertBefore(tabContainer, rightPanel.firstChild);
+      this.rightPanel = rightPanel;
+    },
+
+    switchTab(tabId) {
+      const tabNames = { tools: '工具', history: '记录', settings: '设置' };
+      YunxiAPI.showToast('已切换到: ' + tabNames[tabId], 'info');
+    }
+  };
+
+  // ===== 对话操作（新建/清空/导出） =====
+  const ChatActions = {
+    init() {
+      // 绑定对话相关按钮
+    },
+
+    newChat() {
+      ChatManager.clearMessages();
+      YunxiAPI.showToast('已新建对话', 'success');
+    },
+
+    async clearChat() {
+      const confirmed = await YunxiAPI.showConfirm('确定要清空当前对话吗？', '清空对话');
+      if (confirmed) {
+        ChatManager.clearMessages();
+        YunxiAPI.showToast('对话已清空', 'success');
+      }
+    },
+
+    exportChat() {
+      const messages = ChatManager.getMessages();
+      if (messages.length === 0) {
+        YunxiAPI.showToast('暂无对话可导出', 'warning');
+        return;
+      }
+      const content = messages.map(m => `[${m.role}] ${m.content}`).join('\n\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'life-chat-' + new Date().toISOString().slice(0,10) + '.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      YunxiAPI.showToast('对话已导出', 'success');
+    }
+  };
+
+  // ===== 用户头像 & 状态 =====
+  const UserMenu = {
+    init() {
+      const avatar = document.querySelector('.sidebar-avatar, .nav-avatar, .user-avatar');
+      if (avatar) {
+        avatar.style.cursor = 'pointer';
+        avatar.addEventListener('click', () => {
+          YunxiAPI.showToast('用户菜单开发中...', 'info');
+        });
+      }
+
+      // 日程项点击
+      document.querySelectorAll('.week-day, .event-item, .schedule-item').forEach(item => {
+        if (item.dataset.bound) return;
+        item.dataset.bound = 'true';
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+          YunxiAPI.showToast('查看日程详情', 'info');
+        });
+      });
+
+      // 设备项点击
+      document.querySelectorAll('.device-item, [class*="device"]').forEach(item => {
+        if (item.dataset.bound) return;
+        item.dataset.bound = 'true';
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.toggle-switch')) return;
+          YunxiAPI.showToast('设备控制', 'info');
+        });
+      });
+    }
+  };
+
+  // ===== 顶部模式 Tab 增强 =====
+  const TopModeTabs = {
+    init() {
+      document.querySelectorAll('.mode-tab').forEach(tab => {
+        if (tab.dataset.bound) return;
+        tab.dataset.bound = 'true';
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const href = tab.getAttribute('href');
+          if (href && !href.includes('life-management.html')) {
+            YunxiAPI.withValidation({}, async () => {
+              window.location.href = href;
+              return true;
+            }, { loadingText: '切换模式中...' });
+          }
+        });
+      });
+    }
+  };
+
+  // ===== 初始化 =====
+  document.addEventListener('DOMContentLoaded', function() {
+    // 延迟初始化，确保 API 加载完成
+    setTimeout(async () => {
+      try {
+        ModeNav.init();
+        SidebarNav.init();
+        ChatManager.init();
+        LifeTabs.init();
+        ModelSelector.init();
+        QuickActions.init();
+        RightPanelTabs.init();
+        ChatActions.init();
+        UserMenu.init();
+        TopModeTabs.init();
+
+        // 加载所有后端数据并渲染
+        await LifeData.loadAll();
+        await LifeRenderer.renderAll();
+        // 重新渲染 LifeTabs 内容（使用真实数据）
+        await LifeTabs.renderTabContent(LifeTabs.currentTab);
+
+        // 同步按钮状态
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+          YunxiAPI.updateButtonsBySystemStatus();
+        }
+
+        // 定期同步状态
+        setInterval(() => {
+          if (typeof YunxiAPI !== 'undefined' && YunxiAPI.updateButtonsBySystemStatus) {
+            YunxiAPI.updateButtonsBySystemStatus();
+          }
+        }, 30000);
+      } catch (e) {
+        console.error('[LifeManagement] 初始化失败:', e);
+        // 静默错误处理
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+          YunxiAPI.showToast('初始化部分功能失败，请刷新页面', 'warning');
+        }
+      }
+    }, 100);
+  });
+  </script>
+</body>
+</html>

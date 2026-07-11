@@ -1,0 +1,237 @@
+"""
+M10 系统卫士 - 配置管理模块
+
+统一管理所有配置，支持环境变量覆盖。
+沙盒模式优先：默认使用模拟数据，不调用真实系统 API。
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+# ============================================================
+# 配置子模型
+# ============================================================
+
+class BasicConfig(BaseModel):
+    """基础配置."""
+    name: str = "m10-system-guard"
+    version: str = "1.0.0"
+    port: int = 8010
+    host: str = "0.0.0.0"
+    log_level: str = "info"
+    env: str = "development"
+
+
+class SandboxConfig(BaseModel):
+    """沙盒模式配置.
+
+    沙盒模式下所有系统数据使用模拟生成，不调用真实系统 API，
+    避免占用过多系统资源。
+    """
+    enabled: bool = False  # P2-26: 默认关闭沙盒，调用真实系统API
+    mock_cpu_range: tuple = (10.0, 60.0)
+    mock_memory_range: tuple = (30.0, 70.0)
+    mock_disk_range: tuple = (40.0, 80.0)
+    mock_network_speed_range: tuple = (0.5, 50.0)
+    mock_gpu_range: tuple = (5.0, 40.0)
+    mock_temperature_range: tuple = (40.0, 75.0)
+    mock_battery_range: tuple = (20.0, 100.0)
+    mock_process_count: int = 120
+    sample_interval_seconds: float = 1.0
+
+
+    # 真实 GPU 采集（非沙盒模式）
+    gpu_polling_interval_ms: int = 500  # GPU 轮询间隔（毫秒）
+    gpu_monitor_processes: bool = True  # 是否监控 GPU 进程
+    gpu_memory_warning_percent: float = 80.0  # 显存使用率告警阈值
+    gpu_temp_warning_celsius: float = 85.0  # GPU 温度告警阈值
+    gpu_power_warning_percent: float = 90.0  # 功耗告警阈值（占 power limit 比例）
+
+class GuardThresholdConfig(BaseModel):
+    """防护阈值配置.
+
+    分级拦截策略：提示/警告/严重/紧急 四级
+    """
+    cpu_info: float = 60.0
+    cpu_warning: float = 75.0
+    cpu_critical: float = 85.0
+    cpu_emergency: float = 95.0
+
+    memory_info: float = 65.0
+    memory_warning: float = 80.0
+    memory_critical: float = 90.0
+    memory_emergency: float = 95.0
+
+    temp_info: float = 60.0
+    temp_warning: float = 70.0
+    temp_critical: float = 80.0
+    temp_emergency: float = 90.0
+
+    disk_info: float = 70.0
+    disk_warning: float = 85.0
+    disk_critical: float = 92.0
+    disk_emergency: float = 98.0
+
+
+class ProcessConfig(BaseModel):
+    """进程管理配置."""
+    vscode_max_instances: int = 5
+    top_n_default: int = 10
+    yunxi_process_patterns: list = Field(default_factory=lambda: [
+        "yunxi", "m1-", "m2-", "m3-", "m4-", "m5-",
+        "m6-", "m7-", "m8-", "m9-", "m10-",
+        "trae", "agent", "python.*yunxi",
+    ])
+    vscode_process_patterns: list = Field(default_factory=lambda: [
+        "code", "vscode", "Code.exe", "code-insiders",
+    ])
+
+
+class StartupCheckConfig(BaseModel):
+    """启动安全检查配置."""
+    heavy_task_min_memory_free_percent: float = 20.0
+    heavy_task_max_cpu_percent: float = 70.0
+    heavy_task_max_temp: float = 75.0
+    heavy_task_max_same_process: int = 3
+
+
+class SandboxSchedulerConfig(BaseModel):
+    """沙箱任务调度配置."""
+    light_max_cpu: float = 80.0
+    light_max_memory: float = 85.0
+
+    normal_max_cpu: float = 70.0
+    normal_max_memory: float = 75.0
+
+    heavy_max_cpu: float = 60.0
+    heavy_max_memory: float = 65.0
+
+    super_heavy_max_cpu: float = 50.0
+    super_heavy_max_memory: float = 55.0
+
+    max_queue_size: int = 100
+    queue_check_interval: float = 2.0
+
+
+class AuditConfig(BaseModel):
+    """审计日志配置."""
+    log_dir: str = "./logs"
+    max_file_size_mb: int = 50
+    max_files: int = 10
+    retention_days: int = 30
+
+
+class ReportConfig(BaseModel):
+    """报告生成配置."""
+    report_dir: str = "./reports"
+    daily_report_time: str = "23:59"
+    weekly_report_day: int = 0
+
+
+class DataAggregationConfig(BaseModel):
+    """数据聚合配置."""
+    raw_retention_minutes: int = 60
+    minute_retention_hours: int = 24
+    hour_retention_days: int = 7
+    day_retention_days: int = 30
+
+
+# ============================================================
+# 主配置模型
+# ============================================================
+
+class M10Config(BaseModel):
+    """M10 系统卫士全局配置."""
+    basic: BasicConfig = Field(default_factory=BasicConfig)
+    sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
+    guard_threshold: GuardThresholdConfig = Field(default_factory=GuardThresholdConfig)
+    process: ProcessConfig = Field(default_factory=ProcessConfig)
+    startup_check: StartupCheckConfig = Field(default_factory=StartupCheckConfig)
+    sandbox_scheduler: SandboxSchedulerConfig = Field(default_factory=SandboxSchedulerConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
+    report: ReportConfig = Field(default_factory=ReportConfig)
+    data_aggregation: DataAggregationConfig = Field(default_factory=DataAggregationConfig)
+    cors_origins: str = "*"
+
+
+# ============================================================
+# 配置加载
+# ============================================================
+
+_config_instance = None
+
+
+def _apply_env_overrides(config):
+    """应用环境变量覆盖配置."""
+    if os.getenv("M10_PORT"):
+        config.basic.port = int(os.getenv("M10_PORT", "8010"))
+    if os.getenv("M10_HOST"):
+        config.basic.host = os.getenv("M10_HOST", "0.0.0.0")
+    if os.getenv("M10_LOG_LEVEL"):
+        config.basic.log_level = os.getenv("M10_LOG_LEVEL", "info")
+    if os.getenv("M10_ENV"):
+        config.basic.env = os.getenv("M10_ENV", "development")
+
+    sandbox_enabled = os.getenv("M10_SANDBOX_ENABLED", "").lower()
+    if sandbox_enabled in ("true", "1", "yes"):
+        config.sandbox.enabled = True
+    elif sandbox_enabled in ("false", "0", "no"):
+        config.sandbox.enabled = False
+
+    return config
+
+
+def load_config(config_path=None):
+    """加载配置.
+
+    优先级：
+    1. 指定的配置文件
+    2. 环境变量覆盖
+    3. 默认配置
+    """
+    global _config_instance
+
+    config_dict = {}
+
+    if config_path:
+        path = Path(config_path)
+        if path.exists():
+            try:
+                import yaml
+                with open(path, "r", encoding="utf-8") as f:
+                    config_dict = yaml.safe_load(f) or {}
+            except ImportError:
+                pass
+            except Exception:
+                pass
+
+    config = M10Config(**config_dict)
+    config = _apply_env_overrides(config)
+    _config_instance = config
+    return config
+
+
+def get_config():
+    """获取全局配置单例."""
+    global _config_instance
+    if _config_instance is None:
+        _config_instance = load_config()
+    return _config_instance
+
+
+def reload_config():
+    """重新加载配置."""
+    global _config_instance
+    _config_instance = None
+    return get_config()
+
+
+# 系统版本号（统一从 shared.version 导入）
+# from shared.version import SYSTEM_VERSION
+SYSTEM_VERSION = "0.4.0"  # 与 shared/version.py 保持同步

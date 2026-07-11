@@ -1,0 +1,55 @@
+# ============================================================
+# Ollama Modelfile 模板
+# 基于此模板创建自定义模型
+# 使用方法: ollama create <模型名> -f Modelfile.<名称>
+# ============================================================
+
+# 基础模型（必填）
+FROM qwen2.5:7b
+
+# 模型描述（可选）
+# DESCRIPTION 云汐系统定制的智能助手模型
+
+# 系统提示词（可选）
+# 定义模型的基础行为和人设
+SYSTEM """
+你是云汐智能助手，由云汐系统驱动。
+你的任务是协助用户高效完成各种任务。
+回答要求：
+1. 使用中文回复
+2. 准确、简洁、有条理
+3. 不确定的信息如实告知
+"""
+
+# 模型参数（可选，根据模型类型调整）
+# 温度：0=确定性输出，1=创造性输出
+PARAMETER temperature 0.7
+
+# 核采样
+PARAMETER top_p 0.9
+
+# 上下文窗口大小（token）
+PARAMETER num_ctx 32768
+
+# 最大生成 token 数
+PARAMETER num_predict 8192
+
+# 重复惩罚
+PARAMETER repeat_last_n 64
+PARAMETER repeat_penalty 1.1
+
+# 停止词
+# PARAMETER stop "<|im_end|>"
+# PARAMETER stop "<|endoftext|>"
+
+# 对话模板（可选，通常基础模型已包含）
+# 适用于 chatml 格式的模型
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}"""
+
+# 许可证信息（可选）
+# LICENSE MIT

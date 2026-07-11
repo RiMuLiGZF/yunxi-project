@@ -1,0 +1,43 @@
+{
+  "dialog_id": "dialog-002",
+  "dialog_name": "M10系统卫士开发对话",
+  "description": "M10系统卫士模块完整开发方案设计",
+  "created_at": "2026-07-08T10:00:00",
+  "updated_at": "2026-07-08T11:00:00",
+  "artifact_count": 2,
+  "modules": [
+    "M10"
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "artifact-003",
+      "name": "m10-integration-test-report",
+      "type": "report",
+      "module": "M10",
+      "path": "by-module/M10-system-guard/m10-integration-test-report.md",
+      "description": "M10系统卫士联调验收测试报告",
+      "tags": [
+        "M10",
+        "report",
+        "测试",
+        "验收"
+      ],
+      "added_at": "2026-07-08T10:45:00"
+    },
+    {
+      "artifact_id": "artifact-004",
+      "name": "m10-system-guard-dev-spec",
+      "type": "doc",
+      "module": "M10",
+      "path": "by-module/M10-system-guard/m10-system-guard-dev-spec.md",
+      "description": "M10系统卫士模块完整开发方案",
+      "tags": [
+        "M10",
+        "doc",
+        "开发方案",
+        "系统卫士"
+      ],
+      "added_at": "2026-07-08T10:15:00"
+    }
+  ]
+}

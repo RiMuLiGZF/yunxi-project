@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作流列表 - 积木编排平台</title>
+    <style id="theme-vars">
+/* ============================================
+   M7 积木编排平台 - Brand Design Tokens
+   Low-code visual workflow orchestration platform
+   Style: Clean modern, light theme, drag interaction, node-based editing
+   ============================================ */
+
+:root {
+  /* --- Brand Primary --- */
+  --brand-primary: #3b82f6;
+  --brand-primary-hover: #2563eb;
+  --brand-primary-active: #1d4ed8;
+  --brand-primary-light: #eff6ff;
+  --brand-primary-50: #eff6ff;
+  --brand-primary-100: #dbeafe;
+  --brand-primary-200: #bfdbfe;
+  --brand-primary-500: #3b82f6;
+  --brand-primary-600: #2563eb;
+  --brand-primary-700: #1d4ed8;
+
+  /* --- State Colors --- */
+  --state-success: #10b981;
+  --state-success-light: #d1fae5;
+  --state-warning: #f59e0b;
+  --state-warning-light: #fef3c7;
+  --state-error: #ef4444;
+  --state-error-light: #fee2e2;
+  --state-info: #8b5cf6;
+  --state-info-light: #ede9fe;
+
+  /* --- Node Type Colors --- */
+  --node-trigger: #10b981;
+  --node-ai: #8b5cf6;
+  --node-logic: #f59e0b;
+  --node-data: #06b6d4;
+  --node-tool: #6366f1;
+  --node-custom: #64748b;
+
+  /* --- Backgrounds & Surfaces --- */
+  --bg-body: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-surface-active: #e2e8f0;
+  --bg-canvas: #f1f5f9;
+  --bg-canvas-dots: #cbd5e1;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-sidebar: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-statusbar: #f8fafc;
+  --bg-input: #ffffff;
+  --bg-input-focus: #ffffff;
+
+  /* --- Text Colors --- */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+  --text-brand: #3b82f6;
+  --text-link: #3b82f6;
+  --text-placeholder: #94a3b8;
+
+  /* --- Borders --- */
+  --border-default: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-brand: #3b82f6;
+  --border-focus: #3b82f6;
+
+  /* --- Border Radius --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* --- Shadows (static: alpha <= 0.05) --- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.04), 0 4px 6px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 20px 25px rgba(0, 0, 0, 0.06), 0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-node: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-node-selected: 0 0 0 2px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.15);
+
+  /* --- Spacing Scale --- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Typography --- */
+  --font-sans: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+  --text-4xl: 30px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* --- Canvas Grid Dots --- */
+  --canvas-dot-color: #cbd5e1;
+  --canvas-dot-size: 1px;
+  --canvas-dot-gap: 20px;
+
+  /* --- Connection Lines --- */
+  --connection-color: #94a3b8;
+  --connection-selected: #3b82f6;
+  --connection-width: 2px;
+  --connection-selected-width: 3px;
+
+  /* --- Node Port --- */
+  --port-size: 10px;
+  --port-color: #94a3b8;
+  --port-hover: #3b82f6;
+  --port-connected: #3b82f6;
+
+  /* --- Transition --- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Typography Classes */
+.brand-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.brand-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.brand-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.brand-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+.brand-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+}
+
+.brand-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--brand-primary);
+  }
+  @layer base {
+    body { background: var(--brand-background); color: var(--brand-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <script src="../common/api.js"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+      <!-- M7 积木编排平台 - Shared Project Shell -->
+      <!-- NAV_SLOT:activeNavItem | PAGE_SLOT:pageTitle -->
+      <div id="app-shell" class="min-h-screen" style="background-color: var(--bg-body);">
+        <!-- Top Navbar -->
+        <nav class="sticky top-0 z-50 flex items-center justify-between px-6 h-14 border-b" style="background: var(--bg-surface); border-color: var(--border-default);">
+          <!-- Left: Logo -->
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--brand-primary);">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.7"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.7"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.5"/></svg>
+            </div>
+            <span class="font-semibold text-sm" style="color: var(--text-primary);">积木编排平台</span>
+          </div>
+
+          <!-- Center: Nav Links -->
+          <div class="flex items-center gap-1">
+            <a href="workflow-list.html" data-nav-key="workflows" data-dom-id="nav-workflows" data-active="true" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--brand-primary); background: var(--brand-primary-light);">工作流</a>
+            <a href="templates.html" data-nav-key="templates" data-dom-id="nav-templates" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--text-secondary);">模板库</a>
+            <a href="custom-blocks.html" data-nav-key="blocks" data-dom-id="nav-blocks" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--text-secondary);">我的积木</a>
+          </div>
+
+          <!-- Right: User -->
+          <div class="flex items-center gap-3">
+            <button class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style="background: var(--brand-primary-light); color: var(--brand-primary);">U</button>
+          </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div class="max-w-7xl mx-auto px-6 py-6">
+
+          <!-- Page Header / Toolbar -->
+          <div class="flex items-center justify-between gap-4 mb-6">
+            <h1 class="text-2xl font-semibold" style="color: var(--text-primary); text-wrap: balance; word-break: keep-all;">工作流列表</h1>
+            <div class="flex items-center gap-3 shrink-0">
+              <!-- Search Box -->
+              <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style="color: var(--text-tertiary);"></i>
+                <input type="text" placeholder="搜索工作流..." class="h-9 pl-9 pr-3 rounded-md text-sm border outline-none transition-colors" style="background: var(--bg-input); border-color: var(--border-default); color: var(--text-primary); width: 220px;" onfocus="this.style.borderColor='var(--border-focus)'; this.style.boxShadow='0 0 0 2px var(--brand-primary-light)';" onblur="this.style.borderColor='var(--border-default)'; this.style.boxShadow='none';">
+              </div>
+              <!-- Template Library Link -->
+              <a href="templates.html" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border transition-colors whitespace-nowrap" style="color: var(--text-secondary); border-color: var(--border-default);" onmouseover="this.style.background='var(--bg-surface-hover)';" onmouseout="this.style.background='transparent';">
+                <i data-lucide="layout-template" class="w-4 h-4"></i>
+                模板库
+              </a>
+              <!-- Primary CTA -->
+              <a href="workflow-editor.html" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-semibold whitespace-nowrap transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseover="this.style.background='var(--brand-primary-hover)';" onmouseout="this.style.background='var(--brand-primary)';">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                新建工作流
+              </a>
+            </div>
+          </div>
+
+          <!-- Filter Tabs -->
+          <div class="flex items-center gap-1 mb-6 pb-3 border-b" style="border-color: var(--border-default);">
+            <button class="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap" style="background: var(--brand-primary); color: var(--text-inverse);">全部</button>
+            <button class="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap" style="color: var(--text-secondary);">我的</button>
+            <button class="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap" style="color: var(--text-secondary);">最近编辑</button>
+            <button class="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap" style="color: var(--text-secondary);">已发布</button>
+            <button class="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap" style="color: var(--text-secondary);">模板</button>
+          </div>
+
+          <!-- Workflow Card Grid -->
+          <div id="workflow-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <!-- 卡片由 JS 动态渲染 -->
+          </div>
+
+          <!-- 空状态 -->
+          <div id="workflow-empty" class="hidden py-16 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: var(--bg-surface);">
+              <i data-lucide="folder-open" class="w-8 h-8" style="color: var(--text-tertiary);"></i>
+            </div>
+            <h3 class="text-base font-medium mb-2" style="color: var(--text-primary);">暂无工作流</h3>
+            <p class="text-sm mb-6" style="color: var(--text-tertiary);">点击右上角按钮创建你的第一个工作流</p>
+          </div>
+          <!-- End Card Grid -->
+
+        </div>
+        <!-- End Page Content -->
+      </div>
+    </main>
+    <script>lucide.createIcons();</script>
+    <script>
+    // 登录检查
+    if (!YunxiAPI.isLoggedIn()) {
+        YunxiAPI.redirectToLogin();
+    }
+
+    // ========== 状态数据 ==========
+    let workflows = []; // 工作流列表（从 API 获取）
+    let currentFilter = 'all'; // all, mine, recent, published, template
+    let searchKeyword = '';
+    let apiAvailable = true; // API 是否可用（失败时降级到模拟数据）
+
+    // 模拟数据（API 失败时降级）
+    const fallbackWorkflows = [
+        { id: 1, name: '客户咨询自动回复', status: 'draft', description: '基于AI智能识别客户意图，自动生成专业回复，支持多轮对话与知识库检索。', updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), category: 'AI工作流', blocks: [] },
+        { id: 2, name: '周报数据汇总', status: 'published', description: '自动采集多源数据，汇总生成周报图表与文字摘要，定时推送至团队群。', updated_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), category: '数据处理', blocks: [] },
+        { id: 3, name: '产品文档生成', status: 'published', description: '从需求文档与代码仓库自动提取关键信息，生成结构化的产品技术文档。', updated_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), category: '内容创作', blocks: [] },
+        { id: 4, name: '用户行为分析', status: 'draft', description: '追踪用户行为路径，通过多维数据分析识别关键转化节点与流失环节。', updated_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(), category: '数据分析', blocks: [] },
+        { id: 5, name: '邮件自动分类', status: 'published', description: '利用AI模型智能识别邮件主题与优先级，自动归类并分配至对应处理人。', updated_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(), category: '办公自动化', blocks: [] },
+        { id: 6, name: '代码审查助手', status: 'draft', description: '自动检测代码质量问题与潜在漏洞，生成审查报告并推送至开发者。', updated_at: new Date(Date.now() - 8 * 24 * 3600 * 1000).toISOString(), category: '开发工具', blocks: [] },
+    ];
+
+    // ========== 工具函数 ==========
+
+    // 格式化相对时间
+    function formatRelativeTime(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return '刚刚更新';
+        if (minutes < 60) return minutes + '分钟前更新';
+        if (hours < 24) return hours + '小时前更新';
+        if (days < 30) return days + '天前更新';
+        return date.toLocaleDateString('zh-CN');
+    }
+
+    // 状态标签文本
+    function getStatusText(status) {
+        const map = {
+            'draft': '草稿',
+            'published': '已发布',
+            'archived': '已归档',
+            'running': '运行中',
+        };
+        return map[status] || status;
+    }
+
+    // 状态标签样式
+    function getStatusStyle(status) {
+        const map = {
+            'draft': 'background: var(--state-warning-light); color: var(--state-warning);',
+            'published': 'background: var(--state-success-light); color: var(--state-success);',
+            'archived': 'background: var(--bg-surface-hover); color: var(--text-tertiary);',
+            'running': 'background: var(--brand-primary-light); color: var(--brand-primary);',
+        };
+        return map[status] || map['draft'];
+    }
+
+    // ========== API 调用 ==========
+
+    // 获取工作流列表
+    async function fetchWorkflows() {
+        try {
+            const params = new URLSearchParams();
+            params.set('limit', '100');
+            const data = await YunxiAPI.request('GET', '/workflows?' + params.toString());
+            workflows = Array.isArray(data) ? data : (data.items || data.list || []);
+            apiAvailable = true;
+        } catch (error) {
+            // 降级到模拟数据
+            console.warn('获取工作流列表失败，使用模拟数据:', error.message);
+            workflows = JSON.parse(JSON.stringify(fallbackWorkflows));
+            apiAvailable = false;
+            YunxiAPI.showToast('当前使用演示数据', 'warning');
+        }
+        renderWorkflows();
+    }
+
+    // 创建工作流
+    async function createWorkflowAPI(workflowData) {
+        if (!apiAvailable) {
+            // 模拟创建
+            const newWf = {
+                id: Date.now(),
+                name: workflowData.name || '新建工作流',
+                status: 'draft',
+                description: workflowData.description || '',
+                category: workflowData.category || '未分类',
+                blocks: workflowData.blocks || [],
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+            };
+            workflows.unshift(newWf);
+            return newWf;
+        }
+        return await YunxiAPI.request('POST', '/workflows', { body: workflowData });
+    }
+
+    // 删除工作流
+    async function deleteWorkflowAPI(id) {
+        if (!apiAvailable) {
+            workflows = workflows.filter(w => w.id !== id);
+            return true;
+        }
+        await YunxiAPI.request('DELETE', '/workflows/' + id);
+        workflows = workflows.filter(w => w.id !== id);
+        return true;
+    }
+
+    // 复制工作流
+    async function duplicateWorkflowAPI(id) {
+        if (!apiAvailable) {
+            const original = workflows.find(w => w.id === id);
+            if (!original) throw new Error('工作流不存在');
+            const newWf = {
+                ...JSON.parse(JSON.stringify(original)),
+                id: Date.now(),
+                name: original.name + ' (副本)',
+                status: 'draft',
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+            };
+            workflows.unshift(newWf);
+            return newWf;
+        }
+        const newWf = await YunxiAPI.request('POST', '/workflows/' + id + '/duplicate');
+        if (newWf && newWf.id) {
+            workflows.unshift(newWf);
+        }
+        return newWf;
+    }
+
+    // 运行工作流
+    async function runWorkflowAPI(id, inputData) {
+        return await YunxiAPI.request('POST', '/workflows/' + id + '/run', {
+            body: { input_data: inputData || {} }
+        });
+    }
+
+    // ========== 渲染 ==========
+
+    // 生成缩略图 SVG
+    function generateThumbnailSVG(wf) {
+        const blocks = wf.blocks || [];
+        const count = Math.min(blocks.length, 4);
+        const colors = ['var(--node-trigger)', 'var(--node-ai)', 'var(--node-logic)', 'var(--node-data)', 'var(--node-tool)'];
+
+        if (count === 0) {
+            // 默认缩略图：3 个节点
+            return `<svg width="200" height="80" viewBox="0 0 200 80" fill="none">
+                <line x1="40" y1="40" x2="80" y2="25" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="40" y1="40" x2="80" y2="55" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="100" y1="25" x2="140" y2="40" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="100" y1="55" x2="140" y2="40" stroke="#94a3b8" stroke-width="1.5"/>
+                <circle cx="30" cy="40" r="8" fill="#10b981"/>
+                <circle cx="90" cy="25" r="8" fill="#8b5cf6"/>
+                <circle cx="90" cy="55" r="8" fill="#f59e0b"/>
+                <circle cx="150" cy="40" r="8" fill="#06b6d4"/>
+            </svg>`;
+        }
+
+        // 根据 blocks 数量生成简单缩略图
+        let svg = '';
+        const positions = [
+            { x: 30, y: 40 },
+            { x: 90, y: 25 },
+            { x: 90, y: 55 },
+            { x: 150, y: 40 },
+        ];
+        const lines = [
+            [0, 1], [0, 2], [1, 3], [2, 3]
+        ];
+
+        for (let i = 0; i < count && i < positions.length; i++) {
+            for (let j = i + 1; j < count && j < positions.length; j++) {
+                const hasLine = lines.some(l =>
+                    (l[0] === i && l[1] === j) || (l[0] === j && l[1] === i)
+                );
+                if (hasLine) {
+                    svg += `<line x1="${positions[i].x + 10}" y1="${positions[i].y}" x2="${positions[j].x - 10}" y2="${positions[j].y}" stroke="#94a3b8" stroke-width="1.5"/>`;
+                }
+            }
+        }
+
+        for (let i = 0; i < count && i < positions.length; i++) {
+            svg += `<circle cx="${positions[i].x}" cy="${positions[i].y}" r="8" fill="${colors[i % colors.length]}"/>`;
+        }
+
+        return `<svg width="200" height="80" viewBox="0 0 200 80" fill="none">${svg}</svg>`;
+    }
+
+    // 渲染工作流卡片
+    function renderWorkflows() {
+        const grid = document.getElementById('workflow-grid');
+        const empty = document.getElementById('workflow-empty');
+        if (!grid) return;
+
+        const filtered = getFilteredWorkflows();
+
+        if (filtered.length === 0) {
+            grid.innerHTML = '';
+            if (empty) empty.classList.remove('hidden');
+            return;
+        }
+
+        if (empty) empty.classList.add('hidden');
+
+        grid.innerHTML = filtered.map(wf => `
+            <div class="group rounded-lg border transition-all" data-id="${wf.id}"
+                 style="background: var(--bg-surface); border-color: var(--border-default);"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';"
+                 onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                <div class="relative h-36 rounded-t-lg overflow-hidden" style="background: var(--bg-canvas);">
+                    <div class="absolute inset-0" style="background-image: radial-gradient(var(--bg-canvas-dots) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        ${generateThumbnailSVG(wf)}
+                    </div>
+                    <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--bg-surface); box-shadow: var(--shadow-sm);" title="编辑" data-action="edit">
+                            <i data-lucide="pencil" class="w-3.5 h-3.5" style="color: var(--text-secondary);"></i>
+                        </button>
+                        <button class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--bg-surface); box-shadow: var(--shadow-sm);" title="运行" data-action="run" data-require-ollama="true">
+                            <i data-lucide="play" class="w-3.5 h-3.5" style="color: var(--text-secondary);"></i>
+                        </button>
+                        <button class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--bg-surface); box-shadow: var(--shadow-sm);" title="复制" data-action="duplicate">
+                            <i data-lucide="copy" class="w-3.5 h-3.5" style="color: var(--text-secondary);"></i>
+                        </button>
+                        <button class="w-7 h-7 rounded flex items-center justify-center" style="background: var(--bg-surface); box-shadow: var(--shadow-sm);" title="删除" data-action="delete">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5" style="color: var(--state-error);"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">${wf.name || '未命名工作流'}</h3>
+                        <span class="inline-flex items-center justify-center h-5 px-2 rounded text-xs font-medium whitespace-nowrap shrink-0" style="${getStatusStyle(wf.status)}">${getStatusText(wf.status)}</span>
+                    </div>
+                    <p class="text-xs line-clamp-2 mb-3" style="color: var(--text-secondary); line-height: 1.6;">${wf.description || '暂无描述'}</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs" style="color: var(--text-tertiary);">${formatRelativeTime(wf.updated_at)}</span>
+                        <span class="text-xs" style="color: var(--text-tertiary);">${wf.category || '未分类'}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // 重新渲染图标
+        if (window.lucide) lucide.createIcons();
+
+        // 绑定卡片事件
+        bindCardEvents();
+    }
+
+    // 获取筛选后的工作流
+    function getFilteredWorkflows() {
+        return workflows.filter(wf => {
+            let show = true;
+
+            // 搜索过滤
+            if (searchKeyword) {
+                const kw = searchKeyword.toLowerCase();
+                const name = (wf.name || '').toLowerCase();
+                const desc = (wf.description || '').toLowerCase();
+                const cat = (wf.category || '').toLowerCase();
+                show = name.includes(kw) || desc.includes(kw) || cat.includes(kw);
+            }
+
+            // 状态/分类过滤
+            if (show && currentFilter !== 'all') {
+                switch (currentFilter) {
+                    case 'mine':
+                        show = true; // 全部都是我的
+                        break;
+                    case 'recent':
+                        // 最近 7 天更新的
+                        const sevenDaysAgo = Date.now() - 7 * 24 * 3600 * 1000;
+                        show = wf.updated_at && new Date(wf.updated_at).getTime() > sevenDaysAgo;
+                        break;
+                    case 'published':
+                        show = wf.status === 'published';
+                        break;
+                    case 'template':
+                        show = wf.is_template === true;
+                        break;
+                    default:
+                        show = true;
+                }
+            }
+
+            return show;
+        });
+    }
+
+    // ========== 操作函数 ==========
+
+    // 新建工作流
+    function createWorkflow() {
+        YunxiAPI.showLoading('正在创建工作流...');
+        createWorkflowAPI({
+            name: '新建工作流',
+            description: '',
+            category: '未分类',
+            blocks: [],
+            status: 'draft',
+        }).then(newWf => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('工作流创建成功', 'success');
+            setTimeout(() => {
+                window.location.href = 'workflow-editor.html?id=' + newWf.id;
+            }, 300);
+        }).catch(error => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('创建失败：' + error.message, 'error');
+        });
+    }
+
+    // 编辑工作流
+    function editWorkflow(id) {
+        window.location.href = 'workflow-editor.html?id=' + id;
+    }
+
+    // 运行工作流
+    function runWorkflow(id, name) {
+        YunxiAPI.withValidation(
+            { ollama: true },
+            async () => {
+                if (apiAvailable) {
+                    YunxiAPI.showLoading('正在启动工作流...');
+                    try {
+                        await runWorkflowAPI(id);
+                        YunxiAPI.hideLoading();
+                        YunxiAPI.showToast('工作流已启动：' + name, 'success');
+                    } catch (e) {
+                        YunxiAPI.hideLoading();
+                        YunxiAPI.showToast('启动失败：' + e.message, 'error');
+                        return;
+                    }
+                } else {
+                    YunxiAPI.showLoading('正在启动工作流...');
+                    await new Promise(r => setTimeout(r, 800));
+                    YunxiAPI.hideLoading();
+                    YunxiAPI.showToast('工作流已启动：' + name, 'success');
+                }
+                setTimeout(() => {
+                    window.location.href = 'run-debug.html?workflow_id=' + id;
+                }, 300);
+            },
+            { loadingText: '检查运行环境...' }
+        );
+    }
+
+    // 复制工作流
+    function duplicateWorkflow(id, name) {
+        YunxiAPI.showLoading('正在复制工作流...');
+        duplicateWorkflowAPI(id).then(newWf => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('已复制工作流：' + name, 'success');
+            renderWorkflows();
+        }).catch(error => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('复制失败：' + error.message, 'error');
+        });
+    }
+
+    // 删除工作流
+    function deleteWorkflow(id, name, cardEl) {
+        YunxiAPI.showConfirm('确定要删除工作流「' + name + '」吗？删除后无法恢复。', '删除确认').then(confirmed => {
+            if (!confirmed) return;
+            YunxiAPI.showLoading('正在删除...');
+            deleteWorkflowAPI(id).then(() => {
+                YunxiAPI.hideLoading();
+                if (cardEl) {
+                    cardEl.style.opacity = '0';
+                    cardEl.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        renderWorkflows();
+                        YunxiAPI.showToast('工作流已删除', 'success');
+                    }, 200);
+                } else {
+                    renderWorkflows();
+                    YunxiAPI.showToast('工作流已删除', 'success');
+                }
+            }).catch(error => {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('删除失败：' + error.message, 'error');
+            });
+        });
+    }
+
+    // 导入工作流
+    function importWorkflow() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,.yaml,.yml';
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    let workflowData;
+                    if (file.name.endsWith('.json')) {
+                        workflowData = JSON.parse(event.target.result);
+                    } else {
+                        // YAML 简单处理，直接作为描述
+                        workflowData = {
+                            name: file.name.replace(/\.(json|yaml|yml)$/i, ''),
+                            description: '从文件导入的工作流',
+                            blocks: [],
+                            category: '导入',
+                            status: 'draft',
+                        };
+                    }
+
+                    YunxiAPI.showLoading('正在导入工作流...');
+                    createWorkflowAPI(workflowData).then(newWf => {
+                        YunxiAPI.hideLoading();
+                        YunxiAPI.showToast('导入成功：' + file.name, 'success');
+                        renderWorkflows();
+                    }).catch(error => {
+                        YunxiAPI.hideLoading();
+                        YunxiAPI.showToast('导入失败：' + error.message, 'error');
+                    });
+                } catch (err) {
+                    YunxiAPI.showToast('文件解析失败：' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    // ========== 事件绑定 ==========
+
+    function bindFilterTabs() {
+        const filterBtns = document.querySelectorAll('.flex.items-center.gap-1.mb-6.pb-3.border-b button');
+        const labels = ['all', 'mine', 'recent', 'published', 'template'];
+        filterBtns.forEach((btn, index) => {
+            btn.addEventListener('click', function() {
+                filterBtns.forEach(b => {
+                    b.style.background = 'transparent';
+                    b.style.color = 'var(--text-secondary)';
+                });
+                this.style.background = 'var(--brand-primary)';
+                this.style.color = 'var(--text-inverse)';
+
+                currentFilter = labels[index] || 'all';
+                renderWorkflows();
+            });
+        });
+    }
+
+    function bindSearch() {
+        const searchInput = document.querySelector('input[placeholder="搜索工作流..."]');
+        if (!searchInput) return;
+
+        let searchTimer = null;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            const val = this.value;
+            searchTimer = setTimeout(() => {
+                searchKeyword = val.trim();
+                renderWorkflows();
+            }, 200);
+        });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                searchKeyword = this.value.trim();
+                renderWorkflows();
+            }
+        });
+    }
+
+    function bindCreateButton() {
+        const createBtn = document.querySelector('a[href="workflow-editor.html"]');
+        if (createBtn && createBtn.textContent.includes('新建工作流')) {
+            createBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                createWorkflow();
+            });
+        }
+    }
+
+    function bindTemplateLink() {
+        const tplLink = document.querySelector('a[href="templates.html"]');
+        if (tplLink) {
+            tplLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = 'templates.html';
+            });
+        }
+    }
+
+    function bindCardEvents() {
+        const cards = document.querySelectorAll('#workflow-grid .group');
+        cards.forEach(card => {
+            const id = card.getAttribute('data-id');
+            const wf = workflows.find(w => String(w.id) === String(id));
+            if (!wf) return;
+
+            // 卡片整体点击 -> 编辑
+            card.addEventListener('click', function(e) {
+                const actionBtn = e.target.closest('button');
+                if (actionBtn) {
+                    e.stopPropagation();
+                    const action = actionBtn.getAttribute('data-action');
+                    handleCardAction(action, wf, card);
+                    return;
+                }
+                editWorkflow(wf.id);
+            });
+        });
+    }
+
+    function handleCardAction(action, wf, cardEl) {
+        switch (action) {
+            case 'edit':
+                editWorkflow(wf.id);
+                break;
+            case 'run':
+                runWorkflow(wf.id, wf.name);
+                break;
+            case 'duplicate':
+                duplicateWorkflow(wf.id, wf.name);
+                break;
+            case 'delete':
+                deleteWorkflow(wf.id, wf.name, cardEl);
+                break;
+            default:
+                break;
+        }
+    }
+
+    // ========== 初始化 ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        bindFilterTabs();
+        bindSearch();
+        bindCreateButton();
+        bindTemplateLink();
+
+        // 更新用户头像
+        const user = YunxiAPI.getCurrentUser();
+        if (user) {
+            const userBtn = document.querySelector('button.rounded-full');
+            if (userBtn && user.username) {
+                userBtn.textContent = user.username.charAt(0).toUpperCase();
+            }
+        }
+
+        // 加载工作流列表
+        fetchWorkflows();
+
+        // 触发按钮状态同步
+        YunxiAPI.updateButtonsBySystemStatus();
+    });
+    </script>
+</body>
+</html>

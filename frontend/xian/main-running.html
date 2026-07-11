@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+  --color-primary: var(--color-tide-cyan);
+  --color-foreground: var(--color-text-primary);
+  --color-surface: rgba(10, 22, 40, 0.85);
+  --color-muted: var(--color-text-muted);
+  --color-border: rgba(0, 212, 255, 0.2);
+}
+</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汐舷 · 任务运行中</title>
+  <style id="theme-vars">
+/* ========================================
+   汐舷 Xian — 品牌设计系统
+   M8 云汐管理工作台 / 监控中心
+   ======================================== */
+
+:root {
+  /* === 深海蓝渐变背景 === */
+  --color-tide-deep: #0a1628;
+  --color-tide-mid: #0d2137;
+  --color-tide-light: #1a3a5c;
+
+  /* === 潮汐青色（主色） === */
+  --color-tide-cyan: #00d4ff;
+  --color-tide-cyan-glow: rgba(0, 212, 255, 0.6);
+  --color-tide-cyan-soft: rgba(0, 212, 255, 0.15);
+
+  /* === 辅助色 === */
+  --color-tide-purple: #7c3aed;
+  --color-tide-green: #10b981;
+  --color-tide-amber: #f59e0b;
+  --color-tide-red: #ef4444;
+  --color-tide-gray: #64748b;
+
+  /* === 状态色 === */
+  --state-running: #00d4ff;
+  --state-running-glow: rgba(0, 212, 255, 0.6);
+  --state-success: #10b981;
+  --state-success-glow: rgba(16, 185, 129, 0.5);
+  --state-pending: #64748b;
+  --state-pending-glow: rgba(100, 116, 139, 0.3);
+  --state-error: #ef4444;
+  --state-error-glow: rgba(239, 68, 68, 0.6);
+  --state-confirm: #f59e0b;
+  --state-confirm-glow: rgba(245, 158, 11, 0.6);
+
+  /* === 文字色 === */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* === 表面色 === */
+  --color-surface-header: rgba(10, 22, 40, 0.85);
+  --color-surface-sidebar: rgba(10, 22, 40, 0.7);
+  --color-surface-panel: rgba(10, 22, 40, 0.9);
+  --color-surface-card: rgba(10, 22, 40, 0.8);
+  --color-surface-overlay: rgba(10, 22, 40, 0.9);
+
+  /* === 边框色 === */
+  --color-border-cyan: rgba(0, 212, 255, 0.2);
+  --color-border-cyan-strong: rgba(0, 212, 255, 0.3);
+  --color-border-subtle: rgba(0, 212, 255, 0.1);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+
+  /* === 间距系统 === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* === 圆角 === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* === 动效曲线 === */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-gentle: cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* === 动画时长 === */
+  --duration-micro: 0.15s;
+  --duration-short: 0.2s;
+  --duration-medium: 0.3s;
+  --duration-panel: 0.4s;
+  --duration-state: 0.5s;
+  --duration-flow: 0.8s;
+}
+
+/* === 背景渐变 === */
+body {
+  background: linear-gradient(180deg, #1a3a5c 0%, #0d2137 50%, #0a1628 100%);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* === 排版 === */
+.xian-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.xian-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.xian-body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.xian-caption {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.xian-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* === 毛玻璃效果 === */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-header);
+  border-bottom: 1px solid var(--color-border-cyan);
+}
+
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-panel);
+  border-top: 1px solid var(--color-border-cyan);
+}
+
+.glass-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-cyan);
+}
+
+/* === 状态动画 === */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes breathe-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--state-running-glow); }
+  50% { box-shadow: 0 0 40px var(--state-running-glow); }
+}
+
+@keyframes flicker-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-15px) translateX(8px); }
+  50% { transform: translateY(-5px) translateX(-12px); }
+  75% { transform: translateY(-20px) translateX(5px); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ripple-out {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(3); opacity: 0; }
+}
+
+@keyframes energy-flow {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* === 滚动条 === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.4);
+}
+
+  </style>
+  <style type="text/tailwindcss">
+  @layer base {
+    body { background: var(--color-surface); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+
+    <main>
+      <!-- Floating Particles Background -->
+      <div class="particles-layer">
+        <div class="particle" style="left:5%;top:12%;animation-delay:0s;animation-duration:35s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:12%;top:45%;animation-delay:-5s;animation-duration:40s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:18%;top:78%;animation-delay:-10s;animation-duration:32s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:25%;top:20%;animation-delay:-3s;animation-duration:38s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:32%;top:60%;animation-delay:-8s;animation-duration:45s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:38%;top:35%;animation-delay:-15s;animation-duration:30s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:45%;top:85%;animation-delay:-2s;animation-duration:42s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:52%;top:15%;animation-delay:-7s;animation-duration:36s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:58%;top:55%;animation-delay:-12s;animation-duration:33s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:65%;top:28%;animation-delay:-4s;animation-duration:39s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:72%;top:70%;animation-delay:-9s;animation-duration:44s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:78%;top:42%;animation-delay:-14s;animation-duration:31s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:85%;top:90%;animation-delay:-6s;animation-duration:37s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:90%;top:18%;animation-delay:-11s;animation-duration:34s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:8%;top:55%;animation-delay:-16s;animation-duration:41s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:15%;top:92%;animation-delay:-1s;animation-duration:35s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:22%;top:8%;animation-delay:-13s;animation-duration:38s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:35%;top:48%;animation-delay:-6s;animation-duration:43s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:42%;top:72%;animation-delay:-10s;animation-duration:32s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:55%;top:38%;animation-delay:-3s;animation-duration:40s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:62%;top:82%;animation-delay:-17s;animation-duration:36s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:68%;top:10%;animation-delay:-8s;animation-duration:45s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:75%;top:58%;animation-delay:-5s;animation-duration:33s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:82%;top:32%;animation-delay:-12s;animation-duration:39s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:88%;top:65%;animation-delay:-2s;animation-duration:34s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:95%;top:48%;animation-delay:-9s;animation-duration:42s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:3%;top:88%;animation-delay:-14s;animation-duration:37s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:48%;top:5%;animation-delay:-7s;animation-duration:44s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:30%;top:25%;animation-delay:-11s;animation-duration:31s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:70%;top:95%;animation-delay:-4s;animation-duration:38s;width:2px;height:2px;"></div>
+        <div class="particle" style="left:50%;top:50%;animation-delay:-15s;animation-duration:35s;width:3px;height:3px;"></div>
+        <div class="particle" style="left:40%;top:15%;animation-delay:-1s;animation-duration:41s;width:1px;height:1px;"></div>
+        <div class="particle" style="left:60%;top:75%;animation-delay:-8s;animation-duration:36s;width:2px;height:2px;"></div>
+      </div>
+
+      <!-- CSS Grid Layout Container -->
+      <div class="dashboard-grid">
+
+        <!-- ====== 1. TASK HEADER (top, 72px) ====== -->
+        <header class="task-header">
+          <div class="header-left">
+            <svg class="target-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-tide-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+            <span class="xian-title">智能文档生成</span>
+            <span class="xian-subtitle" style="margin-left:8px;">M4场景引擎驱动 · 多Agent协作</span>
+          </div>
+          <div class="header-center">
+            <div class="progress-track">
+              <div class="progress-fill" style="width:45%;"></div>
+            </div>
+            <span class="progress-text xian-mono">45% — 代码生成中…</span>
+          </div>
+          <div class="header-right">
+            <span class="time-display xian-mono">02:30 / 05:00</span>
+            <button class="header-btn" aria-label="暂停">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-text-secondary)" stroke="none">
+                <rect x="6" y="4" width="4" height="16" rx="1"/>
+                <rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+            </button>
+            <button class="header-btn btn-cancel" aria-label="取消">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-tide-red)" stroke="none">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="var(--color-tide-red)" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18" y1="6" x2="6" y2="18" stroke="var(--color-tide-red)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="header-btn" aria-label="更多">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-text-secondary)" stroke="none">
+                <circle cx="12" cy="5" r="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="12" cy="19" r="2"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- ====== 2. LEFT HISTORY SIDEBAR (260px) ====== -->
+        <aside class="history-sidebar">
+          <div class="sidebar-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" stroke-linecap="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" placeholder="搜索历史任务..." class="sidebar-search-input">
+          </div>
+
+          <div class="sidebar-scroll">
+            <!-- 进行中 section -->
+            <div class="history-section">
+              <div class="history-section-label">进行中</div>
+              <!-- Active card -->
+              <div class="history-card active-card">
+                <div class="card-left-bar cyan-bar"></div>
+                <div class="card-status-dot cyan-dot breathing-dot"></div>
+                <div class="card-info">
+                  <div class="card-title">智能文档生成</div>
+                  <div class="card-meta xian-mono">02:30</div>
+                </div>
+              </div>
+              <!-- Queued card -->
+              <div class="history-card queued-card">
+                <div class="card-left-bar gray-bar"></div>
+                <div class="card-status-dot gray-dot"></div>
+                <div class="card-info">
+                  <div class="card-title">数据分析报告</div>
+                  <div class="card-meta xian-mono">--:--</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 今天完成 section -->
+            <div class="history-section">
+              <div class="history-section-label">今天完成</div>
+              <div class="history-card completed-card">
+                <div class="card-left-bar green-bar"></div>
+                <div class="card-status-dot green-check">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-tide-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-title">API接口重构</div>
+                  <div class="card-meta xian-mono">15:42</div>
+                </div>
+              </div>
+              <div class="history-card completed-card">
+                <div class="card-left-bar green-bar"></div>
+                <div class="card-status-dot green-check">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-tide-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-title">测试用例生成</div>
+                  <div class="card-meta xian-mono">12:18</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 昨天 section -->
+            <div class="history-section">
+              <div class="history-section-label">昨天</div>
+              <div class="history-card completed-card">
+                <div class="card-left-bar green-bar"></div>
+                <div class="card-status-dot green-check">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-tide-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-title">代码审查</div>
+                  <div class="card-meta xian-mono">昨天</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- ====== 3. CENTRAL TIDE STAGE ====== -->
+        <section class="tide-stage">
+
+          <!-- Tide Vortex -->
+          <div class="vortex-container">
+            <div class="vortex-ring vortex-outer"></div>
+            <div class="vortex-ring vortex-middle"></div>
+            <div class="vortex-ring vortex-inner">
+              <div class="vortex-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-tide-cyan)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="10" rx="2"/>
+                  <circle cx="12" cy="5" r="2"/>
+                  <path d="M12 7v4"/>
+                  <path d="M8 16h0"/>
+                  <path d="M16 16h0"/>
+                </svg>
+                <span class="vortex-label">调度中</span>
+              </div>
+            </div>
+            <!-- Outer glow pulse -->
+            <div class="vortex-glow-pulse"></div>
+          </div>
+
+          <!-- 6 Orbiting Module Nodes -->
+          <div class="orbit-nodes">
+            <!-- 0deg top: M5 Memory -->
+            <div class="orbit-node node-active" style="transform: translate(-50%, -50%) translateY(-220px);">
+              <div class="node-circle">
+                <span class="node-icon">🧠</span>
+              </div>
+              <span class="node-label">M5 记忆系统</span>
+            </div>
+            <!-- 60deg top-right: M4 Scene -->
+            <div class="orbit-node node-active" style="transform: translate(-50%, -50%) translateY(-110px) translateX(190px);">
+              <div class="node-circle">
+                <span class="node-icon">🎨</span>
+              </div>
+              <span class="node-label">M4 场景引擎</span>
+            </div>
+            <!-- 120deg bottom-right: M2 Skills -->
+            <div class="orbit-node node-busy" style="transform: translate(-50%, -50%) translateY(110px) translateX(190px);">
+              <div class="node-circle">
+                <span class="node-icon">⚡</span>
+              </div>
+              <span class="node-label">M2 技能集群</span>
+            </div>
+            <!-- 180deg bottom: Tool/API -->
+            <div class="orbit-node node-idle" style="transform: translate(-50%, -50%) translateY(220px);">
+              <div class="node-circle">
+                <span class="node-icon" style="filter:grayscale(0.5) opacity(0.5);">🔧</span>
+              </div>
+              <span class="node-label">工具/外部API</span>
+            </div>
+            <!-- 240deg bottom-left: M7 Blocks -->
+            <div class="orbit-node node-idle" style="transform: translate(-50%, -50%) translateY(110px) translateX(-190px);">
+              <div class="node-circle">
+                <span class="node-icon" style="filter:grayscale(0.5) opacity(0.5);">🧩</span>
+              </div>
+              <span class="node-label">M7 积木平台</span>
+            </div>
+            <!-- 300deg top-left: M6 Hardware -->
+            <div class="orbit-node node-idle" style="transform: translate(-50%, -50%) translateY(-110px) translateX(-190px);">
+              <div class="node-circle">
+                <span class="node-icon" style="filter:grayscale(0.5) opacity(0.5);">⌚</span>
+              </div>
+              <span class="node-label">M6 硬件外设</span>
+            </div>
+          </div>
+
+          <!-- Energy Flows -->
+          <svg class="energy-paths" viewBox="-250 -250 500 500" width="100%" height="100%">
+            <path id="energy-path-1" d="M 0,-220 Q 80,-100 0,0" fill="none" stroke="none"/>
+            <path id="energy-path-2" d="M 190,110 Q 80,60 0,0" fill="none" stroke="none"/>
+            <path id="energy-path-3" d="M -190,110 Q -80,60 0,0" fill="none" stroke="none"/>
+          </svg>
+          <div class="energy-dot" style="offset-path:path('M 0,-220 Q 80,-100 0,0');animation-delay:0s;"></div>
+          <div class="energy-dot" style="offset-path:path('M 190,110 Q 80,60 0,0');animation-delay:-1.5s;"></div>
+          <div class="energy-dot" style="offset-path:path('M -190,110 Q -80,60 0,0');animation-delay:-3s;"></div>
+
+          <!-- Agent Workflow Overlay -->
+          <div class="agent-workflow-overlay glass-overlay">
+            <div class="workflow-title xian-subtitle">Agent 工作流</div>
+            <div class="workflow-nodes">
+              <div class="workflow-node completed">
+                <span class="wf-node-label">调度</span>
+                <div class="wf-node-bar bar-green"></div>
+              </div>
+              <div class="workflow-connector completed-line"></div>
+              <div class="workflow-node in-progress">
+                <span class="wf-node-label">生成</span>
+                <div class="wf-node-bar bar-cyan bar-pulse"></div>
+              </div>
+              <div class="workflow-connector"></div>
+              <div class="workflow-node waiting">
+                <span class="wf-node-label">审核</span>
+                <div class="wf-node-bar bar-gray"></div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ====== 4. BOTTOM DETAIL PANEL (200px) ====== -->
+        <div class="bottom-panel glass-panel">
+          <div class="panel-drag-handle"></div>
+          <div class="panel-tabs">
+            <button id="tab-steps" class="panel-tab active-tab" data-tab="steps">步骤详情</button>
+            <button id="tab-calls" class="panel-tab" data-tab="calls">调用记录</button>
+            <button id="tab-logs" class="panel-tab" data-tab="logs">日志</button>
+            <button id="tab-perf" class="panel-tab" data-tab="perf">性能</button>
+          </div>
+          <div class="panel-content">
+            <!-- Left: Step detail -->
+            <div class="panel-left">
+              <div class="step-card">
+                <div class="step-indicator">
+                  <div class="step-dot cyan-dot breathing-dot"></div>
+                  <span class="step-label xian-title">步骤 3/5: 代码生成</span>
+                </div>
+                <div class="step-meta">
+                  <span class="xian-subtitle">Agent: <span style="color:var(--color-tide-cyan);">M2 技能集群</span></span>
+                  <span class="xian-mono" style="color:var(--color-text-muted);">已用 02:30 · 预计剩余 02:30</span>
+                </div>
+                <div class="step-desc xian-body">
+                  正在根据场景规范生成项目代码文件，包含模块结构定义、接口实现、类型声明和单元测试模板。
+                </div>
+              </div>
+            </div>
+            <!-- Right: Input/Output -->
+            <div class="panel-right">
+              <div class="io-card">
+                <div class="io-label xian-subtitle">输入</div>
+                <div class="io-tags">
+                  <span class="io-tag">场景上下文 2.3KB</span>
+                  <span class="io-tag">记忆片段 1.1KB</span>
+                </div>
+              </div>
+              <div class="io-card">
+                <div class="io-label xian-subtitle">输出</div>
+                <div class="io-output xian-body">
+                  <span class="io-generating">
+                    <span class="io-pulse-dot cyan-dot breathing-dot" style="width:6px;height:6px;"></span>
+                    生成中...
+                  </span>
+                  <span class="io-meta xian-mono">0/4 文件</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== 5. PORTHOLE FRAME ====== -->
+        <div class="porthole-frame">
+          <div class="porthole-vignette"></div>
+          <div class="rivet rivet-tl"></div>
+          <div class="rivet rivet-tr"></div>
+          <div class="rivet rivet-bl"></div>
+          <div class="rivet rivet-br"></div>
+        </div>
+
+      </div>
+    </main>
+    
+    <!-- Xian Main API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        // 状态常量
+        var STATUS_RUNNING = 'running';
+        var STATUS_COMPLETED = 'completed';
+        var STATUS_FAILED = 'failed';
+        var STATUS_PENDING = 'pending';
+
+        // 当前任务列表
+        var currentTasks = [];
+        var selectedTaskId = null;
+        var refreshTimer = null;
+
+        // ====== 工具函数 ======
+
+        function formatDuration(seconds) {
+            if (!seconds || seconds < 0) return '00:00';
+            var mins = Math.floor(seconds / 60);
+            var secs = Math.floor(seconds % 60);
+            return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case STATUS_RUNNING: return 'running-card';
+                case STATUS_COMPLETED: return 'completed-card';
+                case STATUS_FAILED: return 'error-card';
+                case STATUS_PENDING: return 'queued-card';
+                default: return 'queued-card';
+            }
+        }
+
+        function getStatusText(status) {
+            switch (status) {
+                case STATUS_RUNNING: return '运行中';
+                case STATUS_COMPLETED: return '已完成';
+                case STATUS_FAILED: return '失败';
+                case STATUS_PENDING: return '排队中';
+                default: return status;
+            }
+        }
+
+        // ====== 渲染任务列表 ======
+
+        function renderTaskList(tasks) {
+            var sidebar = document.querySelector('.history-sidebar, .task-sidebar, [class*="sidebar"]');
+            if (!sidebar) {
+                // 尝试查找历史记录容器
+                sidebar = document.querySelector('[class*="history"]');
+            }
+            if (!sidebar || tasks.length === 0) return;
+
+            // 找到历史卡片容器
+            var cardContainer = sidebar.querySelector('.history-card') ? sidebar.querySelector('.history-card').parentElement : null;
+            if (!cardContainer) return;
+
+            // 清空现有卡片（保留第一个作为模板参考，但这里直接重写）
+            var existingCards = sidebar.querySelectorAll('.history-card');
+            existingCards.forEach(function(card) {
+                card.remove();
+            });
+
+            // 渲染新卡片
+            tasks.forEach(function(task) {
+                var card = createTaskCard(task);
+                cardContainer.appendChild(card);
+            });
+        }
+
+        function createTaskCard(task) {
+            var card = document.createElement('div');
+            card.className = 'history-card ' + getStatusClass(task.status);
+            card.setAttribute('data-task-id', task.id || task.task_id);
+
+            if (task.id == selectedTaskId) {
+                card.classList.add('active-card');
+            }
+
+            var statusDot = document.createElement('div');
+            statusDot.className = 'history-card__status-dot';
+
+            var content = document.createElement('div');
+            content.className = 'history-card__content';
+
+            var title = document.createElement('div');
+            title.className = 'history-card__title';
+            title.textContent = task.title || task.name || '未命名任务';
+
+            var meta = document.createElement('div');
+            meta.className = 'history-card__meta';
+            meta.textContent = getStatusText(task.status) + ' · ' + formatDuration(task.elapsed_seconds || 0);
+
+            content.appendChild(title);
+            content.appendChild(meta);
+            card.appendChild(statusDot);
+            card.appendChild(content);
+
+            // 点击选中
+            card.addEventListener('click', function() {
+                selectedTaskId = task.id || task.task_id;
+                updateSelectedCard();
+                updateMainArea(task);
+            });
+
+            // 双击跳转到详情
+            card.addEventListener('dblclick', function() {
+                goToTaskDetail(task.id || task.task_id);
+            });
+
+            return card;
+        }
+
+        function updateSelectedCard() {
+            var cards = document.querySelectorAll('.history-card');
+            cards.forEach(function(card) {
+                var taskId = card.getAttribute('data-task-id');
+                if (taskId == selectedTaskId) {
+                    card.classList.add('active-card');
+                } else {
+                    card.classList.remove('active-card');
+                }
+            });
+        }
+
+        // ====== 更新主区域 ======
+
+        function updateMainArea(task) {
+            // 更新任务标题
+            var titleEl = document.querySelector('.task-header .xian-title, .task-title, [class*="task-header"] .xian-title');
+            if (titleEl) {
+                titleEl.textContent = task.title || task.name || '未命名任务';
+            }
+
+            // 更新状态
+            var statusEl = document.querySelector('.task-status, .status-badge, [class*="status"]');
+            if (statusEl) {
+                statusEl.textContent = getStatusText(task.status);
+            }
+
+            // 更新时间显示
+            var timeDisplay = document.querySelector('.time-display, [class*="time"]');
+            if (timeDisplay && timeDisplay.classList.contains('xian-mono')) {
+                var elapsed = task.elapsed_seconds || 0;
+                var estimated = task.estimated_seconds || 0;
+                var elapsedStr = formatDuration(elapsed);
+                var estimatedStr = estimated > 0 ? formatDuration(estimated) : '--:--';
+                timeDisplay.textContent = elapsedStr + ' / ' + estimatedStr;
+            }
+        }
+
+        // ====== 数据获取 ======
+
+        async function fetchTasks() {
+            try {
+                var data = await YunxiAPI.listTasks({ limit: 50 });
+                var tasks = data.tasks || data.list || data || [];
+                currentTasks = Array.isArray(tasks) ? tasks : [];
+
+                // 如果没有选中的任务，默认选中第一个运行中的任务
+                if (!selectedTaskId && currentTasks.length > 0) {
+                    var firstRunning = currentTasks.find(function(t) { return t.status === STATUS_RUNNING; });
+                    if (firstRunning) {
+                        selectedTaskId = firstRunning.id;
+                        updateMainArea(firstRunning);
+                    } else if (currentTasks.length > 0) {
+                        selectedTaskId = currentTasks[0].id;
+                        updateMainArea(currentTasks[0]);
+                    }
+                } else if (selectedTaskId) {
+                    // 更新当前选中任务的信息
+                    var currentTask = currentTasks.find(function(t) { return t.id == selectedTaskId; });
+                    if (currentTask) {
+                        updateMainArea(currentTask);
+                    }
+                }
+
+                renderTaskList(currentTasks);
+            } catch (error) {
+                console.error('[Xian] 获取任务列表失败:', error);
+                YunxiAPI.showToast('获取任务列表失败: ' + error.message, 'error');
+            }
+        }
+
+        // ====== 定时刷新 ======
+
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(fetchTasks, 30000);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+        }
+
+        // ====== 任务详情跳转 ======
+
+        function goToTaskDetail(taskId) {
+            if (!taskId) return;
+            location.href = 'detail-steps.html?task_id=' + taskId;
+        }
+
+        // ====== 初始化 ======
+
+        function init() {
+            // 检查登录状态
+            if (!YunxiAPI.isLoggedIn()) {
+                YunxiAPI.redirectToLogin();
+                return;
+            }
+
+            // 获取URL参数中的task_id
+            var urlParams = new URLSearchParams(location.search);
+            var urlTaskId = urlParams.get('task_id');
+            if (urlTaskId) {
+                selectedTaskId = urlTaskId;
+            }
+
+            // 首次加载任务列表
+            fetchTasks();
+
+            // 启动定时刷新
+            startAutoRefresh();
+
+            // 页面隐藏时停止刷新，显示时恢复
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    stopAutoRefresh();
+                } else {
+                    fetchTasks();
+                    startAutoRefresh();
+                }
+            });
+
+            // 点击任务标题跳转到详情页
+            var titleEl = document.querySelector('.task-header .xian-title, .task-title');
+            if (titleEl) {
+                titleEl.style.cursor = 'pointer';
+                titleEl.addEventListener('click', function() {
+                    if (selectedTaskId) {
+                        goToTaskDetail(selectedTaskId);
+                    }
+                });
+            }
+        }
+
+        // DOM 加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+
+
+    <script>lucide.createIcons();</script>
+
+<style>
+/* ==========================================
+   PAGE-SPECIFIC: main-running.html
+   深海潮汐监控面板 — Task Running State
+   ========================================== */
+
+/* === GRID LAYOUT === */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  grid-template-rows: 72px 1fr 200px;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* === PARTICLES === */
+.particles-layer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--color-tide-cyan);
+  opacity: 0.2;
+  animation: float-particle var(--duration-flow, 8s) ease-in-out infinite;
+}
+@keyframes float-particle-page {
+  0%   { transform: translateY(0) translateX(0); opacity: 0.15; }
+  25%  { transform: translateY(-30px) translateX(15px); opacity: 0.35; }
+  50%  { transform: translateY(-10px) translateX(-20px); opacity: 0.2; }
+  75%  { transform: translateY(-40px) translateX(10px); opacity: 0.4; }
+  100% { transform: translateY(0) translateX(0); opacity: 0.15; }
+}
+.particle { animation-name: float-particle-page; }
+
+/* === HEADER === */
+.task-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-header);
+  border-bottom: 1px solid var(--color-border-cyan);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.target-icon { flex-shrink: 0; }
+.header-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.progress-track {
+  width: 100%;
+  max-width: 400px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--color-tide-cyan), var(--color-tide-purple));
+  transition: width 0.5s var(--ease-standard);
+}
+.progress-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.time-display {
+  font-size: 14px;
+  color: var(--color-tide-cyan);
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.header-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-standard);
+}
+.header-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.header-btn.btn-cancel { border-color: rgba(239, 68, 68, 0.3); }
+
+/* === SIDEBAR === */
+.history-sidebar {
+  grid-column: 1;
+  grid-row: 2 / 4;
+  background: var(--color-surface-sidebar);
+  border-right: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  overflow: hidden;
+}
+.sidebar-search {
+  height: 48px;
+  margin: 8px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.sidebar-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  width: 100%;
+  font-family: inherit;
+}
+.sidebar-search-input::placeholder { color: var(--color-text-muted); }
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+.history-section { margin-bottom: 4px; }
+.history-section-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 8px 4px;
+}
+.history-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-standard);
+  position: relative;
+}
+.history-card:hover { background: rgba(255, 255, 255, 0.03); }
+.card-left-bar {
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+.cyan-bar { background: var(--color-tide-cyan); }
+.green-bar { background: var(--color-tide-green); }
+.gray-bar { background: var(--color-tide-gray); }
+.card-status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cyan-dot { background: var(--color-tide-cyan); }
+.gray-dot { background: var(--color-tide-gray); }
+.green-check { flex-shrink: 0; }
+.breathing-dot { animation: breathe 2s ease-in-out infinite; }
+.card-info { display: flex; flex-direction: column; gap: 2px; }
+.card-title { font-size: 13px; color: var(--color-text-primary); font-weight: 500; }
+.card-meta { font-size: 11px; color: var(--color-text-muted); }
+.active-card { background: rgba(0, 212, 255, 0.05); }
+
+/* === TIDE STAGE === */
+.tide-stage {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Vortex */
+.vortex-container {
+  position: relative;
+  width: 280px; height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vortex-ring {
+  position: absolute;
+  border-radius: 50%;
+}
+.vortex-outer {
+  width: 280px; height: 280px;
+  border: 2px dashed rgba(0, 212, 255, 0.2);
+  animation: spin-cw 20s linear infinite;
+}
+.vortex-middle {
+  width: 200px; height: 200px;
+  border: 2px solid rgba(0, 212, 255, 0.3);
+  animation: spin-ccw 15s linear infinite;
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
+}
+.vortex-inner {
+  width: 120px; height: 120px;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.2) 0%, rgba(0, 212, 255, 0.05) 60%, transparent 100%);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  animation: spin-cw 10s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vortex-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.vortex-label {
+  font-size: 14px;
+  color: var(--color-tide-cyan);
+  font-weight: 500;
+  animation: breathe 2s ease-in-out infinite;
+}
+.vortex-glow-pulse {
+  position: absolute;
+  width: 280px; height: 280px;
+  border-radius: 50%;
+  animation: vortex-glow 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes vortex-glow {
+  0%, 100% { box-shadow: 0 0 40px rgba(0, 212, 255, 0.1); }
+  50% { box-shadow: 0 0 80px rgba(0, 212, 255, 0.25); }
+}
+
+/* Orbit Nodes */
+.orbit-nodes {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  pointer-events: none;
+}
+.orbit-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.node-circle {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: transform 0.2s var(--ease-standard), box-shadow 0.2s var(--ease-standard);
+}
+.node-icon { line-height: 1; }
+.node-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* Active */
+.node-active .node-circle {
+  border: 2px solid var(--color-tide-cyan);
+  background: rgba(0, 212, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  animation: node-breathe 2.5s ease-in-out infinite;
+}
+.node-active .node-label { color: var(--color-tide-cyan); }
+@keyframes node-breathe {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 212, 255, 0.25); transform: scale(1); }
+  50% { box-shadow: 0 0 30px rgba(0, 212, 255, 0.45); transform: scale(1.04); }
+}
+/* Busy */
+.node-busy .node-circle {
+  border: 2px solid var(--color-tide-cyan);
+  background: rgba(0, 212, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  animation: node-busy-pulse 1.2s ease-in-out infinite;
+}
+.node-busy .node-label { color: var(--color-tide-cyan); }
+@keyframes node-busy-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); transform: scale(1); }
+  50% { box-shadow: 0 0 35px rgba(0, 212, 255, 0.5); transform: scale(1.06); }
+}
+/* Idle */
+.node-idle .node-circle {
+  border: 1px solid var(--color-border-default);
+  background: rgba(255, 255, 255, 0.02);
+}
+.node-idle .node-label { color: var(--color-text-muted); }
+
+/* Energy Flows */
+.energy-paths {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  width: 500px; height: 500px;
+}
+.energy-dot {
+  position: absolute;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--color-tide-cyan);
+  box-shadow: 0 0 8px var(--color-tide-cyan-glow);
+  top: 50%; left: 50%;
+  offset-rotate: 0deg;
+  animation: energy-flow-anim 3s linear infinite;
+  pointer-events: none;
+}
+@keyframes energy-flow-anim {
+  0%   { offset-distance: 0%; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Agent Workflow Overlay */
+.agent-workflow-overlay {
+  position: absolute;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  z-index: 8;
+  pointer-events: auto;
+}
+.workflow-title {
+  margin-bottom: 10px;
+  text-align: center;
+}
+.workflow-nodes {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+.workflow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.wf-node-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.wf-node-bar {
+  width: 40px; height: 3px;
+  border-radius: 2px;
+}
+.bar-green { background: var(--color-tide-green); }
+.bar-cyan { background: var(--color-tide-cyan); }
+.bar-cyan.bar-pulse { animation: bar-pulse 1.5s ease-in-out infinite; }
+.bar-gray { background: var(--color-tide-gray); }
+@keyframes bar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.workflow-connector {
+  width: 32px; height: 3px;
+  margin-bottom: 0;
+  background: var(--color-tide-gray);
+  opacity: 0.4;
+  border-radius: 2px;
+}
+.completed-line { background: var(--color-tide-green); opacity: 0.6; }
+
+/* === BOTTOM PANEL === */
+.bottom-panel {
+  grid-column: 2;
+  grid-row: 3;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.panel-drag-handle {
+  width: 48px; height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  margin: 6px auto 8px;
+  flex-shrink: 0;
+}
+.panel-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.panel-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s var(--ease-standard), border-color 0.15s var(--ease-standard);
+  font-family: inherit;
+}
+.panel-tab:hover { color: var(--color-text-secondary); }
+.panel-tab.active-tab {
+  color: var(--color-tide-cyan);
+  border-bottom-color: var(--color-tide-cyan);
+}
+.panel-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+/* Step Card */
+.step-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.step-dot.cyan-dot { background: var(--color-tide-cyan); }
+.step-meta {
+  display: flex;
+  gap: 12px;
+}
+.step-desc {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* IO Cards */
+.io-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.io-label {
+  margin-bottom: 6px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.io-tags {
+  display: flex;
+  gap: 6px;
+}
+.io-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--color-tide-cyan);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 11px;
+}
+.io-output {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.io-generating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+.io-pulse-dot {
+  flex-shrink: 0;
+}
+.io-meta {
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* === PORTHOLE FRAME === */
+.porthole-frame {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 100;
+}
+.porthole-vignette {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+}
+.rivet {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.15), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.rivet-tl { top: 16px; left: 16px; }
+.rivet-tr { top: 16px; right: 16px; }
+.rivet-bl { bottom: 16px; left: 16px; }
+.rivet-br { bottom: 16px; right: 16px; }
+
+/* === UTILITY: no-scrollbar (preserved from infrastructure) === */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  background-color: currentColor;
+}
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+
+</body>
+</html>

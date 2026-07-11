@@ -1,0 +1,1268 @@
+﻿<!DOCTYPE html>
+<html  lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模块管理 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* Light mode glass override */
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+/* ── Typography Scale Classes ── */
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen" style="background: var(--color-bg-gradient); background-attachment: fixed; color: var(--color-text-primary); font-family: var(--font-family-base);">
+
+  <!-- Layout Shell: Sidebar + Main -->
+  <div class="flex min-h-screen">
+
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="shrink-0 flex flex-col border-r" style="width: var(--sidebar-width); background: var(--sidebar-bg); border-color: var(--color-border-default);">
+      <!-- Logo -->
+      <div class="flex items-center gap-3 px-5 py-4 border-b" style="border-color: var(--color-border-subtle);">
+        <div class="flex items-center justify-center shrink-0" style="width: 32px; height: 32px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));">
+          <span class="font-bold text-white" style="font-size: var(--text-sm);">M8</span>
+        </div>
+        <span class="font-semibold truncate" style="font-size: var(--text-base); color: var(--color-text-primary);">云汐管理台</span>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex flex-col gap-1 px-3 pt-4 pb-2">
+        <a href="dashboard.html" data-dom-id="nav-dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="layout-dashboard" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>总览</span>
+        </a>
+
+        <a href="tasks.html" data-dom-id="nav-tasks-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="check-square" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>任务中心</span>
+        </a>
+
+        <a href="modules.html" data-dom-id="nav-modules-active" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="background-color: rgba(59, 130, 246, 0.12); color: var(--color-primary); font-size: var(--text-sm);">
+          <i data-lucide="blocks" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span class="font-medium">模块管理</span>
+        </a>
+
+        <a href="deploy.html" data-dom-id="nav-deploy" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="rocket" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>部署管理</span>
+        </a>
+
+        <a href="monitor.html" data-dom-id="nav-monitor-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="activity" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>系统监控</span>
+        </a>
+
+        <a href="agents.html" data-dom-id="nav-agents-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="bot" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>Agent 中心</span>
+        </a>
+
+        <a href="compute.html" data-dom-id="nav-compute-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="cpu" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>算力调度</span>
+        </a>
+
+        <a href="settings.html" data-dom-id="nav-settings-hidden" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 truncate" style="color: var(--color-text-secondary); font-size: var(--text-sm);">
+          <i data-lucide="settings" class="shrink-0" style="width: 18px; height: 18px;"></i>
+          <span>系统设置</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="mt-auto px-3 pb-4 pt-2 border-t" style="border-color: var(--color-border-subtle);">
+        <div class="flex items-center gap-3 px-3 py-2">
+          <div class="flex items-center justify-center shrink-0 rounded-full" style="width: 32px; height: 32px; background-color: rgba(59, 130, 246, 0.15); color: var(--color-primary); font-size: var(--text-xs); font-weight: 600;">A</div>
+          <div class="flex-1 min-w-0">
+            <p class="truncate" style="font-size: var(--text-sm); color: var(--color-text-primary);">管理员</p>
+            <p class="truncate" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">admin@m8.ai</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== MAIN AREA ========== -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <!-- HEADER -->
+      <header class="flex items-center justify-between shrink-0 px-6 border-b" style="height: var(--header-height); background: var(--header-bg); backdrop-filter: blur(12px); border-color: var(--color-border-default);">
+        <div class="flex items-center gap-3">
+          <h1 class="font-semibold" style="font-size: var(--text-lg); color: var(--color-text-primary);">模块管理</h1>
+          <span id="module-count-badge" class="px-2 py-0.5 rounded-md text-caption whitespace-nowrap" style="background-color: rgba(59, 130, 246, 0.1); color: var(--color-primary); font-size: var(--text-xs);">加载中...</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <!-- Search -->
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg" style="background-color: var(--color-bg-base); border: 1px solid var(--color-border-default);">
+            <i data-lucide="search" class="shrink-0" style="width: 14px; height: 14px; color: var(--color-text-tertiary);"></i>
+            <input type="text" placeholder="搜索模块..." class="bg-transparent border-none outline-none" style="font-size: var(--text-sm); color: var(--color-text-primary); width: 160px;">
+          </div>
+          <!-- Refresh -->
+          <button class="flex items-center justify-center rounded-lg transition-colors" style="width: 34px; height: 34px; background-color: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary);" title="刷新">
+            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+          </button>
+          <!-- Notification -->
+                    <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+            <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+          </button>
+          <button class="flex items-center justify-center rounded-lg transition-colors relative" style="width: 34px; height: 34px; background-color: var(--color-bg-base); border: 1px solid var(--color-border-default); color: var(--color-text-secondary);" title="通知">
+            <i data-lucide="bell" style="width: 14px; height: 14px;"></i>
+            <span class="absolute -top-0.5 -right-0.5 rounded-full" style="width: 8px; height: 8px; background-color: var(--state-error); border: 2px solid var(--color-bg-elevated);"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN CONTENT -->
+      <main class="flex-1 overflow-auto p-6">
+        <div class="flex gap-6" style="max-width: var(--content-max-width);">
+
+          <!-- LEFT: Module Cards Grid -->
+          <div class="flex-1 min-w-0">
+            <!-- Title Area -->
+            <div class="mb-6">
+              <h2 class="font-semibold" style="font-size: var(--text-2xl); color: var(--color-text-primary); text-wrap: balance; word-break: keep-all; overflow-wrap: break-word;">模块管理</h2>
+              <p class="mt-1" style="font-size: var(--text-sm); color: var(--color-text-secondary);">管理8大核心模块的运行状态</p>
+            </div>
+
+            <!-- Module Cards Grid (Dynamic) -->
+            <div id="module-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <!-- 模块卡片将由 JS 动态渲染 -->
+            </div>
+            <!-- End Module Cards Grid -->
+          </div>
+
+          <!-- ========== RIGHT: Module Detail Slide-Out Panel ========== -->
+          <aside id="detail-panel" class="shrink-0 w-[340px] rounded-xl p-5" style="background-color: var(--color-bg-card); border: 1px solid var(--color-border-default); box-shadow: var(--shadow-lg);">
+
+            <!-- Panel Header -->
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="font-semibold truncate" style="font-size: var(--text-lg); color: var(--color-text-primary);">模块详情</h3>
+              <button id="detail-close-btn" class="flex items-center justify-center rounded-lg" style="width: 28px; height: 28px; color: var(--color-text-tertiary);" title="关闭">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+              </button>
+            </div>
+
+            <!-- Module Identity (Dynamic) -->
+            <div id="detail-identity" class="flex items-center gap-3 mb-5 pb-5 border-b" style="border-color: var(--color-border-default);">
+              <!-- 由 JS 动态填充 -->
+            </div>
+
+            <!-- Key Info Grid (Dynamic) -->
+            <div id="detail-info-grid" class="grid grid-cols-2 gap-3 mb-5">
+              <!-- 由 JS 动态填充 -->
+            </div>
+
+            <!-- Module-Specific Detail Section (M1/M2 专属内容) -->
+            <div id="detail-module-specific" class="mb-5">
+              <!-- 由 JS 动态填充：M1 Agent 列表 / M2 技能列表 / 通用描述 -->
+            </div>
+
+            <!-- Description -->
+            <div id="detail-description" class="mb-5">
+              <h4 class="font-medium mb-2" style="font-size: var(--text-sm); color: var(--color-text-primary);">模块说明</h4>
+              <p id="detail-desc-text" style="font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.6;"></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-2 pt-4 border-t" style="border-color: var(--color-border-default);">
+              <button id="btn-start" class="flex items-center justify-center gap-2 py-2 rounded-lg font-medium transition-colors brand-gradient-bg" style="font-size: var(--text-sm); color: #ffffff; border-radius: var(--radius-md);">
+                <i data-lucide="play" style="width: 14px; height: 14px;"></i>
+                <span>启动</span>
+              </button>
+              <div class="flex gap-2">
+                <button id="btn-stop" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors" style="font-size: var(--text-sm); background-color: var(--color-bg-base); color: var(--color-text-secondary); border: 1px solid var(--color-border-default); border-radius: var(--radius-md);">
+                  <i data-lucide="square" style="width: 14px; height: 14px;"></i>
+                  <span>停止</span>
+                </button>
+                <button id="btn-restart" class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors" style="font-size: var(--text-sm); background-color: var(--color-bg-base); color: var(--color-text-secondary); border: 1px solid var(--color-border-default); border-radius: var(--radius-md);">
+                  <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
+                  <span>重启</span>
+                </button>
+              </div>
+              <button id="btn-config" class="flex items-center justify-center gap-2 py-2 rounded-lg transition-colors" style="font-size: var(--text-sm); background-color: var(--color-bg-base); color: var(--color-text-secondary); border: 1px solid var(--color-border-default); border-radius: var(--radius-md);">
+                <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+                <span>配置</span>
+              </button>
+            </div>
+
+          </aside>
+          <!-- End Detail Panel -->
+
+        </div>
+      </main>
+
+    </div>
+    <!-- End Main Area -->
+
+  </div>
+  <!-- End Layout Shell -->
+
+  
+    <!-- Page API Integration -->
+    <script src="../common/api.js"></script>
+    <script>
+    // ============================================================
+    // 模块管理页面 - 动态数据版
+    // ============================================================
+
+    var currentModuleKey = null;     // 当前选中的模块 key
+    var modulesCache = [];            // 模块数据缓存
+    var m1AgentsCache = null;         // M1 Agent 缓存
+    var m2SkillsCache = null;         // M2 技能缓存
+    var m2CategoriesCache = null;     // M2 分类缓存
+
+    // 模块主题色配置（用于卡片图标渐变）
+    var MODULE_THEMES = {
+        'm1': { from: 'rgba(59,130,246,0.2)', to: 'rgba(6,182,212,0.2)', color: 'var(--color-primary)' },
+        'm2': { from: 'rgba(16,185,129,0.2)', to: 'rgba(6,182,212,0.2)', color: 'var(--state-success)' },
+        'm3': { from: 'rgba(139,92,246,0.2)', to: 'rgba(59,130,246,0.2)', color: '#8b5cf6' },
+        'm4': { from: 'rgba(245,158,11,0.2)', to: 'rgba(239,68,68,0.15)', color: 'var(--state-warning)' },
+        'm5': { from: 'rgba(6,182,212,0.2)', to: 'rgba(16,185,129,0.2)', color: 'var(--color-secondary)' },
+        'm6': { from: 'rgba(236,72,153,0.2)', to: 'rgba(139,92,246,0.15)', color: '#ec4899' },
+        'm7': { from: 'rgba(251,146,60,0.2)', to: 'rgba(245,158,11,0.15)', color: '#fb923c' },
+        'm8': { from: 'var(--color-gradient-start)', to: 'var(--color-gradient-end)', color: '#ffffff' }
+    };
+
+    // 默认模拟数据（API 失败时降级）
+    var MOCK_MODULES = [
+        { key: 'm1', name: '调度引擎', version: 'v2.1.0', status: 'running', port: 8001, description: '负责任务调度、Agent 管理与工作流编排的核心模块。', latency_ms: 12 },
+        { key: 'm2', name: '技能中心', version: 'v1.8.3', status: 'running', port: 8002, description: '提供各类 AI 技能与工具调用的统一管理平台。', latency_ms: 18 },
+        { key: 'm3', name: '对话系统', version: 'v3.0.1', status: 'running', port: 8003, description: '多轮对话、上下文管理与自然语言理解模块。', latency_ms: 45 },
+        { key: 'm4', name: '场景工坊', version: 'v1.2.7', status: 'stopped', port: 8004, description: '可视化场景配置与自定义交互流程搭建工具。', latency_ms: 0 },
+        { key: 'm5', name: '记忆存储', version: 'v2.4.0', status: 'running', port: 8005, description: '向量数据库与长期记忆管理，支持语义检索。', latency_ms: 8 },
+        { key: 'm6', name: '感知分析', version: 'v1.5.2', status: 'running', port: 8006, description: '多模态感知、情绪识别与用户画像分析模块。', latency_ms: 27 },
+        { key: 'm7', name: '积木平台', version: 'v1.0.5', status: 'running', port: 8007, description: '低代码积木式编程平台，支持可视化工作流设计。', latency_ms: 15 },
+        { key: 'm8', name: '云汐核心', version: 'v4.2.0', status: 'running', port: 8008, description: '云汐系统核心服务，负责全局协调与系统管理。', latency_ms: 5 }
+    ];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 检查登录状态
+        if (!YunxiAPI.isLoggedIn()) {
+            YunxiAPI.redirectToLogin();
+            return;
+        }
+
+        setupNavigation();
+        bindGlobalEvents();
+        loadModules();
+        updateUserInfo();
+        YunxiAPI.updateButtonsBySystemStatus();
+    });
+
+    // ===================== 导航 =====================
+    function setupNavigation() {
+        var navItems = {
+            'nav-dashboard': 'dashboard.html',
+            'nav-tasks': 'tasks.html',
+            'nav-tasks-active': 'tasks.html',
+            'nav-tasks-hidden': 'tasks.html',
+            'nav-modules': 'modules.html',
+            'nav-modules-active': 'modules.html',
+            'nav-modules-hidden': 'modules.html',
+            'nav-deploy': 'deploy.html',
+            'nav-deploy-active': 'deploy.html',
+            'nav-deploy-hidden': 'deploy.html',
+            'nav-monitor': 'monitor.html',
+            'nav-monitor-active': 'monitor.html',
+            'nav-monitor-hidden': 'monitor.html',
+            'nav-agents': 'agents.html',
+            'nav-agents-active': 'agents.html',
+            'nav-agents-hidden': 'agents.html',
+            'nav-compute': 'compute.html',
+            'nav-compute-active': 'compute.html',
+            'nav-compute-hidden': 'compute.html',
+            'nav-settings': 'settings.html',
+            'nav-settings-active': 'settings.html',
+            'nav-settings-hidden': 'settings.html'
+        };
+        Object.keys(navItems).forEach(function(id) {
+            var el = document.querySelector('[data-dom-id="' + id + '"]');
+            if (el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    location.href = navItems[id];
+                });
+            }
+        });
+    }
+
+    // ===================== 全局事件绑定 =====================
+    function bindGlobalEvents() {
+        // 刷新按钮
+        var refreshBtn = document.querySelector('header button[title="刷新"]');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', refreshModules);
+        }
+        // 通知按钮
+        var notifyBtn = document.querySelector('header button[title="通知"]');
+        if (notifyBtn) {
+            notifyBtn.addEventListener('click', function() {
+                YunxiAPI.showToast('您有 2 条模块告警', 'info');
+            });
+        }
+        // 搜索框
+        var searchInput = document.querySelector('header input[type="text"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                filterModules(searchInput.value.trim().toLowerCase());
+            });
+        }
+        // 详情面板关闭
+        var closeBtn = document.getElementById('detail-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                YunxiAPI.showToast('已关闭详情面板', 'info');
+            });
+        }
+        // 详情面板操作按钮
+        document.getElementById('btn-start').addEventListener('click', function() {
+            handleModuleAction('启动');
+        });
+        document.getElementById('btn-stop').addEventListener('click', function() {
+            handleModuleAction('停止');
+        });
+        document.getElementById('btn-restart').addEventListener('click', function() {
+            handleModuleAction('重启');
+        });
+        document.getElementById('btn-config').addEventListener('click', function() {
+            handleModuleAction('配置');
+        });
+        // 用户头像
+        var userAvatar = document.querySelector('aside .rounded-full[style*="width: 32px"]');
+        if (userAvatar) {
+            userAvatar.style.cursor = 'pointer';
+            userAvatar.addEventListener('click', handleLogout);
+        }
+    }
+
+    // ===================== 模块列表加载与渲染 =====================
+    async function loadModules() {
+        var modules = null;
+        try {
+            // 调用真实 API: GET /api/modules
+            var data = await YunxiAPI.request('GET', '/system/modules');
+            modules = data.modules || data.items || data;
+            if (!Array.isArray(modules)) {
+                modules = null;
+            }
+        } catch (e) {
+            // API 失败，降级到模拟数据
+            console.warn('[modules] API 调用失败，使用模拟数据:', e.message);
+        }
+
+        if (!modules || modules.length === 0) {
+            modules = MOCK_MODULES;
+        }
+
+        modulesCache = modules;
+        renderModuleCards(modules);
+
+        // 更新头部模块计数
+        var headerBadge = document.getElementById('module-count-badge');
+        if (headerBadge) {
+            var runningCount = modules.filter(function(m) { return m.status === 'running'; }).length;
+            headerBadge.textContent = modules.length + ' 个模块 / ' + runningCount + ' 运行中';
+        }
+
+        // 默认选中第一个模块
+        if (modules.length > 0 && !currentModuleKey) {
+            selectModule(modules[0].key);
+        }
+    }
+
+    function renderModuleCards(modules) {
+        var grid = document.getElementById('module-grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+        modules.forEach(function(mod) {
+            var card = createModuleCard(mod);
+            grid.appendChild(card);
+        });
+
+        // 重新渲染 lucide 图标
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    function createModuleCard(mod) {
+        var theme = MODULE_THEMES[mod.key] || MODULE_THEMES['m1'];
+        var isRunning = mod.status === 'running';
+        var statusColor = isRunning ? 'var(--state-success)' : 'var(--color-text-tertiary)';
+        var statusText = isRunning ? '运行中' : '已停止';
+        var latencyText = isRunning && mod.latency_ms ? mod.latency_ms + 'ms' : '--';
+
+        var card = document.createElement('div');
+        card.className = 'group relative p-4 rounded-xl transition-all duration-200 cursor-pointer module-card';
+        card.dataset.moduleKey = mod.key;
+        card.style.cssText = 'background-color: var(--color-bg-card); border: 1px solid var(--color-border-default);';
+
+        var iconBg = mod.key === 'm8'
+            ? 'background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));'
+            : 'background: linear-gradient(135deg, ' + theme.from + ', ' + theme.to + ');';
+
+        card.innerHTML = [
+            // 选中指示器
+            '<div class="absolute top-0 left-4 right-4 h-0.5 rounded-b module-top-bar" style="background: linear-gradient(90deg, var(--color-gradient-start), var(--color-gradient-end)); display: none;"></div>',
+            // 图标 + 名称
+            '<div class="flex items-start gap-3 mb-3">',
+                '<div class="flex items-center justify-center shrink-0 rounded-lg module-icon" style="width: 40px; height: 40px; ' + iconBg + ' color: ' + theme.color + '; font-size: var(--text-base); font-weight: 700;">' + mod.key.toUpperCase() + '</div>',
+                '<div class="flex-1 min-w-0">',
+                    '<div class="flex items-center gap-2">',
+                        '<h3 class="truncate font-medium" style="font-size: var(--text-sm); color: var(--color-text-primary);">' + escapeHtml(mod.name) + '</h3>',
+                        '<span class="shrink-0 rounded-full module-status-dot" style="width: 6px; height: 6px; background-color: ' + statusColor + ';" title="' + statusText + '"></span>',
+                    '</div>',
+                    '<p class="truncate module-version" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + escapeHtml(mod.version || 'v1.0.0') + '</p>',
+                '</div>',
+            '</div>',
+            // 端口 + 延迟
+            '<div class="flex items-center gap-1.5 mb-3">',
+                '<i data-lucide="globe" class="shrink-0" style="width: 12px; height: 12px; color: var(--color-text-tertiary);"></i>',
+                '<span style="font-family: var(--font-family-mono); font-size: var(--text-xs); color: var(--color-text-secondary);">:' + (mod.port || '--') + '</span>',
+                '<span class="ml-auto module-latency" style="font-size: var(--text-xs); color: var(--color-text-tertiary); font-family: var(--font-family-mono);" title="响应延迟">' + latencyText + '</span>',
+            '</div>',
+            // 描述
+            '<p class="mb-3 module-desc" style="font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4; min-height: 2.8em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">' + escapeHtml(mod.description || '') + '</p>',
+            // 操作按钮
+            '<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 module-actions">',
+                '<button class="flex-1 py-1.5 rounded-lg text-center action-start" style="font-size: var(--text-xs); background-color: rgba(59,130,246,0.12); color: var(--color-primary);">启动</button>',
+                '<button class="flex-1 py-1.5 rounded-lg text-center action-stop" style="font-size: var(--text-xs); background-color: var(--color-bg-base); color: var(--color-text-secondary);">停止</button>',
+                '<button class="flex-1 py-1.5 rounded-lg text-center action-restart" style="font-size: var(--text-xs); background-color: var(--color-bg-base); color: var(--color-text-secondary);">重启</button>',
+                '<button class="flex-1 py-1.5 rounded-lg text-center action-detail" style="font-size: var(--text-xs); background-color: var(--color-bg-base); color: var(--color-text-secondary);">详情</button>',
+            '</div>'
+        ].join('');
+
+        // 卡片点击 - 选中模块
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            selectModule(mod.key);
+        });
+
+        // 按钮事件
+        card.querySelector('.action-start').addEventListener('click', function(e) {
+            e.stopPropagation();
+            startModule(mod.key, mod.name);
+        });
+        card.querySelector('.action-stop').addEventListener('click', function(e) {
+            e.stopPropagation();
+            stopModule(mod.key, mod.name);
+        });
+        card.querySelector('.action-restart').addEventListener('click', function(e) {
+            e.stopPropagation();
+            restartModule(mod.key, mod.name);
+        });
+        card.querySelector('.action-detail').addEventListener('click', function(e) {
+            e.stopPropagation();
+            selectModule(mod.key);
+        });
+
+        return card;
+    }
+
+    // ===================== 选中模块 & 详情面板 =====================
+    function selectModule(moduleKey) {
+        currentModuleKey = moduleKey;
+
+        // 更新卡片选中状态
+        var allCards = document.querySelectorAll('.module-card');
+        allCards.forEach(function(card) {
+            var isSelected = card.dataset.moduleKey === moduleKey;
+            card.style.borderColor = isSelected ? 'var(--color-primary)' : 'var(--color-border-default)';
+            card.style.boxShadow = isSelected ? 'var(--shadow-glow)' : 'none';
+            var topBar = card.querySelector('.module-top-bar');
+            if (topBar) topBar.style.display = isSelected ? 'block' : 'none';
+            // 选中卡片操作按钮常显
+            var actions = card.querySelector('.module-actions');
+            if (actions) {
+                actions.style.opacity = isSelected ? '1' : '';
+                actions.classList.toggle('opacity-100', isSelected);
+            }
+        });
+
+        // 找到模块数据
+        var mod = modulesCache.find(function(m) { return m.key === moduleKey; });
+        if (!mod) return;
+
+        renderDetailPanel(mod);
+    }
+
+    function renderDetailPanel(mod) {
+        var theme = MODULE_THEMES[mod.key] || MODULE_THEMES['m1'];
+        var isRunning = mod.status === 'running';
+
+        // 1. 模块标识
+        var identityEl = document.getElementById('detail-identity');
+        var iconBg = mod.key === 'm8'
+            ? 'background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));'
+            : 'background: linear-gradient(135deg, ' + theme.from + ', ' + theme.to + ');';
+        var statusBadgeBg = isRunning ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.12)';
+        var statusBadgeColor = isRunning ? 'var(--state-success)' : 'var(--color-text-tertiary)';
+        var statusText = isRunning ? '运行中' : '已停止';
+
+        identityEl.innerHTML = [
+            '<div class="flex items-center justify-center shrink-0 rounded-lg" style="width: 48px; height: 48px; ' + iconBg + ' color: ' + theme.color + '; font-size: var(--text-lg); font-weight: 700;">' + mod.key.toUpperCase() + '</div>',
+            '<div class="flex-1 min-w-0">',
+                '<h4 class="truncate font-medium" style="font-size: var(--text-base); color: var(--color-text-primary);">' + escapeHtml(mod.name) + '</h4>',
+                '<div class="flex items-center gap-2 mt-0.5">',
+                    '<span class="truncate" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + escapeHtml(mod.version || 'v1.0.0') + '</span>',
+                    '<span class="flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style="background-color: ' + statusBadgeBg + '; color: ' + statusBadgeColor + '; font-size: var(--text-xs);">',
+                        '<span class="rounded-full" style="width: 5px; height: 5px; background-color: ' + statusBadgeColor + ';"></span>',
+                        statusText,
+                    '</span>',
+                '</div>',
+            '</div>'
+        ].join('');
+
+        // 2. 关键信息网格
+        var infoGrid = document.getElementById('detail-info-grid');
+        infoGrid.innerHTML = [
+            '<div class="p-3 rounded-lg" style="background-color: var(--color-bg-base);">',
+                '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: 2px;">端口</p>',
+                '<p class="font-medium" style="font-family: var(--font-family-mono); font-size: var(--text-sm); color: var(--color-text-primary);">:' + (mod.port || '--') + '</p>',
+            '</div>',
+            '<div class="p-3 rounded-lg" style="background-color: var(--color-bg-base);">',
+                '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: 2px;">响应延迟</p>',
+                '<p class="font-medium" style="font-family: var(--font-family-mono); font-size: var(--text-sm); color: var(--color-text-primary);">' + (isRunning && mod.latency_ms ? mod.latency_ms + 'ms' : '--') + '</p>',
+            '</div>'
+        ].join('');
+
+        // 3. 模块说明
+        document.getElementById('detail-desc-text').textContent = mod.description || '暂无描述';
+
+        // 4. 模块专属内容（M1/M2）
+        renderModuleSpecific(mod);
+
+        // 重新渲染图标
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    // ===================== M1 / M2 专属详情 =====================
+    function renderModuleSpecific(mod) {
+        var container = document.getElementById('detail-module-specific');
+        var key = mod.key;
+        var isRunning = mod.status === 'running';
+
+        if (key === 'm1') {
+            renderM1Detail(container, isRunning);
+        } else if (key === 'm2') {
+            renderM2Detail(container, isRunning);
+        } else {
+            // 通用模块 - 显示状态信息
+            container.innerHTML = '';
+        }
+    }
+
+    // --- M1: Agent 列表 ---
+    async function renderM1Detail(container, isRunning) {
+        if (!isRunning) {
+            container.innerHTML = renderModuleStoppedNotice('M1 调度引擎未启动，无法获取 Agent 列表。');
+            return;
+        }
+
+        // 显示加载中
+        container.innerHTML = renderLoadingHtml('正在加载 Agent 列表...');
+
+        try {
+            // 优先使用缓存
+            if (!m1AgentsCache) {
+                var data = await YunxiAPI.request('GET', '/modules/m1/agents');
+                // 兼容多种返回格式
+                m1AgentsCache = data.agents || data.items || data.list || (Array.isArray(data) ? data : []);
+            }
+
+            var agents = m1AgentsCache;
+            var total = agents.length;
+            var runningCount = agents.filter(function(a) {
+                return a.status === 'running' || a.state === 'active' || a.online === true;
+            }).length;
+
+            container.innerHTML = [
+                '<h4 class="font-medium mb-3" style="font-size: var(--text-sm); color: var(--color-text-primary);">Agent 概览</h4>',
+                '<div class="grid grid-cols-2 gap-3 mb-4">',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--color-primary);">' + total + '</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">Agent 总数</p>',
+                    '</div>',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--state-success);">' + runningCount + '</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">运行中</p>',
+                    '</div>',
+                '</div>',
+                '<h4 class="font-medium mb-2" style="font-size: var(--text-sm); color: var(--color-text-primary);">Agent 列表</h4>',
+                '<div class="flex flex-col gap-2 max-h-48 overflow-y-auto no-scrollbar">',
+                    agents.slice(0, 8).map(function(a) {
+                        var name = a.name || a.agent_name || a.id || 'Unknown';
+                        var aStatus = a.status || a.state || (a.online ? 'running' : 'stopped');
+                        var aRunning = aStatus === 'running' || aStatus === 'active';
+                        var aColor = aRunning ? 'var(--state-success)' : 'var(--color-text-tertiary)';
+                        return [
+                            '<div class="flex items-center gap-2 p-2 rounded-lg" style="background-color: var(--color-bg-base);">',
+                                '<span class="shrink-0 rounded-full" style="width: 6px; height: 6px; background-color: ' + aColor + ';"></span>',
+                                '<span class="truncate flex-1" style="font-size: var(--text-xs); color: var(--color-text-primary);">' + escapeHtml(name) + '</span>',
+                                '<span class="shrink-0" style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase;">' + escapeHtml(aStatus) + '</span>',
+                            '</div>'
+                        ].join('');
+                    }).join(''),
+                    total > 8 ? '<p class="text-center" style="font-size: var(--text-xs); color: var(--color-text-tertiary); padding: 4px 0;">还有 ' + (total - 8) + ' 个 Agent...</p>' : '',
+                '</div>'
+            ].join('');
+
+        } catch (e) {
+            console.warn('[modules] M1 agents API 失败:', e.message);
+            // 降级到模拟数据
+            container.innerHTML = [
+                '<h4 class="font-medium mb-3" style="font-size: var(--text-sm); color: var(--color-text-primary);">Agent 概览</h4>',
+                '<div class="grid grid-cols-2 gap-3 mb-4">',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--color-primary);">6</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">Agent 总数</p>',
+                    '</div>',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--state-success);">5</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">运行中</p>',
+                    '</div>',
+                '</div>',
+                renderErrorHint('Agent 数据加载失败，显示模拟数据')
+            ].join('');
+        }
+    }
+
+    // --- M2: 技能列表 + 分类 ---
+    async function renderM2Detail(container, isRunning) {
+        if (!isRunning) {
+            container.innerHTML = renderModuleStoppedNotice('M2 技能中心未启动，无法获取技能列表。');
+            return;
+        }
+
+        container.innerHTML = renderLoadingHtml('正在加载技能数据...');
+
+        try {
+            // 并行获取技能列表和分类
+            if (!m2SkillsCache || !m2CategoriesCache) {
+                var results = await Promise.allSettled([
+                    YunxiAPI.request('GET', '/modules/m2/skills'),
+                    YunxiAPI.request('GET', '/modules/m2/categories')
+                ]);
+
+                if (results[0].status === 'fulfilled') {
+                    var sData = results[0].value;
+                    m2SkillsCache = sData.skills || sData.items || sData.list || (Array.isArray(sData) ? sData : []);
+                }
+                if (results[1].status === 'fulfilled') {
+                    var cData = results[1].value;
+                    m2CategoriesCache = cData.categories || cData.items || cData.list || (Array.isArray(cData) ? cData : []);
+                }
+            }
+
+            var skills = m2SkillsCache || [];
+            var categories = m2CategoriesCache || [];
+            var total = skills.total || skills.length;
+            var catCount = categories.length;
+
+            container.innerHTML = [
+                '<h4 class="font-medium mb-3" style="font-size: var(--text-sm); color: var(--color-text-primary);">技能概览</h4>',
+                '<div class="grid grid-cols-2 gap-3 mb-4">',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--state-success);">' + total + '</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">技能总数</p>',
+                    '</div>',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--color-secondary);">' + catCount + '</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">技能分类</p>',
+                    '</div>',
+                '</div>',
+                // 分类标签
+                catCount > 0 ? [
+                    '<h4 class="font-medium mb-2" style="font-size: var(--text-sm); color: var(--color-text-primary);">技能分类</h4>',
+                    '<div class="flex flex-wrap gap-1.5 mb-4">',
+                        categories.slice(0, 8).map(function(cat) {
+                            var catName = typeof cat === 'string' ? cat : (cat.name || cat.label || cat.key || '未知');
+                            return '<span class="px-2 py-0.5 rounded-full" style="font-size: 10px; background-color: rgba(16,185,129,0.1); color: var(--state-success);">' + escapeHtml(catName) + '</span>';
+                        }).join(''),
+                        catCount > 8 ? '<span class="px-2 py-0.5 rounded-full" style="font-size: 10px; color: var(--color-text-tertiary);">+' + (catCount - 8) + '</span>' : '',
+                    '</div>',
+                ].join('') : '',
+                // 技能列表
+                '<h4 class="font-medium mb-2" style="font-size: var(--text-sm); color: var(--color-text-primary);">技能列表</h4>',
+                '<div class="flex flex-col gap-2 max-h-40 overflow-y-auto no-scrollbar">',
+                    (Array.isArray(skills) ? skills : (skills.items || [])).slice(0, 6).map(function(skill) {
+                        var sName = skill.name || skill.skill_name || skill.id || 'Unknown';
+                        var sDesc = skill.description || skill.desc || '';
+                        return [
+                            '<div class="p-2 rounded-lg" style="background-color: var(--color-bg-base);">',
+                                '<p class="font-medium truncate" style="font-size: var(--text-xs); color: var(--color-text-primary);">' + escapeHtml(sName) + '</p>',
+                                sDesc ? '<p class="truncate" style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 2px;">' + escapeHtml(sDesc) + '</p>' : '',
+                            '</div>'
+                        ].join('');
+                    }).join(''),
+                '</div>'
+            ].join('');
+
+        } catch (e) {
+            console.warn('[modules] M2 skills API 失败:', e.message);
+            container.innerHTML = [
+                '<h4 class="font-medium mb-3" style="font-size: var(--text-sm); color: var(--color-text-primary);">技能概览</h4>',
+                '<div class="grid grid-cols-2 gap-3 mb-4">',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--state-success);">14</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">技能总数</p>',
+                    '</div>',
+                    '<div class="p-3 rounded-lg text-center" style="background-color: var(--color-bg-base);">',
+                        '<p class="font-semibold" style="font-size: var(--text-xl); color: var(--color-secondary);">5</p>',
+                        '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary);">技能分类</p>',
+                    '</div>',
+                '</div>',
+                renderErrorHint('技能数据加载失败，显示模拟数据')
+            ].join('');
+        }
+    }
+
+    // ===================== 辅助渲染函数 =====================
+    function renderLoadingHtml(text) {
+        return [
+            '<div class="flex items-center justify-center py-4" style="gap: 8px;">',
+                '<div style="width: 16px; height: 16px; border: 2px solid var(--color-border-default); border-top-color: var(--color-primary); border-radius: 50%; animation: yunxiSpin 0.8s linear infinite;"></div>',
+                '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + text + '</span>',
+            '</div>'
+        ].join('');
+    }
+
+    function renderModuleStoppedNotice(message) {
+        return [
+            '<div class="p-4 rounded-lg text-center" style="background-color: var(--color-bg-base); border: 1px dashed var(--color-border-default);">',
+                '<div class="flex items-center justify-center mx-auto mb-2" style="width: 32px; height: 32px; border-radius: 50%; background-color: rgba(148,163,184,0.12); color: var(--color-text-tertiary);">',
+                    '<i data-lucide="pause-circle" style="width: 16px; height: 16px;"></i>',
+                '</div>',
+                '<p style="font-size: var(--text-xs); color: var(--color-text-tertiary); line-height: 1.5;">' + message + '</p>',
+                '<button class="mt-3 px-4 py-1.5 rounded-lg text-xs font-medium" style="background-color: rgba(59,130,246,0.12); color: var(--color-primary);" onclick="quickStartCurrentModule()">立即启动</button>',
+            '</div>'
+        ].join('');
+    }
+
+    function renderErrorHint(message) {
+        return '<p class="text-center" style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 4px;">' + message + '</p>';
+    }
+
+    // ===================== 操作按钮 =====================
+    function handleModuleAction(action) {
+        var mod = modulesCache.find(function(m) { return m.key === currentModuleKey; });
+        if (!mod) return;
+        switch(action) {
+            case '启动':
+                startModule(mod.key, mod.name);
+                break;
+            case '停止':
+                stopModule(mod.key, mod.name);
+                break;
+            case '重启':
+                restartModule(mod.key, mod.name);
+                break;
+            case '配置':
+                YunxiAPI.showToast(mod.name + ' 配置页面开发中', 'info');
+                break;
+        }
+    }
+
+    function quickStartCurrentModule() {
+        var mod = modulesCache.find(function(m) { return m.key === currentModuleKey; });
+        if (mod) startModule(mod.key, mod.name);
+    }
+
+    async function startModule(key, name) {
+        var confirmed = await YunxiAPI.showConfirm('确定要启动 ' + name + ' 吗？', '启动模块');
+        if (!confirmed) return;
+
+        try {
+            YunxiAPI.showLoading('正在启动 ' + name + '...');
+            await YunxiAPI.request('POST', '/system/modules/' + key + '/start');
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast(name + ' 启动成功', 'success');
+            updateModuleStatus(key, 'running');
+            // 清除相关缓存，下次查看时重新加载
+            if (key === 'm1') m1AgentsCache = null;
+            if (key === 'm2') { m2SkillsCache = null; m2CategoriesCache = null; }
+            // 重新渲染详情
+            var mod = modulesCache.find(function(m) { return m.key === key; });
+            if (mod && key === currentModuleKey) {
+                mod.status = 'running';
+                renderDetailPanel(mod);
+            }
+        } catch (e) {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('启动失败：' + e.message, 'error');
+        }
+    }
+
+    async function stopModule(key, name) {
+        var confirmed = await YunxiAPI.showConfirm('确定要停止 ' + name + ' 吗？停止后相关服务将不可用。', '停止模块');
+        if (!confirmed) return;
+
+        try {
+            YunxiAPI.showLoading('正在停止 ' + name + '...');
+            await YunxiAPI.request('POST', '/system/modules/' + key + '/stop');
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast(name + ' 已停止', 'success');
+            updateModuleStatus(key, 'stopped');
+            var mod = modulesCache.find(function(m) { return m.key === key; });
+            if (mod && key === currentModuleKey) {
+                mod.status = 'stopped';
+                renderDetailPanel(mod);
+            }
+        } catch (e) {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('停止失败：' + e.message, 'error');
+        }
+    }
+
+    async function restartModule(key, name) {
+        var confirmed = await YunxiAPI.showConfirm('确定要重启 ' + name + ' 吗？重启期间服务将短暂中断。', '重启模块');
+        if (!confirmed) return;
+
+        try {
+            YunxiAPI.showLoading('正在重启 ' + name + '...');
+            await YunxiAPI.request('POST', '/system/modules/' + key + '/restart');
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast(name + ' 重启成功', 'success');
+            updateModuleStatus(key, 'running');
+            if (key === 'm1') m1AgentsCache = null;
+            if (key === 'm2') { m2SkillsCache = null; m2CategoriesCache = null; }
+            var mod = modulesCache.find(function(m) { return m.key === key; });
+            if (mod && key === currentModuleKey) {
+                mod.status = 'running';
+                renderDetailPanel(mod);
+            }
+        } catch (e) {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('重启失败：' + e.message, 'error');
+        }
+    }
+
+    function updateModuleStatus(key, status) {
+        // 更新缓存
+        var mod = modulesCache.find(function(m) { return m.key === key; });
+        if (mod) mod.status = status;
+
+        // 更新卡片状态点
+        var card = document.querySelector('.module-card[data-module-key="' + key + '"]');
+        if (card) {
+            var dot = card.querySelector('.module-status-dot');
+            if (dot) {
+                dot.style.backgroundColor = status === 'running' ? 'var(--state-success)' : 'var(--color-text-tertiary)';
+                dot.title = status === 'running' ? '运行中' : '已停止';
+            }
+            var lat = card.querySelector('.module-latency');
+            if (lat) {
+                lat.textContent = status === 'running' && mod.latency_ms ? mod.latency_ms + 'ms' : '--';
+            }
+        }
+    }
+
+    // ===================== 搜索过滤 =====================
+    function filterModules(keyword) {
+        var cards = document.querySelectorAll('.module-card');
+        cards.forEach(function(card) {
+            var key = card.dataset.moduleKey || '';
+            var name = card.querySelector('h3')?.textContent?.toLowerCase() || '';
+            if (!keyword || name.includes(keyword) || key.includes(keyword)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // ===================== 刷新 =====================
+    async function refreshModules() {
+        YunxiAPI.showLoading('正在刷新模块状态...');
+        try {
+            // 清除缓存
+            m1AgentsCache = null;
+            m2SkillsCache = null;
+            m2CategoriesCache = null;
+            await loadModules();
+            // 刷新动画
+            var refreshIcon = document.querySelector('header button[title="刷新"] i');
+            if (refreshIcon) {
+                refreshIcon.style.transition = 'transform 0.5s';
+                refreshIcon.style.transform = 'rotate(360deg)';
+                setTimeout(function() {
+                    refreshIcon.style.transform = '';
+                }, 500);
+            }
+            YunxiAPI.showToast('模块状态已更新', 'success');
+        } catch (e) {
+            YunxiAPI.showToast('刷新失败，请稍后重试', 'error');
+        } finally {
+            YunxiAPI.hideLoading();
+        }
+    }
+
+    // ===================== 登出 =====================
+    async function handleLogout() {
+        var confirmed = await YunxiAPI.showConfirm('确定要退出登录吗？', '退出登录');
+        if (confirmed) {
+            YunxiAPI.showLoading('正在退出...');
+            try {
+                await YunxiAPI.logout();
+                YunxiAPI.showToast('已退出登录', 'success');
+                setTimeout(function() {
+                    location.href = 'login.html';
+                }, 500);
+            } catch (e) {
+                location.href = 'login.html';
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        }
+    }
+
+    // ===================== 用户信息 =====================
+    function updateUserInfo() {
+        var user = YunxiAPI.getCurrentUser();
+        if (user) {
+            var username = user.username || '管';
+            var initial = username.charAt(0).toUpperCase();
+            var sidebarUser = document.querySelector('aside .rounded-full[style*="width: 32px"]');
+            if (sidebarUser && sidebarUser.textContent.trim() === 'A') {
+                sidebarUser.textContent = initial;
+            }
+            var userNameSpan = document.querySelector('aside p[style*="color: var(--color-text-primary)"]');
+            if (userNameSpan && userNameSpan.textContent.trim() === '管理员') {
+                userNameSpan.textContent = username;
+            }
+            var userEmail = document.querySelector('aside p[style*="color: var(--color-text-tertiary)"]');
+            if (userEmail && user.email) {
+                userEmail.textContent = user.email;
+            }
+        }
+    }
+
+    // ===================== 工具函数 =====================
+    function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+    </script>
+
+
+    
+    <script>
+        document.getElementById('themeToggleBtn')?.addEventListener('click', function() {
+            window.YunxiTheme?.toggleTheme();
+        });
+    </script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,212 @@
+# ============================================================
+# M2 Skill技能集群 - 配置示例文件
+# 使用方式：复制为 config.yaml 并修改实际值
+# 所有密钥类配置请通过环境变量覆盖，不要硬编码在此文件
+# ============================================================
+
+basic:
+  name: m2-skills                    # 服务名称
+  version: "3.10.0"                  # 当前版本
+  port: 8002                         # 服务端口
+  host: "0.0.0.0"                    # 监听地址
+  log_level: info                    # 日志级别: debug/info/warn/error
+  env: production                    # 运行环境: development/production/test
+  worker_count: 2                    # 工作进程数
+
+security:
+  encryption_key: ${M2_ENCRYPTION_KEY}    # 数据加密密钥（环境变量注入）
+  admin_token: ${M2_ADMIN_TOKEN}          # 管理员令牌（环境变量注入）
+  cors_origins:                           # CORS 允许的源
+    - http://localhost:3000
+    - http://localhost:8080
+  jwt_secret: ${M2_JWT_SECRET}            # JWT 签名密钥（环境变量注入）
+  jwt_expire_hours: 24                    # JWT 过期时间（小时）
+  rate_limit_per_minute: 60               # 每分钟请求限流
+  max_file_size_mb: 10                    # 最大上传文件大小(MB)
+
+llm:
+  # 主模型（强模型，复杂任务：代码生成、创意写作、数据分析）
+  primary:
+    provider: openai                      # 提供商: openai/anthropic/qwen/...
+    model: gpt-4o                         # 模型名称
+    api_key: ${M2_LLM_API_KEY}            # API Key（环境变量注入）
+    base_url: ${M2_LLM_BASE_URL}          # API Base URL（环境变量注入）
+    temperature: 0.7                      # 温度参数
+    max_tokens: 2048                      # 最大输出token数
+    timeout: 30                           # 请求超时(秒)
+    max_retries: 3                        # 最大重试次数
+
+  # 轻量模型（简单任务，省钱：分类、提取、简单翻译）
+  lightweight:
+    provider: openai
+    model: gpt-4o-mini
+    api_key: ${M2_LLM_API_KEY}
+    base_url: ${M2_LLM_BASE_URL}
+    temperature: 0.3
+    max_tokens: 512
+    timeout: 15
+    max_retries: 2
+
+  # 嵌入模型（向量匹配用）
+  embedding:
+    provider: openai
+    model: text-embedding-3-small
+    api_key: ${M2_LLM_API_KEY}
+    base_url: ${M2_LLM_BASE_URL}
+    timeout: 10
+    max_retries: 2
+
+recommendation:
+  # 6 信号权重配置（总和=1.0）
+  weights:
+    keyword: 0.25         # 关键词匹配
+    ngram: 0.25           # N-gram 匹配
+    scene: 0.20           # 场景信号
+    history: 0.15         # 历史使用
+    preference: 0.10      # 用户偏好
+    timeliness: 0.05      # 时效性
+
+  # 返回配置
+  top_k: 5                # 默认 Top N 返回
+  min_confidence: 0.3     # 最低置信度阈值
+  max_candidates: 50      # 最大候选数
+  cache_ttl_seconds: 300  # 推荐结果缓存时长
+
+  # 模糊匹配配置
+  fuzzy_match:
+    enabled: true
+    threshold: 0.6        # 模糊匹配阈值
+    max_distance: 2       # 最大编辑距离
+
+skills:
+  # 启用的技能列表（留空表示全部启用）
+  enabled: []
+
+  # 技能配置目录
+  config_dir: ./skills
+
+  # 技能热更新
+  hot_reload: false
+  hot_reload_interval: 60  # 热更新检查间隔(秒)
+
+  # 技能执行配置
+  execution:
+    default_timeout: 30    # 默认超时(秒)
+    max_retries: 2         # 失败重试次数
+    max_concurrent: 10     # 最大并发执行数
+
+voice_polish:
+  enabled: true
+  # 5 级流水线
+  pipeline:
+    - denoise              # 降噪
+    - asr_correction       # ASR纠错
+    - term_protection      # 术语保护
+    - style_adaptation     # 风格适配
+    - fluency_enhancement  # 流畅度增强
+
+  # 术语保护词库
+  term_dictionary: ./data/terms.json
+
+  # 风格配置
+  default_style: natural   # natural/formal/casual/professional
+
+code_execution:
+  enabled: true
+  # 默认执行后端
+  default_backend: m7      # m7/local
+  # 默认超时
+  default_timeout: 30
+  # 最大重试次数
+  max_retries: 3
+  # 自动修复
+  auto_fix:
+    enabled: true
+    max_attempts: 3        # 最大修复尝试次数
+
+  # REPL 配置
+  repl:
+    max_sessions_per_user: 3
+    idle_timeout_minutes: 30
+    max_history: 100
+
+  # 安全配置
+  security:
+    allow_network: false   # 是否允许网络访问
+    allow_file_write: false # 是否允许写文件
+    max_memory_mb: 512     # 最大内存限制
+    max_cpu_percent: 50    # 最大CPU占用
+
+database:
+  type: sqlite             # 数据库类型: sqlite/postgresql/mysql
+  path: ./data/m2.db       # SQLite 数据库路径
+  # PostgreSQL 配置（type=postgresql 时生效）
+  host: ${M2_DB_HOST}
+  port: 5432
+  name: m2_skills
+  user: ${M2_DB_USER}
+  password: ${M2_DB_PASSWORD}
+
+mcp:
+  # MCP 客户端配置
+  enabled: true
+  # 已注册的 MCP Server 列表
+  servers: []
+  # 连接超时
+  connect_timeout: 10
+  # 请求超时
+  request_timeout: 30
+
+  # A2A 桥接配置
+  a2a:
+    enabled: true
+    bus_agent_endpoint: ${M1_A2A_BUS_ENDPOINT}
+    callback_endpoint: ${M2_A2A_CALLBACK}
+
+logging:
+  format: json             # 日志格式: json/text
+  level: info              # 日志级别
+  file: ./logs/m2.log      # 日志文件路径
+  max_size: 100MB          # 单个日志文件最大大小
+  max_files: 10            # 日志文件保留数量
+  console_output: true     # 是否同时输出到控制台
+
+  # 敏感字段脱敏
+  sensitive_fields:
+    - api_key
+    - password
+    - token
+    - secret
+    - authorization
+
+  # 全链路追踪
+  trace_enabled: true
+  trace_id_header: X-Trace-Id
+
+cache:
+  type: memory             # 缓存类型: memory/redis
+  ttl_seconds: 300         # 默认缓存时长
+  max_size: 1000           # 最大缓存条目数
+  # Redis 配置（type=redis 时生效）
+  redis_url: ${M2_REDIS_URL}
+
+budget:
+  # 预算配置（与 M1 Budget-Agent 对接）
+  enabled: true
+  # 单技能默认 token 预算
+  default_skill_quota: 4000
+  # 每日总预算（仅作参考，实际由 M1 管理）
+  daily_budget: 100000
+  # 低水位告警阈值（百分比）
+  low_watermark: 20
+
+health:
+  # 健康检查配置
+  check_interval: 30       # 检查间隔(秒)
+  timeout: 5               # 超时(秒)
+  # 检查项
+  checks:
+    - database
+    - llm_connection
+    - m7_connection
+    - skill_registry

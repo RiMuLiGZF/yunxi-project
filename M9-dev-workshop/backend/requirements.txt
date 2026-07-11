@@ -1,0 +1,23 @@
+# 云汐 M9 开发者工坊 - 依赖包
+# Web 框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# 数据验证
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# 数据库
+sqlalchemy>=2.0.0
+
+# HTTP 客户端
+httpx>=0.25.0
+
+# 文件上传
+python-multipart>=0.0.6
+
+# 进程管理
+psutil>=5.9.0
+
+# 异步支持
+aiofiles>=23.0.0

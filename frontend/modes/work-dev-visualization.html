@@ -1,0 +1,1321 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" data-theme="work-dev">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>可视化工作台 — 云汐开发模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+    }
+    .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* 顶部栏 */
+    .top-bar {
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: var(--color-header-bg); border-bottom: 1px solid var(--color-header-border);
+      flex-shrink: 0;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      color: var(--color-text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px;
+      transition: all .2s;
+    }
+    .back-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+    .page-title { font-size: 16px; font-weight: 600; }
+
+    /* 按钮 */
+    .btn-primary {
+      background: var(--color-primary); color: white; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; font-weight: 500; transition: opacity .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-secondary {
+      background: var(--color-card-bg); color: var(--color-text-primary);
+      border: 1px solid var(--color-border); border-radius: 8px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-secondary:hover { background: var(--color-hover-bg); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-danger {
+      background: transparent; color: #F53F3F; border: 1px solid #F53F3F; border-radius: 6px;
+      padding: 2px 8px; font-size: 11px; cursor: pointer; transition: all .2s;
+    }
+    .btn-danger:hover { background: rgba(245,63,63,0.1); }
+
+    /* 主体三栏布局 */
+    .main-body {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* 左侧模板面板 */
+    .template-panel {
+      width: 220px; flex-shrink: 0;
+      border-right: 1px solid var(--color-border);
+      background: var(--color-card-bg);
+      overflow-y: auto;
+      padding: 16px 12px;
+    }
+    .panel-title {
+      font-size: 12px; font-weight: 600; color: var(--color-text-secondary);
+      margin-bottom: 12px; padding: 0 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .template-list { display: flex; flex-direction: column; gap: 8px; }
+    .template-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      border: 1px solid transparent; transition: all .2s;
+    }
+    .template-card:hover {
+      background: var(--color-hover-bg);
+    }
+    .template-card.active {
+      background: rgba(22,93,255,0.08);
+      border-color: var(--color-primary);
+    }
+    .template-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .template-info { flex: 1; min-width: 0; }
+    .template-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+    .template-desc { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* 中间配置面板 */
+    .config-panel {
+      width: 340px; flex-shrink: 0;
+      border-right: 1px solid var(--color-border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .config-tabs {
+      display: flex; border-bottom: 1px solid var(--color-border);
+      background: var(--color-card-bg); flex-shrink: 0;
+    }
+    .config-tab {
+      flex: 1; padding: 12px 16px; text-align: center;
+      font-size: 13px; cursor: pointer; color: var(--color-text-secondary);
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .config-tab:hover { color: var(--color-text-primary); }
+    .config-tab.active {
+      color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 500;
+    }
+    .config-content {
+      flex: 1; overflow-y: auto; padding: 16px;
+    }
+    .config-section { margin-bottom: 20px; }
+    .config-section-title {
+      font-size: 12px; font-weight: 600; color: var(--color-text-secondary);
+      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .config-row {
+      display: flex; align-items: center; margin-bottom: 10px; gap: 10px;
+    }
+    .config-label {
+      width: 80px; flex-shrink: 0; font-size: 12px; color: var(--color-text-secondary);
+    }
+    .config-input, .config-select {
+      flex: 1; padding: 6px 10px; font-size: 12px;
+      border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-page-bg); color: var(--color-text-primary);
+      font-family: inherit;
+    }
+    .config-input:focus, .config-select:focus {
+      outline: none; border-color: var(--color-primary);
+    }
+    .config-input[type="color"] {
+      padding: 2px; height: 28px; cursor: pointer;
+    }
+    .config-checkbox {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-size: 12px;
+    }
+    .config-checkbox input { cursor: pointer; }
+
+    /* 数据操作按钮组 */
+    .data-actions {
+      display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .data-actions .btn-secondary { flex: 1; justify-content: center; min-width: 80px; }
+
+    /* 数据表格 */
+    .data-table-wrapper {
+      border: 1px solid var(--color-border); border-radius: 8px;
+      overflow: hidden; max-height: 300px; overflow: auto;
+    }
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+    }
+    .data-table th {
+      text-align: left; padding: 8px 10px;
+      background: var(--color-hover-bg);
+      font-weight: 500; font-size: 11px; color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+      position: sticky; top: 0; z-index: 1;
+    }
+    .data-table td {
+      padding: 0; border-bottom: 1px solid var(--color-border);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table input.cell-input {
+      width: 100%; padding: 6px 10px; border: none; background: transparent;
+      font-size: 12px; color: var(--color-text-primary); font-family: inherit;
+    }
+    .data-table input.cell-input:focus {
+      outline: none; background: var(--color-hover-bg);
+    }
+    .data-table .col-del {
+      width: 28px; text-align: center;
+    }
+    .data-table .row-del-btn {
+      width: 24px; height: 24px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--color-text-secondary);
+      transition: all .2s;
+    }
+    .data-table .row-del-btn:hover {
+      background: rgba(245,63,63,0.1); color: #F53F3F;
+    }
+    .add-row-btn {
+      width: 100%; padding: 8px; text-align: center;
+      background: var(--color-hover-bg); color: var(--color-text-secondary);
+      font-size: 12px; cursor: pointer; border: none;
+      transition: all .2s; font-family: inherit;
+    }
+    .add-row-btn:hover { background: var(--color-border); color: var(--color-text-primary); }
+
+    /* 颜色主题选择 */
+    .theme-options {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .theme-option {
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+      border: 2px solid transparent; transition: all .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .theme-option:hover { transform: scale(1.1); }
+    .theme-option.active { border-color: var(--color-primary); }
+    .theme-dots {
+      display: flex; flex-wrap: wrap; width: 20px; height: 20px;
+      border-radius: 4px; overflow: hidden;
+    }
+    .theme-dots span { width: 50%; height: 50%; }
+
+    /* 右侧预览区 */
+    .preview-panel {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; background: var(--color-page-bg);
+    }
+    .preview-toolbar {
+      height: 48px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; border-bottom: 1px solid var(--color-border);
+      background: var(--color-card-bg);
+    }
+    .preview-title {
+      font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .preview-actions { display: flex; gap: 8px; }
+    .preview-chart-container {
+      flex: 1; padding: 16px; overflow: hidden;
+    }
+    #previewChart {
+      width: 100%; height: 100%;
+      background: var(--color-card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+    }
+
+    /* 空状态 */
+    .empty-state {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--color-text-secondary);
+      background: var(--color-card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-text { font-size: 14px; margin-bottom: 8px; }
+    .empty-hint { font-size: 12px; opacity: 0.7; }
+
+    /* 文件上传隐藏 */
+    #fileInput { display: none; }
+
+    /* 滚动条美化 */
+    .template-panel::-webkit-scrollbar,
+    .config-content::-webkit-scrollbar,
+    .data-table-wrapper::-webkit-scrollbar {
+      width: 6px; height: 6px;
+    }
+    .template-panel::-webkit-scrollbar-thumb,
+    .config-content::-webkit-scrollbar-thumb,
+    .data-table-wrapper::-webkit-scrollbar-thumb {
+      background: var(--color-border); border-radius: 3px;
+    }
+    .template-panel::-webkit-scrollbar-track,
+    .config-content::-webkit-scrollbar-track,
+    .data-table-wrapper::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* 响应式：窄屏下配置面板变窄 */
+    @media (max-width: 1200px) {
+      .config-panel { width: 300px; }
+      .template-panel { width: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="back-btn" onclick="location.href='work-dev.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          返回开发模式
+        </div>
+        <div class="page-title">可视化工作台</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-secondary" onclick="resetAll()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 4 3 12 11 12"/></svg>
+          重置
+        </button>
+        <button class="btn-primary" onclick="exportPNG()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          导出图片
+        </button>
+      </div>
+    </div>
+
+    <!-- 主体 -->
+    <div class="main-body">
+      <!-- 左侧：图表模板 -->
+      <div class="template-panel">
+        <div class="panel-title">图表模板</div>
+        <div class="template-list" id="templateList"></div>
+      </div>
+
+      <!-- 中间：配置面板 -->
+      <div class="config-panel">
+        <div class="config-tabs">
+          <div class="config-tab active" onclick="switchConfigTab('data')" id="tab-data">数据</div>
+          <div class="config-tab" onclick="switchConfigTab('style')" id="tab-style">配置</div>
+        </div>
+
+        <!-- 数据配置 -->
+        <div class="config-content" id="config-data">
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              数据源
+            </div>
+            <div class="data-actions">
+              <button class="btn-secondary" onclick="loadSampleData()">示例数据</button>
+              <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">导入文件</button>
+              <button class="btn-secondary" onclick="clearData()">清空</button>
+            </div>
+            <input type="file" id="fileInput" accept=".csv,.json" onchange="handleFileUpload(event)">
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+              数据表格
+            </div>
+            <div class="data-table-wrapper">
+              <table class="data-table" id="dataTable">
+                <thead id="dataTableHead"></thead>
+                <tbody id="dataTableBody"></tbody>
+              </table>
+            </div>
+            <button class="add-row-btn" onclick="addDataRow()">+ 添加一行</button>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              字段映射
+            </div>
+            <div class="config-row">
+              <label class="config-label">X轴字段</label>
+              <select class="config-select" id="xAxisField" onchange="updateChart()"></select>
+            </div>
+            <div class="config-row" id="yAxisRow">
+              <label class="config-label">Y轴字段</label>
+              <select class="config-select" id="yAxisField" onchange="updateChart()"></select>
+            </div>
+            <div class="config-row" id="valueRow" style="display:none;">
+              <label class="config-label">数值字段</label>
+              <select class="config-select" id="valueField" onchange="updateChart()"></select>
+            </div>
+            <div class="config-row" id="nameRow" style="display:none;">
+              <label class="config-label">名称字段</label>
+              <select class="config-select" id="nameField" onchange="updateChart()"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 样式配置 -->
+        <div class="config-content" id="config-style" style="display:none;">
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+              标题
+            </div>
+            <div class="config-row">
+              <label class="config-label">图表标题</label>
+              <input type="text" class="config-input" id="chartTitle" value="我的图表" oninput="updateChart()">
+            </div>
+            <div class="config-row">
+              <label class="config-label">副标题</label>
+              <input type="text" class="config-input" id="chartSubtitle" placeholder="可选" oninput="updateChart()">
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+              颜色主题
+            </div>
+            <div class="theme-options" id="themeOptions"></div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              图例
+            </div>
+            <div class="config-row">
+              <label class="config-label">显示图例</label>
+              <label class="config-checkbox">
+                <input type="checkbox" id="showLegend" checked onchange="updateChart()">
+                <span>启用</span>
+              </label>
+            </div>
+            <div class="config-row">
+              <label class="config-label">位置</label>
+              <select class="config-select" id="legendPosition" onchange="updateChart()">
+                <option value="top">顶部</option>
+                <option value="bottom">底部</option>
+                <option value="left">左侧</option>
+                <option value="right">右侧</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="config-section" id="gridSection">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+              坐标轴与网格
+            </div>
+            <div class="config-row">
+              <label class="config-label">显示网格</label>
+              <label class="config-checkbox">
+                <input type="checkbox" id="showGrid" checked onchange="updateChart()">
+                <span>启用</span>
+              </label>
+            </div>
+            <div class="config-row">
+              <label class="config-label">X轴名称</label>
+              <input type="text" class="config-input" id="xAxisName" placeholder="X轴" oninput="updateChart()">
+            </div>
+            <div class="config-row">
+              <label class="config-label">Y轴名称</label>
+              <input type="text" class="config-input" id="yAxisName" placeholder="Y轴" oninput="updateChart()">
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导出
+            </div>
+            <div class="data-actions">
+              <button class="btn-secondary" onclick="exportPNG()">导出 PNG</button>
+              <button class="btn-secondary" onclick="exportConfigJSON()">配置 JSON</button>
+              <button class="btn-secondary" onclick="exportDataCSV()">数据 CSV</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：预览区 -->
+      <div class="preview-panel">
+        <div class="preview-toolbar">
+          <div class="preview-title">
+            <span id="previewIcon">📊</span>
+            <span id="previewChartName">图表预览</span>
+          </div>
+          <div class="preview-actions">
+            <button class="btn-secondary btn-sm" onclick="refreshChart()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              刷新
+            </button>
+          </div>
+        </div>
+        <div class="preview-chart-container">
+          <div id="previewChart"></div>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">📈</div>
+            <div class="empty-text">选择左侧图表模板开始创建</div>
+            <div class="empty-hint">支持 9 种图表类型，实时预览与导出</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // 全局状态
+    // ========================================
+    var currentChartType = null;
+    var chartInstance = null;
+    var chartData = [];
+    var chartColumns = ['类别', '数值'];
+
+    // 颜色主题
+    var colorThemes = [
+      { name: '默认', colors: ['#165DFF', '#00B42A', '#F7BA1E', '#F53F3F', '#722ED1', '#14C9C9', '#FF7D00', '#14C9C9'] },
+      { name: '活力', colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'] },
+      { name: '柔和', colors: ['#A8D8EA', '#AA96DA', '#FCBAD3', '#FFFFD2', '#B5EAD7', '#C7CEEA', '#FFDAC1', '#E2F0CB'] },
+      { name: '商务', colors: ['#2C3E50', '#3498DB', '#1ABC9C', '#E74C3C', '#F39C12', '#9B59B6', '#34495E', '#16A085'] },
+      { name: '清新', colors: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'] },
+      { name: '暖色', colors: ['#FF9A9E', '#FECFEF', '#FFECD2', '#FCB69F', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF'] },
+    ];
+    var currentThemeIndex = 0;
+
+    // 9 种图表模板
+    var chartTemplates = [
+      { type: 'line', name: '折线图', icon: '📈', desc: '趋势分析', color: 'rgba(22,93,255,0.15)' },
+      { type: 'bar', name: '柱状图', icon: '📊', desc: '分类对比', color: 'rgba(0,180,42,0.15)' },
+      { type: 'pie', name: '饼图', icon: '🥧', desc: '占比分析', color: 'rgba(114,46,209,0.15)' },
+      { type: 'radar', name: '雷达图', icon: '🎯', desc: '多维度评估', color: 'rgba(247,114,52,0.15)' },
+      { type: 'scatter', name: '散点图', icon: '✨', desc: '相关性分析', color: 'rgba(255,125,151,0.15)' },
+      { type: 'heatmap', name: '热力图', icon: '🔥', desc: '密度分布', color: 'rgba(255,177,0,0.15)' },
+      { type: 'gauge', name: '仪表盘', icon: '🎛️', desc: 'KPI 进度', color: 'rgba(78,205,196,0.15)' },
+      { type: 'area', name: '面积图', icon: '🌊', desc: '累积趋势', color: 'rgba(30,159,255,0.15)' },
+      { type: 'funnel', name: '漏斗图', icon: '🔻', desc: '转化分析', color: 'rgba(255,77,79,0.15)' },
+    ];
+
+    // ========================================
+    // 初始化
+    // ========================================
+    function init() {
+      renderTemplateList();
+      renderThemeOptions();
+      // 默认选中折线图
+      selectChartType('line');
+    }
+
+    // 渲染模板列表
+    function renderTemplateList() {
+      var list = document.getElementById('templateList');
+      list.innerHTML = chartTemplates.map(function(t) {
+        return '<div class="template-card" data-type="' + t.type + '" onclick="selectChartType(\'' + t.type + '\')">' +
+          '<div class="template-icon" style="background:' + t.color + '">' + t.icon + '</div>' +
+          '<div class="template-info">' +
+            '<div class="template-name">' + t.name + '</div>' +
+            '<div class="template-desc">' + t.desc + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // 渲染颜色主题选项
+    function renderThemeOptions() {
+      var container = document.getElementById('themeOptions');
+      container.innerHTML = colorThemes.map(function(theme, idx) {
+        var dots = theme.colors.slice(0, 4).map(function(c) {
+          return '<span style="background:' + c + '"></span>';
+        }).join('');
+        return '<div class="theme-option' + (idx === currentThemeIndex ? ' active' : '') + '"' +
+          ' title="' + theme.name + '" onclick="selectTheme(' + idx + ')">' +
+          '<div class="theme-dots">' + dots + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // ========================================
+    // 模板选择
+    // ========================================
+    function selectChartType(type) {
+      currentChartType = type;
+      var template = chartTemplates.find(function(t) { return t.type === type; });
+      if (!template) return;
+
+      // 更新选中状态
+      document.querySelectorAll('.template-card').forEach(function(card) {
+        card.classList.toggle('active', card.dataset.type === type);
+      });
+
+      // 更新预览标题
+      document.getElementById('previewIcon').textContent = template.icon;
+      document.getElementById('previewChartName').textContent = template.name + '预览';
+      document.getElementById('chartTitle').value = '我的' + template.name;
+
+      // 隐藏空状态
+      document.getElementById('emptyState').style.display = 'none';
+
+      // 根据图表类型调整字段配置显示
+      updateFieldVisibility(type);
+
+      // 如果没有数据，加载示例数据
+      if (chartData.length === 0) {
+        loadSampleData();
+      } else {
+        updateFieldSelectors();
+        updateChart();
+      }
+    }
+
+    // 根据图表类型调整字段显示
+    function updateFieldVisibility(type) {
+      var yAxisRow = document.getElementById('yAxisRow');
+      var valueRow = document.getElementById('valueRow');
+      var nameRow = document.getElementById('nameRow');
+      var gridSection = document.getElementById('gridSection');
+
+      // 默认隐藏所有
+      yAxisRow.style.display = 'none';
+      valueRow.style.display = 'none';
+      nameRow.style.display = 'none';
+      gridSection.style.display = 'none';
+
+      switch(type) {
+        case 'line':
+        case 'bar':
+        case 'area':
+        case 'scatter':
+          yAxisRow.style.display = 'flex';
+          gridSection.style.display = 'block';
+          break;
+        case 'pie':
+        case 'funnel':
+          valueRow.style.display = 'flex';
+          nameRow.style.display = 'flex';
+          break;
+        case 'radar':
+          valueRow.style.display = 'flex';
+          nameRow.style.display = 'flex';
+          break;
+        case 'heatmap':
+          yAxisRow.style.display = 'flex';
+          gridSection.style.display = 'block';
+          break;
+        case 'gauge':
+          valueRow.style.display = 'flex';
+          break;
+      }
+    }
+
+    // ========================================
+    // 配置页签切换
+    // ========================================
+    function switchConfigTab(tab) {
+      var tabs = ['data', 'style'];
+      tabs.forEach(function(t) {
+        document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+        document.getElementById('config-' + t).style.display = t === tab ? 'block' : 'none';
+      });
+    }
+
+    // ========================================
+    // 数据管理
+    // ========================================
+    // 加载示例数据
+    function loadSampleData() {
+      var type = currentChartType || 'line';
+      var sample = getSampleData(type);
+      chartColumns = sample.columns.slice();
+      chartData = sample.data.map(function(row) { return row.slice(); });
+      renderDataTable();
+      updateFieldSelectors();
+      updateChart();
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('示例数据已加载', 'success');
+      }
+    }
+
+    // 根据图表类型获取示例数据
+    function getSampleData(type) {
+      switch(type) {
+        case 'line':
+          return {
+            columns: ['月份', '销售额', '利润'],
+            data: [
+              ['1月', 120, 30],
+              ['2月', 200, 50],
+              ['3月', 150, 40],
+              ['4月', 80, 20],
+              ['5月', 70, 18],
+              ['6月', 110, 35],
+              ['7月', 130, 42],
+            ]
+          };
+        case 'bar':
+          return {
+            columns: ['产品', '销量'],
+            data: [
+              ['产品A', 120],
+              ['产品B', 200],
+              ['产品C', 150],
+              ['产品D', 80],
+              ['产品E', 170],
+              ['产品F', 90],
+            ]
+          };
+        case 'pie':
+          return {
+            columns: ['来源', '访问量'],
+            data: [
+              ['搜索引擎', 1048],
+              ['直接访问', 735],
+              ['邮件营销', 580],
+              ['联盟广告', 484],
+              ['视频广告', 300],
+            ]
+          };
+        case 'radar':
+          return {
+            columns: ['能力维度', '得分'],
+            data: [
+              ['研发能力', 90],
+              ['设计能力', 75],
+              ['产品能力', 85],
+              ['测试能力', 70],
+              ['运维能力', 65],
+              ['安全能力', 60],
+            ]
+          };
+        case 'scatter':
+          return {
+            columns: ['身高', '体重'],
+            data: [
+              [160, 55],
+              [165, 60],
+              [170, 65],
+              [175, 70],
+              [180, 75],
+              [155, 50],
+              [168, 62],
+              [172, 68],
+              [178, 72],
+              [162, 54],
+            ]
+          };
+        case 'heatmap':
+          return {
+            columns: ['小时', '星期', '活跃度'],
+            data: generateHeatmapData()
+          };
+        case 'gauge':
+          return {
+            columns: ['指标', '值'],
+            data: [
+              ['完成率', 75],
+            ]
+          };
+        case 'area':
+          return {
+            columns: ['日期', '访问量'],
+            data: [
+              ['周一', 820],
+              ['周二', 932],
+              ['周三', 901],
+              ['周四', 934],
+              ['周五', 1290],
+              ['周六', 1330],
+              ['周日', 1320],
+            ]
+          };
+        case 'funnel':
+          return {
+            columns: ['阶段', '人数'],
+            data: [
+              ['访问', 1000],
+              ['浏览', 800],
+              ['注册', 400],
+              ['下单', 200],
+              ['支付', 150],
+            ]
+          };
+        default:
+          return { columns: ['类别', '数值'], data: [['A', 10], ['B', 20]] };
+      }
+    }
+
+    // 生成热力图示例数据
+    function generateHeatmapData() {
+      var data = [];
+      var hours = ['0时', '6时', '12时', '18时', '24时'];
+      var days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      for (var i = 0; i < days.length; i++) {
+        for (var j = 0; j < hours.length; j++) {
+          data.push([hours[j], days[i], Math.floor(Math.random() * 100)]);
+        }
+      }
+      return data;
+    }
+
+    // 清空数据
+    function clearData() {
+      chartColumns = ['类别', '数值'];
+      chartData = [['', '']];
+      renderDataTable();
+      updateFieldSelectors();
+      updateChart();
+    }
+
+    // 渲染数据表格
+    function renderDataTable() {
+      var thead = document.getElementById('dataTableHead');
+      var tbody = document.getElementById('dataTableBody');
+
+      // 表头
+      var headHtml = '<tr>';
+      chartColumns.forEach(function(col, idx) {
+        headHtml += '<th><input type="text" class="cell-input" value="' + escapeHtml(col) + '" onchange="updateColumnName(' + idx + ', this.value)"></th>';
+      });
+      headHtml += '<th class="col-del"></th></tr>';
+      thead.innerHTML = headHtml;
+
+      // 表体
+      var bodyHtml = '';
+      chartData.forEach(function(row, rowIdx) {
+        bodyHtml += '<tr>';
+        chartColumns.forEach(function(col, colIdx) {
+          var val = row[colIdx] !== undefined ? row[colIdx] : '';
+          bodyHtml += '<td><input type="text" class="cell-input" value="' + escapeHtml(val) + '" onchange="updateCellValue(' + rowIdx + ',' + colIdx + ', this.value)"></td>';
+        });
+        bodyHtml += '<td class="col-del"><div class="row-del-btn" onclick="deleteDataRow(' + rowIdx + ')" title="删除行">✕</div></td></tr>';
+      });
+      tbody.innerHTML = bodyHtml;
+    }
+
+    // HTML 转义
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // 更新列名
+    function updateColumnName(idx, value) {
+      chartColumns[idx] = value;
+      updateFieldSelectors();
+      updateChart();
+    }
+
+    // 更新单元格值
+    function updateCellValue(rowIdx, colIdx, value) {
+      // 尝试转为数字
+      var num = parseFloat(value);
+      chartData[rowIdx][colIdx] = isNaN(num) ? value : num;
+      updateChart();
+    }
+
+    // 添加一行
+    function addDataRow() {
+      var newRow = chartColumns.map(function() { return ''; });
+      chartData.push(newRow);
+      renderDataTable();
+      updateChart();
+    }
+
+    // 删除一行
+    function deleteDataRow(rowIdx) {
+      chartData.splice(rowIdx, 1);
+      if (chartData.length === 0) {
+        chartData.push(chartColumns.map(function() { return ''; }));
+      }
+      renderDataTable();
+      updateChart();
+    }
+
+    // 更新字段选择器
+    function updateFieldSelectors() {
+      var selects = ['xAxisField', 'yAxisField', 'valueField', 'nameField'];
+      selects.forEach(function(id) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        var currentVal = sel.value;
+        sel.innerHTML = chartColumns.map(function(col, idx) {
+          return '<option value="' + idx + '">' + escapeHtml(col) + '</option>';
+        }).join('');
+        // 保持选中
+        if (currentVal !== '' && currentVal < chartColumns.length) {
+          sel.value = currentVal;
+        }
+      });
+    }
+
+    // ========================================
+    // 文件上传
+    // ========================================
+    function handleFileUpload(event) {
+      var file = event.target.files[0];
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var content = e.target.result;
+        try {
+          if (file.name.endsWith('.csv')) {
+            parseCSV(content);
+          } else if (file.name.endsWith('.json')) {
+            parseJSON(content);
+          }
+          renderDataTable();
+          updateFieldSelectors();
+          updateChart();
+          if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+            YunxiAPI.showToast('文件导入成功', 'success');
+          }
+        } catch (err) {
+          if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+            YunxiAPI.showToast('文件解析失败: ' + err.message, 'error');
+          }
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = ''; // 重置以便再次选择同一文件
+    }
+
+    // 解析 CSV
+    function parseCSV(content) {
+      var lines = content.trim().split(/\r?\n/);
+      if (lines.length < 2) throw new Error('CSV 文件内容不足');
+
+      chartColumns = lines[0].split(',').map(function(c) { return c.trim().replace(/^"|"$/g, ''); });
+      chartData = [];
+      for (var i = 1; i < lines.length; i++) {
+        var vals = lines[i].split(',').map(function(c) {
+          var trimmed = c.trim().replace(/^"|"$/g, '');
+          var num = parseFloat(trimmed);
+          return isNaN(num) ? trimmed : num;
+        });
+        chartData.push(vals);
+      }
+    }
+
+    // 解析 JSON
+    function parseJSON(content) {
+      var obj = JSON.parse(content);
+      if (Array.isArray(obj) && obj.length > 0) {
+        // 对象数组格式
+        if (typeof obj[0] === 'object' && !Array.isArray(obj[0])) {
+          chartColumns = Object.keys(obj[0]);
+          chartData = obj.map(function(item) {
+            return chartColumns.map(function(col) { return item[col]; });
+          });
+        } else if (Array.isArray(obj[0])) {
+          // 二维数组格式
+          chartColumns = obj[0].map(function(c, i) { return '列' + (i + 1); });
+          chartData = obj.slice(1);
+        }
+      } else if (obj.columns && obj.data) {
+        chartColumns = obj.columns;
+        chartData = obj.data;
+      } else {
+        throw new Error('JSON 格式不支持');
+      }
+    }
+
+    // ========================================
+    // 颜色主题
+    // ========================================
+    function selectTheme(idx) {
+      currentThemeIndex = idx;
+      renderThemeOptions();
+      updateChart();
+    }
+
+    // ========================================
+    // 图表渲染
+    // ========================================
+    function updateChart() {
+      if (!currentChartType) return;
+
+      var dom = document.getElementById('previewChart');
+      if (!chartInstance) {
+        chartInstance = echarts.init(dom);
+      }
+
+      var option = generateChartOption();
+      chartInstance.setOption(option, true);
+    }
+
+    // 生成图表配置
+    function generateChartOption() {
+      var type = currentChartType;
+      var theme = colorThemes[currentThemeIndex].colors;
+      var title = document.getElementById('chartTitle').value;
+      var subtitle = document.getElementById('chartSubtitle').value;
+      var showLegend = document.getElementById('showLegend').checked;
+      var legendPos = document.getElementById('legendPosition').value;
+      var showGrid = document.getElementById('showGrid').checked;
+      var xAxisName = document.getElementById('xAxisName').value;
+      var yAxisName = document.getElementById('yAxisName').value;
+
+      // 基础配置
+      var option = {
+        color: theme,
+        title: {
+          text: title,
+          subtext: subtitle || undefined,
+          left: 'center',
+          textStyle: { fontSize: 16, fontWeight: 600 }
+        },
+        tooltip: { trigger: type === 'pie' || type === 'funnel' || type === 'gauge' ? 'item' : 'axis' },
+        legend: {
+          show: showLegend,
+          top: legendPos === 'top' ? 30 : (legendPos === 'bottom' ? 'bottom' : 'center'),
+          left: legendPos === 'left' ? 10 : (legendPos === 'right' ? 'right' : 'center'),
+          orient: (legendPos === 'left' || legendPos === 'right') ? 'vertical' : 'horizontal',
+          textStyle: { fontSize: 12 }
+        },
+        animationDuration: 600,
+      };
+
+      // 获取字段索引
+      var xField = parseInt(document.getElementById('xAxisField').value) || 0;
+      var yField = parseInt(document.getElementById('yAxisField').value) || 1;
+      var valueField = parseInt(document.getElementById('valueField').value) || 1;
+      var nameField = parseInt(document.getElementById('nameField').value) || 0;
+
+      switch(type) {
+        case 'line':
+        case 'area':
+        case 'bar':
+          var categories = chartData.map(function(row) { return row[xField]; });
+          // 支持多Y系列（除第一列外所有数值列）
+          var series = [];
+          for (var i = 0; i < chartColumns.length; i++) {
+            if (i === xField) continue;
+            var isNum = chartData.some(function(row) { return typeof row[i] === 'number'; });
+            if (!isNum && chartColumns.length > 2) continue;
+            series.push({
+              name: chartColumns[i],
+              type: type === 'area' ? 'line' : type,
+              data: chartData.map(function(row) { return row[i]; }),
+              smooth: type === 'line' || type === 'area',
+              areaStyle: type === 'area' ? {} : undefined,
+              barMaxWidth: type === 'bar' ? 30 : undefined,
+            });
+          }
+          if (series.length === 0) {
+            series.push({ name: '数值', type: type === 'area' ? 'line' : type, data: [] });
+          }
+          option.xAxis = {
+            type: 'category',
+            data: categories,
+            name: xAxisName,
+            axisLabel: { fontSize: 11 }
+          };
+          option.yAxis = {
+            type: 'value',
+            name: yAxisName,
+            axisLabel: { fontSize: 11 },
+            splitLine: { show: showGrid, lineStyle: { type: 'dashed', color: 'rgba(0,0,0,0.08)' } }
+          };
+          option.grid = { top: 70, bottom: 50, left: 60, right: 30 };
+          option.series = series;
+          break;
+
+        case 'pie':
+          var pieData = chartData.map(function(row) {
+            return { name: row[nameField], value: row[valueField] };
+          });
+          option.series = [{
+            name: chartColumns[valueField],
+            type: 'pie',
+            radius: ['40%', '65%'],
+            center: ['50%', '55%'],
+            data: pieData,
+            label: { fontSize: 12 },
+            emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)' } }
+          }];
+          break;
+
+        case 'radar':
+          var indicator = chartData.map(function(row) {
+            return { name: row[nameField], max: 100 };
+          });
+          var values = chartData.map(function(row) { return row[valueField]; });
+          option.radar = {
+            indicator: indicator,
+            center: ['50%', '58%'],
+            radius: '60%',
+            axisName: { fontSize: 11 }
+          };
+          option.series = [{
+            type: 'radar',
+            data: [{ value: values, name: chartColumns[valueField], areaStyle: {} }]
+          }];
+          break;
+
+        case 'scatter':
+          var scatterData = chartData.map(function(row) {
+            return [row[xField], row[yField]];
+          });
+          option.xAxis = {
+            type: 'value',
+            name: chartColumns[xField],
+            axisLabel: { fontSize: 11 },
+            splitLine: { show: showGrid, lineStyle: { type: 'dashed', color: 'rgba(0,0,0,0.08)' } }
+          };
+          option.yAxis = {
+            type: 'value',
+            name: chartColumns[yField],
+            axisLabel: { fontSize: 11 },
+            splitLine: { show: showGrid, lineStyle: { type: 'dashed', color: 'rgba(0,0,0,0.08)' } }
+          };
+          option.grid = { top: 70, bottom: 50, left: 60, right: 30 };
+          option.series = [{
+            type: 'scatter',
+            data: scatterData,
+            symbolSize: 12,
+            itemStyle: { opacity: 0.8 }
+          }];
+          break;
+
+        case 'heatmap':
+          var xCats = [];
+          var yCats = [];
+          var heatData = [];
+          chartData.forEach(function(row) {
+            var x = row[0], y = row[1], v = row[2];
+            if (xCats.indexOf(x) === -1) xCats.push(x);
+            if (yCats.indexOf(y) === -1) yCats.push(y);
+            heatData.push([xCats.indexOf(x), yCats.indexOf(y), v]);
+          });
+          option.xAxis = {
+            type: 'category',
+            data: xCats,
+            splitArea: { show: showGrid }
+          };
+          option.yAxis = {
+            type: 'category',
+            data: yCats,
+            splitArea: { show: showGrid }
+          };
+          option.grid = { top: 70, bottom: 50, left: 60, right: 30 };
+          option.visualMap = {
+            min: 0,
+            max: 100,
+            calculable: true,
+            orient: 'horizontal',
+            left: 'center',
+            bottom: 10,
+            inRange: { color: ['#EBEDF0', theme[0]] }
+          };
+          option.series = [{
+            type: 'heatmap',
+            data: heatData,
+            label: { show: true, fontSize: 10 },
+            emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' } }
+          }];
+          break;
+
+        case 'gauge':
+          var gaugeValue = chartData.length > 0 ? chartData[0][valueField] : 0;
+          option.series = [{
+            type: 'gauge',
+            center: ['50%', '60%'],
+            radius: '75%',
+            progress: { show: true, width: 18 },
+            axisLine: { lineStyle: { width: 18 } },
+            axisTick: { show: false },
+            splitLine: { length: 12, lineStyle: { width: 2 } } ,
+            axisLabel: { fontSize: 11, distance: 25 },
+            pointer: { width: 6 },
+            detail: {
+              valueAnimation: true,
+              formatter: '{value}%',
+              fontSize: 24,
+              offsetCenter: [0, '70%']
+            },
+            data: [{ value: gaugeValue, name: chartData[0] ? chartData[0][0] : '' }],
+            title: { offsetCenter: [0, '95%'], fontSize: 14 }
+          }];
+          break;
+
+        case 'funnel':
+          var funnelData = chartData.map(function(row) {
+            return { name: row[nameField], value: row[valueField] };
+          });
+          option.series = [{
+            type: 'funnel',
+            left: '10%',
+            top: 60,
+            bottom: 40,
+            width: '80%',
+            min: 0,
+            max: Math.max.apply(null, funnelData.map(function(d) { return d.value; })) || 100,
+            minSize: '0%',
+            maxSize: '100%',
+            sort: 'descending',
+            gap: 2,
+            label: { show: true, position: 'inside', fontSize: 12 },
+            data: funnelData
+          }];
+          break;
+      }
+
+      return option;
+    }
+
+    // 刷新图表
+    function refreshChart() {
+      if (chartInstance) {
+        chartInstance.dispose();
+        chartInstance = null;
+      }
+      updateChart();
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('图表已刷新', 'success');
+      }
+    }
+
+    // ========================================
+    // 导出功能
+    // ========================================
+    // 导出 PNG
+    function exportPNG() {
+      if (!chartInstance) {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+          YunxiAPI.showToast('请先创建图表', 'warning');
+        }
+        return;
+      }
+      var url = chartInstance.getDataURL({
+        type: 'png',
+        pixelRatio: 2,
+        backgroundColor: '#fff'
+      });
+      var link = document.createElement('a');
+      link.download = (document.getElementById('chartTitle').value || 'chart') + '.png';
+      link.href = url;
+      link.click();
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('PNG 图片已导出', 'success');
+      }
+    }
+
+    // 导出配置 JSON
+    function exportConfigJSON() {
+      if (!chartInstance) {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+          YunxiAPI.showToast('请先创建图表', 'warning');
+        }
+        return;
+      }
+      var option = chartInstance.getOption();
+      var config = {
+        chartType: currentChartType,
+        title: document.getElementById('chartTitle').value,
+        theme: colorThemes[currentThemeIndex].name,
+        option: option,
+        data: { columns: chartColumns, rows: chartData }
+      };
+      var blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.download = (document.getElementById('chartTitle').value || 'chart') + '-config.json';
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('配置 JSON 已导出', 'success');
+      }
+    }
+
+    // 导出数据 CSV
+    function exportDataCSV() {
+      if (chartData.length === 0) {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+          YunxiAPI.showToast('没有可导出的数据', 'warning');
+        }
+        return;
+      }
+      var csv = chartColumns.join(',') + '\n';
+      csv += chartData.map(function(row) {
+        return row.map(function(cell) {
+          if (typeof cell === 'string' && cell.indexOf(',') !== -1) {
+            return '"' + cell + '"';
+          }
+          return cell;
+        }).join(',');
+      }).join('\n');
+      var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.download = (document.getElementById('chartTitle').value || 'data') + '.csv';
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('CSV 数据已导出', 'success');
+      }
+    }
+
+    // ========================================
+    // 重置
+    // ========================================
+    function resetAll() {
+      currentChartType = null;
+      chartData = [];
+      chartColumns = ['类别', '数值'];
+      currentThemeIndex = 0;
+      if (chartInstance) {
+        chartInstance.dispose();
+        chartInstance = null;
+      }
+      document.getElementById('emptyState').style.display = 'flex';
+      document.querySelectorAll('.template-card').forEach(function(card) {
+        card.classList.remove('active');
+      });
+      document.getElementById('chartTitle').value = '我的图表';
+      document.getElementById('chartSubtitle').value = '';
+      document.getElementById('showLegend').checked = true;
+      document.getElementById('legendPosition').value = 'top';
+      document.getElementById('showGrid').checked = true;
+      document.getElementById('xAxisName').value = '';
+      document.getElementById('yAxisName').value = '';
+      renderThemeOptions();
+      switchConfigTab('data');
+      if (typeof YunxiAPI !== 'undefined' && YunxiAPI.showToast) {
+        YunxiAPI.showToast('已重置', 'success');
+      }
+    }
+
+    // ========================================
+    // 窗口 resize
+    // ========================================
+    window.addEventListener('resize', function() {
+      if (chartInstance) {
+        chartInstance.resize();
+      }
+    });
+
+    // 启动
+    init();
+  </script>
+</body>
+</html>

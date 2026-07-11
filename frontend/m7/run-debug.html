@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运行调试 - M7 积木编排平台</title>
+    <style id="theme-vars">
+/* ============================================
+   M7 积木编排平台 - Brand Design Tokens
+   Low-code visual workflow orchestration platform
+   Style: Clean modern, light theme, drag interaction, node-based editing
+   ============================================ */
+
+:root {
+  /* --- Brand Primary --- */
+  --brand-primary: #3b82f6;
+  --brand-primary-hover: #2563eb;
+  --brand-primary-active: #1d4ed8;
+  --brand-primary-light: #eff6ff;
+  --brand-primary-50: #eff6ff;
+  --brand-primary-100: #dbeafe;
+  --brand-primary-200: #bfdbfe;
+  --brand-primary-500: #3b82f6;
+  --brand-primary-600: #2563eb;
+  --brand-primary-700: #1d4ed8;
+
+  /* --- State Colors --- */
+  --state-success: #10b981;
+  --state-success-light: #d1fae5;
+  --state-warning: #f59e0b;
+  --state-warning-light: #fef3c7;
+  --state-error: #ef4444;
+  --state-error-light: #fee2e2;
+  --state-info: #8b5cf6;
+  --state-info-light: #ede9fe;
+
+  /* --- Node Type Colors --- */
+  --node-trigger: #10b981;
+  --node-ai: #8b5cf6;
+  --node-logic: #f59e0b;
+  --node-data: #06b6d4;
+  --node-tool: #6366f1;
+  --node-custom: #64748b;
+
+  /* --- Backgrounds & Surfaces --- */
+  --bg-body: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-surface-active: #e2e8f0;
+  --bg-canvas: #f1f5f9;
+  --bg-canvas-dots: #cbd5e1;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-sidebar: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-statusbar: #f8fafc;
+  --bg-input: #ffffff;
+  --bg-input-focus: #ffffff;
+
+  /* --- Text Colors --- */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+  --text-brand: #3b82f6;
+  --text-link: #3b82f6;
+  --text-placeholder: #94a3b8;
+
+  /* --- Borders --- */
+  --border-default: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-brand: #3b82f6;
+  --border-focus: #3b82f6;
+
+  /* --- Border Radius --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* --- Shadows (static: alpha <= 0.05) --- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.04), 0 4px 6px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 20px 25px rgba(0, 0, 0, 0.06), 0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-node: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-node-selected: 0 0 0 2px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.15);
+
+  /* --- Spacing Scale --- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Typography --- */
+  --font-sans: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+  --text-4xl: 30px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* --- Canvas Grid Dots --- */
+  --canvas-dot-color: #cbd5e1;
+  --canvas-dot-size: 1px;
+  --canvas-dot-gap: 20px;
+
+  /* --- Connection Lines --- */
+  --connection-color: #94a3b8;
+  --connection-selected: #3b82f6;
+  --connection-width: 2px;
+  --connection-selected-width: 3px;
+
+  /* --- Node Port --- */
+  --port-size: 10px;
+  --port-color: #94a3b8;
+  --port-hover: #3b82f6;
+  --port-connected: #3b82f6;
+
+  /* --- Transition --- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Typography Classes */
+.brand-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.brand-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.brand-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.brand-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+.brand-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+}
+
+.brand-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--brand-primary);
+  }
+  @layer base {
+    body { background: var(--brand-background); color: var(--brand-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <script src="../common/api.js"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="h-screen flex flex-col overflow-hidden" style="background: var(--bg-body);">
+
+      <!-- ===== Top Toolbar ===== -->
+      <header class="flex items-center justify-between h-12 px-4 shrink-0" style="background: var(--bg-surface); border-bottom: 1px solid var(--border-default);">
+        <!-- Left: Back + Title -->
+        <div class="flex items-center gap-3">
+          <button onclick="window.location.href='workflow-editor.html'" data-dom-id="back-to-editor" class="inline-flex items-center justify-center w-8 h-8 rounded-md whitespace-nowrap transition-colors duration-150" style="color: var(--text-secondary);" aria-label="返回编辑器">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          </button>
+          <div class="flex items-center gap-2">
+            <span id="workflow-name" class="text-sm font-medium truncate" style="color: var(--text-primary); word-break: keep-all;">工作流运行</span>
+            <span id="run-status-badge" class="px-1.5 py-0.5 text-xs rounded-md" style="background: var(--state-info-light); color: var(--state-info);">待运行</span>
+          </div>
+        </div>
+        <!-- Center: Actions -->
+        <div class="flex items-center gap-2">
+          <button class="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150" style="background: var(--brand-primary); color: var(--text-inverse);" aria-label="重新运行">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>重新运行</span>
+          </button>
+          <button disabled class="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150 cursor-not-allowed opacity-50" style="background: var(--bg-surface-hover); color: var(--text-tertiary);" aria-label="停止运行">
+            <i data-lucide="square" class="w-3.5 h-3.5"></i>
+            <span>停止运行</span>
+          </button>
+          <button class="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150" style="background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border-default);" aria-label="保存为模板">
+            <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+            <span>保存为模板</span>
+          </button>
+        </div>
+        <!-- Right: Run info -->
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap" style="background: var(--brand-primary-light); color: var(--brand-primary);">
+            Run #3
+          </span>
+          <span class="text-xs font-medium whitespace-nowrap" style="color: var(--text-tertiary); font-variant-numeric: tabular-nums;">2.3s</span>
+        </div>
+      </header>
+
+      <!-- ===== Main Split View ===== -->
+      <div class="flex flex-1 min-h-0">
+
+        <!-- Left Panel: Read-only Canvas (60%) -->
+        <section class="relative" style="flex: 0 0 60%; background: var(--bg-canvas);">
+
+          <!-- Dot Grid Background -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
+            <defs>
+              <pattern id="dotGrid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="0.5" fill="var(--canvas-dot-color)"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#dotGrid)"/>
+          </svg>
+
+          <!-- Canvas Content (centered nodes) -->
+          <div class="relative w-full h-full" style="padding: 60px 80px;">
+
+            <!-- SVG Connections Layer -->
+            <svg class="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" style="z-index: 1;">
+              <!-- Connection 1: 手动触发 → 大模型对话 (COMPLETED - green animated) -->
+              <path d="M 260 130 C 310 130, 310 230, 260 230" fill="none" stroke="var(--state-success)" stroke-width="2" stroke-dasharray="6 4" style="animation: flowDash 1s linear infinite;">
+                <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1s" repeatCount="indefinite"/>
+              </path>
+              <!-- Connection 2: 大模型对话 → 条件判断 (COMPLETED - green animated) -->
+              <path d="M 260 310 C 350 310, 350 430, 260 430" fill="none" stroke="var(--state-success)" stroke-width="2" stroke-dasharray="6 4">
+                <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1s" repeatCount="indefinite"/>
+              </path>
+              <!-- Connection 3: 条件判断 → HTTP请求 (PENDING - gray) -->
+              <path d="M 260 510 C 350 510, 350 630, 260 630" fill="none" stroke="var(--border-default)" stroke-width="2" stroke-dasharray="4 4" opacity="0.5"/>
+            </svg>
+
+            <!-- Node 1: 手动触发 - COMPLETED -->
+            <div class="absolute flex flex-col rounded-lg overflow-hidden" style="left: 120px; top: 60px; width: 280px; z-index: 2; box-shadow: var(--shadow-node); border: 2px solid var(--state-success);">
+              <!-- Top bar (green = trigger) -->
+              <div class="h-2 shrink-0" style="background: var(--node-trigger);"></div>
+              <div class="flex items-center gap-2 px-3 py-2" style="background: var(--bg-surface);">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style="background: var(--state-success-light);">
+                  <i data-lucide="check" class="w-3.5 h-3.5" style="color: var(--state-success);"></i>
+                </div>
+                <span class="text-sm font-medium truncate" style="color: var(--text-primary);">手动触发</span>
+                <span class="ml-auto text-xs whitespace-nowrap shrink-0" style="color: var(--text-tertiary);">0.1s</span>
+              </div>
+            </div>
+
+            <!-- Node 2: 大模型对话 - COMPLETED -->
+            <div class="absolute flex flex-col rounded-lg overflow-hidden" style="left: 120px; top: 200px; width: 280px; z-index: 2; box-shadow: var(--shadow-node); border: 2px solid var(--state-success);">
+              <div class="h-2 shrink-0" style="background: var(--node-ai);"></div>
+              <div class="flex items-center gap-2 px-3 py-2" style="background: var(--bg-surface);">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style="background: var(--state-success-light);">
+                  <i data-lucide="check" class="w-3.5 h-3.5" style="color: var(--state-success);"></i>
+                </div>
+                <span class="text-sm font-medium truncate" style="color: var(--text-primary);">大模型对话</span>
+                <span class="ml-auto text-xs whitespace-nowrap shrink-0" style="color: var(--text-tertiary);">1.8s</span>
+              </div>
+            </div>
+
+            <!-- Node 3: 条件判断 - RUNNING (pulse animation) -->
+            <div class="absolute flex flex-col rounded-lg overflow-hidden" style="left: 120px; top: 340px; width: 280px; z-index: 2; box-shadow: var(--shadow-node); border: 2px solid var(--brand-primary); animation: pulseBorder 2s ease-in-out infinite;">
+              <div class="h-2 shrink-0" style="background: var(--node-logic);"></div>
+              <div class="flex items-center gap-2 px-3 py-2" style="background: var(--bg-surface);">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style="background: var(--brand-primary-light);">
+                  <i data-lucide="loader-2" class="w-3.5 h-3.5" style="color: var(--brand-primary); animation: spin 1s linear infinite;"></i>
+                </div>
+                <span class="text-sm font-medium truncate" style="color: var(--text-primary);">条件判断</span>
+                <span class="ml-auto text-xs whitespace-nowrap shrink-0" style="color: var(--brand-primary);">处理中...</span>
+              </div>
+            </div>
+
+            <!-- Node 4: HTTP请求 - PENDING (dimmed) -->
+            <div class="absolute flex flex-col rounded-lg overflow-hidden" style="left: 120px; top: 500px; width: 280px; z-index: 2; box-shadow: var(--shadow-node); border: 2px solid var(--border-default); opacity: 0.45;">
+              <div class="h-2 shrink-0" style="background: var(--node-data);"></div>
+              <div class="flex items-center gap-2 px-3 py-2" style="background: var(--bg-surface);">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style="background: var(--bg-surface-active);">
+                  <i data-lucide="circle" class="w-3 h-3" style="color: var(--text-tertiary);"></i>
+                </div>
+                <span class="text-sm font-medium truncate" style="color: var(--text-tertiary);">HTTP请求</span>
+                <span class="ml-auto text-xs whitespace-nowrap shrink-0" style="color: var(--text-tertiary);">等待中</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Right Panel: Results & Debug (40%) -->
+        <aside class="flex flex-col min-h-0" style="flex: 0 0 40%; background: var(--bg-surface); border-left: 1px solid var(--border-default);">
+
+          <!-- Tab Bar -->
+          <nav class="flex items-center shrink-0" style="height: 40px; border-bottom: 1px solid var(--border-default);">
+            <button class="inline-flex items-center justify-center px-4 text-sm font-medium whitespace-nowrap transition-colors duration-150" style="height: 100%; color: var(--brand-primary); border-bottom: 2px solid var(--brand-primary);">执行日志</button>
+            <button class="inline-flex items-center justify-center px-4 text-sm font-medium whitespace-nowrap transition-colors duration-150" style="height: 100%; color: var(--text-tertiary);">输出结果</button>
+            <button class="inline-flex items-center justify-center px-4 text-sm font-medium whitespace-nowrap transition-colors duration-150" style="height: 100%; color: var(--text-tertiary);">变量面板</button>
+          </nav>
+
+          <!-- Active Tab Content: 执行日志 -->
+          <div id="execution-log" class="flex-1 overflow-y-auto" style="padding: 16px;">
+            <!-- 执行步骤由 JS 动态渲染 -->
+            <div class="flex items-center justify-center h-full text-sm" style="color: var(--text-tertiary);">
+              <div class="text-center">
+                <i data-lucide="play-circle" class="w-8 h-8 mx-auto mb-2"></i>
+                <p>点击「运行」按钮开始执行</p>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+
+    </main>
+
+    <style>
+      @keyframes pulseBorder {
+        0%, 100% { box-shadow: var(--shadow-node); }
+        50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), var(--shadow-node); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        @keyframes pulseBorder {
+          0%, 100% { box-shadow: var(--shadow-node); }
+          50% { box-shadow: var(--shadow-node); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 1; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(0deg); }
+        }
+        * { animation-duration: 0.01ms !important; }
+      }
+    </style>
+    <script>lucide.createIcons();</script>
+    <script>
+    // 登录检查
+    if (!YunxiAPI.isLoggedIn()) {
+        YunxiAPI.redirectToLogin();
+    }
+
+    // 运行状态
+    const urlParams = new URLSearchParams(window.location.search);
+    const workflowId = urlParams.get('workflow_id') || urlParams.get('id') || '';
+    const isDebugMode = urlParams.get('mode') === 'debug';
+
+    let workflowData = null;
+    let apiAvailable = true;
+    let isRunning = false;
+    let currentStep = 0;
+    let runStartTime = null;
+    let runTimer = null;
+    let debugStep = 0;
+    let currentRunId = null;
+    let runHistory = [];
+
+    // 节点数据（初始为空，从 API 加载）
+    let nodes = [];
+
+    // 模拟节点数据（API 失败时降级）
+    const fallbackNodes = [
+        { name: '手动触发', status: 'pending', duration: '', type: 'trigger' },
+        { name: '大模型对话', status: 'pending', duration: '', type: 'ai', input: '"用户咨询内容"', output: '"您好，请问有什么可以帮您？"' },
+        { name: '条件判断', status: 'pending', duration: '', type: 'logic' },
+        { name: 'HTTP请求', status: 'pending', duration: '', type: 'data' },
+    ];
+
+    // ========== API 调用 ==========
+
+    // 获取工作流详情
+    async function fetchWorkflow() {
+        if (!workflowId) return;
+        try {
+            const data = await YunxiAPI.request('GET', '/workflows/' + workflowId);
+            workflowData = data;
+            apiAvailable = true;
+
+            // 更新标题
+            const nameEl = document.getElementById('workflow-name');
+            if (nameEl && data.name) {
+                nameEl.textContent = data.name;
+            }
+
+            // 从 blocks 初始化节点
+            if (data.blocks && data.blocks.length > 0) {
+                nodes = data.blocks.map((b, i) => ({
+                    name: b.name || b.label || ('节点' + (i + 1)),
+                    status: 'pending',
+                    duration: '',
+                    type: b.type || b.category || 'custom',
+                    input: b.input_data || '',
+                    output: b.output_data || '',
+                }));
+            } else {
+                nodes = JSON.parse(JSON.stringify(fallbackNodes));
+            }
+        } catch (error) {
+            console.warn('获取工作流详情失败:', error.message);
+            apiAvailable = false;
+            workflowData = { id: workflowId, name: '工作流运行' };
+            nodes = JSON.parse(JSON.stringify(fallbackNodes));
+            const nameEl = document.getElementById('workflow-name');
+            if (nameEl) nameEl.textContent = '工作流运行';
+        }
+    }
+
+    // 运行工作流
+    async function runWorkflowAPI(inputData) {
+        if (!workflowId) throw new Error('工作流ID不存在');
+        return await YunxiAPI.request('POST', '/workflows/' + workflowId + '/run', {
+            body: { input_data: inputData || {} }
+        });
+    }
+
+    // 获取运行历史
+    async function fetchRunHistory() {
+        if (!workflowId || !apiAvailable) return;
+        try {
+            const data = await YunxiAPI.request('GET', '/workflows/' + workflowId + '/runs');
+            runHistory = Array.isArray(data) ? data : (data.items || data.list || []);
+        } catch (error) {
+            console.warn('获取运行历史失败:', error.message);
+            runHistory = [];
+        }
+    }
+
+    // ========== 执行日志渲染 ==========
+
+    function renderExecutionLog() {
+        const logEl = document.getElementById('execution-log');
+        if (!logEl) return;
+
+        if (nodes.length === 0) {
+            logEl.innerHTML = `
+                <div class="flex items-center justify-center h-full text-sm" style="color: var(--text-tertiary);">
+                  <div class="text-center">
+                    <i data-lucide="play-circle" class="w-8 h-8 mx-auto mb-2"></i>
+                    <p>点击「运行」按钮开始执行</p>
+                  </div>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+
+        let html = '<div class="relative" style="padding-left: 20px;">';
+        html += '<div class="absolute top-2 bottom-2" style="left: 5px; width: 2px; background: var(--border-default);"></div>';
+
+        nodes.forEach((node, index) => {
+            const isLast = index === nodes.length - 1;
+            let dotColor = 'var(--text-tertiary)';
+            let iconName = 'circle';
+            let iconBg = 'var(--bg-surface-active)';
+            let iconColor = 'var(--text-tertiary)';
+            let statusText = '等待中';
+            let statusColor = 'var(--text-tertiary)';
+            let hasPulse = false;
+            let hasSpin = false;
+
+            if (node.status === 'completed') {
+                dotColor = 'var(--state-success)';
+                iconName = 'check';
+                iconBg = 'var(--state-success-light)';
+                iconColor = 'var(--state-success)';
+                statusText = '执行完成 (' + (node.duration || '--') + ')';
+                statusColor = 'var(--text-tertiary)';
+            } else if (node.status === 'running') {
+                dotColor = 'var(--brand-primary)';
+                iconName = 'loader-2';
+                iconBg = 'var(--brand-primary-light)';
+                iconColor = 'var(--brand-primary)';
+                statusText = '执行中...';
+                statusColor = 'var(--brand-primary)';
+                hasPulse = true;
+                hasSpin = true;
+            } else if (node.status === 'failed') {
+                dotColor = 'var(--state-error)';
+                iconName = 'x';
+                iconBg = 'var(--state-error-light)';
+                iconColor = 'var(--state-error)';
+                statusText = '执行失败';
+                statusColor = 'var(--state-error)';
+            }
+
+            const timeStr = formatTime(node.startTime || '');
+
+            html += `
+            <div class="relative flex items-start gap-3 log-entry" style="padding-bottom: ${isLast ? '0' : '20px'};" data-index="${index}">
+              <div class="absolute shrink-0 w-3 h-3 rounded-full" style="left: -16px; top: 4px; background: ${dotColor}; ${hasPulse ? 'animation: pulse 2s ease-in-out infinite;' : ''}"></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-mono whitespace-nowrap shrink-0" style="color: var(--text-tertiary);">${timeStr || '--:--:--'}</span>
+                  <span class="w-4 h-4 rounded-full inline-flex items-center justify-center shrink-0" style="background: ${iconBg};">
+                    <i data-lucide="${iconName}" class="w-2.5 h-2.5" style="color: ${iconColor}; ${hasSpin ? 'animation: spin 1s linear infinite;' : ''"></i>
+                  </span>
+                  <span class="text-sm font-medium truncate" style="color: var(--text-primary);">${node.name}</span>
+                  <span class="ml-auto text-xs whitespace-nowrap shrink-0" style="color: ${statusColor};">${statusText}</span>
+                </div>
+            `;
+
+            // 如果有输入输出详情
+            if ((node.input || node.output) && node.status !== 'pending') {
+                html += `
+                <div class="mt-2 ml-14 rounded-md" style="padding: 8px 12px; background: var(--bg-canvas);">
+            `;
+                if (node.input) {
+                    html += `
+                    <div class="flex items-start gap-2 text-xs" style="color: var(--text-secondary);">
+                      <span class="shrink-0 font-medium" style="color: var(--text-tertiary);">输入:</span>
+                      <span class="truncate" style="font-family: var(--font-mono);">${typeof node.input === 'string' ? node.input : JSON.stringify(node.input).substring(0, 100)}</span>
+                    </div>
+                    `;
+                }
+                if (node.output && node.status === 'completed') {
+                    html += `
+                    <div class="flex items-start gap-2 text-xs mt-1" style="color: var(--text-secondary);">
+                      <span class="shrink-0 font-medium" style="color: var(--text-tertiary);">输出:</span>
+                      <span class="truncate" style="font-family: var(--font-mono);">${typeof node.output === 'string' ? node.output : JSON.stringify(node.output).substring(0, 100)}</span>
+                    </div>
+                    `;
+                }
+                if (node.error && node.status === 'failed') {
+                    html += `
+                    <div class="flex items-start gap-2 text-xs mt-1" style="color: var(--state-error);">
+                      <span class="shrink-0 font-medium" style="color: var(--state-error);">错误:</span>
+                      <span class="truncate" style="font-family: var(--font-mono);">${node.error}</span>
+                    </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            html += `
+              </div>
+            </div>
+            `;
+        });
+
+        html += '</div>';
+        logEl.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+
+        // 绑定点击事件
+        logEl.querySelectorAll('.log-entry').forEach(entry => {
+            entry.style.cursor = 'pointer';
+            entry.addEventListener('click', function() {
+                const idx = parseInt(this.getAttribute('data-index'));
+                if (nodes[idx]) {
+                    viewLogDetail(nodes[idx].name);
+                }
+            });
+        });
+    }
+
+    function formatTime(isoString) {
+        if (!isoString) return '';
+        try {
+            const d = new Date(isoString);
+            return d.toLocaleTimeString('zh-CN', { hour12: false });
+        } catch (e) {
+            return isoString;
+        }
+    }
+
+    // ========== 重新运行 ==========
+
+    function rerunWorkflow() {
+        YunxiAPI.withValidation(
+            { ollama: true },
+            async () => {
+                const confirmed = await YunxiAPI.showConfirm('确定要重新运行此工作流吗？当前运行结果将被清除。', '重新运行');
+                if (!confirmed) return;
+
+                // 重置状态
+                isRunning = true;
+                currentStep = 0;
+                runStartTime = Date.now();
+                debugStep = 0;
+
+                // 重置节点状态
+                nodes.forEach((n, i) => {
+                    n.status = i === 0 ? 'running' : 'pending';
+                    n.duration = '';
+                    n.startTime = i === 0 ? new Date().toISOString() : '';
+                });
+
+                updateRunStatus('running');
+                renderExecutionLog();
+                updateCanvasNodes();
+                startRunTimer();
+                updateRunInfo();
+
+                if (apiAvailable && workflowId) {
+                    try {
+                        const result = await runWorkflowAPI();
+                        if (result && result.id) {
+                            currentRunId = result.id;
+                        }
+                        // 如果后端返回了步骤数据
+                        if (result && result.steps) {
+                            nodes = result.steps.map(s => ({
+                                name: s.name || s.block_name || '',
+                                status: s.status || 'pending',
+                                duration: s.duration ? s.duration + 's' : '',
+                                type: s.type || '',
+                                input: s.input_data || s.input || '',
+                                output: s.output_data || s.output || '',
+                                error: s.error || '',
+                            }));
+                            renderExecutionLog();
+                            updateCanvasNodes();
+                            isRunning = nodes.some(n => n.status === 'running' || n.status === 'pending');
+                            if (!isRunning) {
+                                stopRunTimer();
+                                updateRunStatus('completed');
+                            }
+                        } else {
+                            // 没有步骤数据，继续模拟
+                            simulateExecution();
+                        }
+                        YunxiAPI.showToast('工作流已启动运行', 'success');
+                    } catch (e) {
+                        YunxiAPI.showToast('启动失败：' + e.message, 'error');
+                        isRunning = false;
+                        stopRunTimer();
+                        updateRunStatus('failed');
+                    }
+                } else {
+                    // 降级到模拟
+                    YunxiAPI.showToast('工作流已重新启动', 'success');
+                    simulateExecution();
+                }
+            },
+            { loadingText: '检查运行环境...' }
+        );
+    }
+
+    // ========== 停止运行 ==========
+
+    function stopWorkflow() {
+        YunxiAPI.showConfirm('确定要停止当前运行吗？', '停止运行').then(confirmed => {
+            if (!confirmed) return;
+            YunxiAPI.showLoading('正在停止...');
+            setTimeout(() => {
+                YunxiAPI.hideLoading();
+                isRunning = false;
+                stopRunTimer();
+
+                // 将运行中的节点标记为失败或完成
+                nodes.forEach(n => {
+                    if (n.status === 'running') {
+                    n.status = 'failed';
+                    n.error = '用户手动停止';
+                }
+                });
+
+                updateRunStatus('failed');
+                renderExecutionLog();
+                updateCanvasNodes();
+
+                // 更新停止按钮状态
+                const stopBtn = document.querySelector('[data-lucide="square"]')?.closest('button');
+                if (stopBtn) {
+                    stopBtn.disabled = true;
+                    stopBtn.style.opacity = '0.5';
+                    stopBtn.style.cursor = 'not-allowed';
+                }
+                YunxiAPI.showToast('运行已停止', 'warning');
+            }, 500);
+        });
+    }
+
+    // ========== 单步执行（调试模式） ==========
+
+    function stepExecute() {
+        if (!isDebugMode) {
+            YunxiAPI.showToast('请在调试模式下使用单步执行', 'warning');
+            return;
+        }
+
+        if (debugStep >= nodes.length) {
+            YunxiAPI.showToast('已执行完所有节点', 'info');
+            return;
+        }
+
+        YunxiAPI.showLoading('执行步骤 ' + (debugStep + 1) + '...');
+        setTimeout(() => {
+            YunxiAPI.hideLoading();
+
+            // 更新当前节点状态
+            if (debugStep > 0) {
+                nodes[debugStep - 1].status = 'completed';
+                nodes[debugStep - 1].duration = (0.5 + Math.random() * 2).toFixed(1) + 's';
+            }
+            if (debugStep < nodes.length) {
+                nodes[debugStep].status = 'running';
+                nodes[debugStep].startTime = new Date().toISOString();
+            }
+
+            debugStep++;
+            currentStep = debugStep - 1;
+
+            // 最后一个节点完成
+            if (debugStep === nodes.length) {
+                nodes[nodes.length - 1].status = 'completed';
+                nodes[nodes.length - 1].duration = (0.5 + Math.random() * 1).toFixed(1) + 's';
+                isRunning = false;
+                stopRunTimer();
+                updateRunStatus('completed');
+                YunxiAPI.showToast('调试执行完成', 'success');
+            } else {
+                YunxiAPI.showToast('已执行：' + nodes[debugStep - 1].name, 'info');
+            }
+
+            renderExecutionLog();
+            updateCanvasNodes();
+        }, 600);
+    }
+
+    // ========== 保存为模板 ==========
+
+    function saveAsTemplate() {
+        YunxiAPI.withValidation(
+            { modules: ['deploy'] },
+            async () => {
+                YunxiAPI.showLoading('正在保存为模板...');
+                await new Promise(r => setTimeout(r, 800));
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('已保存为模板', 'success');
+            },
+            { loadingText: '检查模块状态...' }
+        );
+    }
+
+    // ========== Tab 切换 ==========
+
+    let activeTab = 'logs';
+
+    function switchTab(tabName, btn) {
+        activeTab = tabName;
+        const tabs = document.querySelectorAll('nav button');
+        tabs.forEach(t => {
+            t.style.color = 'var(--text-tertiary)';
+            t.style.borderBottom = 'none';
+        });
+        if (btn) {
+            btn.style.color = 'var(--brand-primary)';
+            btn.style.borderBottom = '2px solid var(--brand-primary)';
+        }
+        YunxiAPI.showToast('已切换到「' + btn.textContent.trim() + '」', 'info');
+    }
+
+    // ========== 运行计时器 ==========
+
+    function startRunTimer() {
+        if (runTimer) clearInterval(runTimer);
+        runTimer = setInterval(() => {
+            if (!isRunning || !runStartTime) {
+                clearInterval(runTimer);
+                return;
+            }
+            const elapsed = ((Date.now() - runStartTime) / 1000).toFixed(1);
+            const timeEl = document.querySelector('[style*="font-variant-numeric: tabular-nums"]');
+            if (timeEl) {
+                timeEl.textContent = elapsed + 's';
+            }
+        }, 100);
+    }
+
+    function stopRunTimer() {
+        if (runTimer) {
+            clearInterval(runTimer);
+            runTimer = null;
+        }
+    }
+
+    // ========== 模拟执行 ==========
+
+    function simulateExecution() {
+        if (!isRunning) return;
+
+        const executeNext = () => {
+            if (!isRunning || currentStep >= nodes.length) {
+                isRunning = false;
+                stopRunTimer();
+                updateRunStatus('completed');
+                renderExecutionLog();
+                updateCanvasNodes();
+                YunxiAPI.showToast('工作流执行完成', 'success');
+
+                // 更新停止按钮状态
+                const stopBtn = document.querySelector('[data-lucide="square"]')?.closest('button');
+                if (stopBtn) {
+                    stopBtn.disabled = true;
+                    stopBtn.style.opacity = '0.5';
+                    stopBtn.style.cursor = 'not-allowed';
+                }
+                return;
+            }
+
+            // 完成当前节点
+            if (currentStep > 0) {
+                nodes[currentStep - 1].status = 'completed';
+                nodes[currentStep - 1].duration = (0.5 + Math.random() * 2).toFixed(1) + 's';
+            }
+
+            // 开始下一个节点
+            nodes[currentStep].status = 'running';
+            nodes[currentStep].startTime = new Date().toISOString();
+            currentStep++;
+
+            renderExecutionLog();
+            updateCanvasNodes();
+
+            // 继续下一个
+            setTimeout(executeNext, 1500 + Math.random() * 1000);
+        };
+
+        setTimeout(executeNext, 500);
+    }
+
+    // ========== 更新画布节点 ==========
+
+    function updateCanvasNodes() {
+        const nodeElements = document.querySelectorAll('[style*="box-shadow: var(--shadow-node)"]');
+        if (nodeElements.length === 0) return;
+
+        nodes.forEach((node, index) => {
+            const nodeEl = nodeElements[index];
+            if (!nodeEl) return;
+
+            if (node.status === 'completed') {
+                nodeEl.style.border = '2px solid var(--state-success)';
+                nodeEl.style.boxShadow = 'var(--shadow-node)';
+                nodeEl.style.opacity = '1';
+            } else if (node.status === 'running') {
+                nodeEl.style.border = '2px solid var(--brand-primary)';
+                nodeEl.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.15), var(--shadow-node)';
+                nodeEl.style.opacity = '1';
+            } else if (node.status === 'failed') {
+                nodeEl.style.border = '2px solid var(--state-error)';
+                nodeEl.style.boxShadow = 'var(--shadow-node)';
+                nodeEl.style.opacity = '1';
+            } else {
+                nodeEl.style.border = '2px solid var(--border-default)';
+                nodeEl.style.opacity = '0.45';
+            }
+
+            // 更新图标
+            const iconContainer = nodeEl.querySelector('[style*="rounded-full"]');
+            if (iconContainer) {
+                if (node.status === 'completed') {
+                    iconContainer.style.background = 'var(--state-success-light)';
+                    iconContainer.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5" style="color: var(--state-success);"></i>';
+                } else if (node.status === 'running') {
+                    iconContainer.style.background = 'var(--brand-primary-light)';
+                    iconContainer.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5" style="color: var(--brand-primary); animation: spin 1s linear infinite;"></i>';
+                } else if (node.status === 'failed') {
+                    iconContainer.style.background = 'var(--state-error-light)';
+                    iconContainer.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5" style="color: var(--state-error);"></i>';
+                } else {
+                    iconContainer.style.background = 'var(--bg-surface-active)';
+                    iconContainer.innerHTML = '<i data-lucide="circle" class="w-3 h-3" style="color: var(--text-tertiary);"></i>';
+                }
+                if (window.lucide) lucide.createIcons();
+            }
+
+            // 更新状态文字
+            const statusSpan = nodeEl.querySelector('.ml-auto');
+            if (statusSpan) {
+                if (node.status === 'completed') {
+                    statusSpan.textContent = node.duration;
+                    statusSpan.style.color = 'var(--text-tertiary)';
+                } else if (node.status === 'running') {
+                    statusSpan.textContent = '处理中...';
+                    statusSpan.style.color = 'var(--brand-primary)';
+                } else if (node.status === 'failed') {
+                    statusSpan.textContent = '失败';
+                    statusSpan.style.color = 'var(--state-error)';
+                } else {
+                    statusSpan.textContent = '等待中';
+                    statusSpan.style.color = 'var(--text-tertiary)';
+                }
+            }
+        });
+    }
+
+    // ========== 更新运行状态徽章 ==========
+
+    function updateRunStatus(status) {
+        const badge = document.getElementById('run-status-badge');
+        if (!badge) return;
+
+        const statusMap = {
+            'pending': { text: '待运行', bg: 'var(--state-info-light)', color: 'var(--state-info)' },
+            'running': { text: '运行中', bg: 'var(--brand-primary-light)', color: 'var(--brand-primary)' },
+            'completed': { text: '运行完成', bg: 'var(--state-success-light)', color: 'var(--state-success)' },
+            'failed': { text: '运行失败', bg: 'var(--state-error-light)', color: 'var(--state-error)' },
+        };
+
+        const info = statusMap[status] || statusMap['pending'];
+        badge.textContent = info.text;
+        badge.style.background = info.bg;
+        badge.style.color = info.color;
+    }
+
+    // ========== 更新运行信息 ==========
+
+    function updateRunInfo() {
+        // 更新 Run # 编号
+        const runNumEl = document.querySelector('[style*="background: var(--brand-primary-light)"]');
+        if (runNumEl && currentRunId) {
+            runNumEl.textContent = 'Run #' + currentRunId;
+        }
+    }
+
+    // ========== 查看日志详情 ==========
+
+    function viewLogDetail(nodeName) {
+        YunxiAPI.showLoading('加载日志详情...');
+        setTimeout(() => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('查看：' + nodeName + ' 详情', 'info');
+        }, 300);
+    }
+
+    // ========== 绑定按钮 ==========
+
+    function bindButtons() {
+        // 重新运行按钮
+        const rerunBtn = document.querySelector('[data-lucide="rotate-ccw"]')?.closest('button');
+        if (rerunBtn) {
+            rerunBtn.setAttribute('data-require-ollama', 'true');
+            rerunBtn.addEventListener('click', rerunWorkflow);
+        }
+
+        // 停止运行按钮
+        const stopBtn = document.querySelector('[data-lucide="square"]')?.closest('button');
+        if (stopBtn) {
+            stopBtn.disabled = false;
+            stopBtn.style.opacity = '1';
+            stopBtn.style.cursor = 'pointer';
+            stopBtn.style.background = 'var(--state-error)';
+            stopBtn.style.color = 'var(--text-inverse)';
+            stopBtn.addEventListener('click', stopWorkflow);
+        }
+
+        // 保存为模板按钮
+        const saveTplBtn = document.querySelector('[data-lucide="bookmark"]')?.closest('button');
+        if (saveTplBtn) {
+            saveTplBtn.setAttribute('data-require-git', 'true');
+            saveTplBtn.addEventListener('click', saveAsTemplate);
+        }
+
+        // 返回按钮
+        const backBtn = document.querySelector('[data-dom-id="back-to-editor"]');
+        if (backBtn) {
+            backBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (isRunning) {
+                    YunxiAPI.showConfirm('工作流正在运行中，确定要离开吗？', '离开确认').then(confirmed => {
+                        if (confirmed) {
+                            window.location.href = 'workflow-editor.html?id=' + workflowId;
+                        }
+                    });
+                } else {
+                    window.location.href = 'workflow-editor.html?id=' + workflowId;
+                }
+            });
+        }
+
+        // Tab 切换
+        const tabs = document.querySelectorAll('nav button');
+        const tabNames = ['logs', 'output', 'variables'];
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', function() {
+                switchTab(tabNames[index] || 'logs', this);
+            });
+        });
+    }
+
+    // ========== 键盘快捷键 ==========
+
+    function bindKeyboardShortcuts() {
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F5') {
+                e.preventDefault();
+                rerunWorkflow();
+            }
+            if (e.key === 'F10') {
+                e.preventDefault();
+                stepExecute();
+            }
+            if (e.key === 'Escape' && isRunning) {
+                e.preventDefault();
+                stopWorkflow();
+            }
+        });
+    }
+
+    // ========== 调试模式初始化 ==========
+
+    function initDebugMode() {
+        if (!isDebugMode) return;
+
+        // 添加单步执行按钮
+        const toolbarCenter = document.querySelector('.flex.items-center.gap-2');
+        if (toolbarCenter) {
+            const stepBtn = document.createElement('button');
+            stepBtn.className = 'inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150';
+            stepBtn.style.cssText = 'background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border-default);';
+            stepBtn.innerHTML = '<i data-lucide="skip-forward" class="w-3.5 h-3.5"></i><span>单步执行</span>';
+            stepBtn.addEventListener('click', stepExecute);
+
+            const stopBtn = toolbarCenter.querySelector('[data-lucide="square"]')?.closest('button');
+            if (stopBtn) {
+                stopBtn.after(stepBtn);
+            } else {
+                toolbarCenter.appendChild(stepBtn);
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        YunxiAPI.showToast('调试模式已启动，按 F10 单步执行', 'info');
+
+        // 调试模式从第一步开始
+        isRunning = true;
+        currentStep = 0;
+        debugStep = 0;
+        nodes.forEach((n, i) => {
+            n.status = i === 0 ? 'running' : 'pending';
+            n.duration = '';
+        });
+        nodes[0].status = 'completed';
+        nodes[0].duration = '0.1s';
+        nodes[0].startTime = new Date().toISOString();
+        nodes[1].status = 'running';
+        debugStep = 2;
+        currentStep = 1;
+        runStartTime = Date.now();
+        startRunTimer();
+        updateRunStatus('running');
+        renderExecutionLog();
+        updateCanvasNodes();
+    }
+
+    // ========== 初始化 ==========
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        bindButtons();
+        bindKeyboardShortcuts();
+
+        // 加载工作流数据
+        await fetchWorkflow();
+
+        // 初始渲染执行日志
+        renderExecutionLog();
+
+        // 初始化运行状态
+        updateRunStatus('pending');
+
+        // 加载运行历史
+        await fetchRunHistory();
+
+        // 调试模式
+        if (isDebugMode) {
+            initDebugMode();
+        }
+
+        // 更新用户头像
+        const user = YunxiAPI.getCurrentUser();
+        if (user) {
+            const userBtn = document.querySelector('button.rounded-full');
+            if (userBtn && user.username) {
+                userBtn.textContent = user.username.charAt(0).toUpperCase();
+            }
+        }
+
+        // 触发按钮状态同步
+        YunxiAPI.updateButtonsBySystemStatus();
+    });
+    </script>
+</body>
+</html>

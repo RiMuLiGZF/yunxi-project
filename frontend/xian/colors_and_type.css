@@ -1,0 +1,227 @@
+/* ========================================
+   汐舷 Xian — 品牌设计系统
+   M8 云汐管理工作台 / 监控中心
+   ======================================== */
+
+:root {
+  /* === 深海蓝渐变背景 === */
+  --color-tide-deep: #0a1628;
+  --color-tide-mid: #0d2137;
+  --color-tide-light: #1a3a5c;
+
+  /* === 潮汐青色（主色） === */
+  --color-tide-cyan: #00d4ff;
+  --color-tide-cyan-glow: rgba(0, 212, 255, 0.6);
+  --color-tide-cyan-soft: rgba(0, 212, 255, 0.15);
+
+  /* === 辅助色 === */
+  --color-tide-purple: #7c3aed;
+  --color-tide-green: #10b981;
+  --color-tide-amber: #f59e0b;
+  --color-tide-red: #ef4444;
+  --color-tide-gray: #64748b;
+
+  /* === 状态色 === */
+  --state-running: #00d4ff;
+  --state-running-glow: rgba(0, 212, 255, 0.6);
+  --state-success: #10b981;
+  --state-success-glow: rgba(16, 185, 129, 0.5);
+  --state-pending: #64748b;
+  --state-pending-glow: rgba(100, 116, 139, 0.3);
+  --state-error: #ef4444;
+  --state-error-glow: rgba(239, 68, 68, 0.6);
+  --state-confirm: #f59e0b;
+  --state-confirm-glow: rgba(245, 158, 11, 0.6);
+
+  /* === 文字色 === */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* === 表面色 === */
+  --color-surface-header: rgba(10, 22, 40, 0.85);
+  --color-surface-sidebar: rgba(10, 22, 40, 0.7);
+  --color-surface-panel: rgba(10, 22, 40, 0.9);
+  --color-surface-card: rgba(10, 22, 40, 0.8);
+  --color-surface-overlay: rgba(10, 22, 40, 0.9);
+
+  /* === 边框色 === */
+  --color-border-cyan: rgba(0, 212, 255, 0.2);
+  --color-border-cyan-strong: rgba(0, 212, 255, 0.3);
+  --color-border-subtle: rgba(0, 212, 255, 0.1);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+
+  /* === 间距系统 === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* === 圆角 === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* === 动效曲线 === */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-gentle: cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* === 动画时长 === */
+  --duration-micro: 0.15s;
+  --duration-short: 0.2s;
+  --duration-medium: 0.3s;
+  --duration-panel: 0.4s;
+  --duration-state: 0.5s;
+  --duration-flow: 0.8s;
+}
+
+/* === 背景渐变 === */
+body {
+  background: linear-gradient(180deg, #1a3a5c 0%, #0d2137 50%, #0a1628 100%);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* === 排版 === */
+.xian-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.xian-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.xian-body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.xian-caption {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.xian-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* === 毛玻璃效果 === */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-header);
+  border-bottom: 1px solid var(--color-border-cyan);
+}
+
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-surface-panel);
+  border-top: 1px solid var(--color-border-cyan);
+}
+
+.glass-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-cyan);
+}
+
+/* === 状态动画 === */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes breathe-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--state-running-glow); }
+  50% { box-shadow: 0 0 40px var(--state-running-glow); }
+}
+
+@keyframes flicker-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-15px) translateX(8px); }
+  50% { transform: translateY(-5px) translateX(-12px); }
+  75% { transform: translateY(-20px) translateX(5px); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ripple-out {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(3); opacity: 0; }
+}
+
+@keyframes energy-flow {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* === 滚动条 === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.4);
+}

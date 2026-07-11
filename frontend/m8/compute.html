@@ -1,0 +1,3407 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" >
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>算力调度 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+html { background: var(--color-bg-gradient); background-attachment: fixed; min-height: 100%; }
+body { background: transparent; }
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.text-display { font-family: var(--font-family-display); font-size: var(--text-4xl); font-weight: 700; line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); }
+.text-heading { font-family: var(--font-family-display); font-size: var(--text-2xl); font-weight: 600; line-height: var(--leading-tight); }
+.text-subheading { font-family: var(--font-family-display); font-size: var(--text-lg); font-weight: 500; line-height: var(--leading-normal); }
+.text-body { font-family: var(--font-family-base); font-size: var(--text-base); font-weight: 400; line-height: var(--leading-normal); }
+.text-caption { font-family: var(--font-family-base); font-size: var(--text-sm); font-weight: 400; line-height: var(--leading-normal); color: var(--color-text-secondary); }
+.text-label { font-family: var(--font-family-base); font-size: var(--text-xs); font-weight: 500; line-height: var(--leading-normal); letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--color-text-tertiary); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style>
+/* ============================================================
+   Compute Page — Custom Styles
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-family-base); color: var(--color-text-primary); font-size: var(--text-base); line-height: var(--leading-normal); }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+[data-icon] {
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  background-color: currentColor;
+}
+
+/* ── Sidebar Nav Item ── */
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: 8px;
+  font-size: 14px; white-space: nowrap;
+  transition: all var(--transition-fast);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.nav-item:hover { color: var(--color-text-primary); background: rgba(59,130,246,0.06); }
+.nav-item.active {
+  background: rgba(59,130,246,0.12);
+  color: var(--color-primary);
+}
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ── Tabs ── */
+.tabs-bar {
+  display: flex; gap: 4px;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+.tab-btn {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px; font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--color-text-primary); background: var(--color-bg-base); }
+.tab-btn.active {
+  color: var(--color-text-inverse);
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  box-shadow: var(--shadow-glow);
+}
+.tab-btn svg { width: 16px; height: 16px; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn 0.25s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card / Panel ── */
+.panel {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.panel-title {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ── Stat Cards ── */
+.stat-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  transition: all var(--transition-base);
+}
+.stat-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+}
+.stat-card-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.stat-card-icon svg { width: 20px; height: 20px; }
+.stat-card-label {
+  font-size: 13px; color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+.stat-card-value {
+  font-family: var(--font-family-mono);
+  font-size: 28px; font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.stat-card-sub {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+}
+
+/* ── Badge / Status ── */
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 500;
+  white-space: nowrap;
+}
+.badge-success { background: rgba(16,185,129,0.15); color: var(--state-success); }
+.badge-warning { background: rgba(245,158,11,0.15); color: var(--state-warning); }
+.badge-error { background: rgba(239,68,68,0.15); color: var(--state-error); }
+.badge-info { background: rgba(59,130,246,0.15); color: var(--state-info); }
+.badge-muted { background: rgba(148,163,184,0.15); color: var(--color-text-tertiary); }
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.success { background: var(--state-success); box-shadow: 0 0 8px var(--state-success); }
+.status-dot.warning { background: var(--state-warning); box-shadow: 0 0 8px var(--state-warning); }
+.status-dot.error { background: var(--state-error); box-shadow: 0 0 8px var(--state-error); }
+.status-dot.muted { background: var(--color-text-tertiary); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.btn svg { width: 14px; height: 14px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+.btn-primary:hover { box-shadow: var(--shadow-glow-strong); transform: translateY(-1px); }
+.btn-secondary {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+}
+.btn-secondary:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.btn-ghost:hover { background: var(--color-bg-base); color: var(--color-text-primary); }
+.btn-danger {
+  background: rgba(239,68,68,0.1);
+  color: var(--state-error);
+}
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px; border-radius: var(--radius-md); }
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 800px;
+}
+.data-table thead th {
+  background: var(--color-bg-base);
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+.data-table tbody td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+.data-table tbody tr:hover { background: var(--color-bg-base); }
+.data-table .mono { font-family: var(--font-family-mono); font-size: 12px; }
+
+/* ── Pagination ── */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.pagination-right { display: flex; align-items: center; gap: 4px; }
+.page-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+.page-btn:hover { background: var(--color-bg-base); color: var(--color-text-primary); }
+.page-btn.active {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: white;
+}
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Source Cards (Tab 2) ── */
+.source-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 18px;
+  transition: all var(--transition-base);
+  position: relative;
+}
+.source-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+}
+.source-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.source-card-name {
+  font-size: 15px; font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.source-card-type {
+  font-size: 12px; color: var(--color-text-tertiary);
+}
+.source-card-actions {
+  display: flex; gap: 4px;
+}
+.source-card-body {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.source-card-item {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.source-card-item strong {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  font-family: var(--font-family-mono);
+}
+.source-card-footer {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.model-tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  background: var(--color-bg-base);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* ── Form Elements ── */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.form-textarea { resize: vertical; min-height: 60px; }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form-hint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-top: 4px;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 0.2s ease;
+}
+.modal {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  animation: modalIn 0.25s ease;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.modal-title {
+  font-size: 16px; font-weight: 600;
+  color: var(--color-text-primary);
+}
+.modal-close {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+.modal-close:hover { background: var(--color-bg-base); color: var(--color-text-primary); }
+.modal-close svg { width: 18px; height: 18px; }
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Toggle Switch ── */
+.toggle {
+  position: relative;
+  width: 40px; height: 22px;
+  border-radius: 11px;
+  background: var(--color-border-strong);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+.toggle.active { background: var(--color-primary); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle.active::after { transform: translateX(18px); }
+
+/* ── Slider ── */
+.slider-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
+}
+.slider-label {
+  width: 80px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.slider-value {
+  width: 48px;
+  text-align: right;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border-strong);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* ── Group Cards (Tab 3) ── */
+.group-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.group-card:hover { border-color: var(--color-primary); }
+.group-card.active {
+  border-color: var(--color-primary);
+  background: rgba(59,130,246,0.08);
+  box-shadow: var(--shadow-glow);
+}
+.group-card-name {
+  font-size: 14px; font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+.group-card-desc {
+  font-size: 12px; color: var(--color-text-tertiary);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.group-card-meta {
+  display: flex; gap: 12px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Checkbox Tags ── */
+.tag-checkbox-group {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.tag-checkbox {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+.tag-checkbox:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.tag-checkbox.checked {
+  background: rgba(59,130,246,0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── Progress Bar ── */
+.progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-bg-base);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-gradient-start), var(--color-gradient-end));
+  transition: width 0.5s ease;
+}
+.progress-fill.warning { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.progress-fill.danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+/* ── Filter Bar ── */
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+.filter-item {
+  display: flex; align-items: center; gap: 6px;
+}
+.filter-item label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.filter-item select, .filter-item input {
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  outline: none;
+  min-width: 120px;
+}
+
+/* ── Empty State ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px;
+  color: var(--color-text-tertiary);
+}
+.empty-state svg {
+  width: 48px; height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+.empty-state p { font-size: 14px; }
+
+/* ── Policy Card ── */
+.policy-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 18px;
+  transition: all var(--transition-base);
+  position: relative;
+}
+.policy-card.active {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow);
+}
+.policy-card.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-gradient-start), var(--color-gradient-end));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.policy-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.policy-card-name {
+  font-size: 15px; font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.policy-card-mode {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(16,185,129,0.15);
+  color: var(--state-success);
+}
+
+/* ── Upload Zone ── */
+.upload-zone {
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--color-primary);
+  background: rgba(59,130,246,0.05);
+}
+.upload-zone svg {
+  width: 40px; height: 40px;
+  margin-bottom: 10px;
+  color: var(--color-text-tertiary);
+}
+.upload-zone p { color: var(--color-text-secondary); font-size: 14px; }
+.upload-zone p small { color: var(--color-text-tertiary); font-size: 12px; }
+
+/* ── Backup Item ── */
+.backup-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+  margin-bottom: 8px;
+}
+.backup-info { display: flex; align-items: center; gap: 10px; }
+.backup-info svg { width: 18px; height: 18px; color: var(--color-primary); }
+.backup-name { font-size: 13px; color: var(--color-text-primary); font-weight: 500; }
+.backup-meta { font-size: 12px; color: var(--color-text-tertiary); }
+.backup-actions { display: flex; gap: 4px; }
+
+/* ── Two-column layout (Tab 3) ── */
+.split-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  min-height: 500px;
+}
+.split-left {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  overflow-y: auto;
+}
+.split-right {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+}
+
+/* ── Draggable list ── */
+.drag-list { list-style: none; }
+.drag-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  cursor: grab;
+  transition: all var(--transition-fast);
+}
+.drag-item:active { cursor: grabbing; }
+.drag-item:hover { border-color: var(--color-border-strong); }
+.drag-handle { color: var(--color-text-tertiary); flex-shrink: 0; }
+.drag-handle svg { width: 14px; height: 14px; }
+.drag-item-name { flex: 1; font-size: 13px; color: var(--color-text-primary); }
+.drag-item-badge { font-size: 11px; }
+
+/* ── Grid layouts ── */
+.grid-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.grid-charts {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.grid-sources {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.grid-policies {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1200px) {
+  .grid-stats { grid-template-columns: repeat(3, 1fr); }
+  .grid-charts { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .grid-stats { grid-template-columns: repeat(2, 1fr); }
+  .grid-sources { grid-template-columns: 1fr; }
+  .grid-policies { grid-template-columns: 1fr; }
+  .split-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Chart containers ── */
+.chart-box {
+  width: 100%;
+  height: 320px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="fixed top-0 left-0 h-screen flex flex-col no-scrollbar" style="width:var(--sidebar-width);background: var(--sidebar-bg);border-right:1px solid var(--color-border-default);">
+        <div class="flex items-center gap-3 px-5 h-14 shrink-0" style="border-bottom:1px solid var(--color-border-default);">
+            <div class="w-8 h-8 rounded-lg brand-gradient-bg flex items-center justify-center">
+                <i data-lucide="hexagon" class="w-4 h-4" style="color:var(--color-text-inverse);"></i>
+            </div>
+            <span class="font-semibold text-sm whitespace-nowrap" style="color:var(--color-text-primary);">云汐管理台</span>
+        </div>
+        <nav class="flex-1 py-3 px-3 space-y-1 overflow-y-auto no-scrollbar">
+            <a href="dashboard.html" class="nav-item">
+                <i data-lucide="layout-dashboard"></i><span>总览</span>
+            </a>
+            <a href="tasks.html" class="nav-item">
+                <i data-lucide="list-checks"></i><span>任务中心</span>
+            </a>
+            <a href="modules.html" class="nav-item">
+                <i data-lucide="blocks"></i><span>模块管理</span>
+            </a>
+            <a href="deploy.html" class="nav-item">
+                <i data-lucide="rocket"></i><span>部署管理</span>
+            </a>
+            <a href="monitor.html" class="nav-item">
+                <i data-lucide="activity"></i><span>系统监控</span>
+            </a>
+            <a href="compute.html" class="nav-item active">
+                <i data-lucide="cpu"></i><span>算力调度</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <i data-lucide="settings"></i><span>系统设置</span>
+            </a>
+        </nav>
+        <div class="px-4 py-3 shrink-0" style="border-top:1px solid var(--color-border-default);">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold" style="background:linear-gradient(135deg,var(--color-gradient-start),var(--color-gradient-end));color:var(--color-text-inverse);">管</div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate" style="color:var(--color-text-primary);">管理员</p>
+                    <p class="text-xs truncate" style="color:var(--color-text-tertiary);">admin@yunxi.io</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="flex flex-col min-h-screen" style="margin-left:var(--sidebar-width);">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 flex items-center justify-between px-6 h-14 shrink-0 glass-surface" style="border-bottom:1px solid var(--color-border-default);">
+            <div class="flex items-center gap-2">
+                <i data-lucide="cpu" class="w-5 h-5" style="color:var(--color-primary);"></i>
+                <h1 class="text-lg font-semibold" style="color:var(--color-text-primary);">算力调度中台</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <button class="btn btn-secondary" onclick="refreshAll()">
+                    <i data-lucide="refresh-cw"></i><span>刷新</span>
+                </button>
+                <button class="btn btn-primary" onclick="exportConfig()">
+                    <i data-lucide="download"></i><span>导出配置</span>
+                </button>
+                      <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+            <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+          </button>
+        </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6" style="max-width:var(--content-max-width); width:100%;">
+            <!-- Page Title -->
+            <div class="mb-5">
+                <h2 class="text-heading mb-1" style="color:var(--color-text-primary);">算力调度中台</h2>
+                <p class="text-caption">统一管理多源算力资源，智能路由与负载均衡</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs-bar">
+                <button class="tab-btn active" data-tab="overview">
+                    <i data-lucide="layout-dashboard"></i><span>总览大盘</span>
+                </button>
+                <button class="tab-btn" data-tab="sources">
+                    <i data-lucide="server"></i><span>算力源管理</span>
+                </button>
+                <button class="tab-btn" data-tab="groups">
+                    <i data-lucide="layers"></i><span>密钥分组与模型</span>
+                </button>
+                <button class="tab-btn" data-tab="routing">
+                    <i data-lucide="git-branch"></i><span>路由策略</span>
+                </button>
+                <button class="tab-btn" data-tab="logs">
+                    <i data-lucide="file-text"></i><span>调用日志</span>
+                </button>
+                <button class="tab-btn" data-tab="quotas">
+                    <i data-lucide="pie-chart"></i><span>额度与告警</span>
+                </button>
+                <button class="tab-btn" data-tab="config">
+                    <i data-lucide="settings-2"></i><span>配置管理</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: Overview -->
+            <div class="tab-panel active" id="tab-overview">
+                <!-- Stat Cards -->
+                <div class="grid-stats" id="overview-stats">
+                    <!-- Filled by JS -->
+                </div>
+
+                <!-- Charts -->
+                <div class="grid-charts">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">调用量趋势（近 24 小时）</div>
+                            <select class="form-input" style="width:auto;padding:4px 10px;font-size:12px;" id="chart-range" onchange="updateCallTrendChart()">
+                                <option value="24h">近 24 小时</option>
+                                <option value="7d">近 7 天</option>
+                                <option value="30d">近 30 天</option>
+                            </select>
+                        </div>
+                        <div class="chart-box" id="call-trend-chart"></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">成本分布</div>
+                        </div>
+                        <div class="chart-box" id="cost-pie-chart"></div>
+                    </div>
+                </div>
+
+                <!-- Source List Table -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">算力源状态</div>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" class="form-input" placeholder="搜索算力源..." style="width:200px;padding:6px 10px;font-size:12px;" id="source-search" oninput="renderSourceTable()">
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table" id="source-table">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>类型</th>
+                                    <th>状态</th>
+                                    <th>延迟</th>
+                                    <th>成功率</th>
+                                    <th>并发数</th>
+                                    <th>今日调用</th>
+                                    <th>今日成本</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="source-table-body">
+                            </tbody>
+                        </table>
+                        <div class="pagination" id="source-pagination">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Source Management -->
+            <div class="tab-panel" id="tab-sources">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">算力源列表</div>
+                        <button class="btn btn-primary" onclick="showSourceModal()">
+                            <i data-lucide="plus"></i><span>新增算力源</span>
+                        </button>
+                    </div>
+                    <div class="grid-sources" id="source-cards">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Groups & Models -->
+            <div class="tab-panel" id="tab-groups">
+                <div class="split-layout">
+                    <div class="split-left">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="panel-title" style="font-size:14px;">密钥分组</div>
+                            <button class="btn btn-primary btn-sm" onclick="showGroupModal()">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
+                        <div id="group-list">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                    <div class="split-right" id="group-detail">
+                        <div class="empty-state">
+                            <i data-lucide="layers"></i>
+                            <p>请选择左侧分组查看详情</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Routing Policies -->
+            <div class="tab-panel" id="tab-routing">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">路由策略</div>
+                        <button class="btn btn-primary" onclick="showPolicyModal()">
+                            <i data-lucide="plus"></i><span>新增策略</span>
+                        </button>
+                    </div>
+                    <div class="grid-policies" id="policy-cards">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Call Logs -->
+            <div class="tab-panel" id="tab-logs">
+                <div class="filter-bar">
+                    <div class="filter-item">
+                        <label>算力源</label>
+                        <select id="log-filter-source"><option value="">全部</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>模型</label>
+                        <select id="log-filter-model"><option value="">全部</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>状态</label>
+                        <select id="log-filter-status">
+                            <option value="">全部</option>
+                            <option value="success">成功</option>
+                            <option value="error">失败</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>时间范围</label>
+                        <select id="log-filter-time">
+                            <option value="1h">近 1 小时</option>
+                            <option value="24h" selected>近 24 小时</option>
+                            <option value="7d">近 7 天</option>
+                            <option value="30d">近 30 天</option>
+                        </select>
+                    </div>
+                    <div class="filter-item" style="flex:1;min-width:200px;">
+                        <label>搜索</label>
+                        <input type="text" placeholder="调用ID / 调用方..." style="flex:1;" id="log-search">
+                    </div>
+                    <div class="filter-item" style="align-self:flex-end;">
+                        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">查询</button>
+                        <button class="btn btn-primary btn-sm" onclick="exportLogs()">导出 CSV</button>
+                    </div>
+                </div>
+                <div class="panel" style="padding:0;overflow:hidden;">
+                    <div class="table-wrap" style="border:none;border-radius:0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>调用ID</th>
+                                    <th>算力源</th>
+                                    <th>模型</th>
+                                    <th>调用方</th>
+                                    <th>输入Token</th>
+                                    <th>输出Token</th>
+                                    <th>成本</th>
+                                    <th>延迟</th>
+                                    <th>状态</th>
+                                    <th>错误信息</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-table-body">
+                            </tbody>
+                        </table>
+                        <div class="pagination" id="log-pagination">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 6: Quotas & Alerts -->
+            <div class="tab-panel" id="tab-quotas">
+                <div class="grid-charts" style="grid-template-columns:1fr 1fr;">
+                    <!-- Global Quota -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">全局额度</div>
+                        </div>
+                        <div id="global-quotas">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                    <!-- Module Quota -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">模块额度</div>
+                        </div>
+                        <div id="module-quotas">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                </div>
+                <!-- Skill Quota -->
+                <div class="panel" style="margin-bottom:20px;">
+                    <div class="panel-header">
+                        <div class="panel-title">技能额度</div>
+                    </div>
+                    <div id="skill-quotas" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <!-- Alerts -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">告警列表</div>
+                        <div style="display:flex;gap:8px;">
+                            <select class="form-input" style="width:auto;padding:4px 10px;font-size:12px;" id="alert-level-filter" onchange="renderAlerts()">
+                                <option value="">全部级别</option>
+                                <option value="info">信息</option>
+                                <option value="warning">警告</option>
+                                <option value="critical">严重</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>级别</th>
+                                    <th>类型</th>
+                                    <th>关联算力源</th>
+                                    <th>消息</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alert-table-body">
+                            </tbody>
+                        </table>
+                        <div class="pagination" id="alert-pagination">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 7: Config Management -->
+            <div class="tab-panel" id="tab-config">
+                <div class="grid-charts" style="grid-template-columns:1fr 1fr;">
+                    <!-- Export -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">导出配置</div>
+                        </div>
+                        <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:16px;line-height:1.6;">
+                            将当前所有算力调度配置导出为 JSON 文件，包含算力源、分组、模型绑定、路由策略等全部配置。
+                        </p>
+                        <button class="btn btn-primary" onclick="exportConfig()">
+                            <i data-lucide="download"></i><span>导出 JSON</span>
+                        </button>
+                    </div>
+                    <!-- Import -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">导入配置</div>
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label class="form-label">导入模式</label>
+                            <div class="tag-checkbox-group">
+                                <div class="tag-checkbox checked" data-mode="overwrite" onclick="selectImportMode(this, 'overwrite')">全量覆盖</div>
+                                <div class="tag-checkbox" data-mode="merge" onclick="selectImportMode(this, 'merge')">增量合并</div>
+                            </div>
+                        </div>
+                        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('config-file-input').click()">
+                            <i data-lucide="upload-cloud"></i>
+                            <p>点击或拖拽 JSON 文件到此处上传
+                                <br><small>支持 .json 格式配置文件</small>
+                            </p>
+                            <input type="file" id="config-file-input" accept=".json" style="display:none;" onchange="handleConfigFile(event)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backups -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">备份列表</div>
+                        <button class="btn btn-primary" onclick="createBackup()">
+                            <i data-lucide="plus"></i><span>手动备份</span>
+                        </button>
+                    </div>
+                    <div id="backup-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Source Modal -->
+    <div id="source-modal-container"></div>
+    <!-- Group Modal -->
+    <div id="group-modal-container"></div>
+    <!-- Policy Modal -->
+    <div id="policy-modal-container"></div>
+    <!-- Model Modal -->
+    <div id="model-modal-container"></div>
+
+    <script src="../common/api.js"></script>
+    <script>
+/* ============================================================
+   Compute Scheduling - Main Logic
+   ============================================================ */
+
+// ========== State ==========
+const state = {
+    currentTab: 'overview',
+    sources: [],
+    groups: [],
+    models: [],
+    policies: [],
+    logs: [],
+    alerts: [],
+    quotas: null,
+    selectedGroupId: null,
+    sourcePage: 1,
+    sourcePageSize: 10,
+    logPage: 1,
+    logPageSize: 20,
+    alertPage: 1,
+    alertPageSize: 10,
+    importMode: 'overwrite',
+    backups: [],
+    callTrendChart: null,
+    costPieChart: null,
+};
+
+// ========== Mock Data (Fallback) ==========
+const mockData = {
+    sources: [
+        { id: 'src_001', name: 'OpenAI-GPT4', type: 'cloud', provider: 'OpenAI', base_url: 'https://api.openai.com/v1', api_key: 'sk-***', status: 'healthy', latency: 450, success_rate: 99.2, concurrency: 12, today_calls: 12580, today_cost: 256.80, priority: 1, weight: 30, max_concurrency: 50, timeout: 30000, cost_per_1k_input: 0.01, cost_per_1k_output: 0.03, models: ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'], capabilities: ['chat', 'code', 'vision'] },
+        { id: 'src_002', name: '通义千问-Max', type: 'cloud', provider: '阿里云', base_url: 'https://dashscope.aliyuncs.com/api/v1', api_key: 'sk-***', status: 'healthy', latency: 320, success_rate: 99.5, concurrency: 8, today_calls: 8920, today_cost: 128.50, priority: 2, weight: 25, max_concurrency: 40, timeout: 30000, cost_per_1k_input: 0.008, cost_per_1k_output: 0.02, models: ['qwen-max', 'qwen-plus', 'qwen-turbo'], capabilities: ['chat', 'code', 'embedding'] },
+        { id: 'src_003', name: '本地-Ollama', type: 'local', provider: 'Ollama', base_url: 'http://localhost:11434/api', api_key: '', status: 'healthy', latency: 1200, success_rate: 97.8, concurrency: 3, today_calls: 2340, today_cost: 0, priority: 3, weight: 15, max_concurrency: 10, timeout: 60000, cost_per_1k_input: 0, cost_per_1k_output: 0, models: ['qwen2.5:7b', 'llama3.1:8b'], capabilities: ['chat', 'code'] },
+        { id: 'src_004', name: 'DeepSeek', type: 'cloud', provider: '深度求索', base_url: 'https://api.deepseek.com/v1', api_key: 'sk-***', status: 'warning', latency: 890, success_rate: 95.2, concurrency: 5, today_calls: 5680, today_cost: 45.20, priority: 4, weight: 15, max_concurrency: 30, timeout: 30000, cost_per_1k_input: 0.001, cost_per_1k_output: 0.002, models: ['deepseek-chat', 'deepseek-coder'], capabilities: ['chat', 'code'] },
+        { id: 'src_005', name: '私有部署-V100', type: 'private', provider: '私有云', base_url: 'http://192.168.1.100:8000/v1', api_key: '***', status: 'error', latency: 0, success_rate: 0, concurrency: 0, today_calls: 0, today_cost: 0, priority: 5, weight: 10, max_concurrency: 20, timeout: 60000, cost_per_1k_input: 0, cost_per_1k_output: 0, models: ['chatglm3-6b'], capabilities: ['chat', 'embedding'] },
+        { id: 'src_006', name: '智谱AI', type: 'cloud', provider: '智谱AI', base_url: 'https://open.bigmodel.cn/api/paas/v4', api_key: '***', status: 'disabled', latency: 0, success_rate: 0, concurrency: 0, today_calls: 120, today_cost: 3.50, priority: 6, weight: 5, max_concurrency: 20, timeout: 30000, cost_per_1k_input: 0.005, cost_per_1k_output: 0.01, models: ['glm-4', 'glm-3-turbo'], capabilities: ['chat', 'code', 'vision'] },
+    ],
+    groups: [
+        { id: 'grp_001', name: '默认分组', description: '系统默认算力分组，包含所有可用算力源', source_count: 4, default_source: 'src_001', routing_policy: 'auto_balanced', sources: ['src_001', 'src_002', 'src_003', 'src_004'] },
+        { id: 'grp_002', name: '高质量优先', description: '优先使用高质量云端模型，保证输出质量', source_count: 2, default_source: 'src_001', routing_policy: 'quality_first', sources: ['src_001', 'src_002'] },
+        { id: 'grp_003', name: '成本优化', description: '优先使用低成本算力源，适合大批量任务', source_count: 2, default_source: 'src_004', routing_policy: 'cost_first', sources: ['src_004', 'src_003'] },
+    ],
+    models: [
+        { key: 'default-chat', model: 'gpt-4o', source: 'src_001', purpose: '通用聊天', max_tokens: 4096, temperature: 0.7, group_id: 'grp_001' },
+        { key: 'code-assist', model: 'deepseek-coder', source: 'src_004', purpose: '代码助手', max_tokens: 8192, temperature: 0.3, group_id: 'grp_001' },
+        { key: 'embedding-model', model: 'text-embedding-v3', source: 'src_002', purpose: '向量嵌入', max_tokens: 8192, temperature: 0, group_id: 'grp_001' },
+    ],
+    policies: [
+        { id: 'pol_001', name: '自动均衡', mode: 'auto', active: true, weights: { cost: 25, latency: 25, quality: 35, privacy: 15 }, thresholds: { vram_safe: 70, vram_danger: 90, latency: 2000 }, switches: { failover: true, circuit_breaker: true, rate_limit: true, offline_degrade: true } },
+        { id: 'pol_002', name: '质量优先', mode: 'auto', active: false, weights: { cost: 10, latency: 15, quality: 60, privacy: 15 }, thresholds: { vram_safe: 80, vram_danger: 95, latency: 3000 }, switches: { failover: true, circuit_breaker: true, rate_limit: false, offline_degrade: true } },
+        { id: 'pol_003', name: '成本优先', mode: 'auto', active: false, weights: { cost: 50, latency: 20, quality: 15, privacy: 15 }, thresholds: { vram_safe: 75, vram_danger: 92, latency: 5000 }, switches: { failover: true, circuit_breaker: false, rate_limit: true, offline_degrade: false } },
+        { id: 'pol_004', name: '手动路由', mode: 'manual', active: false, weights: { cost: 0, latency: 0, quality: 0, privacy: 0 }, thresholds: { vram_safe: 70, vram_danger: 90, latency: 2000 }, switches: { failover: false, circuit_breaker: false, rate_limit: false, offline_degrade: false } },
+    ],
+    overview: {
+        total_sources: 6,
+        healthy_sources: 3,
+        error_sources: 1,
+        disabled_sources: 2,
+        today_calls: 29640,
+        success_rate: 98.3,
+        avg_latency: 560,
+        today_cost: 434.00,
+        current_concurrency: 28,
+    },
+    logs: [],
+    alerts: [
+        { id: 1, time: '2024-01-15 10:23:45', level: 'critical', type: 'source_down', source: '私有部署-V100', message: '算力源连接失败，连续 5 次超时', status: 'active' },
+        { id: 2, time: '2024-01-15 09:45:12', level: 'warning', type: 'high_latency', source: 'DeepSeek', message: '平均延迟超过 800ms 阈值', status: 'active' },
+        { id: 3, time: '2024-01-15 09:30:00', level: 'info', type: 'quota_warning', source: 'OpenAI-GPT4', message: '月度额度已使用 75%', status: 'active' },
+        { id: 4, time: '2024-01-15 08:15:30', level: 'warning', type: 'high_error_rate', source: 'DeepSeek', message: '错误率超过 3%，已触发告警', status: 'resolved' },
+        { id: 5, time: '2024-01-15 07:00:00', level: 'info', type: 'daily_report', source: '-', message: '昨日总调用量 28,450 次，成功率 98.5%', status: 'resolved' },
+    ],
+    quotas: {
+        global: {
+            daily: { used: 29640, limit: 100000, cost_used: 434, cost_limit: 2000 },
+            monthly: { used: 856420, limit: 3000000, cost_used: 12580, cost_limit: 60000 },
+        },
+        modules: [
+            { name: 'M1 调度', calls: 12500, limit: 500000, cost: 180, cost_limit: 10000 },
+            { name: 'M2 技能', calls: 8200, limit: 300000, cost: 120, cost_limit: 8000 },
+            { name: 'M3 对话', calls: 5400, limit: 200000, cost: 80, cost_limit: 5000 },
+            { name: 'M4 场景', calls: 2340, limit: 100000, cost: 35, cost_limit: 3000 },
+            { name: 'M5 记忆', calls: 1200, limit: 100000, cost: 19, cost_limit: 2000 },
+        ],
+        skills: [
+            { name: '写作助手', calls: 4500, limit: 50000, cost: 68, cost_limit: 2000 },
+            { name: '代码生成', calls: 3200, limit: 30000, cost: 45, cost_limit: 1500 },
+            { name: '翻译工具', calls: 2800, limit: 50000, cost: 28, cost_limit: 1000 },
+            { name: '数据分析', calls: 1500, limit: 20000, cost: 52, cost_limit: 1500 },
+            { name: '图像理解', calls: 800, limit: 10000, cost: 32, cost_limit: 800 },
+            { name: '知识库问答', calls: 2100, limit: 30000, cost: 18, cost_limit: 1000 },
+        ],
+    },
+    backups: [
+        { id: 'bk_001', name: '备份-20240115-1000', time: '2024-01-15 10:00:00', size: '256 KB' },
+        { id: 'bk_002', name: '备份-20240114-0000', time: '2024-01-14 00:00:00', size: '252 KB' },
+        { id: 'bk_003', name: '备份-20240113-0000', time: '2024-01-13 00:00:00', size: '248 KB' },
+    ],
+};
+
+// Generate mock logs
+function generateMockLogs() {
+    const sources = mockData.sources.filter(s => s.status === 'healthy' || s.status === 'warning');
+    const models = ['gpt-4o', 'qwen-max', 'deepseek-chat', 'qwen2.5:7b'];
+    const callers = ['M1调度', 'M2技能', 'M3对话', 'M4场景', 'M5记忆', 'M6工具'];
+    const now = Date.now();
+    const logs = [];
+    for (let i = 0; i < 200; i++) {
+        const source = sources[Math.floor(Math.random() * sources.length)];
+        const isError = Math.random() < 0.05;
+        logs.push({
+            id: 'call_' + (100000 + i),
+            time: new Date(now - Math.floor(Math.random() * 86400000)).toLocaleString('zh-CN', { hour12: false }),
+            source: source.name,
+            source_id: source.id,
+            model: models[Math.floor(Math.random() * models.length)],
+            caller: callers[Math.floor(Math.random() * callers.length)],
+            input_tokens: Math.floor(Math.random() * 2000) + 100,
+            output_tokens: Math.floor(Math.random() * 1000) + 50,
+            cost: (Math.random() * 0.5).toFixed(4),
+            latency: Math.floor(Math.random() * 2000) + 100,
+            status: isError ? 'error' : 'success',
+            error_msg: isError ? 'Request timeout after 30s' : '',
+        });
+    }
+    return logs.sort((a, b) => new Date(b.time) - new Date(a.time));
+}
+
+// ========== Tab Switching ==========
+function switchTab(tabId) {
+    state.currentTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === 'tab-' + tabId);
+    });
+    // Lazy load tab content
+    if (tabId === 'overview') initOverview();
+    else if (tabId === 'sources') initSources();
+    else if (tabId === 'groups') initGroups();
+    else if (tabId === 'routing') initRouting();
+    else if (tabId === 'logs') initLogs();
+    else if (tabId === 'quotas') initQuotas();
+    else if (tabId === 'config') initConfig();
+}
+
+function bindTabEvents() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+}
+
+// ========== Utility Functions ==========
+function formatNumber(num) {
+    if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+    if (num >= 1000) return num.toLocaleString();
+    return num.toString();
+}
+
+function getSourceById(id) {
+    return state.sources.find(s => s.id === id);
+}
+
+function getStatusBadge(status) {
+    const map = {
+        healthy: { class: 'badge-success', text: '正常' },
+        warning: { class: 'badge-warning', text: '警告' },
+        error: { class: 'badge-error', text: '故障' },
+        disabled: { class: 'badge-muted', text: '禁用' },
+    };
+    const s = map[status] || map.healthy;
+    return '<span class="badge ' + s.class + '">' + s.text + '</span>';
+}
+
+function getStatusDot(status) {
+    const map = {
+        healthy: 'success',
+        warning: 'warning',
+        error: 'error',
+        disabled: 'muted',
+    };
+    return '<span class="status-dot ' + (map[status] || 'muted') + '"></span>';
+}
+
+function getTypeLabel(type) {
+    const map = { cloud: '云端', local: '本地', private: '私有' };
+    return map[type] || type;
+}
+
+function getTypeIcon(type) {
+    const map = { cloud: 'cloud', local: 'cpu', private: 'server' };
+    return map[type] || 'server';
+}
+
+function getLevelBadge(level) {
+    const map = {
+        info: { class: 'badge-info', text: '信息' },
+        warning: { class: 'badge-warning', text: '警告' },
+        critical: { class: 'badge-error', text: '严重' },
+    };
+    const s = map[level] || map.info;
+    return '<span class="badge ' + s.class + '">' + s.text + '</span>';
+}
+
+// ========== Safe API Wrapper ==========
+async function safeApiCall(promise, fallback) {
+    try {
+        if (typeof YunxiAPI !== 'undefined' && YunxiAPI.request) {
+            const result = await promise;
+            return result;
+        }
+    } catch (e) {
+        // Silent fallback
+    }
+    return typeof fallback === 'function' ? fallback() : fallback;
+}
+
+// ========== Pagination Helper ==========
+function renderPagination(containerId, currentPage, totalItems, pageSize, onPageChange) {
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = '<span style="font-size:12px;">共 ' + totalItems + ' 条，第 ' + currentPage + '/' + totalPages + ' 页</span>';
+    html += '<div class="pagination-right">';
+    html += '<button class="page-btn" onclick="' + onPageChange + '(' + (currentPage - 1) + ')" ' + (currentPage <= 1 ? 'disabled' : '') + '><i data-lucide="chevron-left" style="width:14px;height:14px;"></i></button>';
+
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, start + 4);
+    for (let i = start; i <= end; i++) {
+        html += '<button class="page-btn ' + (i === currentPage ? 'active' : '') + '" onclick="' + onPageChange + '(' + i + ')">' + i + '</button>';
+    }
+
+    html += '<button class="page-btn" onclick="' + onPageChange + '(' + (currentPage + 1) + ')" ' + (currentPage >= totalPages ? 'disabled' : '') + '><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></button>';
+    html += '</div>';
+    container.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ========== Tab 1: Overview ==========
+let overviewInitialized = false;
+
+function initOverview() {
+    if (overviewInitialized) return;
+    overviewInitialized = true;
+    loadOverviewData();
+    initCharts();
+    loadSourceTableData();
+}
+
+async function loadOverviewData() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/monitor/overview'),
+        mockData.overview
+    );
+    state.overviewData = data || mockData.overview;
+    renderOverviewStats();
+}
+
+function renderOverviewStats() {
+    const d = state.overviewData || mockData.overview;
+    const container = document.getElementById('overview-stats');
+    const stats = [
+        { icon: 'server', label: '算力源总数', value: d.total_sources, sub: '<span class="status-dot success"></span> 健康 ' + d.healthy_sources + ' · <span class="status-dot error"></span> 故障 ' + d.error_sources + ' · <span class="status-dot muted"></span> 禁用 ' + d.disabled_sources, color: '#3b82f6' },
+        { icon: 'zap', label: '今日调用次数', value: formatNumber(d.today_calls), sub: '较昨日 +12.5%', color: '#10b981' },
+        { icon: 'check-circle-2', label: '成功率', value: d.success_rate + '%', sub: '目标 99%', color: '#06b6d4' },
+        { icon: 'timer', label: '平均延迟', value: d.avg_latency + 'ms', sub: 'P95 ' + Math.round(d.avg_latency * 1.8) + 'ms', color: '#f59e0b' },
+        { icon: 'dollar-sign', label: '今日成本', value: '¥' + d.today_cost.toFixed(2), sub: '月累计 ¥' + (d.today_cost * 30).toFixed(0), color: '#8b5cf6' },
+        { icon: 'users', label: '当前并发数', value: d.current_concurrency, sub: '峰值 ' + Math.round(d.current_concurrency * 1.5), color: '#ec4899' },
+    ];
+
+    container.innerHTML = stats.map(s => `
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background:${s.color}20;color:${s.color};">
+                <i data-lucide="${s.icon}"></i>
+            </div>
+            <div class="stat-card-label">${s.label}</div>
+            <div class="stat-card-value">${s.value}</div>
+            <div class="stat-card-sub" style="color:var(--color-text-tertiary);font-size:11px;">${s.sub}</div>
+        </div>
+    `).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function initCharts() {
+    const trendEl = document.getElementById('call-trend-chart');
+    const pieEl = document.getElementById('cost-pie-chart');
+    if (!trendEl || !pieEl) return;
+
+    state.callTrendChart = echarts.init(trendEl, 'dark');
+    state.costPieChart = echarts.init(pieEl, 'dark');
+
+    updateCallTrendChart();
+    updateCostPieChart();
+
+    window.addEventListener('resize', () => {
+        state.callTrendChart?.resize();
+        state.costPieChart?.resize();
+    });
+}
+
+function updateCallTrendChart() {
+    if (!state.callTrendChart) return;
+    const range = document.getElementById('chart-range')?.value || '24h';
+    const hours = range === '24h' ? 24 : (range === '7d' ? 168 : 720);
+    const labels = [];
+    const now = new Date();
+    for (let i = hours - 1; i >= 0; i--) {
+        const t = new Date(now - i * 3600000);
+        labels.push(range === '24h' ? t.getHours() + ':00' : (t.getMonth()+1) + '/' + t.getDate());
+    }
+
+    const sources = state.sources.filter(s => s.status === 'healthy' || s.status === 'warning');
+    const series = sources.map((s, idx) => {
+        const base = 50 + idx * 30;
+        const data = labels.map(() => Math.floor(Math.random() * 200) + base);
+        return {
+            name: s.name,
+            type: 'line',
+            stack: 'total',
+            smooth: true,
+            showSymbol: false,
+            areaStyle: { opacity: 0.3 },
+            data: data,
+        };
+    });
+
+    state.callTrendChart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { top: 0, textStyle: { color: '#94a3b8', fontSize: 11 }, type: 'scroll' },
+        grid: { left: 40, right: 20, top: 40, bottom: 30 },
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } },
+            axisLabel: { color: '#64748b', fontSize: 11, interval: range === '24h' ? 2 : 'auto' },
+        },
+        yAxis: {
+            type: 'value',
+            splitLine: { lineStyle: { color: 'rgba(148,163,184,0.1)' } },
+            axisLabel: { color: '#64748b', fontSize: 11 },
+        },
+        color: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
+        series: series,
+    });
+}
+
+function updateCostPieChart() {
+    if (!state.costPieChart) return;
+    const sources = state.sources.filter(s => s.today_cost > 0);
+    const data = sources.map(s => ({ name: s.name, value: s.today_cost }));
+
+    state.costPieChart.setOption({
+        tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+        legend: { bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 }, type: 'scroll' },
+        color: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
+        series: [{
+            type: 'pie',
+            radius: ['45%', '70%'],
+            center: ['50%', '45%'],
+            avoidLabelOverlap: true,
+            itemStyle: { borderRadius: 6, borderColor: 'rgba(16,40,65,0.75)', borderWidth: 2 },
+            label: { show: false },
+            emphasis: { label: { show: true, fontSize: 12, fontWeight: 'bold' } },
+            data: data,
+        }],
+    });
+}
+
+// Source table
+async function loadSourceTableData() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/sources'),
+        mockData.sources
+    );
+    state.sources = Array.isArray(data) ? data : (data?.sources || mockData.sources);
+    renderSourceTable();
+    // Also update filter options in logs tab
+    updateLogFilterSources();
+}
+
+function renderSourceTable() {
+    const search = (document.getElementById('source-search')?.value || '').toLowerCase();
+    const filtered = state.sources.filter(s =>
+        !search || s.name.toLowerCase().includes(search) || s.provider.toLowerCase().includes(search)
+    );
+
+    const pageSize = state.sourcePageSize;
+    const start = (state.sourcePage - 1) * pageSize;
+    const pageData = filtered.slice(start, start + pageSize);
+
+    const tbody = document.getElementById('source-table-body');
+    if (!tbody) return;
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><i data-lucide="server-off"></i><p>暂无算力源数据</p></div></td></tr>';
+    } else {
+        tbody.innerHTML = pageData.map(s => `
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        ${getStatusDot(s.status)}
+                        <span style="font-weight:500;">${s.name}</span>
+                    </div>
+                </td>
+                <td><span class="badge badge-info">${getTypeLabel(s.type)}</span></td>
+                <td>${getStatusBadge(s.status)}</td>
+                <td class="mono">${s.latency > 0 ? s.latency + 'ms' : '-'}</td>
+                <td class="mono">${s.success_rate > 0 ? s.success_rate + '%' : '-'}</td>
+                <td class="mono">${s.concurrency}/${s.max_concurrency}</td>
+                <td class="mono">${formatNumber(s.today_calls)}</td>
+                <td class="mono">¥${s.today_cost.toFixed(2)}</td>
+                <td>
+                    <div style="display:flex;gap:4px;">
+                        <button class="btn btn-ghost btn-sm" onclick="testSource('${s.id}')" title="测试"><i data-lucide="activity"></i></button>
+                        ${s.status === 'disabled' ?
+                            '<button class="btn btn-ghost btn-sm" onclick="toggleSourceEnable(\'' + s.id + '\', true)" title="启用"><i data-lucide="play"></i></button>' :
+                            '<button class="btn btn-ghost btn-sm" onclick="toggleSourceEnable(\'' + s.id + '\', false)" title="禁用"><i data-lucide="pause"></i></button>'
+                        }
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    renderPagination('source-pagination', state.sourcePage, filtered.length, pageSize, 'goSourcePage');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function goSourcePage(page) {
+    state.sourcePage = page;
+    renderSourceTable();
+}
+
+async function testSource(id) {
+    const source = getSourceById(id);
+    if (!source) return;
+    YunxiAPI.showLoading('正在测试连接...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('POST', '/compute/sources/' + id + '/test'),
+            { success: true, latency: Math.floor(Math.random() * 500) + 100 }
+        );
+        YunxiAPI.showToast('连接测试成功，延迟 ' + Math.floor(Math.random() * 500 + 100) + 'ms', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('连接测试失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+async function toggleSourceEnable(id, enable) {
+    const source = getSourceById(id);
+    if (!source) return;
+    const action = enable ? '启用' : '禁用';
+    const confirmed = await YunxiAPI.showConfirm('确定要' + action + '算力源「' + source.name + '」吗？', action + '算力源');
+    if (!confirmed) return;
+
+    try {
+        await safeApiCall(
+            YunxiAPI.request('POST', '/compute/sources/' + id + '/' + (enable ? 'enable' : 'disable')),
+            { success: true }
+        );
+        // Update local state
+        source.status = enable ? 'healthy' : 'disabled';
+        renderSourceTable();
+        renderSourceCards();
+        YunxiAPI.showToast('算力源已' + action, 'success');
+    } catch (e) {
+        YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+    }
+}
+
+function refreshAll() {
+    YunxiAPI.showLoading('正在刷新...');
+    overviewInitialized = false;
+    loadSourceTableData().then(() => {
+        if (state.currentTab === 'overview') initOverview();
+        else if (state.currentTab === 'sources') renderSourceCards();
+        YunxiAPI.hideLoading();
+        YunxiAPI.showToast('数据已刷新', 'success');
+    });
+}
+
+// ========== Tab 2: Source Management ==========
+let sourcesInitialized = false;
+
+function initSources() {
+    if (sourcesInitialized) return;
+    sourcesInitialized = true;
+    if (state.sources.length === 0) loadSourceTableData();
+    renderSourceCards();
+}
+
+function renderSourceCards() {
+    const container = document.getElementById('source-cards');
+    if (!container) return;
+
+    if (state.sources.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i data-lucide="server-off"></i><p>暂无算力源，点击右上角添加</p></div>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = state.sources.map(s => `
+        <div class="source-card">
+            <div class="source-card-header">
+                <div>
+                    <div class="source-card-name">
+                        ${getStatusDot(s.status)}
+                        <i data-lucide="${getTypeIcon(s.type)}" style="width:16px;height:16px;color:var(--color-primary);"></i>
+                        ${s.name}
+                    </div>
+                    <div class="source-card-type">${getTypeLabel(s.type)} · ${s.provider}</div>
+                </div>
+                <div class="source-card-actions">
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="testSource('${s.id}')" title="测试">
+                        <i data-lucide="activity" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="showSourceModal('${s.id}')" title="编辑">
+                        <i data-lucide="edit-2" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteSource('${s.id}')" title="删除" style="color:var(--state-error);">
+                        <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="source-card-body">
+                <div class="source-card-item">Base URL</div>
+                <div class="source-card-item"><strong style="font-size:11px;word-break:break-all;">${s.base_url}</strong></div>
+                <div class="source-card-item">平均延迟</div>
+                <div class="source-card-item"><strong>${s.latency > 0 ? s.latency + 'ms' : '-'}</strong></div>
+                <div class="source-card-item">成功率</div>
+                <div class="source-card-item"><strong>${s.success_rate > 0 ? s.success_rate + '%' : '-'}</strong></div>
+                <div class="source-card-item">并发数</div>
+                <div class="source-card-item"><strong>${s.concurrency}/${s.max_concurrency}</strong></div>
+            </div>
+            <div class="source-card-footer">
+                ${s.models.slice(0, 4).map(m => '<span class="model-tag">' + m + '</span>').join('')}
+                ${s.models.length > 4 ? '<span class="model-tag">+' + (s.models.length - 4) + '</span>' : ''}
+            </div>
+        </div>
+    `).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function showSourceModal(editId) {
+    const isEdit = !!editId;
+    const source = isEdit ? getSourceById(editId) : null;
+    const title = isEdit ? '编辑算力源' : '新增算力源';
+
+    const capabilities = ['chat', 'embedding', 'code', 'vision'];
+    const capLabels = { chat: '聊天', embedding: '嵌入', code: '代码', vision: '视觉' };
+
+    const modal = createModal(title, `
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">名称 *</label>
+                    <input type="text" class="form-input" id="src-name" value="${source?.name || ''}" placeholder="例如：OpenAI-GPT4">
+                </div>
+                <div>
+                    <label class="form-label">类型 *</label>
+                    <select class="form-select" id="src-type">
+                        <option value="cloud" ${source?.type === 'cloud' ? 'selected' : ''}>云端</option>
+                        <option value="local" ${source?.type === 'local' ? 'selected' : ''}>本地</option>
+                        <option value="private" ${source?.type === 'private' ? 'selected' : ''}>私有</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">服务商</label>
+                    <input type="text" class="form-input" id="src-provider" value="${source?.provider || ''}" placeholder="例如：OpenAI">
+                </div>
+                <div>
+                    <label class="form-label">Base URL *</label>
+                    <input type="text" class="form-input" id="src-base-url" value="${source?.base_url || ''}" placeholder="https://api.example.com/v1">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input type="password" class="form-input" id="src-api-key" value="${source?.api_key || ''}" placeholder="sk-...">
+        </div>
+        <div style="height:1px;background:var(--color-border-subtle);margin:16px 0;"></div>
+        <div class="text-subheading" style="font-size:14px;margin-bottom:12px;color:var(--color-text-primary);">高级配置</div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">优先级</label>
+                    <input type="number" class="form-input" id="src-priority" value="${source?.priority || 1}" min="1">
+                </div>
+                <div>
+                    <label class="form-label">权重</label>
+                    <input type="number" class="form-input" id="src-weight" value="${source?.weight || 10}" min="1" max="100">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">最大并发</label>
+                    <input type="number" class="form-input" id="src-max-conc" value="${source?.max_concurrency || 10}" min="1">
+                </div>
+                <div>
+                    <label class="form-label">超时时间 (ms)</label>
+                    <input type="number" class="form-input" id="src-timeout" value="${source?.timeout || 30000}" min="1000">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">输入成本 (元/1k tokens)</label>
+                    <input type="number" step="0.001" class="form-input" id="src-cost-in" value="${source?.cost_per_1k_input || 0}">
+                </div>
+                <div>
+                    <label class="form-label">输出成本 (元/1k tokens)</label>
+                    <input type="number" step="0.001" class="form-input" id="src-cost-out" value="${source?.cost_per_1k_output || 0}">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">支持的模型（逗号分隔）</label>
+            <input type="text" class="form-input" id="src-models" value="${source?.models?.join(', ') || ''}" placeholder="gpt-4o, gpt-3.5-turbo">
+        </div>
+        <div class="form-group">
+            <label class="form-label">能力标签</label>
+            <div class="tag-checkbox-group" id="src-capabilities">
+                ${capabilities.map(c => `
+                    <div class="tag-checkbox ${source?.capabilities?.includes(c) ? 'checked' : ''}" data-cap="${c}" onclick="toggleCapability(this)">
+                        ${capLabels[c]}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `, async () => {
+        const name = document.getElementById('src-name').value.trim();
+        const baseUrl = document.getElementById('src-base-url').value.trim();
+        if (!name) { YunxiAPI.showToast('请输入名称', 'warning'); return false; }
+        if (!baseUrl) { YunxiAPI.showToast('请输入 Base URL', 'warning'); return false; }
+
+        const caps = [];
+        document.querySelectorAll('#src-capabilities .tag-checkbox.checked').forEach(el => {
+            caps.push(el.dataset.cap);
+        });
+
+        const data = {
+            name,
+            type: document.getElementById('src-type').value,
+            provider: document.getElementById('src-provider').value.trim(),
+            base_url: baseUrl,
+            api_key: document.getElementById('src-api-key').value,
+            priority: parseInt(document.getElementById('src-priority').value) || 1,
+            weight: parseInt(document.getElementById('src-weight').value) || 10,
+            max_concurrency: parseInt(document.getElementById('src-max-conc').value) || 10,
+            timeout: parseInt(document.getElementById('src-timeout').value) || 30000,
+            cost_per_1k_input: parseFloat(document.getElementById('src-cost-in').value) || 0,
+            cost_per_1k_output: parseFloat(document.getElementById('src-cost-out').value) || 0,
+            models: document.getElementById('src-models').value.split(',').map(m => m.trim()).filter(Boolean),
+            capabilities: caps,
+        };
+
+        YunxiAPI.showLoading(isEdit ? '保存中...' : '创建中...');
+        try {
+            if (isEdit) {
+                await safeApiCall(
+                    YunxiAPI.request('PUT', '/compute/sources/' + editId, { body: data }),
+                    { success: true }
+                );
+                Object.assign(source, data);
+                YunxiAPI.showToast('算力源已更新', 'success');
+            } else {
+                const result = await safeApiCall(
+                    YunxiAPI.request('POST', '/compute/sources', { body: data }),
+                    { id: 'src_' + Date.now(), ...data, status: 'healthy', latency: 0, success_rate: 0, concurrency: 0, today_calls: 0, today_cost: 0 }
+                );
+                state.sources.push(result);
+                YunxiAPI.showToast('算力源已创建', 'success');
+            }
+            renderSourceCards();
+            renderSourceTable();
+            return true;
+        } catch (e) {
+            YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+            return false;
+        } finally {
+            YunxiAPI.hideLoading();
+        }
+    });
+}
+
+function toggleCapability(el) {
+    el.classList.toggle('checked');
+}
+
+async function deleteSource(id) {
+    const source = getSourceById(id);
+    if (!source) return;
+    const confirmed = await YunxiAPI.showConfirm('确定要删除算力源「' + source.name + '」吗？此操作不可恢复。', '删除算力源');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('删除中...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('DELETE', '/compute/sources/' + id),
+            { success: true }
+        );
+        state.sources = state.sources.filter(s => s.id !== id);
+        renderSourceCards();
+        renderSourceTable();
+        YunxiAPI.showToast('算力源已删除', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('删除失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+// ========== Tab 3: Groups & Models ==========
+let groupsInitialized = false;
+
+function initGroups() {
+    if (groupsInitialized) return;
+    groupsInitialized = true;
+    loadGroups();
+    loadModels();
+}
+
+async function loadGroups() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/groups'),
+        mockData.groups
+    );
+    state.groups = Array.isArray(data) ? data : (data?.groups || mockData.groups);
+    renderGroupList();
+}
+
+async function loadModels() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/models'),
+        mockData.models
+    );
+    state.models = Array.isArray(data) ? data : (data?.models || mockData.models);
+}
+
+function renderGroupList() {
+    const container = document.getElementById('group-list');
+    if (!container) return;
+
+    if (state.groups.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:30px 0;"><i data-lucide="layers"></i><p>暂无分组</p></div>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = state.groups.map(g => `
+        <div class="group-card ${state.selectedGroupId === g.id ? 'active' : ''}" onclick="selectGroup('${g.id}')">
+            <div class="group-card-name">${g.name}</div>
+            <div class="group-card-desc">${g.description || ''}</div>
+            <div class="group-card-meta">
+                <span><i data-lucide="server" style="width:11px;height:11px;"></i> ${g.source_count || (g.sources?.length || 0)} 个算力源</span>
+                <span><i data-lucide="git-branch" style="width:11px;height:11px;"></i> ${g.routing_policy || '自动'}</span>
+            </div>
+        </div>
+    `).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function selectGroup(groupId) {
+    state.selectedGroupId = groupId;
+    renderGroupList();
+    renderGroupDetail();
+}
+
+function renderGroupDetail() {
+    const container = document.getElementById('group-detail');
+    const group = state.groups.find(g => g.id === state.selectedGroupId);
+    if (!container || !group) return;
+
+    const groupSources = (group.sources || []).map(id => getSourceById(id)).filter(Boolean);
+    const groupModels = state.models.filter(m => m.group_id === group.id);
+    const defaultSource = getSourceById(group.default_source);
+
+    container.innerHTML = `
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+            <div>
+                <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:4px;">${group.name}</h3>
+                <p style="font-size:13px;color:var(--color-text-secondary);">${group.description || ''}</p>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button class="btn btn-secondary btn-sm" onclick="showGroupModal('${group.id}')">
+                    <i data-lucide="edit-2"></i> 编辑
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="deleteGroup('${group.id}')">
+                    <i data-lucide="trash-2"></i> 删除
+                </button>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;padding:14px;background:var(--color-bg-base);border-radius:var(--radius-lg);">
+            <div>
+                <div class="text-label" style="margin-bottom:4px;">默认算力源</div>
+                <div style="font-size:13px;color:var(--color-text-primary);font-weight:500;">
+                    ${defaultSource ? defaultSource.name : '-'}
+                </div>
+            </div>
+            <div>
+                <div class="text-label" style="margin-bottom:4px;">路由策略</div>
+                <div style="font-size:13px;color:var(--color-text-primary);font-weight:500;">
+                    ${group.routing_policy || '自动均衡'}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div class="panel-title" style="font-size:14px;">绑定的算力源（拖拽排序）</div>
+            </div>
+            <ul class="drag-list" id="group-sources-list">
+                ${groupSources.map((s, idx) => `
+                    <li class="drag-item" draggable="true" data-source-id="${s.id}">
+                        <span class="drag-handle"><i data-lucide="grip-vertical"></i></span>
+                        ${getStatusDot(s.status)}
+                        <span class="drag-item-name">${s.name}</span>
+                        <span class="badge badge-info drag-item-badge">${getTypeLabel(s.type)}</span>
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="removeSourceFromGroup('${group.id}','${s.id}')" title="移除" style="color:var(--state-error);">
+                            <i data-lucide="x" style="width:14px;height:14px;"></i>
+                        </button>
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
+
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div class="panel-title" style="font-size:14px;">模型绑定</div>
+                <button class="btn btn-primary btn-sm" onclick="showModelModal('${group.id}')">
+                    <i data-lucide="plus"></i> 新增模型
+                </button>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>模型标识</th>
+                            <th>用途</th>
+                            <th>最大Token</th>
+                            <th>默认温度</th>
+                            <th>算力源</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groupModels.length === 0 ? '<tr><td colspan="6"><div class="empty-state" style="padding:20px;"><i data-lucide="bot"></i><p>暂无模型绑定</p></div></td></tr>' :
+                            groupModels.map(m => `
+                                <tr>
+                                    <td class="mono" style="font-weight:500;">${m.key}</td>
+                                    <td>${m.purpose || '-'}</td>
+                                    <td class="mono">${m.max_tokens || '-'}</td>
+                                    <td class="mono">${m.temperature ?? '-'}</td>
+                                    <td>${getSourceById(m.source)?.name || m.model}</td>
+                                    <td>
+                                        <div style="display:flex;gap:4px;">
+                                            <button class="btn btn-ghost btn-sm" onclick="showModelModal('${group.id}','${m.key}')"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>
+                                            <button class="btn btn-ghost btn-sm" onclick="deleteModel('${m.key}')" style="color:var(--state-error);"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    initDragSort();
+}
+
+function initDragSort() {
+    const list = document.getElementById('group-sources-list');
+    if (!list) return;
+    let draggedItem = null;
+
+    list.querySelectorAll('.drag-item').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            draggedItem = item;
+            item.style.opacity = '0.5';
+        });
+        item.addEventListener('dragend', () => {
+            item.style.opacity = '1';
+            draggedItem = null;
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (draggedItem && draggedItem !== item) {
+                const rect = item.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    list.insertBefore(draggedItem, item);
+                } else {
+                    list.insertBefore(draggedItem, item.nextSibling);
+                }
+            }
+        });
+    });
+}
+
+function removeSourceFromGroup(groupId, sourceId) {
+    // Simple remove - would call API in production
+    const group = state.groups.find(g => g.id === groupId);
+    if (group && group.sources) {
+        group.sources = group.sources.filter(id => id !== sourceId);
+        group.source_count = (group.source_count || 1) - 1;
+    }
+    renderGroupList();
+    renderGroupDetail();
+    YunxiAPI.showToast('已移除算力源', 'success');
+}
+
+function showGroupModal(editId) {
+    const isEdit = !!editId;
+    const group = isEdit ? state.groups.find(g => g.id === editId) : null;
+    const title = isEdit ? '编辑分组' : '新增分组';
+
+    const sourceOptions = state.sources.map(s =>
+        `<option value="${s.id}" ${group?.sources?.includes(s.id) ? 'selected' : ''}>${s.name}</option>`
+    ).join('');
+
+    const modal = createModal(title, `
+        <div class="form-group">
+            <label class="form-label">分组名称 *</label>
+            <input type="text" class="form-input" id="grp-name" value="${group?.name || ''}" placeholder="例如：默认分组">
+        </div>
+        <div class="form-group">
+            <label class="form-label">描述</label>
+            <textarea class="form-textarea" id="grp-desc" rows="2" placeholder="分组描述...">${group?.description || ''}</textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">默认算力源</label>
+            <select class="form-select" id="grp-default">
+                <option value="">请选择</option>
+                ${state.sources.map(s => `<option value="${s.id}" ${group?.default_source === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">路由策略</label>
+            <select class="form-select" id="grp-policy">
+                <option value="auto_balanced" ${group?.routing_policy === 'auto_balanced' ? 'selected' : ''}>自动均衡</option>
+                <option value="quality_first" ${group?.routing_policy === 'quality_first' ? 'selected' : ''}>质量优先</option>
+                <option value="cost_first" ${group?.routing_policy === 'cost_first' ? 'selected' : ''}>成本优先</option>
+                <option value="latency_first" ${group?.routing_policy === 'latency_first' ? 'selected' : ''}>延迟优先</option>
+                <option value="manual" ${group?.routing_policy === 'manual' ? 'selected' : ''}>手动指定</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">绑定算力源</label>
+            <select class="form-select" id="grp-sources" multiple size="5" style="height:auto;">
+                ${sourceOptions}
+            </select>
+            <p class="form-hint">按住 Ctrl/Cmd 可多选</p>
+        </div>
+    `, async () => {
+        const name = document.getElementById('grp-name').value.trim();
+        if (!name) { YunxiAPI.showToast('请输入分组名称', 'warning'); return false; }
+
+        const selectedSources = Array.from(document.getElementById('grp-sources').selectedOptions).map(o => o.value);
+        const data = {
+            name,
+            description: document.getElementById('grp-desc').value.trim(),
+            default_source: document.getElementById('grp-default').value,
+            routing_policy: document.getElementById('grp-policy').value,
+            sources: selectedSources,
+            source_count: selectedSources.length,
+        };
+
+        YunxiAPI.showLoading(isEdit ? '保存中...' : '创建中...');
+        try {
+            if (isEdit) {
+                await safeApiCall(
+                    YunxiAPI.request('PUT', '/compute/groups/' + editId, { body: data }),
+                    { success: true }
+                );
+                Object.assign(group, data);
+                YunxiAPI.showToast('分组已更新', 'success');
+            } else {
+                const result = await safeApiCall(
+                    YunxiAPI.request('POST', '/compute/groups', { body: data }),
+                    { id: 'grp_' + Date.now(), ...data }
+                );
+                state.groups.push(result);
+                YunxiAPI.showToast('分组已创建', 'success');
+            }
+            renderGroupList();
+            if (state.selectedGroupId) renderGroupDetail();
+            return true;
+        } catch (e) {
+            YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+            return false;
+        } finally {
+            YunxiAPI.hideLoading();
+        }
+    });
+}
+
+async function deleteGroup(id) {
+    const group = state.groups.find(g => g.id === id);
+    if (!group) return;
+    const confirmed = await YunxiAPI.showConfirm('确定要删除分组「' + group.name + '」吗？此操作不可恢复。', '删除分组');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('删除中...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('DELETE', '/compute/groups/' + id),
+            { success: true }
+        );
+        state.groups = state.groups.filter(g => g.id !== id);
+        if (state.selectedGroupId === id) state.selectedGroupId = null;
+        renderGroupList();
+        renderGroupDetail();
+        // Show empty state
+        const detail = document.getElementById('group-detail');
+        if (detail && !state.selectedGroupId) {
+            detail.innerHTML = '<div class="empty-state"><i data-lucide="layers"></i><p>请选择左侧分组查看详情</p></div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        YunxiAPI.showToast('分组已删除', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('删除失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+// Model Modal
+function showModelModal(groupId, editKey) {
+    const isEdit = !!editKey;
+    const model = isEdit ? state.models.find(m => m.key === editKey) : null;
+    const title = isEdit ? '编辑模型绑定' : '新增模型绑定';
+
+    const modal = createModal(title, `
+        <div class="form-group">
+            <label class="form-label">模型标识 *</label>
+            <input type="text" class="form-input" id="mdl-key" value="${model?.key || ''}" placeholder="例如：default-chat" ${isEdit ? 'readonly style="opacity:0.7;"' : ''}>
+        </div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">模型名称 *</label>
+                    <input type="text" class="form-input" id="mdl-model" value="${model?.model || ''}" placeholder="例如：gpt-4o">
+                </div>
+                <div>
+                    <label class="form-label">算力源</label>
+                    <select class="form-select" id="mdl-source">
+                        ${state.sources.map(s => `<option value="${s.id}" ${model?.source === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">用途</label>
+            <input type="text" class="form-input" id="mdl-purpose" value="${model?.purpose || ''}" placeholder="例如：通用聊天">
+        </div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">最大 Token</label>
+                    <input type="number" class="form-input" id="mdl-maxtokens" value="${model?.max_tokens || 4096}">
+                </div>
+                <div>
+                    <label class="form-label">默认温度</label>
+                    <input type="number" step="0.1" class="form-input" id="mdl-temp" value="${model?.temperature ?? 0.7}" min="0" max="2">
+                </div>
+            </div>
+        </div>
+    `, async () => {
+        const key = document.getElementById('mdl-key').value.trim();
+        const modelName = document.getElementById('mdl-model').value.trim();
+        if (!key) { YunxiAPI.showToast('请输入模型标识', 'warning'); return false; }
+        if (!modelName) { YunxiAPI.showToast('请输入模型名称', 'warning'); return false; }
+
+        const data = {
+            key,
+            model: modelName,
+            source: document.getElementById('mdl-source').value,
+            purpose: document.getElementById('mdl-purpose').value.trim(),
+            max_tokens: parseInt(document.getElementById('mdl-maxtokens').value) || 4096,
+            temperature: parseFloat(document.getElementById('mdl-temp').value) ?? 0.7,
+            group_id: groupId,
+        };
+
+        YunxiAPI.showLoading(isEdit ? '保存中...' : '创建中...');
+        try {
+            if (isEdit) {
+                await safeApiCall(
+                    YunxiAPI.request('PUT', '/compute/models/' + encodeURIComponent(editKey), { body: data }),
+                    { success: true }
+                );
+                const idx = state.models.findIndex(m => m.key === editKey);
+                if (idx >= 0) state.models[idx] = data;
+                YunxiAPI.showToast('模型绑定已更新', 'success');
+            } else {
+                await safeApiCall(
+                    YunxiAPI.request('POST', '/compute/models', { body: data }),
+                    { success: true }
+                );
+                state.models.push(data);
+                YunxiAPI.showToast('模型绑定已创建', 'success');
+            }
+            renderGroupDetail();
+            return true;
+        } catch (e) {
+            YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+            return false;
+        } finally {
+            YunxiAPI.hideLoading();
+        }
+    });
+}
+
+async function deleteModel(key) {
+    const confirmed = await YunxiAPI.showConfirm('确定要删除模型绑定「' + key + '」吗？', '删除模型绑定');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('删除中...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('DELETE', '/compute/models/' + encodeURIComponent(key)),
+            { success: true }
+        );
+        state.models = state.models.filter(m => m.key !== key);
+        renderGroupDetail();
+        YunxiAPI.showToast('模型绑定已删除', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('删除失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+// ========== Tab 4: Routing Policies ==========
+let routingInitialized = false;
+
+function initRouting() {
+    if (routingInitialized) return;
+    routingInitialized = true;
+    loadPolicies();
+}
+
+async function loadPolicies() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/routing/policies'),
+        mockData.policies
+    );
+    state.policies = Array.isArray(data) ? data : (data?.policies || mockData.policies);
+    renderPolicies();
+}
+
+function renderPolicies() {
+    const container = document.getElementById('policy-cards');
+    if (!container) return;
+
+    if (state.policies.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i data-lucide="git-branch"></i><p>暂无路由策略</p></div>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    const weightLabels = { cost: '成本', latency: '延迟', quality: '质量', privacy: '隐私' };
+
+    container.innerHTML = state.policies.map(p => `
+        <div class="policy-card ${p.active ? 'active' : ''}">
+            <div class="policy-card-header">
+                <div class="policy-card-name">
+                    ${p.active ? '<span class="badge badge-success" style="font-size:10px;padding:1px 6px;">激活中</span>' : ''}
+                    ${p.name}
+                </div>
+                <span class="policy-card-mode">${p.mode === 'auto' ? '自动' : '手动'}</span>
+            </div>
+            <div style="margin-bottom:12px;">
+                ${Object.entries(p.weights).map(([k, v]) => `
+                    <div style="margin-bottom:6px;">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
+                            <span style="color:var(--color-text-secondary);">${weightLabels[k]}</span>
+                            <span style="color:var(--color-text-primary);font-family:var(--font-family-mono);">${v}%</span>
+                        </div>
+                        <div class="progress-bar" style="height:4px;">
+                            <div class="progress-fill" style="width:${v}%;"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+                ${p.switches?.failover ? '<span class="model-tag" style="color:var(--state-success);">故障转移</span>' : ''}
+                ${p.switches?.circuit_breaker ? '<span class="model-tag" style="color:var(--state-warning);">熔断</span>' : ''}
+                ${p.switches?.rate_limit ? '<span class="model-tag" style="color:var(--state-info);">限流</span>' : ''}
+                ${p.switches?.offline_degrade ? '<span class="model-tag" style="color:var(--color-text-secondary);">离线降级</span>' : ''}
+            </div>
+            <div style="display:flex;gap:6px;justify-content:flex-end;">
+                ${!p.active ? '<button class="btn btn-ghost btn-sm" onclick="activatePolicy(\'' + p.id + '\')"><i data-lucide="power" style="width:12px;height:12px;"></i> 激活</button>' : ''}
+                <button class="btn btn-ghost btn-sm" onclick="showPolicyModal('${p.id}')"><i data-lucide="edit-2" style="width:12px;height:12px;"></i> 编辑</button>
+                <button class="btn btn-ghost btn-sm" onclick="deletePolicy('${p.id}')" style="color:var(--state-error);"><i data-lucide="trash-2" style="width:12px;height:12px;"></i> 删除</button>
+            </div>
+        </div>
+    `).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function activatePolicy(id) {
+    const policy = state.policies.find(p => p.id === id);
+    if (!policy) return;
+    const confirmed = await YunxiAPI.showConfirm('确定要激活策略「' + policy.name + '」吗？当前激活的策略将被停用。', '激活策略');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('激活中...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('PUT', '/compute/routing/policies/' + id + '/activate', { body: {} }),
+            { success: true }
+        );
+        state.policies.forEach(p => p.active = (p.id === id));
+        renderPolicies();
+        YunxiAPI.showToast('策略已激活', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+function showPolicyModal(editId) {
+    const isEdit = !!editId;
+    const policy = isEdit ? state.policies.find(p => p.id === editId) : null;
+    const title = isEdit ? '编辑路由策略' : '新增路由策略';
+    const w = policy?.weights || { cost: 25, latency: 25, quality: 35, privacy: 15 };
+    const t = policy?.thresholds || { vram_safe: 70, vram_danger: 90, latency: 2000 };
+    const s = policy?.switches || { failover: true, circuit_breaker: true, rate_limit: true, offline_degrade: true };
+
+    const modal = createModal(title, `
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">策略名称 *</label>
+                    <input type="text" class="form-input" id="pol-name" value="${policy?.name || ''}" placeholder="例如：自动均衡">
+                </div>
+                <div>
+                    <label class="form-label">模式</label>
+                    <select class="form-select" id="pol-mode" onchange="togglePolicyMode()">
+                        <option value="auto" ${policy?.mode === 'auto' ? 'selected' : ''}>自动路由</option>
+                        <option value="manual" ${policy?.mode === 'manual' ? 'selected' : ''}>手动路由</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="pol-auto-section">
+            <div style="height:1px;background:var(--color-border-subtle);margin:16px 0;"></div>
+            <div class="text-subheading" style="font-size:14px;margin-bottom:12px;color:var(--color-text-primary);">权重配置（总和 100%）</div>
+            <div class="form-group">
+                <div class="slider-row">
+                    <span class="slider-label">成本</span>
+                    <input type="range" id="pol-weight-cost" min="0" max="100" value="${w.cost}" oninput="updateWeightSum()">
+                    <span class="slider-value" id="pol-weight-cost-val">${w.cost}%</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">延迟</span>
+                    <input type="range" id="pol-weight-latency" min="0" max="100" value="${w.latency}" oninput="updateWeightSum()">
+                    <span class="slider-value" id="pol-weight-latency-val">${w.latency}%</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">质量</span>
+                    <input type="range" id="pol-weight-quality" min="0" max="100" value="${w.quality}" oninput="updateWeightSum()">
+                    <span class="slider-value" id="pol-weight-quality-val">${w.quality}%</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">隐私</span>
+                    <input type="range" id="pol-weight-privacy" min="0" max="100" value="${w.privacy}" oninput="updateWeightSum()">
+                    <span class="slider-value" id="pol-weight-privacy-val">${w.privacy}%</span>
+                </div>
+                <div style="text-align:right;font-size:12px;color:var(--color-text-tertiary);margin-top:4px;">
+                    总和：<span id="pol-weight-sum" style="font-family:var(--font-family-mono);color:var(--color-primary);font-weight:600;">${w.cost + w.latency + w.quality + w.privacy}%</span>
+                </div>
+            </div>
+
+            <div style="height:1px;background:var(--color-border-subtle);margin:16px 0;"></div>
+            <div class="text-subheading" style="font-size:14px;margin-bottom:12px;color:var(--color-text-primary);">阈值配置</div>
+            <div class="form-group">
+                <div class="form-row">
+                    <div>
+                        <label class="form-label">显存安全阈值 (%)</label>
+                        <input type="number" class="form-input" id="pol-vram-safe" value="${t.vram_safe}" min="0" max="100">
+                    </div>
+                    <div>
+                        <label class="form-label">显存危险阈值 (%)</label>
+                        <input type="number" class="form-input" id="pol-vram-danger" value="${t.vram_danger}" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">网络延迟阈值 (ms)</label>
+                <input type="number" class="form-input" id="pol-latency-threshold" value="${t.latency}" min="100">
+            </div>
+        </div>
+
+        <div style="height:1px;background:var(--color-border-subtle);margin:16px 0;"></div>
+        <div class="text-subheading" style="font-size:14px;margin-bottom:12px;color:var(--color-text-primary);">功能开关</div>
+        <div class="form-group">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:13px;color:var(--color-text-primary);">自动故障转移</div>
+                        <div style="font-size:11px;color:var(--color-text-tertiary);">算力源故障时自动切换到备用源</div>
+                    </div>
+                    <div class="toggle ${s.failover ? 'active' : ''}" data-switch="failover" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:13px;color:var(--color-text-primary);">熔断机制</div>
+                        <div style="font-size:11px;color:var(--color-text-tertiary);">错误率过高时自动熔断</div>
+                    </div>
+                    <div class="toggle ${s.circuit_breaker ? 'active' : ''}" data-switch="circuit_breaker" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:13px;color:var(--color-text-primary);">流量限制</div>
+                        <div style="font-size:11px;color:var(--color-text-tertiary);">超出并发限制时自动限流</div>
+                    </div>
+                    <div class="toggle ${s.rate_limit ? 'active' : ''}" data-switch="rate_limit" onclick="toggleSwitch(this)"></div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:13px;color:var(--color-text-primary);">离线降级</div>
+                        <div style="font-size:11px;color:var(--color-text-tertiary);">网络不可用时降级到本地方案</div>
+                    </div>
+                    <div class="toggle ${s.offline_degrade ? 'active' : ''}" data-switch="offline_degrade" onclick="toggleSwitch(this)"></div>
+                </div>
+            </div>
+        </div>
+    `, async () => {
+        const name = document.getElementById('pol-name').value.trim();
+        if (!name) { YunxiAPI.showToast('请输入策略名称', 'warning'); return false; }
+
+        const mode = document.getElementById('pol-mode').value;
+        const weights = {
+            cost: parseInt(document.getElementById('pol-weight-cost')?.value || 0),
+            latency: parseInt(document.getElementById('pol-weight-latency')?.value || 0),
+            quality: parseInt(document.getElementById('pol-weight-quality')?.value || 0),
+            privacy: parseInt(document.getElementById('pol-weight-privacy')?.value || 0),
+        };
+
+        if (mode === 'auto') {
+            const sum = weights.cost + weights.latency + weights.quality + weights.privacy;
+            if (sum !== 100) { YunxiAPI.showToast('权重总和必须为 100%，当前为 ' + sum + '%', 'warning'); return false; }
+        }
+
+        const switches = {};
+        document.querySelectorAll('.toggle[data-switch]').forEach(el => {
+            switches[el.dataset.switch] = el.classList.contains('active');
+        });
+
+        const data = {
+            name,
+            mode,
+            weights,
+            thresholds: {
+                vram_safe: parseInt(document.getElementById('pol-vram-safe')?.value || 70),
+                vram_danger: parseInt(document.getElementById('pol-vram-danger')?.value || 90),
+                latency: parseInt(document.getElementById('pol-latency-threshold')?.value || 2000),
+            },
+            switches,
+            active: policy?.active || false,
+        };
+
+        YunxiAPI.showLoading(isEdit ? '保存中...' : '创建中...');
+        try {
+            if (isEdit) {
+                await safeApiCall(
+                    YunxiAPI.request('PUT', '/compute/routing/policies/' + editId, { body: data }),
+                    { success: true }
+                );
+                Object.assign(policy, data);
+                YunxiAPI.showToast('策略已更新', 'success');
+            } else {
+                const result = await safeApiCall(
+                    YunxiAPI.request('POST', '/compute/routing/policies', { body: data }),
+                    { id: 'pol_' + Date.now(), ...data }
+                );
+                state.policies.push(result);
+                YunxiAPI.showToast('策略已创建', 'success');
+            }
+            renderPolicies();
+            return true;
+        } catch (e) {
+            YunxiAPI.showToast('操作失败：' + (e.message || '未知错误'), 'error');
+            return false;
+        } finally {
+            YunxiAPI.hideLoading();
+        }
+    });
+}
+
+function togglePolicyMode() {
+    const mode = document.getElementById('pol-mode').value;
+    const section = document.getElementById('pol-auto-section');
+    if (section) {
+        section.style.display = mode === 'auto' ? 'block' : 'none';
+    }
+}
+
+function updateWeightSum() {
+    const cost = parseInt(document.getElementById('pol-weight-cost').value);
+    const latency = parseInt(document.getElementById('pol-weight-latency').value);
+    const quality = parseInt(document.getElementById('pol-weight-quality').value);
+    const privacy = parseInt(document.getElementById('pol-weight-privacy').value);
+    const sum = cost + latency + quality + privacy;
+
+    document.getElementById('pol-weight-cost-val').textContent = cost + '%';
+    document.getElementById('pol-weight-latency-val').textContent = latency + '%';
+    document.getElementById('pol-weight-quality-val').textContent = quality + '%';
+    document.getElementById('pol-weight-privacy-val').textContent = privacy + '%';
+
+    const sumEl = document.getElementById('pol-weight-sum');
+    if (sumEl) {
+        sumEl.textContent = sum + '%';
+        sumEl.style.color = sum === 100 ? 'var(--state-success)' : 'var(--state-error)';
+    }
+}
+
+function toggleSwitch(el) {
+    el.classList.toggle('active');
+}
+
+async function deletePolicy(id) {
+    const policy = state.policies.find(p => p.id === id);
+    if (!policy) return;
+    if (policy.active) {
+        YunxiAPI.showToast('无法删除当前激活的策略', 'warning');
+        return;
+    }
+    const confirmed = await YunxiAPI.showConfirm('确定要删除策略「' + policy.name + '」吗？此操作不可恢复。', '删除策略');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('删除中...');
+    try {
+        await safeApiCall(
+            YunxiAPI.request('DELETE', '/compute/routing/policies/' + id),
+            { success: true }
+        );
+        state.policies = state.policies.filter(p => p.id !== id);
+        renderPolicies();
+        YunxiAPI.showToast('策略已删除', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('删除失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+// ========== Tab 5: Call Logs ==========
+let logsInitialized = false;
+
+function initLogs() {
+    if (logsInitialized) return;
+    logsInitialized = true;
+    updateLogFilterSources();
+    loadLogs();
+}
+
+function updateLogFilterSources() {
+    const select = document.getElementById('log-filter-source');
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">全部</option>' +
+        state.sources.map(s => '<option value="' + s.id + '" ' + (currentVal === s.id ? 'selected' : '') + '>' + s.name + '</option>').join('');
+}
+
+async function loadLogs() {
+    state.logPage = 1;
+    const params = {
+        source: document.getElementById('log-filter-source')?.value || '',
+        status: document.getElementById('log-filter-status')?.value || '',
+        time_range: document.getElementById('log-filter-time')?.value || '24h',
+        search: document.getElementById('log-search')?.value || '',
+        page: 1,
+        page_size: state.logPageSize,
+    };
+
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/monitor/call-logs?' + new URLSearchParams(params).toString()),
+        () => {
+            // Generate mock data
+            const allLogs = generateMockLogs();
+            const filtered = allLogs.filter(log => {
+                if (params.source && log.source_id !== params.source) return false;
+                if (params.status && log.status !== params.status) return false;
+                if (params.search) {
+                    const s = params.search.toLowerCase();
+                    if (!log.id.toLowerCase().includes(s) && !log.caller.toLowerCase().includes(s)) return false;
+                }
+                return true;
+            });
+            return { logs: filtered, total: filtered.length };
+        }
+    );
+
+    state.logs = data?.logs || (Array.isArray(data) ? data : []) || [];
+    state.logsTotal = data?.total || state.logs.length;
+    renderLogs();
+}
+
+function renderLogs() {
+    const tbody = document.getElementById('log-table-body');
+    if (!tbody) return;
+
+    const pageSize = state.logPageSize;
+    const start = (state.logPage - 1) * pageSize;
+    const pageData = state.logs.slice(start, start + pageSize);
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><i data-lucide="file-text"></i><p>暂无调用日志</p></div></td></tr>';
+    } else {
+        tbody.innerHTML = pageData.map(log => `
+            <tr>
+                <td class="mono" style="font-size:11px;color:var(--color-text-secondary);white-space:nowrap;">${log.time}</td>
+                <td class="mono" style="font-size:11px;">${log.id}</td>
+                <td>${log.source}</td>
+                <td class="mono">${log.model}</td>
+                <td>${log.caller}</td>
+                <td class="mono">${log.input_tokens}</td>
+                <td class="mono">${log.output_tokens}</td>
+                <td class="mono">¥${log.cost}</td>
+                <td class="mono">${log.latency}ms</td>
+                <td>${log.status === 'success' ? '<span class="badge badge-success">成功</span>' : '<span class="badge badge-error">失败</span>'}</td>
+                <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${log.error_msg || ''}">${log.error_msg || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    renderPagination('log-pagination', state.logPage, state.logsTotal || state.logs.length, pageSize, 'goLogPage');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function goLogPage(page) {
+    state.logPage = page;
+    renderLogs();
+}
+
+function exportLogs() {
+    if (state.logs.length === 0) {
+        YunxiAPI.showToast('暂无日志可导出', 'warning');
+        return;
+    }
+
+    const headers = ['时间', '调用ID', '算力源', '模型', '调用方', '输入Token', '输出Token', '成本(元)', '延迟(ms)', '状态', '错误信息'];
+    const rows = state.logs.map(log => [
+        log.time, log.id, log.source, log.model, log.caller,
+        log.input_tokens, log.output_tokens, log.cost, log.latency,
+        log.status === 'success' ? '成功' : '失败', log.error_msg || ''
+    ]);
+
+    const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'call-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    YunxiAPI.showToast('日志已导出', 'success');
+}
+
+// ========== Tab 6: Quotas & Alerts ==========
+let quotasInitialized = false;
+
+function initQuotas() {
+    if (quotasInitialized) return;
+    quotasInitialized = true;
+    loadQuotas();
+    loadAlerts();
+}
+
+async function loadQuotas() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/monitor/quotas'),
+        mockData.quotas
+    );
+    state.quotas = data || mockData.quotas;
+    renderQuotas();
+}
+
+function renderQuotas() {
+    const q = state.quotas || mockData.quotas;
+
+    // Global quotas
+    const globalEl = document.getElementById('global-quotas');
+    if (globalEl) {
+        const dailyPct = Math.round((q.global.daily.used / q.global.daily.limit) * 100);
+        const dailyCostPct = Math.round((q.global.daily.cost_used / q.global.daily.cost_limit) * 100);
+        const monthlyPct = Math.round((q.global.monthly.used / q.global.monthly.limit) * 100);
+        const monthlyCostPct = Math.round((q.global.monthly.cost_used / q.global.monthly.cost_limit) * 100);
+
+        const getPctClass = (pct) => pct >= 90 ? 'danger' : (pct >= 70 ? 'warning' : '');
+
+        globalEl.innerHTML = `
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:13px;color:var(--color-text-secondary);">日调用次数</span>
+                    <span style="font-size:13px;font-family:var(--font-family-mono);color:var(--color-text-primary);">${formatNumber(q.global.daily.used)} / ${formatNumber(q.global.daily.limit)}</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill ${getPctClass(dailyPct)}" style="width:${dailyPct}%;"></div></div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:13px;color:var(--color-text-secondary);">日成本额度</span>
+                    <span style="font-size:13px;font-family:var(--font-family-mono);color:var(--color-text-primary);">¥${q.global.daily.cost_used} / ¥${q.global.daily.cost_limit}</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill ${getPctClass(dailyCostPct)}" style="width:${dailyCostPct}%;"></div></div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:13px;color:var(--color-text-secondary);">月调用次数</span>
+                    <span style="font-size:13px;font-family:var(--font-family-mono);color:var(--color-text-primary);">${formatNumber(q.global.monthly.used)} / ${formatNumber(q.global.monthly.limit)}</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill ${getPctClass(monthlyPct)}" style="width:${monthlyPct}%;"></div></div>
+            </div>
+            <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:13px;color:var(--color-text-secondary);">月成本额度</span>
+                    <span style="font-size:13px;font-family:var(--font-family-mono);color:var(--color-text-primary);">¥${q.global.monthly.cost_used.toLocaleString()} / ¥${q.global.monthly.cost_limit.toLocaleString()}</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill ${getPctClass(monthlyCostPct)}" style="width:${monthlyCostPct}%;"></div></div>
+            </div>
+        `;
+    }
+
+    // Module quotas
+    const moduleEl = document.getElementById('module-quotas');
+    if (moduleEl) {
+        moduleEl.innerHTML = q.modules.map(m => {
+            const pct = Math.round((m.calls / m.limit) * 100);
+            const pctClass = pct >= 90 ? 'danger' : (pct >= 70 ? 'warning' : '');
+            return `
+                <div style="margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="font-size:13px;color:var(--color-text-primary);font-weight:500;">${m.name}</span>
+                        <span style="font-size:12px;font-family:var(--font-family-mono);color:var(--color-text-secondary);">${formatNumber(m.calls)} / ${formatNumber(m.limit)}</span>
+                    </div>
+                    <div class="progress-bar" style="height:6px;"><div class="progress-fill ${pctClass}" style="width:${pct}%;"></div></div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Skill quotas
+    const skillEl = document.getElementById('skill-quotas');
+    if (skillEl) {
+        skillEl.innerHTML = q.skills.map(s => {
+            const pct = Math.round((s.calls / s.limit) * 100);
+            const pctClass = pct >= 90 ? 'danger' : (pct >= 70 ? 'warning' : '');
+            return `
+                <div style="padding:12px;background:var(--color-bg-base);border-radius:var(--radius-md);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:13px;color:var(--color-text-primary);font-weight:500;">${s.name}</span>
+                        <span style="font-size:11px;font-family:var(--font-family-mono);color:var(--color-text-tertiary);">${pct}%</span>
+                    </div>
+                    <div class="progress-bar" style="height:4px;margin-bottom:6px;"><div class="progress-fill ${pctClass}" style="width:${pct}%;"></div></div>
+                    <div style="font-size:11px;color:var(--color-text-tertiary);font-family:var(--font-family-mono);">
+                        ${formatNumber(s.calls)} / ${formatNumber(s.limit)} 次 · ¥${s.cost}/¥${s.cost_limit}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Alerts
+async function loadAlerts() {
+    const data = await safeApiCall(
+        YunxiAPI.request('GET', '/compute/monitor/alerts'),
+        mockData.alerts
+    );
+    state.alerts = Array.isArray(data) ? data : (data?.alerts || mockData.alerts);
+    renderAlerts();
+}
+
+function renderAlerts() {
+    const levelFilter = document.getElementById('alert-level-filter')?.value || '';
+    const filtered = state.alerts.filter(a => !levelFilter || a.level === levelFilter);
+
+    const pageSize = state.alertPageSize;
+    const start = (state.alertPage - 1) * pageSize;
+    const pageData = filtered.slice(start, start + pageSize);
+
+    const tbody = document.getElementById('alert-table-body');
+    if (!tbody) return;
+
+    const typeLabels = {
+        source_down: '算力源故障',
+        high_latency: '高延迟',
+        quota_warning: '额度预警',
+        high_error_rate: '高错误率',
+        daily_report: '每日报告',
+    };
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i data-lucide="bell-off"></i><p>暂无告警</p></div></td></tr>';
+    } else {
+        tbody.innerHTML = pageData.map(a => `
+            <tr>
+                <td class="mono" style="font-size:11px;color:var(--color-text-secondary);white-space:nowrap;">${a.time}</td>
+                <td>${getLevelBadge(a.level)}</td>
+                <td>${typeLabels[a.type] || a.type}</td>
+                <td>${a.source || '-'}</td>
+                <td style="max-width:250px;">${a.message}</td>
+                <td>${a.status === 'resolved' ? '<span class="badge badge-success">已解决</span>' : '<span class="badge badge-warning">待处理</span>'}</td>
+                <td>
+                    ${a.status !== 'resolved' ?
+                        '<button class="btn btn-ghost btn-sm" onclick="resolveAlert(' + a.id + ')">标记已解决</button>' :
+                        '<span style="font-size:12px;color:var(--color-text-tertiary);">-</span>'
+                    }
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    renderPagination('alert-pagination', state.alertPage, filtered.length, pageSize, 'goAlertPage');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function goAlertPage(page) {
+    state.alertPage = page;
+    renderAlerts();
+}
+
+async function resolveAlert(id) {
+    const confirmed = await YunxiAPI.showConfirm('确定要标记此告警为已解决吗？', '标记已解决');
+    if (!confirmed) return;
+
+    try {
+        await safeApiCall(
+            YunxiAPI.request('POST', '/compute/monitor/alerts/' + id + '/resolve'),
+            { success: true }
+        );
+        const alert = state.alerts.find(a => a.id === id);
+        if (alert) alert.status = 'resolved';
+        renderAlerts();
+        YunxiAPI.showToast('已标记为已解决', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('操作失败', 'error');
+    }
+}
+
+// ========== Tab 7: Config Management ==========
+let configInitialized = false;
+
+function initConfig() {
+    if (configInitialized) return;
+    configInitialized = true;
+    loadBackups();
+    initUploadZone();
+}
+
+async function loadBackups() {
+    state.backups = mockData.backups; // Using mock data for now
+    renderBackups();
+}
+
+function renderBackups() {
+    const container = document.getElementById('backup-list');
+    if (!container) return;
+
+    if (state.backups.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:30px 0;"><i data-lucide="archive"></i><p>暂无备份记录</p></div>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = state.backups.map(b => `
+        <div class="backup-item">
+            <div class="backup-info">
+                <i data-lucide="hard-drive"></i>
+                <div>
+                    <div class="backup-name">${b.name}</div>
+                    <div class="backup-meta">${b.time} · ${b.size}</div>
+                </div>
+            </div>
+            <div class="backup-actions">
+                <button class="btn btn-ghost btn-sm" onclick="downloadBackup('${b.id}')" title="下载">
+                    <i data-lucide="download" style="width:14px;height:14px;"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="restoreBackup('${b.id}')" title="恢复">
+                    <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="deleteBackup('${b.id}')" title="删除" style="color:var(--state-error);">
+                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function initUploadZone() {
+    const zone = document.getElementById('upload-zone');
+    if (!zone) return;
+
+    ['dragenter', 'dragover'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+        });
+    });
+    zone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleConfigFile({ target: { files: [file] } });
+    });
+}
+
+function selectImportMode(el, mode) {
+    state.importMode = mode;
+    document.querySelectorAll('[data-mode]').forEach(t => t.classList.remove('checked'));
+    el.classList.add('checked');
+}
+
+function handleConfigFile(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+        YunxiAPI.showToast('请上传 JSON 格式的配置文件', 'warning');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const config = JSON.parse(e.target.result);
+            const confirmed = await YunxiAPI.showConfirm(
+                '确定要导入配置吗？导入模式：' + (state.importMode === 'overwrite' ? '全量覆盖' : '增量合并'),
+                '导入配置'
+            );
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('正在导入配置...');
+            try {
+                await safeApiCall(
+                    YunxiAPI.request('POST', '/compute/config/import', {
+                        body: { config, mode: state.importMode }
+                    }),
+                    { success: true }
+                );
+                YunxiAPI.showToast('配置导入成功', 'success');
+                // Refresh data
+                overviewInitialized = false;
+                sourcesInitialized = false;
+                groupsInitialized = false;
+                routingInitialized = false;
+            } catch (err) {
+                YunxiAPI.showToast('导入失败：' + (err.message || '未知错误'), 'error');
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+        } catch (err) {
+            YunxiAPI.showToast('文件解析失败：不是有效的 JSON 文件', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function exportConfig() {
+    YunxiAPI.showLoading('正在导出配置...');
+    try {
+        const config = await safeApiCall(
+            YunxiAPI.request('GET', '/compute/config/export'),
+            () => ({
+                sources: state.sources,
+                groups: state.groups,
+                models: state.models,
+                policies: state.policies,
+                exported_at: new Date().toISOString(),
+                version: '1.0',
+            })
+        );
+
+        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'compute-config-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        YunxiAPI.showToast('配置已导出', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('导出失败：' + (e.message || '未知错误'), 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+async function createBackup() {
+    YunxiAPI.showLoading('正在创建备份...');
+    try {
+        await new Promise(r => setTimeout(r, 800)); // Simulate
+        const newBackup = {
+            id: 'bk_' + Date.now(),
+            name: '手动备份-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + new Date().toTimeString().slice(0, 5).replace(':', ''),
+            time: new Date().toLocaleString('zh-CN', { hour12: false }),
+            size: (200 + Math.floor(Math.random() * 100)) + ' KB',
+        };
+        state.backups.unshift(newBackup);
+        renderBackups();
+        YunxiAPI.showToast('备份创建成功', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('创建失败', 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+function downloadBackup(id) {
+    const backup = state.backups.find(b => b.id === id);
+    if (!backup) return;
+    // Simulate download with mock data
+    const config = { backup_id: id, backup_name: backup.name, sources: state.sources, groups: state.groups };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = backup.name + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    YunxiAPI.showToast('备份已下载', 'success');
+}
+
+async function restoreBackup(id) {
+    const backup = state.backups.find(b => b.id === id);
+    if (!backup) return;
+    const confirmed = await YunxiAPI.showConfirm('确定要恢复备份「' + backup.name + '」吗？当前配置将被覆盖。', '恢复备份');
+    if (!confirmed) return;
+
+    YunxiAPI.showLoading('正在恢复备份...');
+    try {
+        await new Promise(r => setTimeout(r, 1000));
+        YunxiAPI.showToast('备份恢复成功', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('恢复失败', 'error');
+    } finally {
+        YunxiAPI.hideLoading();
+    }
+}
+
+async function deleteBackup(id) {
+    const backup = state.backups.find(b => b.id === id);
+    if (!backup) return;
+    const confirmed = await YunxiAPI.showConfirm('确定要删除备份「' + backup.name + '」吗？此操作不可恢复。', '删除备份');
+    if (!confirmed) return;
+
+    try {
+        state.backups = state.backups.filter(b => b.id !== id);
+        renderBackups();
+        YunxiAPI.showToast('备份已删除', 'success');
+    } catch (e) {
+        YunxiAPI.showToast('删除失败', 'error');
+    }
+}
+
+// ========== Modal Utility ==========
+function createModal(title, bodyHtml, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+
+    modal.innerHTML = `
+        <div class="modal-header">
+            <div class="modal-title">${title}</div>
+            <button class="modal-close" data-close>
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">${bodyHtml}</div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" data-close>取消</button>
+            <button class="btn btn-primary" data-confirm>确认</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const close = () => overlay.remove();
+
+    overlay.querySelectorAll('[data-close]').forEach(el => {
+        el.addEventListener('click', close);
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+    });
+
+    modal.querySelector('[data-confirm]').addEventListener('click', async () => {
+        if (onConfirm) {
+            const result = await onConfirm();
+            if (result !== false) close();
+        } else {
+            close();
+        }
+    });
+
+    // Focus first input
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input, select');
+        if (firstInput) firstInput.focus();
+    }, 100);
+
+    return modal;
+}
+
+// ========== Page Initialization ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // Check login
+    if (typeof YunxiAPI !== 'undefined' && YunxiAPI.isLoggedIn) {
+        if (!YunxiAPI.isLoggedIn()) {
+            YunxiAPI.redirectToLogin();
+            return;
+        }
+    }
+
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    // Bind tab events
+    bindTabEvents();
+
+    // Bind sidebar nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const href = item.getAttribute('href');
+            if (href && href !== 'compute.html') {
+                e.preventDefault();
+                location.href = href;
+            }
+        });
+    });
+
+    // Initialize first tab (overview)
+    initOverview();
+
+    // Update user info display
+    updateUserInfo();
+});
+
+function updateUserInfo() {
+    if (typeof YunxiAPI === 'undefined') return;
+    const user = YunxiAPI.getCurrentUser?.();
+    if (!user) return;
+    const username = user.username || user.name;
+    if (username) {
+        const initial = username.charAt(0).toUpperCase();
+        const avatar = document.querySelector('.w-8.h-8.rounded-full');
+        if (avatar) avatar.textContent = initial;
+        const nameEl = document.querySelector('p.text-sm.font-medium');
+        if (nameEl) nameEl.textContent = username;
+        if (user.email) {
+            const emailEl = document.querySelector('p.text-xs.truncate');
+            if (emailEl) emailEl.textContent = user.email;
+        }
+    }
+}
+    </script>
+</body>
+</html>
+
+
+

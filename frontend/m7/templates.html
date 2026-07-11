@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模板库</title>
+    <style id="theme-vars">
+/* ============================================
+   M7 积木编排平台 - Brand Design Tokens
+   Low-code visual workflow orchestration platform
+   Style: Clean modern, light theme, drag interaction, node-based editing
+   ============================================ */
+
+:root {
+  /* --- Brand Primary --- */
+  --brand-primary: #3b82f6;
+  --brand-primary-hover: #2563eb;
+  --brand-primary-active: #1d4ed8;
+  --brand-primary-light: #eff6ff;
+  --brand-primary-50: #eff6ff;
+  --brand-primary-100: #dbeafe;
+  --brand-primary-200: #bfdbfe;
+  --brand-primary-500: #3b82f6;
+  --brand-primary-600: #2563eb;
+  --brand-primary-700: #1d4ed8;
+
+  /* --- State Colors --- */
+  --state-success: #10b981;
+  --state-success-light: #d1fae5;
+  --state-warning: #f59e0b;
+  --state-warning-light: #fef3c7;
+  --state-error: #ef4444;
+  --state-error-light: #fee2e2;
+  --state-info: #8b5cf6;
+  --state-info-light: #ede9fe;
+
+  /* --- Node Type Colors --- */
+  --node-trigger: #10b981;
+  --node-ai: #8b5cf6;
+  --node-logic: #f59e0b;
+  --node-data: #06b6d4;
+  --node-tool: #6366f1;
+  --node-custom: #64748b;
+
+  /* --- Backgrounds & Surfaces --- */
+  --bg-body: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-surface-active: #e2e8f0;
+  --bg-canvas: #f1f5f9;
+  --bg-canvas-dots: #cbd5e1;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-sidebar: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-statusbar: #f8fafc;
+  --bg-input: #ffffff;
+  --bg-input-focus: #ffffff;
+
+  /* --- Text Colors --- */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+  --text-brand: #3b82f6;
+  --text-link: #3b82f6;
+  --text-placeholder: #94a3b8;
+
+  /* --- Borders --- */
+  --border-default: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-brand: #3b82f6;
+  --border-focus: #3b82f6;
+
+  /* --- Border Radius --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* --- Shadows (static: alpha <= 0.05) --- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.04), 0 4px 6px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 20px 25px rgba(0, 0, 0, 0.06), 0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-node: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-node-selected: 0 0 0 2px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.15);
+
+  /* --- Spacing Scale --- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Typography --- */
+  --font-sans: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+  --text-4xl: 30px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* --- Canvas Grid Dots --- */
+  --canvas-dot-color: #cbd5e1;
+  --canvas-dot-size: 1px;
+  --canvas-dot-gap: 20px;
+
+  /* --- Connection Lines --- */
+  --connection-color: #94a3b8;
+  --connection-selected: #3b82f6;
+  --connection-width: 2px;
+  --connection-selected-width: 3px;
+
+  /* --- Node Port --- */
+  --port-size: 10px;
+  --port-color: #94a3b8;
+  --port-hover: #3b82f6;
+  --port-connected: #3b82f6;
+
+  /* --- Transition --- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Typography Classes */
+.brand-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.brand-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.brand-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.brand-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+.brand-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.brand-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+}
+
+.brand-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--brand-primary);
+  }
+  @layer base {
+    body { background: var(--brand-background); color: var(--brand-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <script src="../common/api.js"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+      <!-- M7 积木编排平台 - Shared Project Shell -->
+      <div id="app-shell" class="min-h-screen" style="background-color: var(--bg-body);">
+        <!-- Top Navbar -->
+        <nav class="sticky top-0 z-50 flex items-center justify-between px-6 h-14 border-b" style="background: var(--bg-surface); border-color: var(--border-default);">
+          <!-- Left: Logo -->
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--brand-primary);">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.7"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.7"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.5"/></svg>
+            </div>
+            <span class="font-semibold text-sm" style="color: var(--text-primary);">积木编排平台</span>
+          </div>
+
+          <!-- Center: Nav Links -->
+          <div class="flex items-center gap-1">
+            <a href="workflow-list.html" data-nav-key="workflows" data-dom-id="nav-workflows" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--text-secondary);">工作流</a>
+            <a href="templates.html" data-nav-key="templates" data-dom-id="nav-templates" data-active="true" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--brand-primary); background: var(--brand-primary-light);">模板库</a>
+            <a href="custom-blocks.html" data-nav-key="blocks" data-dom-id="nav-blocks" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors" style="color: var(--text-secondary);">我的积木</a>
+          </div>
+
+          <!-- Right: User -->
+          <div class="flex items-center gap-3">
+            <button class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style="background: var(--brand-primary-light); color: var(--brand-primary);">U</button>
+          </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div class="max-w-6xl mx-auto px-6 pt-10 pb-16">
+          <!-- Page Header -->
+          <div class="mb-8">
+            <h1 class="brand-h1 text-3xl mb-2" style="text-wrap: balance; word-break: keep-all; overflow-wrap: break-word;">模板库</h1>
+            <p class="brand-body text-base mb-6" style="color: var(--text-secondary);">快速开始，使用预设模板构建你的工作流</p>
+            <!-- Search Box -->
+            <div class="relative max-w-md">
+              <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style="color: var(--text-tertiary);"></i>
+              <input type="text" placeholder="搜索模板..." class="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm border focus:outline-none transition-colors" style="background: var(--bg-input); border-color: var(--border-default); color: var(--text-primary); font-family: var(--font-sans);" onfocus="this.style.borderColor='var(--border-focus)'; this.style.boxShadow='0 0 0 2px var(--brand-primary-light)';" onblur="this.style.borderColor='var(--border-default)'; this.style.boxShadow='none';">
+            </div>
+          </div>
+
+          <!-- Category Filter Tabs -->
+          <div class="flex items-center gap-2 mb-8 overflow-x-auto no-scrollbar pb-1">
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);">全部</button>
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);">办公自动化</button>
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);">内容创作</button>
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);">数据处理</button>
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);">客户服务</button>
+            <button class="px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);">开发工具</button>
+          </div>
+
+          <!-- Template Card Grid (动态渲染) -->
+          <div id="template-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          </div>
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <!-- CSS-generated thumbnail: mini workflow diagram -->
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <!-- Dot grid pattern -->
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <!-- Workflow nodes -->
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <!-- Connection lines -->
+                  <line x1="50" y1="50" x2="115" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="50" x2="230" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="140" y1="75" x2="140" y2="100" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <!-- Trigger node -->
+                  <circle cx="40" cy="50" r="14" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="54" text-anchor="middle" fill="white" font-size="8" font-family="var(--font-sans)">触发</text>
+                  <!-- AI node -->
+                  <circle cx="140" cy="50" r="14" fill="var(--node-ai)" opacity="0.9"/>
+                  <text x="140" y="54" text-anchor="middle" fill="white" font-size="8" font-family="var(--font-sans)">AI</text>
+                  <!-- Tool node -->
+                  <circle cx="240" cy="50" r="14" fill="var(--node-tool)" opacity="0.9"/>
+                  <text x="240" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">回复</text>
+                  <!-- Data node -->
+                  <rect x="126" y="96" width="28" height="20" rx="4" fill="var(--node-data)" opacity="0.9"/>
+                  <text x="140" y="110" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">存储</text>
+                </svg>
+              </div>
+              <!-- Card body -->
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">客户咨询自动回复</h3>
+                </div>
+                <!-- Tags -->
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--brand-primary-light); color: var(--brand-primary);">官方</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--state-warning-light); color: var(--state-warning);">热门</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">客户服务</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">AI</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">自动识别用户意图并生成专业回复</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">1.2k次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: 周报自动生成 -->
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="50" y1="70" x2="115" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="70" x2="230" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="140" y1="95" x2="140" y2="120" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <circle cx="40" cy="70" r="14" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">定时</text>
+                  <circle cx="140" cy="70" r="14" fill="var(--node-data)" opacity="0.9"/>
+                  <text x="140" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">汇总</text>
+                  <circle cx="240" cy="70" r="14" fill="var(--node-ai)" opacity="0.9"/>
+                  <text x="240" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">生成</text>
+                  <rect x="126" y="116" width="28" height="18" rx="4" fill="var(--node-tool)" opacity="0.9"/>
+                  <text x="140" y="129" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">文档</text>
+                </svg>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">周报自动生成</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--state-success-light); color: var(--state-success);">精选</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">办公自动化</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">AI</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">自动汇总本周工作内容，生成周报文档</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">856次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: 数据清洗流水线 -->
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="55" y1="50" x2="95" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="135" y1="50" x2="175" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="215" y1="50" x2="245" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <rect x="25" y="36" width="30" height="28" rx="5" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">输入</text>
+                  <rect x="95" y="36" width="40" height="28" rx="5" fill="var(--node-data)" opacity="0.9"/>
+                  <text x="115" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">清洗</text>
+                  <rect x="175" y="36" width="40" height="28" rx="5" fill="var(--node-logic)" opacity="0.9"/>
+                  <text x="195" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">转换</text>
+                  <rect x="235" y="36" width="30" height="28" rx="5" fill="var(--node-data)" opacity="0.9"/>
+                  <text x="250" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">输出</text>
+                  <circle cx="115" cy="100" r="12" fill="var(--node-logic)" opacity="0.7"/>
+                  <text x="115" y="104" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">验证</text>
+                </svg>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">数据清洗流水线</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--brand-primary-light); color: var(--brand-primary);">官方</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">数据处理</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">自动清洗、转换、验证结构化数据</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">634次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4: 邮件智能分类 -->
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="55" y1="70" x2="115" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="55" x2="230" y2="40" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="70" x2="230" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="85" x2="230" y2="100" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <circle cx="40" cy="70" r="14" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">邮件</text>
+                  <circle cx="140" cy="70" r="14" fill="var(--node-ai)" opacity="0.9"/>
+                  <text x="140" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">AI</text>
+                  <rect x="230" y="28" width="30" height="20" rx="4" fill="var(--node-data)" opacity="0.8"/>
+                  <text x="245" y="42" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">工作</text>
+                  <rect x="230" y="60" width="30" height="20" rx="4" fill="var(--node-tool)" opacity="0.8"/>
+                  <text x="245" y="74" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">通知</text>
+                  <rect x="230" y="92" width="30" height="20" rx="4" fill="var(--node-logic)" opacity="0.8"/>
+                  <text x="245" y="106" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">垃圾</text>
+                </svg>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">邮件智能分类</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--state-warning-light); color: var(--state-warning);">热门</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">办公自动化</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">AI</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">根据内容自动分类 incoming 邮件</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">1.1k次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 5: API集成网关 -->
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="55" y1="70" x2="105" y2="45" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="55" y1="70" x2="105" y2="95" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="55" y1="70" x2="105" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="135" y1="45" x2="210" y2="45" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="135" y1="70" x2="210" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="135" y1="95" x2="210" y2="95" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <rect x="25" y="58" width="30" height="24" rx="5" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">请求</text>
+                  <rect x="105" y="33" width="30" height="20" rx="4" fill="var(--node-logic)" opacity="0.9"/>
+                  <text x="120" y="47" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">认证</text>
+                  <rect x="105" y="60" width="30" height="20" rx="4" fill="var(--node-logic)" opacity="0.9"/>
+                  <text x="120" y="74" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">路由</text>
+                  <rect x="105" y="87" width="30" height="20" rx="4" fill="var(--node-logic)" opacity="0.9"/>
+                  <text x="120" y="101" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">限流</text>
+                  <circle cx="230" cy="45" r="12" fill="var(--node-tool)" opacity="0.8"/>
+                  <text x="230" y="49" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">A</text>
+                  <circle cx="230" cy="70" r="12" fill="var(--node-tool)" opacity="0.8"/>
+                  <text x="230" y="74" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">B</text>
+                  <circle cx="230" cy="95" r="12" fill="var(--node-tool)" opacity="0.8"/>
+                  <text x="230" y="99" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">C</text>
+                </svg>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">API集成网关</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--brand-primary-light); color: var(--brand-primary);">官方</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">开发工具</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">统一管理多个API接口，处理认证和路由</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">423次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 6: 内容批量生成 -->
+            <div class="rounded-lg border transition-all duration-150 cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="55" y1="50" x2="115" y2="50" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="50" x2="215" y2="35" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="165" y1="50" x2="215" y2="65" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <circle cx="40" cy="50" r="14" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">输入</text>
+                  <circle cx="140" cy="50" r="14" fill="var(--node-ai)" opacity="0.9"/>
+                  <text x="140" y="54" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">AI</text>
+                  <rect x="215" y="22" width="40" height="22" rx="4" fill="var(--node-data)" opacity="0.8"/>
+                  <text x="235" y="37" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">文案</text>
+                  <rect x="215" y="54" width="40" height="22" rx="4" fill="var(--node-data)" opacity="0.8"/>
+                  <text x="235" y="69" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">社媒</text>
+                  <circle cx="80" cy="110" r="12" fill="var(--node-tool)" opacity="0.7"/>
+                  <text x="80" y="114" text-anchor="middle" fill="white" font-size="6" font-family="var(--font-sans)">发布</text>
+                </svg>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">内容批量生成</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--state-success-light); color: var(--state-success);">精选</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">内容创作</span>
+                  <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: var(--bg-surface-hover); color: var(--text-secondary);">AI</span>
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">批量生成营销文案、社交媒体内容</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">789次使用</span>
+                  <button class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors" style="background: var(--brand-primary); color: var(--text-inverse);" onmouseenter="this.style.background='var(--brand-primary-hover)';" onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+    <script>lucide.createIcons();</script>
+    <script>
+    // 登录检查
+    if (!YunxiAPI.isLoggedIn()) {
+        YunxiAPI.redirectToLogin();
+    }
+
+    // 模板数据
+    let templates = [];
+    let apiAvailable = true;
+    let allCategories = ['all'];
+
+    // 模拟模板数据（API 失败时降级）
+    const fallbackTemplates = [
+        { id: 1, name: '客户咨询自动回复', category: '客户服务', tags: ['官方', '热门', '客户服务', 'AI'], usage: '1.2k次使用', description: '自动识别用户意图并生成专业回复', blocks: [] },
+        { id: 2, name: '周报自动生成', category: '办公自动化', tags: ['精选', '办公自动化', 'AI'], usage: '856次使用', description: '自动汇总本周工作内容，生成周报文档', blocks: [] },
+        { id: 3, name: '数据清洗流水线', category: '数据处理', tags: ['官方', '数据处理'], usage: '634次使用', description: '自动清洗、转换、验证结构化数据', blocks: [] },
+        { id: 4, name: '邮件智能分类', category: '办公自动化', tags: ['热门', '办公自动化', 'AI'], usage: '1.1k次使用', description: '根据内容自动分类 incoming 邮件', blocks: [] },
+        { id: 5, name: 'API集成网关', category: '开发工具', tags: ['官方', '开发工具'], usage: '423次使用', description: '统一管理多个API接口，处理认证和路由', blocks: [] },
+        { id: 6, name: '内容批量生成', category: '内容创作', tags: ['精选', '内容创作', 'AI'], usage: '789次使用', description: '批量生成营销文案、社交媒体内容', blocks: [] },
+    ];
+
+    // 当前分类
+    let currentCategory = 'all';
+    let searchKeyword = '';
+
+    // 收藏数据（localStorage）
+    const FAVORITE_KEY = 'm7_template_favorites';
+
+    function getFavorites() {
+        try {
+            return JSON.parse(localStorage.getItem(FAVORITE_KEY) || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function isFavorited(id) {
+        return getFavorites().includes(String(id));
+    }
+
+    function toggleFavorite(id) {
+        const favs = getFavorites();
+        const idx = favs.indexOf(String(id));
+        if (idx >= 0) {
+            favs.splice(idx, 1);
+            localStorage.setItem(FAVORITE_KEY, JSON.stringify(favs));
+            return false;
+        } else {
+            favs.push(String(id));
+            localStorage.setItem(FAVORITE_KEY, JSON.stringify(favs));
+            return true;
+        }
+    }
+
+    // ========== API 调用 ==========
+
+    async function fetchTemplates() {
+        try {
+            const data = await YunxiAPI.request('GET', '/workflows/templates');
+            templates = Array.isArray(data) ? data : (data.items || data.list || []);
+            apiAvailable = true;
+
+            // 提取分类
+            const cats = new Set();
+            templates.forEach(t => {
+                if (t.category) cats.add(t.category);
+            });
+            allCategories = ['all', ...Array.from(cats)];
+        } catch (error) {
+            console.warn('获取模板列表失败，使用模拟数据:', error.message);
+            templates = JSON.parse(JSON.stringify(fallbackTemplates));
+            apiAvailable = false;
+            allCategories = ['all', '办公自动化', '内容创作', '数据处理', '客户服务', '开发工具'];
+            YunxiAPI.showToast('当前使用演示数据', 'warning');
+        }
+        renderTemplates();
+        renderCategories();
+    }
+
+    // ========== 渲染模板卡片 ==========
+
+    function renderTemplates() {
+        const grid = document.getElementById('template-grid');
+        if (!grid) return;
+
+        // 过滤
+        let filtered = templates.filter(tpl => {
+            let show = true;
+
+            // 分类过滤
+            if (currentCategory !== 'all') {
+                show = tpl.category === currentCategory;
+            }
+
+            // 搜索过滤
+            if (show && searchKeyword) {
+                const kw = searchKeyword.toLowerCase();
+                const tags = tpl.tags || [];
+                show = (tpl.name || '').toLowerCase().includes(kw) ||
+                       (tpl.description || tpl.desc || '').toLowerCase().includes(kw) ||
+                       tags.some(t => String(t).toLowerCase().includes(kw));
+            }
+
+            return show;
+        });
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                  <i data-lucide="search-x" class="w-12 h-12 mb-4" style="color: var(--text-tertiary);"></i>
+                  <p class="text-sm mb-1" style="color: var(--text-secondary);">没有找到匹配的模板</p>
+                  <p class="text-xs" style="color: var(--text-tertiary);">试试其他关键词或分类</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(tpl => {
+            const favorited = isFavorited(tpl.id);
+            const tags = tpl.tags || [];
+            const desc = tpl.description || tpl.desc || '';
+            const usage = tpl.usage_count || tpl.usage || '0次使用';
+
+            let tagsHtml = '';
+            tags.slice(0, 3).forEach(tag => {
+                let bg = 'var(--bg-surface-hover)';
+                let color = 'var(--text-secondary)';
+                if (tag === '官方' || tag === 'official') {
+                    bg = 'var(--brand-primary-light)';
+                    color = 'var(--brand-primary)';
+                } else if (tag === '热门' || tag === 'hot') {
+                    bg = 'var(--state-warning-light)';
+                    color = 'var(--state-warning)';
+                } else if (tag === '精选' || tag === 'featured') {
+                    bg = 'var(--state-success-light)';
+                    color = 'var(--state-success)';
+                }
+                tagsHtml += `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap" style="background: ${bg}; color: ${color};">${tag}</span>`;
+            });
+
+            html += `
+            <div class="template-card rounded-lg border transition-all duration-150 cursor-pointer"
+                 style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: var(--shadow-xs); font-family: var(--font-sans);"
+                 data-id="${tpl.id}"
+                 onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--border-strong)';"
+                 onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='var(--shadow-xs)'; this.style.borderColor='var(--border-default)';">
+              <div class="relative rounded-t-lg overflow-hidden" style="background: var(--bg-canvas); height: 140px;">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, var(--canvas-dot-color) 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 280 140" fill="none">
+                  <line x1="60" y1="70" x2="120" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <line x1="160" y1="70" x2="220" y2="70" stroke="var(--connection-color)" stroke-width="2" stroke-dasharray="4 2"/>
+                  <circle cx="40" cy="70" r="14" fill="var(--node-trigger)" opacity="0.9"/>
+                  <text x="40" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">触发</text>
+                  <circle cx="140" cy="70" r="14" fill="var(--node-ai)" opacity="0.9"/>
+                  <text x="140" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">AI</text>
+                  <circle cx="240" cy="70" r="14" fill="var(--node-tool)" opacity="0.9"/>
+                  <text x="240" y="74" text-anchor="middle" fill="white" font-size="7" font-family="var(--font-sans)">输出</text>
+                </svg>
+                <button class="favorite-btn absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                        style="background: rgba(255,255,255,0.9); backdrop-filter: blur(4px);"
+                        data-id="${tpl.id}" title="${favorited ? '取消收藏' : '收藏'}">
+                  <i data-lucide="heart" class="w-3.5 h-3.5" style="color: ${favorited ? 'var(--state-error)' : 'var(--text-tertiary)'}; fill: ${favorited ? 'var(--state-error)' : 'none'};"></i>
+                </button>
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-sm font-semibold truncate" style="color: var(--text-primary);">${tpl.name || ''}</h3>
+                </div>
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
+                  ${tagsHtml}
+                </div>
+                <p class="text-xs mb-4 line-clamp-2" style="color: var(--text-secondary); line-height: 1.5;">${desc}</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs" style="color: var(--text-tertiary);">${usage}</span>
+                  <button class="use-template-btn px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center justify-center transition-colors"
+                          style="background: var(--brand-primary); color: var(--text-inverse);"
+                          data-id="${tpl.id}"
+                          data-name="${tpl.name || ''}"
+                          onmouseenter="this.style.background='var(--brand-primary-hover)';"
+                          onmouseleave="this.style.background='var(--brand-primary)';">使用模板</button>
+                </div>
+              </div>
+            </div>
+            `;
+        });
+
+        grid.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+
+        // 绑定事件
+        bindTemplateCardEvents();
+    }
+
+    function bindTemplateCardEvents() {
+        const grid = document.getElementById('template-grid');
+        if (!grid) return;
+
+        // 使用模板按钮
+        grid.querySelectorAll('.use-template-btn').forEach(btn => {
+            btn.setAttribute('data-require-ollama', 'true');
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
+                useTemplate(id, name);
+            });
+        });
+
+        // 收藏按钮
+        grid.querySelectorAll('.favorite-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const id = this.getAttribute('data-id');
+                toggleFavoriteTemplate(id, this);
+            });
+        });
+
+        // 卡片点击 -> 查看详情
+        grid.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (e.target.closest('button')) return;
+                const id = this.getAttribute('data-id');
+                const tpl = templates.find(t => String(t.id) === String(id));
+                if (tpl) {
+                    viewTemplateDetail(tpl.id, tpl.name || '');
+                }
+            });
+        });
+    }
+
+    // ========== 渲染分类按钮 ==========
+
+    function renderCategories() {
+        const container = document.querySelector('.flex.items-center.gap-2.mb-8');
+        if (!container) return;
+
+        const catNames = {
+            'all': '全部',
+        };
+
+        let html = '';
+        allCategories.forEach(cat => {
+            const isActive = cat === currentCategory;
+            const name = catNames[cat] || cat;
+            html += `
+            <button class="inline-flex items-center justify-center h-8 px-4 rounded-md text-xs font-medium whitespace-nowrap transition-colors duration-150 category-btn"
+                    style="${isActive
+                        ? 'background: var(--brand-primary); color: var(--text-inverse); border: none;'
+                        : 'background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default);'}"
+                    data-category="${cat}">
+              ${name}
+            </button>
+            `;
+        });
+
+        container.innerHTML = html;
+
+        // 绑定事件
+        container.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const cat = this.getAttribute('data-category');
+                switchCategory(cat, this);
+            });
+        });
+    }
+
+    // ========== 分类切换 ==========
+
+    function switchCategory(category, btn) {
+        currentCategory = category;
+        renderTemplates();
+
+        // 更新按钮样式
+        const container = document.querySelector('.flex.items-center.gap-2.mb-8');
+        if (container) {
+            container.querySelectorAll('.category-btn').forEach(b => {
+                b.style.background = 'transparent';
+                b.style.color = 'var(--text-secondary)';
+                b.style.border = '1px solid var(--border-default)';
+            });
+        }
+        if (btn) {
+            btn.style.background = 'var(--brand-primary)';
+            btn.style.color = 'var(--text-inverse)';
+            btn.style.border = 'none';
+        }
+
+        const name = btn ? btn.textContent.trim() : category;
+        YunxiAPI.showToast('已切换到「' + name + '」分类', 'info');
+    }
+
+    // ========== 搜索模板 ==========
+
+    function searchTemplates(keyword) {
+        searchKeyword = keyword.toLowerCase().trim();
+        renderTemplates();
+    }
+
+    // ========== 使用模板 ==========
+
+    function useTemplate(id, name) {
+        YunxiAPI.withValidation(
+            { ollama: true },
+            async () => {
+                YunxiAPI.showLoading('正在加载模板...');
+                try {
+                    if (apiAvailable) {
+                        // 找到模板数据
+                        const tpl = templates.find(t => String(t.id) === String(id));
+                        if (tpl) {
+                            // 用模板数据创建新工作流
+                            const result = await YunxiAPI.request('POST', '/workflows', {
+                                body: {
+                                    name: tpl.name + ' (副本)',
+                                    description: tpl.description || tpl.desc || '',
+                                    category: tpl.category || '未分类',
+                                    blocks: tpl.blocks || [],
+                                    status: 'draft',
+                                }
+                            });
+
+                            YunxiAPI.hideLoading();
+                            YunxiAPI.showToast('模板「' + name + '」已加载', 'success');
+                            setTimeout(() => {
+                                if (result && result.id) {
+                                    window.location.href = 'workflow-editor.html?id=' + result.id;
+                                } else {
+                                    window.location.href = 'workflow-editor.html?from=template&template_id=' + id;
+                                }
+                            }, 300);
+                        } else {
+                            throw new Error('模板不存在');
+                        }
+                    } else {
+                        // 降级
+                        await new Promise(r => setTimeout(r, 800));
+                        YunxiAPI.hideLoading();
+                        YunxiAPI.showToast('模板「' + name + '」已加载', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'workflow-editor.html?from=template&template_id=' + id;
+                        }, 500);
+                    }
+                } catch (e) {
+                    YunxiAPI.hideLoading();
+                    YunxiAPI.showToast('加载失败：' + e.message, 'error');
+                }
+            },
+            { loadingText: '检查运行环境...' }
+        );
+    }
+
+    // ========== 收藏/取消收藏模板 ==========
+
+    function toggleFavoriteTemplate(id, btn) {
+        const wasFav = isFavorited(id);
+        const isNowFav = toggleFavorite(id);
+
+        const icon = btn.querySelector('[data-lucide="heart"]');
+        if (icon) {
+            icon.style.color = isNowFav ? 'var(--state-error)' : 'var(--text-tertiary)';
+            icon.style.fill = isNowFav ? 'var(--state-error)' : 'none';
+        }
+
+        btn.setAttribute('title', isNowFav ? '取消收藏' : '收藏');
+        btn.style.transform = 'scale(1.2)';
+        setTimeout(() => { btn.style.transform = ''; }, 200);
+
+        const tpl = templates.find(t => String(t.id) === String(id));
+        const name = tpl ? (tpl.name || '') : '';
+
+        if (isNowFav) {
+            YunxiAPI.showToast('已收藏「' + name + '」', 'success');
+        } else {
+            YunxiAPI.showToast('已取消收藏', 'info');
+        }
+    }
+
+    // ========== 查看模板详情 ==========
+
+    function viewTemplateDetail(id, name) {
+        YunxiAPI.showLoading('加载模板详情...');
+        setTimeout(() => {
+            YunxiAPI.hideLoading();
+            YunxiAPI.showToast('查看模板：' + name, 'info');
+        }, 300);
+    }
+
+    // ========== 绑定搜索框 ==========
+
+    function bindSearch() {
+        const searchInput = document.querySelector('input[placeholder="搜索模板..."]');
+        if (searchInput) {
+            let searchTimer = null;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimer);
+                const val = this.value;
+                searchTimer = setTimeout(() => {
+                    searchTemplates(val);
+                }, 200);
+            });
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    searchTemplates(this.value);
+                    YunxiAPI.showToast(this.value ? '搜索完成' : '已显示全部模板', 'info');
+                }
+            });
+        }
+    }
+
+    // ========== 绑定导航链接 ==========
+
+    function bindNavLinks() {
+        const workflowNav = document.querySelector('[data-nav-key="workflows"]');
+        if (workflowNav) {
+            workflowNav.addEventListener('click', function(e) {
+                e.preventDefault();
+                YunxiAPI.showLoading('正在加载...');
+                setTimeout(() => {
+                    YunxiAPI.hideLoading();
+                    window.location.href = 'workflow-list.html';
+                }, 200);
+            });
+        }
+
+        const blocksNav = document.querySelector('[data-nav-key="blocks"]');
+        if (blocksNav) {
+            blocksNav.addEventListener('click', function(e) {
+                e.preventDefault();
+                YunxiAPI.showLoading('正在加载...');
+                setTimeout(() => {
+                    YunxiAPI.hideLoading();
+                    window.location.href = 'custom-blocks.html';
+                }, 200);
+            });
+        }
+    }
+
+    // ========== 绑定用户按钮 ==========
+
+    function bindUserButton() {
+        const userBtn = document.querySelector('button.rounded-full');
+        if (userBtn) {
+            userBtn.addEventListener('click', function() {
+                YunxiAPI.showToast('用户菜单（演示）', 'info');
+            });
+        }
+    }
+
+    // ========== 初始化 ==========
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        bindSearch();
+        bindNavLinks();
+        bindUserButton();
+
+        // 加载模板数据
+        await fetchTemplates();
+
+        // 更新用户头像
+        const user = YunxiAPI.getCurrentUser();
+        if (user) {
+            const userBtn = document.querySelector('button.rounded-full');
+            if (userBtn && user.username) {
+                userBtn.textContent = user.username.charAt(0).toUpperCase();
+            }
+        }
+
+        // 触发按钮状态同步
+        YunxiAPI.updateButtonsBySystemStatus();
+    });
+    </script>
+</body>
+</html>

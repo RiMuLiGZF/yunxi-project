@@ -1,0 +1,2911 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" >
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent 中心 - 云汐管理台</title>
+    <link rel="stylesheet" href="../common/css/theme.css">
+    <script src="../common/js/theme.js"></script>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   Dual-mode: Light (default) / Dark (.dark)
+   ============================================================ */
+
+:root {
+  /* ── Color System (Light Mode — Default) ── */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #f8fafc;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --color-glow-primary: rgba(37, 99, 235, 0.12);
+  --color-glow-secondary: rgba(8, 145, 178, 0.1);
+  --color-glow-ocean: rgba(14, 116, 144, 0.08);
+  --color-ocean-deep: #dbeafe;
+  --color-ocean-mid: #cffafe;
+  --color-ocean-light: #e0f2fe;
+  --color-ocean-surface: #bae6fd;
+  --color-ocean-foam: rgba(56, 189, 248, 0.06);
+
+  /* ── Typography ── */
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+  --text-4xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ── Spacing ── */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows (Light) ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ── Z-index ── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================
+   Dark Mode Override
+   ============================================================ */
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-surface: rgba(16, 40, 65, 0.75);
+  --color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --color-glow-primary: rgba(59, 130, 246, 0.3);
+  --color-glow-secondary: rgba(6, 182, 212, 0.25);
+  --color-glow-ocean: rgba(14, 116, 144, 0.2);
+  --color-ocean-deep: #061220;
+  --color-ocean-mid: #0a2342;
+  --color-ocean-light: #0d3050;
+  --color-ocean-surface: #0e3858;
+  --color-ocean-foam: rgba(56, 189, 248, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Global Background
+   ============================================================ */
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.ocean-gradient-bg {
+  background: var(--color-bg-gradient);
+}
+
+.ocean-gradient-alt-bg {
+  background: var(--color-bg-gradient-alt);
+}
+
+.ocean-glow {
+  box-shadow: 0 0 40px rgba(6, 182, 212, 0.1), 0 0 80px rgba(59, 130, 246, 0.05);
+}
+
+.ocean-shimmer {
+  background: linear-gradient(135deg, rgba(14, 56, 88, 0.3) 0%, rgba(6, 35, 66, 0.1) 50%, rgba(14, 116, 144, 0.15) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.brand-gradient-border {
+  border-image: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end)) 1;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.glow-effect {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-effect-strong {
+  box-shadow: var(--shadow-glow-strong);
+}
+
+.text-display {
+  font-family: var(--font-family-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-heading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+}
+
+.text-body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-caption {
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-family-base);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+    --color-secondary: var(--color-secondary);
+  }
+  @layer base {
+    body { background: var(--color-bg-base); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+
+      /* Tab styles */
+      .tab-btn {
+        position: relative;
+        padding: 10px 16px;
+        font-size: var(--text-sm);
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+      }
+      .tab-btn:hover {
+        color: var(--color-text-primary);
+      }
+      .tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+        font-weight: 500;
+      }
+
+      /* Status dot */
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .status-dot.online {
+        background: var(--state-success);
+        box-shadow: 0 0 8px var(--state-success);
+      }
+      .status-dot.offline {
+        background: var(--state-error);
+      }
+      .status-dot.disabled {
+        background: var(--color-text-tertiary);
+      }
+
+      /* Agent card */
+      .agent-card {
+        transition: all var(--transition-base);
+        cursor: pointer;
+      }
+      .agent-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      /* Tag pill */
+      .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: var(--radius-full);
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.5;
+      }
+
+      /* Custom slider */
+      .custom-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: var(--radius-full);
+        background: var(--color-bg-base);
+        outline: none;
+        transition: opacity var(--transition-fast);
+      }
+      .custom-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        transition: transform var(--transition-fast);
+      }
+      .custom-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+      }
+      .custom-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+      }
+
+      /* Bar chart bar */
+      .bar-chart-bar {
+        transition: all var(--transition-slow);
+        background: linear-gradient(180deg, var(--color-gradient-start), var(--color-gradient-end));
+        border-radius: 4px 4px 0 0;
+      }
+
+      /* Modal overlay */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: var(--z-modal);
+        animation: fadeIn 0.2s ease;
+      }
+      .modal-content {
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--color-border-default);
+        box-shadow: var(--shadow-lg);
+        animation: modalSlideIn 0.25s ease;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes modalSlideIn {
+        from { opacity: 0; transform: translateY(-20px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* Button styles */
+      .btn-primary {
+        background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-primary:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-glow);
+      }
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+
+      .btn-secondary {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border-default);
+        padding: 8px 16px;
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-secondary:hover {
+        color: var(--color-text-primary);
+        border-color: var(--color-border-strong);
+      }
+
+      .btn-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--color-text-secondary);
+      }
+      .btn-icon:hover {
+        background: var(--color-bg-base);
+        color: var(--color-text-primary);
+        border-color: var(--color-border-default);
+      }
+
+      /* Input styles */
+      .form-input {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-border-default);
+        background: var(--color-bg-base);
+        color: var(--color-text-primary);
+        font-size: var(--text-sm);
+        outline: none;
+        transition: all var(--transition-fast);
+        font-family: var(--font-family-base);
+      }
+      .form-input:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-glow-primary);
+      }
+
+      .form-select {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-border-default);
+        background: var(--color-bg-base);
+        color: var(--color-text-primary);
+        font-size: var(--text-sm);
+        outline: none;
+        transition: all var(--transition-fast);
+        font-family: var(--font-family-base);
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+      }
+      .form-select:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-glow-primary);
+      }
+
+      /* Table styles */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .data-table th {
+        text-align: left;
+        padding: 12px 16px;
+        font-size: var(--text-xs);
+        font-weight: 500;
+        color: var(--color-text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: var(--tracking-wide);
+        border-bottom: 1px solid var(--color-border-default);
+        background: var(--color-bg-base);
+      }
+      .data-table td {
+        padding: 12px 16px;
+        font-size: var(--text-sm);
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
+      }
+      .data-table tr:hover td {
+        background: var(--color-ocean-foam);
+      }
+
+      /* Sidebar submenu */
+      .nav-submenu {
+        margin-left: 24px;
+        margin-top: 4px;
+        border-left: 1px solid var(--color-border-subtle);
+        padding-left: 12px;
+      }
+      .nav-submenu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+      .nav-submenu-item:hover {
+        color: var(--color-text-secondary);
+        background: rgba(59, 130, 246, 0.05);
+      }
+      .nav-submenu-item.active {
+        color: var(--color-primary);
+        background: rgba(59, 130, 246, 0.1);
+      }
+
+      /* Provider icon */
+      .provider-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: var(--text-sm);
+        flex-shrink: 0;
+      }
+
+      /* Cost bar */
+      .cost-bar {
+        height: 8px;
+        border-radius: var(--radius-full);
+        background: var(--color-bg-base);
+        overflow: hidden;
+      }
+      .cost-bar-fill {
+        height: 100%;
+        border-radius: var(--radius-full);
+        background: linear-gradient(90deg, var(--color-gradient-start), var(--color-gradient-end));
+        transition: width var(--transition-slow);
+      }
+
+      /* Preference mode card */
+      .pref-card {
+        padding: 16px;
+        border-radius: var(--radius-lg);
+        border: 2px solid var(--color-border-default);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        text-align: center;
+      }
+      .pref-card:hover {
+        border-color: var(--color-primary);
+        background: rgba(59, 130, 246, 0.05);
+      }
+      .pref-card.active {
+        border-color: var(--color-primary);
+        background: rgba(59, 130, 246, 0.1);
+        box-shadow: var(--shadow-glow);
+      }
+
+      /* Loading spinner for buttons */
+      .btn-loading {
+        position: relative;
+        color: transparent !important;
+        pointer-events: none;
+      }
+      .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin-left: -8px;
+        margin-top: -8px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: btnSpin 0.8s linear infinite;
+      }
+      @keyframes btnSpin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+
+    <!-- Layout Shell -->
+    <div class="flex min-h-screen">
+
+        <!-- ========== LEFT SIDEBAR ========== -->
+        <aside class="fixed left-0 top-0 bottom-0 w-[240px] flex flex-col z-[200]"
+               style="background: var(--sidebar-bg); border-right: 1px solid var(--color-border-subtle);">
+
+            <!-- Logo Area -->
+            <div class="flex items-center gap-3 px-5 h-14 shrink-0"
+                 style="border-bottom: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center brand-gradient-bg">
+                    <i data-lucide="hexagon" class="w-4 h-4" style="color: white;"></i>
+                </div>
+                <span class="text-lg font-semibold brand-gradient-text whitespace-nowrap"
+                      style="font-family: var(--font-family-display);">云汐 M8</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto no-scrollbar">
+                <a href="dashboard.html" data-dom-id="nav-dashboard"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    仪表盘
+                </a>
+
+                <!-- Agent Center (Active) with submenu -->
+                <div data-dom-id="nav-agents">
+                    <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all cursor-pointer"
+                         style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary); border-left: 3px solid var(--color-primary);"
+                         onclick="switchSubmenu('agents')">
+                        <i data-lucide="bot" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-primary);"></i>
+                        <span>Agent 中心</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 ml-auto transition-transform" id="agents-chevron" style="transform: rotate(180deg);"></i>
+                    </div>
+                    <div class="nav-submenu" id="agents-submenu">
+                        <div class="nav-submenu-item active" onclick="switchTab(1); setActiveSubmenu(this);">
+                            <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                            Agent 列表
+                        </div>
+                        <div class="nav-submenu-item" onclick="switchTab(2); setActiveSubmenu(this);">
+                            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+                            密钥管理
+                        </div>
+                        <div class="nav-submenu-item" onclick="switchTab(3); setActiveSubmenu(this);">
+                            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+                            调度策略
+                        </div>
+                        <div class="nav-submenu-item" onclick="switchTab(4); setActiveSubmenu(this);">
+                            <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
+                            成本统计
+                        </div>
+                    </div>
+                </div>
+
+                <a href="modules.html" data-dom-id="nav-modules"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="boxes" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    模块管理
+                </a>
+
+                <a href="monitor.html" data-dom-id="nav-monitor"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="activity" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    监控中心
+                </a>
+
+                <a href="tasks.html" data-dom-id="nav-tasks"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="list-checks" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    任务管理
+                </a>
+
+                <a href="deploy.html" data-dom-id="nav-deploy"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="rocket" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    部署中心
+                </a>
+
+                <a href="settings.html" data-dom-id="nav-settings"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    系统设置
+                </a>
+            </nav>
+
+            <!-- User Info (Bottom) -->
+            <div class="flex items-center gap-3 px-5 py-4 shrink-0"
+                 style="border-top: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                     style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                <span class="text-sm whitespace-nowrap truncate" style="color: var(--color-text-secondary);">管理员</span>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN AREA ========== -->
+        <div class="flex-1 flex flex-col" style="margin-left: 240px;">
+
+            <!-- Top Header Bar -->
+            <header class="flex items-center justify-between px-6 h-14 shrink-0"
+                    style="background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-border-subtle);">
+                <!-- Breadcrumb -->
+                <nav class="flex items-center gap-2 text-sm" style="color: var(--color-text-tertiary);">
+                    <span>首页</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    <span>Agent 中心</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    <span id="breadcrumb-current" style="color: var(--color-text-primary);">Agent 列表</span>
+                </nav>
+                <!-- Right Controls -->
+                <div class="flex items-center gap-4">
+                                        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换亮色/暗色模式">
+                        <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+                        <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+                    </button>
+                    <button class="relative w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-80"
+                            style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
+                        <i data-lucide="bell" class="w-4 h-4" style="color: var(--color-text-secondary);"></i>
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                              style="background: var(--state-error);"></span>
+                    </button>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                         style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                </div>
+            </header>
+
+            <!-- Page Title + Tabs -->
+            <div class="px-6 pt-6" style="max-width: var(--content-max-width); width: 100%;">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h1 class="text-heading" style="font-size: var(--text-2xl);">Agent 管理中心</h1>
+                        <p class="text-caption mt-1">管理和配置所有 AI Agent，包括密钥、调度策略与成本追踪</p>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="flex gap-1 border-b" style="border-color: var(--color-border-default);">
+                    <div class="tab-btn active" data-tab="1" onclick="switchTab(1)">
+                        <i data-lucide="list" class="w-4 h-4 inline-block mr-1.5 align-middle"></i>
+                        Agent 列表
+                    </div>
+                    <div class="tab-btn" data-tab="2" onclick="switchTab(2)">
+                        <i data-lucide="key" class="w-4 h-4 inline-block mr-1.5 align-middle"></i>
+                        密钥管理
+                    </div>
+                    <div class="tab-btn" data-tab="3" onclick="switchTab(3)">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4 inline-block mr-1.5 align-middle"></i>
+                        调度策略
+                    </div>
+                    <div class="tab-btn" data-tab="4" onclick="switchTab(4)">
+                        <i data-lucide="dollar-sign" class="w-4 h-4 inline-block mr-1.5 align-middle"></i>
+                        成本统计
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6 overflow-y-auto" style="max-width: var(--content-max-width); width: 100%;">
+
+                <!-- ===== TAB 1: Agent 列表 ===== -->
+                <div id="tab-panel-1" class="tab-panel">
+                    <!-- Toolbar -->
+                    <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <!-- Search -->
+                            <div class="flex items-center gap-2 px-3 py-2 rounded-lg"
+                                 style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                                <i data-lucide="search" class="w-4 h-4 shrink-0" style="color: var(--color-text-tertiary);"></i>
+                                <input type="text" id="agent-search" placeholder="搜索 Agent..."
+                                       class="bg-transparent border-none outline-none"
+                                       style="font-size: var(--text-sm); color: var(--color-text-primary); width: 200px;"
+                                       oninput="filterAgents()">
+                            </div>
+                            <!-- Type Filter -->
+                            <select id="agent-type-filter" class="form-select" style="width: 160px;" onchange="filterAgents()">
+                                <option value="">全部类型</option>
+                                <option value="chat">对话模型</option>
+                                <option value="image">图像生成</option>
+                                <option value="embedding">嵌入模型</option>
+                                <option value="audio">语音模型</option>
+                                <option value="code">代码模型</option>
+                            </select>
+                            <!-- Status Filter -->
+                            <select id="agent-status-filter" class="form-select" style="width: 140px;" onchange="filterAgents()">
+                                <option value="">全部状态</option>
+                                <option value="online">在线</option>
+                                <option value="offline">离线</option>
+                                <option value="disabled">禁用</option>
+                            </select>
+                        </div>
+                        <button class="btn-primary" onclick="openAddAgentModal()">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            添加 Agent
+                        </button>
+                    </div>
+
+                    <!-- Agent Cards Grid -->
+                    <div id="agents-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <!-- Agent cards will be rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- ===== TAB 2: 密钥管理 ===== -->
+                <div id="tab-panel-2" class="tab-panel hidden">
+                    <!-- Toolbar -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-subheading" style="font-size: var(--text-lg); font-weight: 600;">API 密钥管理</h2>
+                            <p class="text-caption mt-1">配置各服务商的 API 密钥，用于 Agent 调用</p>
+                        </div>
+                        <button class="btn-primary" onclick="openAddKeyModal()">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            添加密钥
+                        </button>
+                    </div>
+
+                    <!-- Key Cards List -->
+                    <div id="keys-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Key cards will be rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- ===== TAB 3: 调度策略 ===== -->
+                <div id="tab-panel-3" class="tab-panel hidden">
+                    <div class="max-w-3xl space-y-6">
+                        <!-- Section: 调度权重 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="sliders-horizontal" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600;">调度权重配置</h2>
+                            </div>
+                            <p class="text-caption mb-6">调整各维度在 Agent 调度决策中的权重占比</p>
+
+                            <div class="space-y-5">
+                                <!-- 隐私 -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="shield" class="w-4 h-4" style="color: var(--state-success);"></i>
+                                            <span style="font-size: var(--text-sm); font-weight: 500;">隐私优先</span>
+                                        </div>
+                                        <span id="weight-privacy-value" class="text-sm font-mono" style="color: var(--color-primary);">30%</span>
+                                    </div>
+                                    <input type="range" class="custom-slider" id="weight-privacy" min="0" max="100" value="30"
+                                           oninput="updateWeight('privacy', this.value)">
+                                </div>
+                                <!-- 能力 -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="zap" class="w-4 h-4" style="color: var(--state-warning);"></i>
+                                            <span style="font-size: var(--text-sm); font-weight: 500;">能力匹配</span>
+                                        </div>
+                                        <span id="weight-capability-value" class="text-sm font-mono" style="color: var(--color-primary);">25%</span>
+                                    </div>
+                                    <input type="range" class="custom-slider" id="weight-capability" min="0" max="100" value="25"
+                                           oninput="updateWeight('capability', this.value)">
+                                </div>
+                                <!-- 偏好 -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="heart" class="w-4 h-4" style="color: var(--state-error);"></i>
+                                            <span style="font-size: var(--text-sm); font-weight: 500;">用户偏好</span>
+                                        </div>
+                                        <span id="weight-preference-value" class="text-sm font-mono" style="color: var(--color-primary);">20%</span>
+                                    </div>
+                                    <input type="range" class="custom-slider" id="weight-preference" min="0" max="100" value="20"
+                                           oninput="updateWeight('preference', this.value)">
+                                </div>
+                                <!-- 成本 -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="dollar-sign" class="w-4 h-4" style="color: var(--color-secondary);"></i>
+                                            <span style="font-size: var(--text-sm); font-weight: 500;">成本控制</span>
+                                        </div>
+                                        <span id="weight-cost-value" class="text-sm font-mono" style="color: var(--color-primary);">15%</span>
+                                    </div>
+                                    <input type="range" class="custom-slider" id="weight-cost" min="0" max="100" value="15"
+                                           oninput="updateWeight('cost', this.value)">
+                                </div>
+                                <!-- 速度 -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="timer" class="w-4 h-4" style="color: var(--color-primary);"></i>
+                                            <span style="font-size: var(--text-sm); font-weight: 500;">响应速度</span>
+                                        </div>
+                                        <span id="weight-speed-value" class="text-sm font-mono" style="color: var(--color-primary);">10%</span>
+                                    </div>
+                                    <input type="range" class="custom-slider" id="weight-speed" min="0" max="100" value="10"
+                                           oninput="updateWeight('speed', this.value)">
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: 偏好模式 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="sparkles" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600;">偏好模式</h2>
+                            </div>
+                            <p class="text-caption mb-6">快速选择预设的调度策略模式</p>
+
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="pref-card active" data-pref="quality" onclick="setPreferenceMode('quality', this)">
+                                    <i data-lucide="crown" class="w-6 h-6 mx-auto mb-2" style="color: var(--state-warning);"></i>
+                                    <div style="font-size: var(--text-sm); font-weight: 600;">质量优先</div>
+                                    <div class="text-caption mt-1" style="font-size: 11px;">最佳输出效果</div>
+                                </div>
+                                <div class="pref-card" data-pref="balanced" onclick="setPreferenceMode('balanced', this)">
+                                    <i data-lucide="scale" class="w-6 h-6 mx-auto mb-2" style="color: var(--color-primary);"></i>
+                                    <div style="font-size: var(--text-sm); font-weight: 600;">平衡模式</div>
+                                    <div class="text-caption mt-1" style="font-size: 11px;">效果与成本均衡</div>
+                                </div>
+                                <div class="pref-card" data-pref="cost" onclick="setPreferenceMode('cost', this)">
+                                    <i data-lucide="wallet" class="w-6 h-6 mx-auto mb-2" style="color: var(--state-success);"></i>
+                                    <div style="font-size: var(--text-sm); font-weight: 600;">成本优先</div>
+                                    <div class="text-caption mt-1" style="font-size: 11px;">最小化费用支出</div>
+                                </div>
+                                <div class="pref-card" data-pref="speed" onclick="setPreferenceMode('speed', this)">
+                                    <i data-lucide="gauge" class="w-6 h-6 mx-auto mb-2" style="color: var(--state-error);"></i>
+                                    <div style="font-size: var(--text-sm); font-weight: 600;">速度优先</div>
+                                    <div class="text-caption mt-1" style="font-size: 11px;">最快响应时间</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section: 预算设置 -->
+                        <section class="rounded-xl p-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2 mb-6">
+                                <i data-lucide="wallet" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600;">预算设置</h2>
+                            </div>
+
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">月度预算 (USD)</label>
+                                    <input type="number" id="monthly-budget" value="500" class="form-input" style="max-width: 300px;">
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span style="font-size: var(--text-sm); color: var(--color-text-secondary);">当前消耗</span>
+                                        <span style="font-size: var(--text-sm); font-weight: 600; color: var(--state-warning);">$187.42 / $500.00</span>
+                                    </div>
+                                    <div class="cost-bar">
+                                        <div class="cost-bar-fill" style="width: 37.5%;"></div>
+                                    </div>
+                                    <p class="text-caption mt-2" style="font-size: var(--text-xs);">已使用 37.5%，剩余 $312.58</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <input type="checkbox" id="budget-alert" checked class="w-4 h-4" style="accent-color: var(--color-primary);">
+                                    <label for="budget-alert" style="font-size: var(--text-sm); color: var(--color-text-secondary);">预算消耗达 80% 时发送提醒</label>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Save Button -->
+                        <div class="flex justify-end gap-3">
+                            <button class="btn-secondary" onclick="resetStrategy()">重置默认</button>
+                            <button class="btn-primary" id="save-strategy-btn" onclick="saveStrategy()">
+                                <i data-lucide="save" class="w-4 h-4"></i>
+                                保存配置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== TAB 4: 成本统计 ===== -->
+                <div id="tab-panel-4" class="tab-panel hidden">
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Today -->
+                        <div class="glass-surface rounded-xl p-5 relative overflow-hidden" style="border-radius: var(--radius-lg);">
+                            <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                            <p class="text-xs font-medium mb-2 text-label">今日费用</p>
+                            <p class="text-3xl font-bold" style="font-family: var(--font-family-display);">$12.47</p>
+                            <p class="text-xs mt-2" style="color: var(--state-error);">
+                                <i data-lucide="trending-up" class="w-3 h-3 inline-block mr-1"></i>
+                                较昨日 +8.3%
+                            </p>
+                        </div>
+                        <!-- Week -->
+                        <div class="glass-surface rounded-xl p-5 relative overflow-hidden" style="border-radius: var(--radius-lg);">
+                            <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                            <p class="text-xs font-medium mb-2 text-label">本周费用</p>
+                            <p class="text-3xl font-bold" style="font-family: var(--font-family-display);">$68.93</p>
+                            <p class="text-xs mt-2" style="color: var(--state-success);">
+                                <i data-lucide="trending-down" class="w-3 h-3 inline-block mr-1"></i>
+                                较上周 -3.2%
+                            </p>
+                        </div>
+                        <!-- Month -->
+                        <div class="glass-surface rounded-xl p-5 relative overflow-hidden" style="border-radius: var(--radius-lg);">
+                            <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                            <p class="text-xs font-medium mb-2 text-label">本月费用</p>
+                            <p class="text-3xl font-bold" style="font-family: var(--font-family-display);">$187.42</p>
+                            <p class="text-xs mt-2" style="color: var(--color-text-secondary);">占预算 37.5%</p>
+                        </div>
+                    </div>
+
+                    <!-- Bar Chart -->
+                    <section class="rounded-xl p-6 mb-6" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="bar-chart-3" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600;">各 Agent 调用统计</h2>
+                            </div>
+                            <select class="form-select" style="width: 140px; font-size: var(--text-sm);">
+                                <option>本周</option>
+                                <option>本月</option>
+                                <option>上月</option>
+                            </select>
+                        </div>
+
+                        <!-- Chart -->
+                        <div class="flex items-end justify-around gap-4 h-64 px-4" style="border-bottom: 1px solid var(--color-border-subtle);">
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 85%;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">GPT-4o</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$45.2</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 65%; opacity: 0.85;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">Claude</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$38.7</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 45%; opacity: 0.75;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">GPT-3.5</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$22.1</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 55%; opacity: 0.7;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">DALL-E</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$28.5</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 30%; opacity: 0.6;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">通义千问</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$15.3</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 20%; opacity: 0.55;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">文心一言</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$10.8</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
+                                <div class="w-full bar-chart-bar" style="height: 35%; opacity: 0.5;"></div>
+                                <span style="font-size: var(--text-xs); color: var(--color-text-secondary);">DeepSeek</span>
+                                <span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$18.2</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Cost Detail Table -->
+                    <section class="rounded-xl overflow-hidden" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-center justify-between px-6 py-4" style="border-bottom: 1px solid var(--color-border-default);">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="table" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                                <h2 style="font-size: var(--text-lg); font-weight: 600;">费用明细</h2>
+                            </div>
+                            <button class="btn-secondary" onclick="exportCostData()">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                导出数据
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>Agent</th>
+                                        <th>调用次数</th>
+                                        <th>输入 Tokens</th>
+                                        <th>输出 Tokens</th>
+                                        <th>费用 (USD)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cost-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Add/Edit Agent ===== -->
+    <div id="agent-modal" class="modal-overlay hidden">
+        <div class="modal-content w-full max-w-lg mx-4 p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="agent-modal-title" style="font-size: var(--text-lg); font-weight: 600;">添加 Agent</h3>
+                <button class="btn-icon" onclick="closeAgentModal()">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">Agent 名称</label>
+                    <input type="text" id="agent-name" class="form-input" placeholder="例如：智能助手">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">服务商</label>
+                        <select id="agent-provider" class="form-select">
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="google">Google</option>
+                            <option value="alibaba">阿里通义</option>
+                            <option value="baidu">百度文心</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="ollama">本地 (Ollama)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">模型类型</label>
+                        <select id="agent-type" class="form-select">
+                            <option value="chat">对话模型</option>
+                            <option value="image">图像生成</option>
+                            <option value="embedding">嵌入模型</option>
+                            <option value="audio">语音模型</option>
+                            <option value="code">代码模型</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">模型名称</label>
+                    <input type="text" id="agent-model" class="form-input" placeholder="例如：gpt-4o">
+                </div>
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">
+                        能力标签 <span style="font-weight: 400; color: var(--color-text-tertiary);">（用逗号分隔）</span>
+                    </label>
+                    <input type="text" id="agent-tags" class="form-input" placeholder="例如：对话,翻译,总结">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">输入价格 ($/1K tokens)</label>
+                        <input type="number" id="agent-input-price" class="form-input" step="0.0001" value="0.01">
+                    </div>
+                    <div>
+                        <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">输出价格 ($/1K tokens)</label>
+                        <input type="number" id="agent-output-price" class="form-input" step="0.0001" value="0.03">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button class="btn-secondary" onclick="closeAgentModal()">取消</button>
+                <button class="btn-primary" id="agent-modal-save-btn" onclick="saveAgent()">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    确认添加
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Add/Edit Key ===== -->
+    <div id="key-modal" class="modal-overlay hidden">
+        <div class="modal-content w-full max-w-lg mx-4 p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="key-modal-title" style="font-size: var(--text-lg); font-weight: 600;">添加密钥</h3>
+                <button class="btn-icon" onclick="closeKeyModal()">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">服务商</label>
+                    <select id="key-provider" class="form-select">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="google">Google Gemini</option>
+                        <option value="alibaba">阿里通义千问</option>
+                        <option value="baidu">百度文心一言</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="moonshot">月之暗面</option>
+                        <option value="zhipu">智谱AI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">API Key</label>
+                    <div class="relative">
+                        <input type="password" id="key-api-key" class="form-input pr-10" placeholder="sk-..." style="font-family: var(--font-family-mono);">
+                        <button class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                onclick="toggleKeyVisibility('key-api-key', this)" type="button">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-2" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary);">
+                        Base URL <span style="font-weight: 400; color: var(--color-text-tertiary);">（可选）</span>
+                    </label>
+                    <input type="text" id="key-base-url" class="form-input" placeholder="https://api.example.com/v1" style="font-family: var(--font-family-mono);">
+                </div>
+                <div class="flex items-center gap-2 pt-2">
+                    <button class="btn-secondary" onclick="testKeyConnection()" id="test-key-btn">
+                        <i data-lucide="wifi" class="w-4 h-4"></i>
+                        测试连接
+                    </button>
+                    <span id="test-key-result" class="text-sm" style="color: var(--color-text-tertiary);">未测试</span>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button class="btn-secondary" onclick="closeKeyModal()">取消</button>
+                <button class="btn-primary" id="key-modal-save-btn" onclick="saveKey()">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    保存密钥
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../common/api.js"></script>
+    <script>
+        // ===== Constants =====
+        const STORAGE_KEYS = {
+            SCHEDULER_CONFIG: 'yunxi_agents_scheduler_config',
+            BUDGET: 'yunxi_agents_budget',
+            COST_RECORDS: 'yunxi_agents_cost_records',
+        };
+
+        const TYPE_LABELS = {
+            chat: '对话模型',
+            image: '图像生成',
+            embedding: '嵌入模型',
+            audio: '语音模型',
+            code: '代码模型',
+        };
+
+        const PROVIDER_META = {
+            openai:    { name: 'OpenAI',          short: 'O', color: '#10a37f' },
+            anthropic: { name: 'Anthropic',       short: 'A', color: '#D97757' },
+            google:    { name: 'Google Gemini',   short: 'G', color: '#4285F4' },
+            alibaba:   { name: '阿里通义千问',     short: '通', color: '#FF6A00' },
+            baidu:     { name: '百度文心一言',     short: '文', color: '#2932E1' },
+            deepseek:  { name: 'DeepSeek',        short: 'D', color: '#4D6BFE' },
+            moonshot:  { name: '月之暗面',         short: '月', color: '#7B61FF' },
+            zhipu:     { name: '智谱AI',          short: '智', color: '#0066FF' },
+            ollama:    { name: '本地 (Ollama)',   short: 'L', color: '#000000' },
+        };
+
+        // ===== Fallback Mock Data (used when API fails) =====
+        const mockAgents = [
+            {
+                agent_id: 'agent-gpt4o-001',
+                display_name: 'GPT-4o 智能助手',
+                provider: 'openai',
+                agent_type: 'chat',
+                capabilities: ['对话', '推理', '多模态', '翻译'],
+                config: { model: 'gpt-4o', input_price: 0.005, output_price: 0.015 },
+                status: 'active',
+                health_status: 'online',
+                calls: 1247,
+            },
+            {
+                agent_id: 'agent-claude-002',
+                display_name: 'Claude 3.5 Sonnet',
+                provider: 'anthropic',
+                agent_type: 'chat',
+                capabilities: ['长文本', '写作', '分析'],
+                config: { model: 'claude-3-5-sonnet', input_price: 0.003, output_price: 0.015 },
+                status: 'active',
+                health_status: 'online',
+                calls: 892,
+            },
+            {
+                agent_id: 'agent-dalle-003',
+                display_name: 'DALL-E 3 图像生成',
+                provider: 'openai',
+                agent_type: 'image',
+                capabilities: ['图像生成', '创意设计'],
+                config: { model: 'dall-e-3', input_price: 0.04, output_price: 0 },
+                status: 'active',
+                health_status: 'online',
+                calls: 156,
+            },
+            {
+                agent_id: 'agent-gpt35-004',
+                display_name: 'GPT-3.5 Turbo',
+                provider: 'openai',
+                agent_type: 'chat',
+                capabilities: ['对话', '快速响应'],
+                config: { model: 'gpt-3.5-turbo', input_price: 0.0005, output_price: 0.0015 },
+                status: 'active',
+                health_status: 'online',
+                calls: 3420,
+            },
+            {
+                agent_id: 'agent-qwen-005',
+                display_name: '通义千问 Max',
+                provider: 'alibaba',
+                agent_type: 'chat',
+                capabilities: ['中文优化', '对话'],
+                config: { model: 'qwen-max', input_price: 0.0008, output_price: 0.002 },
+                status: 'active',
+                health_status: 'online',
+                calls: 678,
+            },
+            {
+                agent_id: 'agent-ernie-006',
+                display_name: '文心一言 4.0',
+                provider: 'baidu',
+                agent_type: 'chat',
+                capabilities: ['中文', '知识库'],
+                config: { model: 'ernie-4.0', input_price: 0.0015, output_price: 0.003 },
+                status: 'active',
+                health_status: 'offline',
+                calls: 234,
+            },
+            {
+                agent_id: 'agent-deepseek-007',
+                display_name: 'DeepSeek V3',
+                provider: 'deepseek',
+                agent_type: 'chat',
+                capabilities: ['代码', '推理', '低成本'],
+                config: { model: 'deepseek-chat', input_price: 0.00014, output_price: 0.00028 },
+                status: 'active',
+                health_status: 'online',
+                calls: 1567,
+            },
+            {
+                agent_id: 'agent-whisper-008',
+                display_name: 'Whisper 语音识别',
+                provider: 'openai',
+                agent_type: 'audio',
+                capabilities: ['语音转文字', '多语言'],
+                config: { model: 'whisper-1', input_price: 0.006, output_price: 0 },
+                status: 'inactive',
+                health_status: 'offline',
+                calls: 89,
+            },
+            {
+                agent_id: 'agent-embed-009',
+                display_name: 'text-embedding-3',
+                provider: 'openai',
+                agent_type: 'embedding',
+                capabilities: ['向量化', '检索'],
+                config: { model: 'text-embedding-3-large', input_price: 0.00013, output_price: 0 },
+                status: 'active',
+                health_status: 'online',
+                calls: 2100,
+            },
+            {
+                agent_id: 'agent-gemini-010',
+                display_name: 'Gemini 1.5 Pro',
+                provider: 'google',
+                agent_type: 'chat',
+                capabilities: ['多模态', '长上下文'],
+                config: { model: 'gemini-1.5-pro', input_price: 0.00125, output_price: 0.00375 },
+                status: 'active',
+                health_status: 'online',
+                calls: 445,
+            },
+            {
+                agent_id: 'agent-llama-011',
+                display_name: 'Llama 3 本地',
+                provider: 'ollama',
+                agent_type: 'chat',
+                capabilities: ['本地部署', '免费', '隐私'],
+                config: { model: 'llama3:8b', input_price: 0, output_price: 0 },
+                status: 'active',
+                health_status: 'offline',
+                calls: 120,
+            },
+            {
+                agent_id: 'agent-gpt4o-code-012',
+                display_name: 'GPT-4o 代码助手',
+                provider: 'openai',
+                agent_type: 'code',
+                capabilities: ['代码生成', 'Debug', '重构'],
+                config: { model: 'gpt-4o', input_price: 0.005, output_price: 0.015 },
+                status: 'active',
+                health_status: 'online',
+                calls: 756,
+            },
+        ];
+
+        const mockKeys = [
+            { provider: 'openai',   masked_key: 'sk-...a1b2', status: 'configured', base_url: '',                         model: '' },
+            { provider: 'anthropic',masked_key: 'sk-ant-...c3d4', status: 'configured', base_url: '',                     model: '' },
+            { provider: 'alibaba',  masked_key: 'sk-...e5f6', status: 'configured', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: '' },
+            { provider: 'deepseek', masked_key: 'sk-...g7h8', status: 'configured', base_url: 'https://api.deepseek.com/v1', model: '' },
+            { provider: 'baidu',    masked_key: '',           status: 'unconfigured', base_url: '',                       model: '' },
+            { provider: 'google',   masked_key: '',           status: 'unconfigured', base_url: '',                       model: '' },
+        ];
+
+        const mockCostData = [
+            { date: '2024-01-15', agent: 'GPT-4o 智能助手', calls: 156, inputTokens: 125000, outputTokens: 48000, cost: 1.345 },
+            { date: '2024-01-15', agent: 'Claude 3.5 Sonnet', calls: 89, inputTokens: 98000, outputTokens: 32000, cost: 0.774 },
+            { date: '2024-01-15', agent: 'DALL-E 3 图像生成', calls: 23, inputTokens: 0, outputTokens: 0, cost: 0.920 },
+            { date: '2024-01-14', agent: 'GPT-4o 智能助手', calls: 142, inputTokens: 118000, outputTokens: 45000, cost: 1.225 },
+            { date: '2024-01-14', agent: 'DeepSeek V3', calls: 312, inputTokens: 245000, outputTokens: 89000, cost: 0.059 },
+            { date: '2024-01-14', agent: '通义千问 Max', calls: 98, inputTokens: 76000, outputTokens: 28000, cost: 0.117 },
+            { date: '2024-01-13', agent: 'GPT-3.5 Turbo', calls: 456, inputTokens: 189000, outputTokens: 72000, cost: 0.202 },
+            { date: '2024-01-13', agent: 'GPT-4o 智能助手', calls: 134, inputTokens: 108000, outputTokens: 41000, cost: 1.125 },
+            { date: '2024-01-13', agent: 'text-embedding-3', calls: 520, inputTokens: 320000, outputTokens: 0, cost: 0.042 },
+            { date: '2024-01-12', agent: 'Claude 3.5 Sonnet', calls: 78, inputTokens: 85000, outputTokens: 28000, cost: 0.675 },
+        ];
+
+        // ===== State =====
+        let agents = [];
+        let keys = [];
+        let providers = []; // supported providers from API
+        let currentTab = 1;
+        let editingAgentId = null;
+        let editingKeyProvider = null;
+        let submenuOpen = { agents: true };
+        let costRecords = [];
+
+        // ===== Helper: Provider Utilities =====
+        function getProviderMeta(providerKey) {
+            return PROVIDER_META[providerKey] || { name: providerKey, short: providerKey.charAt(0).toUpperCase(), color: 'var(--color-primary)' };
+        }
+
+        function getProviderName(providerKey) {
+            return getProviderMeta(providerKey).name;
+        }
+
+        function getProviderShort(providerKey) {
+            return getProviderMeta(providerKey).short;
+        }
+
+        function getProviderColor(providerKey) {
+            return getProviderMeta(providerKey).color;
+        }
+
+        // ===== Helper: Normalize API Agent Data for Rendering =====
+        function normalizeAgent(agent) {
+            return {
+                agent_id: agent.agent_id,
+                display_name: agent.display_name || agent.name || '未命名',
+                provider: agent.provider,
+                provider_name: getProviderName(agent.provider),
+                provider_short: getProviderShort(agent.provider),
+                provider_color: getProviderColor(agent.provider),
+                agent_type: agent.agent_type || agent.type || 'chat',
+                type_label: TYPE_LABELS[agent.agent_type || agent.type] || (agent.agent_type || agent.type || ''),
+                model: (agent.config && agent.config.model) || agent.model || '',
+                capabilities: agent.capabilities || agent.tags || [],
+                input_price: (agent.config && agent.config.input_price != null) ? agent.config.input_price : (agent.inputPrice || 0),
+                output_price: (agent.config && agent.config.output_price != null) ? agent.config.output_price : (agent.outputPrice || 0),
+                // Status: if status is 'inactive' => disabled display; else use health_status for online/offline
+                status: agent.status === 'inactive' ? 'disabled' : (agent.health_status || agent.status || 'online'),
+                calls: agent.calls || 0,
+            };
+        }
+
+        function normalizeKey(key) {
+            return {
+                provider: key.provider,
+                provider_name: getProviderName(key.provider),
+                provider_short: getProviderShort(key.provider),
+                provider_color: getProviderColor(key.provider),
+                masked_key: key.masked_key || key.key || '',
+                status: key.status || (key.masked_key ? 'configured' : 'unconfigured'),
+                base_url: key.base_url || key.baseUrl || '',
+                model: key.model || '',
+            };
+        }
+
+        // ===== API: Agent Management =====
+        async function fetchAgents(params = {}) {
+            try {
+                const query = new URLSearchParams(params).toString();
+                const data = await YunxiAPI.request('GET', '/agents' + (query ? '?' + query : ''));
+                // Handle both array and {list: []} formats
+                const list = Array.isArray(data) ? data : (data.list || data.agents || []);
+                agents = list.map(normalizeAgent);
+                return agents;
+            } catch (error) {
+                console.warn('获取 Agent 列表失败，使用模拟数据:', error.message);
+                agents = mockAgents.map(normalizeAgent);
+                return agents;
+            }
+        }
+
+        async function registerAgent(agentData) {
+            const data = await YunxiAPI.request('POST', '/agents/register', { body: agentData });
+            return data;
+        }
+
+        async function deleteAgentApi(agentId) {
+            return YunxiAPI.request('DELETE', '/agents/' + agentId);
+        }
+
+        async function healthCheckAgent(agentId) {
+            return YunxiAPI.request('POST', '/agents/' + agentId + '/health-check');
+        }
+
+        async function toggleAgentStatusApi(agentId, status) {
+            return YunxiAPI.request('POST', '/agents/' + agentId + '/toggle', { body: { status } });
+        }
+
+        async function fetchAgentStats() {
+            try {
+                return await YunxiAPI.request('GET', '/agents/stats');
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ===== API: Key Management =====
+        async function fetchKeys() {
+            try {
+                const data = await YunxiAPI.request('GET', '/agents/keys');
+                const list = Array.isArray(data) ? data : (data.list || data.keys || []);
+                keys = list.map(normalizeKey);
+                return keys;
+            } catch (error) {
+                console.warn('获取密钥列表失败，使用模拟数据:', error.message);
+                keys = mockKeys.map(normalizeKey);
+                return keys;
+            }
+        }
+
+        async function saveKeyApi(keyData) {
+            return YunxiAPI.request('POST', '/agents/keys', { body: keyData });
+        }
+
+        async function deleteKeyApi(provider) {
+            return YunxiAPI.request('DELETE', '/agents/keys/' + provider);
+        }
+
+        async function testKeyConnectionApi(provider) {
+            return YunxiAPI.request('POST', '/agents/keys/' + provider + '/health-check');
+        }
+
+        async function fetchProviders() {
+            try {
+                const data = await YunxiAPI.request('GET', '/agents/keys/providers');
+                providers = Array.isArray(data) ? data : (data.list || data.providers || []);
+                return providers;
+            } catch (error) {
+                console.warn('获取服务商列表失败，使用默认列表:', error.message);
+                providers = Object.keys(PROVIDER_META);
+                return providers;
+            }
+        }
+
+        // ===== API: Cost Statistics (Compute Monitor) =====
+        var costStatsData = null;
+        var callLogsData = [];
+        var callLogsTotal = 0;
+
+        async function fetchCostStats() {
+            try {
+                var data = await YunxiAPI.request('GET', '/compute/monitor/cost/stats');
+                var raw = data && data.data ? data.data : data;
+                // Normalize to consistent format
+                costStatsData = {
+                    today: Number(raw.today != null ? raw.today : (raw.today_cost || 0)),
+                    this_week: Number(raw.week != null ? raw.week : (raw.this_week || 0)),
+                    this_month: Number(raw.month != null ? raw.month : (raw.this_month || 0)),
+                    total: Number(raw.total != null ? raw.total : (raw.month != null ? raw.month : 0)),
+                    by_source: raw.by_source || {},
+                    by_model: raw.by_model || {},
+                    trend: raw.trend || [],
+                };
+                return costStatsData;
+            } catch (error) {
+                console.warn('获取费用统计失败，使用模拟数据:', error.message);
+                costStatsData = null;
+                return null;
+            }
+        }
+
+        async function fetchCallLogs(limit) {
+            try {
+                var pageSize = limit || 50;
+                var data = await YunxiAPI.request('GET', '/compute/monitor/call-logs?limit=' + pageSize);
+                var result = data && data.data ? data.data : data;
+                var items = result.items || result.logs || (Array.isArray(result) ? result : []);
+                // Normalize fields for consistent usage
+                callLogsData = items.map(function(log) {
+                    return {
+                        id: log.log_id || log.call_id || log.id || '',
+                        source: log.source_id || log.source || '',
+                        model: log.model_key || log.model || '',
+                        prompt_tokens: log.input_tokens != null ? log.input_tokens : (log.prompt_tokens || 0),
+                        completion_tokens: log.output_tokens != null ? log.output_tokens : (log.completion_tokens || 0),
+                        cost: log.cost != null ? log.cost : 0,
+                        latency_ms: log.latency_ms != null ? log.latency_ms : (log.latency || 0),
+                        status: log.status || 'unknown',
+                        created_at: log.created_at_formatted || log.created_at || '',
+                        error_message: log.error_message || log.error_msg || '',
+                    };
+                });
+                callLogsTotal = result.total || callLogsData.length;
+                return callLogsData;
+            } catch (error) {
+                console.warn('获取调用日志失败，使用模拟数据:', error.message);
+                callLogsData = [];
+                callLogsTotal = 0;
+                return [];
+            }
+        }
+
+        // ===== API: Scheduler Policies (Compute Routing) =====
+        async function fetchSchedulerPolicies() {
+            try {
+                var data = await YunxiAPI.request('GET', '/compute/routing/policies');
+                var result = data && data.data ? data.data : data;
+                var items = result.items || result.policies || (Array.isArray(result) ? result : []);
+                // Normalize to consistent format
+                return items.map(function(p) {
+                    // Convert API weights (float 0-1) to percentage weights for UI
+                    var weights = {};
+                    if (p.latency_weight != null) weights.speed = Math.round(p.latency_weight * 100);
+                    if (p.cost_weight != null) weights.cost = Math.round(p.cost_weight * 100);
+                    if (p.quality_weight != null) weights.capability = Math.round(p.quality_weight * 100);
+                    if (p.privacy_weight != null) weights.privacy = Math.round(p.privacy_weight * 100);
+                    // Calculate preference as remaining
+                    var weightSum = 0;
+                    Object.keys(weights).forEach(function(k) { weightSum += weights[k]; });
+                    weights.preference = Math.max(0, 100 - weightSum);
+                    return {
+                        id: p.policy_id || p.id || '',
+                        name: p.name || '',
+                        mode: p.mode || p.default_strategy || 'balanced',
+                        active: p.is_active === true || p.active === true,
+                        weights: weights,
+                    };
+                });
+            } catch (error) {
+                console.warn('获取调度策略失败，降级到 localStorage:', error.message);
+                return null;
+            }
+        }
+
+        async function saveSchedulerPolicy(policyConfig) {
+            try {
+                // Convert percentage weights to API format (float 0-1)
+                var w = policyConfig.weights || {};
+                var totalW = 0;
+                Object.keys(w).forEach(function(k) { totalW += Number(w[k]) || 0; });
+                totalW = totalW || 100;
+                var body = {
+                    name: 'Agent 调度策略',
+                    mode: policyConfig.preference || 'balanced',
+                    default_strategy: policyConfig.preference || 'balanced',
+                    latency_weight: (Number(w.speed) || 0) / totalW,
+                    cost_weight: (Number(w.cost) || 0) / totalW,
+                    quality_weight: (Number(w.capability) || 0) / totalW,
+                    privacy_weight: (Number(w.privacy) || 0) / totalW,
+                    budget: policyConfig.budget,
+                    budget_alert: policyConfig.budget_alert,
+                };
+                var data = await YunxiAPI.request('PUT', '/compute/routing/policies/auto', {
+                    body: body
+                });
+                return data;
+            } catch (error) {
+                console.warn('保存调度策略失败，降级到 localStorage:', error.message);
+                return null;
+            }
+        }
+
+        // ===== Init =====
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            // Load local fallback data first (sync)
+            loadBudget();
+            loadCostRecords();
+
+            // Fetch real data from API
+            try {
+                YunxiAPI.showLoading('加载中...');
+                await Promise.all([
+                    fetchAgents(),
+                    fetchKeys(),
+                    fetchProviders(),
+                    fetchCostStats(),
+                    fetchCallLogs(50),
+                    loadSchedulerConfig(),
+                ]);
+                // Populate provider selects after fetching providers
+                populateProviderSelects();
+                renderAgents();
+                renderKeys();
+                renderCostTable();
+                updateBudgetDisplay();
+                // Restore preference mode UI
+                if (currentPreference && currentPreference !== DEFAULT_PREFERENCE) {
+                    setPreferenceMode(currentPreference, null);
+                }
+            } catch (e) {
+                // Fallback already handled in individual fetch functions
+                renderAgents();
+                renderKeys();
+                renderCostTable();
+            } finally {
+                YunxiAPI.hideLoading();
+            }
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+
+        // ===== Populate Provider Selects =====
+        function populateProviderSelects() {
+            const agentProviderSelect = document.getElementById('agent-provider');
+            const keyProviderSelect = document.getElementById('key-provider');
+
+            const buildOptions = (filterFn) => {
+                return providers
+                    .filter(filterFn)
+                    .map(p => {
+                        const meta = getProviderMeta(p);
+                        return `<option value="${p}">${meta.name}</option>`;
+                    }).join('');
+            };
+
+            if (agentProviderSelect) {
+                const currentVal = agentProviderSelect.value;
+                agentProviderSelect.innerHTML = buildOptions(() => true);
+                if (currentVal && providers.includes(currentVal)) {
+                    agentProviderSelect.value = currentVal;
+                }
+            }
+
+            if (keyProviderSelect) {
+                const currentVal = keyProviderSelect.value;
+                keyProviderSelect.innerHTML = buildOptions(() => true);
+                if (currentVal && providers.includes(currentVal)) {
+                    keyProviderSelect.value = currentVal;
+                }
+            }
+        }
+
+        // ===== Tab Switching =====
+        function switchTab(tabNum) {
+            currentTab = tabNum;
+
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.tab) === tabNum);
+            });
+
+            // Update tab panels
+            for (let i = 1; i <= 4; i++) {
+                const panel = document.getElementById('tab-panel-' + i);
+                if (panel) {
+                    panel.classList.toggle('hidden', i !== tabNum);
+                }
+            }
+
+            // Update breadcrumb
+            const tabNames = { 1: 'Agent 列表', 2: '密钥管理', 3: '调度策略', 4: '成本统计' };
+            document.getElementById('breadcrumb-current').textContent = tabNames[tabNum];
+
+            // Update submenu active state
+            const submenuItems = document.querySelectorAll('.nav-submenu-item');
+            submenuItems.forEach((item, index) => {
+                item.classList.toggle('active', index === tabNum - 1);
+            });
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // ===== Submenu =====
+        function switchSubmenu(key) {
+            submenuOpen[key] = !submenuOpen[key];
+            const submenu = document.getElementById(key + '-submenu');
+            const chevron = document.getElementById(key + '-chevron');
+            if (submenu && chevron) {
+                submenu.style.display = submenuOpen[key] ? 'block' : 'none';
+                chevron.style.transform = submenuOpen[key] ? 'rotate(180deg)' : 'rotate(0deg)';
+            }
+        }
+
+        function setActiveSubmenu(el) {
+            document.querySelectorAll('.nav-submenu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            el.classList.add('active');
+        }
+
+        // ===== Agent List =====
+        function renderAgents() {
+            const grid = document.getElementById('agents-grid');
+            if (!grid) return;
+
+            const filtered = getFilteredAgents();
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-16" style="color: var(--color-text-tertiary);">
+                        <i data-lucide="search-x" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                        <p>没有找到匹配的 Agent</p>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = filtered.map(agent => {
+                const statusClass = agent.status === 'online' ? 'online' : agent.status === 'offline' ? 'offline' : 'disabled';
+                const statusText = agent.status === 'online' ? '在线' : agent.status === 'offline' ? '离线' : '已禁用';
+                const statusColor = agent.status === 'online' ? 'var(--state-success)' : agent.status === 'offline' ? 'var(--state-error)' : 'var(--color-text-tertiary)';
+
+                return `
+                    <div class="agent-card rounded-xl p-4" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-start gap-3 mb-3">
+                            <div class="provider-icon" style="background: ${agent.provider_color}20; color: ${agent.provider_color};">
+                                ${agent.provider_short}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-medium truncate" style="font-size: var(--text-sm); color: var(--color-text-primary);">${agent.display_name}</h3>
+                                </div>
+                                <p class="truncate" style="font-size: var(--text-xs); color: var(--color-text-tertiary);">${agent.model}</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span class="status-dot ${statusClass}"></span>
+                                <span style="font-size: 11px; color: ${statusColor};">${statusText}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 mb-3">
+                            <span class="tag-pill" style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary);">${agent.type_label}</span>
+                            <span style="font-size: 11px; color: var(--color-text-tertiary);">${agent.provider_name}</span>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1 mb-3">
+                            ${agent.capabilities.slice(0, 3).map(tag => `
+                                <span class="tag-pill" style="background: var(--color-bg-base); color: var(--color-text-secondary);">${tag}</span>
+                            `).join('')}
+                            ${agent.capabilities.length > 3 ? `<span class="tag-pill" style="background: var(--color-bg-base); color: var(--color-text-tertiary);">+${agent.capabilities.length - 3}</span>` : ''}
+                        </div>
+
+                        <div class="flex items-center justify-between mb-3 pt-3" style="border-top: 1px solid var(--color-border-subtle);">
+                            <div>
+                                <p style="font-size: 11px; color: var(--color-text-tertiary);">成本模型</p>
+                                <p style="font-size: var(--text-xs); font-family: var(--font-family-mono); color: var(--color-text-secondary);">
+                                    $${agent.input_price.toFixed(4)} / $${agent.output_price.toFixed(4)}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p style="font-size: 11px; color: var(--color-text-tertiary);">调用次数</p>
+                                <p style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono); color: var(--color-text-primary);">${agent.calls.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5">
+                            <button class="btn-icon flex-1" style="width: auto; padding: 6px 10px; font-size: 11px;" onclick="testAgent('${agent.agent_id}')" title="测试">
+                                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                                测试
+                            </button>
+                            <button class="btn-icon flex-1" style="width: auto; padding: 6px 10px; font-size: 11px;" onclick="editAgent('${agent.agent_id}')" title="配置">
+                                <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+                                配置
+                            </button>
+                            <button class="btn-icon flex-1" style="width: auto; padding: 6px 10px; font-size: 11px;" onclick="toggleAgentStatus('${agent.agent_id}')" title="${agent.status === 'disabled' ? '启用' : '禁用'}">
+                                <i data-lucide="${agent.status === 'disabled' ? 'power' : 'power-off'}" class="w-3.5 h-3.5"></i>
+                                ${agent.status === 'disabled' ? '启用' : '禁用'}
+                            </button>
+                            <button class="btn-icon" style="color: var(--state-error);" onclick="deleteAgent('${agent.agent_id}')" title="删除">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function getFilteredAgents() {
+            const search = document.getElementById('agent-search')?.value?.toLowerCase() || '';
+            const typeFilter = document.getElementById('agent-type-filter')?.value || '';
+            const statusFilter = document.getElementById('agent-status-filter')?.value || '';
+
+            return agents.filter(agent => {
+                const matchSearch = !search ||
+                    agent.display_name.toLowerCase().includes(search) ||
+                    agent.model.toLowerCase().includes(search) ||
+                    agent.provider_name.toLowerCase().includes(search) ||
+                    agent.capabilities.some(t => t.toLowerCase().includes(search));
+                const matchType = !typeFilter || agent.agent_type === typeFilter;
+                const matchStatus = !statusFilter || agent.status === statusFilter;
+                return matchSearch && matchType && matchStatus;
+            });
+        }
+
+        function filterAgents() {
+            renderAgents();
+        }
+
+        // ===== Agent Actions =====
+        async function testAgent(agentId) {
+            const agent = agents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+
+            if (agent.status === 'disabled') {
+                YunxiAPI.showToast(agent.display_name + ' 已禁用，请先启用', 'warning');
+                return;
+            }
+
+            YunxiAPI.showLoading('正在测试 ' + agent.display_name + '...');
+            try {
+                await healthCheckAgent(agentId);
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast(agent.display_name + ' 连接测试成功，响应正常', 'success');
+                // Refresh agent list to update status
+                await fetchAgents();
+                renderAgents();
+            } catch (error) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('连接测试失败：' + error.message, 'error');
+            }
+        }
+
+        function editAgent(agentId) {
+            const agent = agents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+
+            editingAgentId = agentId;
+            document.getElementById('agent-modal-title').textContent = '编辑 Agent';
+            document.getElementById('agent-modal-save-btn').innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>保存修改';
+
+            document.getElementById('agent-name').value = agent.display_name;
+            document.getElementById('agent-provider').value = agent.provider;
+            document.getElementById('agent-type').value = agent.agent_type;
+            document.getElementById('agent-model').value = agent.model;
+            document.getElementById('agent-tags').value = agent.capabilities.join(', ');
+            document.getElementById('agent-input-price').value = agent.input_price;
+            document.getElementById('agent-output-price').value = agent.output_price;
+
+            document.getElementById('agent-modal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function toggleAgentStatus(agentId) {
+            const agent = agents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+
+            const isDisabled = agent.status === 'disabled';
+            const action = isDisabled ? '启用' : '禁用';
+            const newStatus = isDisabled ? 'active' : 'inactive';
+
+            const confirmed = await YunxiAPI.showConfirm(`确定要${action} "${agent.display_name}" 吗？`, `确认${action}`);
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading(action + '中...');
+            try {
+                await toggleAgentStatusApi(agentId, newStatus);
+                // Update local state immediately for optimistic UI
+                agent.status = isDisabled ? 'online' : 'disabled';
+                renderAgents();
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast(`已${action} ${agent.display_name}`, 'success');
+            } catch (error) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast(action + '失败：' + error.message, 'error');
+                // Refresh to get correct state
+                await fetchAgents();
+                renderAgents();
+            }
+        }
+
+        async function deleteAgent(agentId) {
+            const agent = agents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+
+            const confirmed = await YunxiAPI.showConfirm(`确定要删除 "${agent.display_name}" 吗？此操作不可恢复。`, '确认删除');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('删除中...');
+            try {
+                await deleteAgentApi(agentId);
+                agents = agents.filter(a => a.agent_id !== agentId);
+                renderAgents();
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('Agent 已删除', 'success');
+            } catch (error) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('删除失败：' + error.message, 'error');
+            }
+        }
+
+        // ===== Agent Modal =====
+        function openAddAgentModal() {
+            editingAgentId = null;
+            document.getElementById('agent-modal-title').textContent = '添加 Agent';
+            document.getElementById('agent-modal-save-btn').innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>确认添加';
+
+            document.getElementById('agent-name').value = '';
+            document.getElementById('agent-provider').value = providers[0] || 'openai';
+            document.getElementById('agent-type').value = 'chat';
+            document.getElementById('agent-model').value = '';
+            document.getElementById('agent-tags').value = '';
+            document.getElementById('agent-input-price').value = 0.01;
+            document.getElementById('agent-output-price').value = 0.03;
+
+            document.getElementById('agent-modal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function closeAgentModal() {
+            document.getElementById('agent-modal').classList.add('hidden');
+            editingAgentId = null;
+        }
+
+        async function saveAgent() {
+            const name = document.getElementById('agent-name').value.trim();
+            const providerVal = document.getElementById('agent-provider').value;
+            const type = document.getElementById('agent-type').value;
+            const model = document.getElementById('agent-model').value.trim();
+            const tagsStr = document.getElementById('agent-tags').value.trim();
+            const inputPrice = parseFloat(document.getElementById('agent-input-price').value) || 0;
+            const outputPrice = parseFloat(document.getElementById('agent-output-price').value) || 0;
+
+            if (!name) {
+                YunxiAPI.showToast('请输入 Agent 名称', 'warning');
+                return;
+            }
+            if (!model) {
+                YunxiAPI.showToast('请输入模型名称', 'warning');
+                return;
+            }
+
+            const capabilities = tagsStr ? tagsStr.split(/[,，]/).map(t => t.trim()).filter(Boolean) : [];
+
+            const btn = document.getElementById('agent-modal-save-btn');
+            btn.classList.add('btn-loading');
+
+            try {
+                const agentData = {
+                    display_name: name,
+                    provider: providerVal,
+                    agent_type: type,
+                    capabilities: capabilities,
+                    config: {
+                        model: model,
+                        input_price: inputPrice,
+                        output_price: outputPrice,
+                    },
+                };
+
+                if (editingAgentId) {
+                    // For edit, include agent_id if updating
+                    agentData.agent_id = editingAgentId;
+                    await registerAgent(agentData);
+                    YunxiAPI.showToast('Agent 配置已更新', 'success');
+                } else {
+                    await registerAgent(agentData);
+                    YunxiAPI.showToast('Agent 添加成功', 'success');
+                }
+
+                closeAgentModal();
+                // Refresh list
+                await fetchAgents();
+                renderAgents();
+            } catch (error) {
+                YunxiAPI.showToast('保存失败：' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
+        }
+
+        // ===== Key Management =====
+        function renderKeys() {
+            const list = document.getElementById('keys-list');
+            if (!list) return;
+
+            list.innerHTML = keys.map(key => {
+                const isConfigured = key.status === 'configured';
+                return `
+                    <div class="rounded-xl p-5 transition-all hover:shadow-md" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                        <div class="flex items-start gap-3 mb-4">
+                            <div class="provider-icon" style="width: 44px; height: 44px; background: ${key.provider_color}20; color: ${key.provider_color}; font-size: var(--text-base);">
+                                ${key.provider_short}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-medium" style="font-size: var(--text-sm); color: var(--color-text-primary);">${key.provider_name}</h3>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="status-dot ${isConfigured ? 'online' : 'offline'}"></span>
+                                    <span style="font-size: 11px; color: ${isConfigured ? 'var(--state-success)' : 'var(--state-error)'};">
+                                        ${isConfigured ? '已配置' : '未配置'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 p-3 rounded-lg" style="background: var(--color-bg-base); font-family: var(--font-family-mono); font-size: var(--text-xs);">
+                            ${isConfigured && key.masked_key ? key.masked_key : '<span style="color: var(--color-text-tertiary);">请配置 API Key</span>'}
+                        </div>
+
+                        ${key.base_url ? `<p class="text-caption mb-4" style="font-size: 11px; font-family: var(--font-family-mono); word-break: break-all;">Base URL: ${key.base_url}</p>` : ''}
+
+                        <div class="flex items-center gap-2">
+                            <button class="btn-secondary flex-1" style="padding: 6px 10px; font-size: 11px;" onclick="editKey('${key.provider}')">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                编辑
+                            </button>
+                            <button class="btn-secondary flex-1" style="padding: 6px 10px; font-size: 11px;" onclick="testKey('${key.provider}')">
+                                <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+                                测试
+                            </button>
+                            <button class="btn-icon" style="color: var(--state-error);" onclick="deleteKey('${key.provider}')" title="删除">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function editKey(provider) {
+            const key = keys.find(k => k.provider === provider);
+            if (!key) return;
+
+            editingKeyProvider = provider;
+            document.getElementById('key-modal-title').textContent = '编辑密钥';
+
+            document.getElementById('key-provider').value = provider;
+            // We don't have the full key from API (masked only), so leave it empty for edit
+            // User will need to re-enter if they want to change it
+            document.getElementById('key-api-key').value = '';
+            document.getElementById('key-api-key').placeholder = '留空则不修改现有密钥';
+            document.getElementById('key-base-url').value = key.base_url || '';
+            document.getElementById('test-key-result').textContent = '未测试';
+            document.getElementById('test-key-result').style.color = 'var(--color-text-tertiary)';
+
+            document.getElementById('key-modal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function testKey(provider) {
+            const key = keys.find(k => k.provider === provider);
+            if (!key) return;
+
+            if (key.status !== 'configured') {
+                YunxiAPI.showToast('连接失败：未配置 API Key', 'error');
+                return;
+            }
+
+            YunxiAPI.showLoading('正在测试 ' + key.provider_name + ' 连接...');
+            try {
+                await testKeyConnectionApi(provider);
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast(key.provider_name + ' 连接测试成功', 'success');
+            } catch (error) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('连接测试失败：' + error.message, 'error');
+            }
+        }
+
+        async function deleteKey(provider) {
+            const key = keys.find(k => k.provider === provider);
+            if (!key) return;
+
+            const confirmed = await YunxiAPI.showConfirm(`确定要删除 "${key.provider_name}" 的密钥配置吗？`, '确认删除');
+            if (!confirmed) return;
+
+            YunxiAPI.showLoading('删除中...');
+            try {
+                await deleteKeyApi(provider);
+                keys = keys.filter(k => k.provider !== provider);
+                renderKeys();
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('密钥已删除', 'success');
+            } catch (error) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('删除失败：' + error.message, 'error');
+            }
+        }
+
+        // ===== Key Modal =====
+        function openAddKeyModal() {
+            editingKeyProvider = null;
+            document.getElementById('key-modal-title').textContent = '添加密钥';
+            document.getElementById('key-provider').value = providers[0] || 'openai';
+            document.getElementById('key-api-key').value = '';
+            document.getElementById('key-api-key').placeholder = 'sk-...';
+            document.getElementById('key-base-url').value = '';
+            document.getElementById('test-key-result').textContent = '未测试';
+            document.getElementById('test-key-result').style.color = 'var(--color-text-tertiary)';
+
+            document.getElementById('key-modal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function closeKeyModal() {
+            document.getElementById('key-modal').classList.add('hidden');
+            editingKeyProvider = null;
+        }
+
+        function toggleKeyVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function testKeyConnection() {
+            const apiKey = document.getElementById('key-api-key').value.trim();
+            const providerVal = document.getElementById('key-provider').value;
+            const baseUrl = document.getElementById('key-base-url').value.trim();
+            const resultEl = document.getElementById('test-key-result');
+            const btn = document.getElementById('test-key-btn');
+
+            if (!apiKey && !editingKeyProvider) {
+                YunxiAPI.showToast('请先输入 API Key', 'warning');
+                return;
+            }
+
+            btn.classList.add('btn-loading');
+            resultEl.textContent = '测试中...';
+            resultEl.style.color = 'var(--color-text-secondary)';
+
+            try {
+                // Use the API to test with the key being edited
+                // For new keys, we test by temporarily saving then testing? Or just call the health-check endpoint with the key.
+                // Since the API doesn't support passing key directly, we'll save first then test for new keys.
+                // For editing existing keys, we use the existing provider test endpoint.
+                if (editingKeyProvider) {
+                    await testKeyConnectionApi(editingKeyProvider);
+                } else {
+                    // For new keys, save temporarily and test
+                    const keyData = {
+                        provider: providerVal,
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                    };
+                    await saveKeyApi(keyData);
+                    await testKeyConnectionApi(providerVal);
+                }
+                resultEl.textContent = '连接成功';
+                resultEl.style.color = 'var(--state-success)';
+                YunxiAPI.showToast('连接测试成功', 'success');
+            } catch (error) {
+                resultEl.textContent = '连接失败';
+                resultEl.style.color = 'var(--state-error)';
+                YunxiAPI.showToast('连接测试失败：' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
+        }
+
+        async function saveKey() {
+            const providerVal = document.getElementById('key-provider').value;
+            const apiKey = document.getElementById('key-api-key').value.trim();
+            const baseUrl = document.getElementById('key-base-url').value.trim();
+
+            // For editing, allow empty key (meaning don't change)
+            if (!editingKeyProvider && !apiKey) {
+                YunxiAPI.showToast('请输入 API Key', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('key-modal-save-btn');
+            btn.classList.add('btn-loading');
+
+            try {
+                const keyData = {
+                    provider: providerVal,
+                    base_url: baseUrl,
+                };
+                // Only include api_key if provided (for new keys or when changing)
+                if (apiKey) {
+                    keyData.api_key = apiKey;
+                }
+
+                await saveKeyApi(keyData);
+
+                YunxiAPI.showToast(editingKeyProvider ? '密钥配置已更新' : '密钥添加成功', 'success');
+
+                closeKeyModal();
+                // Refresh list
+                await fetchKeys();
+                renderKeys();
+            } catch (error) {
+                YunxiAPI.showToast('保存失败：' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
+        }
+
+        // ===== Strategy (localStorage) =====
+        const DEFAULT_WEIGHTS = { privacy: 30, capability: 25, preference: 20, cost: 15, speed: 10 };
+        const DEFAULT_PREFERENCE = 'balanced';
+        const DEFAULT_BUDGET = 500;
+        const DEFAULT_BUDGET_ALERT = true;
+
+        let weightConfig = { ...DEFAULT_WEIGHTS };
+        let currentPreference = DEFAULT_PREFERENCE;
+        let monthlyBudget = DEFAULT_BUDGET;
+        let budgetAlert = DEFAULT_BUDGET_ALERT;
+
+        function updateWeight(key, value) {
+            weightConfig[key] = parseInt(value);
+            document.getElementById('weight-' + key + '-value').textContent = value + '%';
+        }
+
+        function setPreferenceMode(mode, el) {
+            document.querySelectorAll('.pref-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            if (el) {
+                el.classList.add('active');
+            } else {
+                const card = document.querySelector(`.pref-card[data-pref="${mode}"]`);
+                if (card) card.classList.add('active');
+            }
+            currentPreference = mode;
+
+            const presets = {
+                quality: { privacy: 20, capability: 45, preference: 15, cost: 10, speed: 10 },
+                balanced: { privacy: 25, capability: 25, preference: 20, cost: 15, speed: 15 },
+                cost: { privacy: 20, capability: 15, preference: 15, cost: 40, speed: 10 },
+                speed: { privacy: 15, capability: 20, preference: 15, cost: 10, speed: 40 },
+            };
+
+            const preset = presets[mode];
+            if (preset) {
+                Object.keys(preset).forEach(key => {
+                    weightConfig[key] = preset[key];
+                    const slider = document.getElementById('weight-' + key);
+                    const valueEl = document.getElementById('weight-' + key + '-value');
+                    if (slider) slider.value = preset[key];
+                    if (valueEl) valueEl.textContent = preset[key] + '%';
+                });
+            }
+
+            YunxiAPI.showToast('已切换到 ' + (el ? el.querySelector('div').textContent : mode) + ' 模式', 'info');
+        }
+
+        async function saveStrategy() {
+            var btn = document.getElementById('save-strategy-btn');
+            btn.classList.add('btn-loading');
+
+            try {
+                var budgetInput = document.getElementById('monthly-budget');
+                var alertInput = document.getElementById('budget-alert');
+
+                var config = {
+                    weights: { ...weightConfig },
+                    preference: currentPreference,
+                    budget: budgetInput ? parseFloat(budgetInput.value) || DEFAULT_BUDGET : DEFAULT_BUDGET,
+                    budget_alert: alertInput ? alertInput.checked : DEFAULT_BUDGET_ALERT,
+                };
+
+                // Try API first, fallback to localStorage
+                var apiResult = await saveSchedulerPolicy(config);
+
+                // Always save to localStorage as backup
+                localStorage.setItem(STORAGE_KEYS.SCHEDULER_CONFIG, JSON.stringify({
+                    weights: config.weights,
+                    preference: config.preference,
+                }));
+                localStorage.setItem(STORAGE_KEYS.BUDGET, JSON.stringify({
+                    monthly: config.budget,
+                    alert_enabled: config.budget_alert,
+                }));
+
+                monthlyBudget = config.budget;
+                budgetAlert = config.budget_alert;
+                updateBudgetDisplay();
+
+                if (apiResult) {
+                    YunxiAPI.showToast('调度策略配置已保存（后端持久化）', 'success');
+                } else {
+                    YunxiAPI.showToast('调度策略配置已保存（本地缓存）', 'success');
+                }
+            } catch (error) {
+                YunxiAPI.showToast('保存失败：' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
+        }
+
+        async function loadSchedulerConfig() {
+            try {
+                // Try API first
+                var policies = await fetchSchedulerPolicies();
+                if (policies && policies.length > 0) {
+                    // Find active policy or first one
+                    var active = policies.find(function(p) { return p.active; }) || policies[0];
+                    if (active && active.weights) {
+                        // Map API weights to local weightConfig keys
+                        var apiWeights = active.weights;
+                        var localKeys = Object.keys(weightConfig);
+                        localKeys.forEach(function(key) {
+                            var apiKey = key;
+                            // Try direct match first
+                            if (apiWeights[apiKey] != null) {
+                                weightConfig[key] = apiWeights[apiKey];
+                            }
+                            var slider = document.getElementById('weight-' + key);
+                            var valueEl = document.getElementById('weight-' + key + '-value');
+                            if (slider) slider.value = weightConfig[key];
+                            if (valueEl) valueEl.textContent = weightConfig[key] + '%';
+                        });
+                    }
+                    if (active && active.mode) {
+                        currentPreference = active.mode;
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.warn('从API加载调度配置失败，降级到 localStorage', e);
+            }
+
+            // Fallback to localStorage
+            try {
+                var saved = localStorage.getItem(STORAGE_KEYS.SCHEDULER_CONFIG);
+                if (saved) {
+                    var config = JSON.parse(saved);
+                    if (config.weights) {
+                        Object.keys(config.weights).forEach(function(key) {
+                            if (weightConfig.hasOwnProperty(key)) {
+                                weightConfig[key] = config.weights[key];
+                                var slider = document.getElementById('weight-' + key);
+                                var valueEl = document.getElementById('weight-' + key + '-value');
+                                if (slider) slider.value = config.weights[key];
+                                if (valueEl) valueEl.textContent = config.weights[key] + '%';
+                            }
+                        });
+                    }
+                    if (config.preference) {
+                        currentPreference = config.preference;
+                    }
+                }
+            } catch (e2) {
+                console.warn('加载调度配置失败', e2);
+            }
+        }
+
+        function loadBudget() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEYS.BUDGET);
+                if (saved) {
+                    const budget = JSON.parse(saved);
+                    if (budget.monthly != null) {
+                        monthlyBudget = budget.monthly;
+                        const input = document.getElementById('monthly-budget');
+                        if (input) input.value = budget.monthly;
+                    }
+                    if (budget.alert_enabled != null) {
+                        budgetAlert = budget.alert_enabled;
+                        const checkbox = document.getElementById('budget-alert');
+                        if (checkbox) checkbox.checked = budget.alert_enabled;
+                    }
+                }
+            } catch (e) {
+                console.warn('加载预算失败', e);
+            }
+        }
+
+        function updateBudgetDisplay() {
+            // Calculate current cost from cost records
+            const totalCost = costRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+            const pct = monthlyBudget > 0 ? Math.min((totalCost / monthlyBudget) * 100, 100) : 0;
+            const remaining = Math.max(monthlyBudget - totalCost, 0);
+
+            const costBarFill = document.querySelector('.cost-bar-fill');
+            if (costBarFill) {
+                costBarFill.style.width = pct.toFixed(1) + '%';
+            }
+
+            // Update the budget display text in the budget section (hardcoded HTML)
+            const budgetSection = document.querySelector('#tab-panel-3 section:nth-of-type(3)');
+            if (budgetSection) {
+                const costText = budgetSection.querySelector('span[style*="state-warning"]');
+                if (costText) {
+                    costText.textContent = `$${totalCost.toFixed(2)} / $${monthlyBudget.toFixed(2)}`;
+                }
+                const pctText = budgetSection.querySelector('p.text-caption');
+                if (pctText) {
+                    pctText.textContent = `已使用 ${pct.toFixed(1)}%，剩余 $${remaining.toFixed(2)}`;
+                }
+            }
+        }
+
+        function resetStrategy() {
+            YunxiAPI.showConfirm('确定要重置为默认调度策略吗？', '确认重置').then(async (confirmed) => {
+                if (!confirmed) return;
+
+                weightConfig = { ...DEFAULT_WEIGHTS };
+                currentPreference = DEFAULT_PREFERENCE;
+                monthlyBudget = DEFAULT_BUDGET;
+                budgetAlert = DEFAULT_BUDGET_ALERT;
+
+                Object.keys(DEFAULT_WEIGHTS).forEach(key => {
+                    const slider = document.getElementById('weight-' + key);
+                    const valueEl = document.getElementById('weight-' + key + '-value');
+                    if (slider) slider.value = DEFAULT_WEIGHTS[key];
+                    if (valueEl) valueEl.textContent = DEFAULT_WEIGHTS[key] + '%';
+                });
+
+                document.querySelectorAll('.pref-card').forEach(card => {
+                    card.classList.remove('active');
+                    if (card.dataset.pref === DEFAULT_PREFERENCE) card.classList.add('active');
+                });
+
+                const budgetInput = document.getElementById('monthly-budget');
+                if (budgetInput) budgetInput.value = DEFAULT_BUDGET;
+                const alertInput = document.getElementById('budget-alert');
+                if (alertInput) alertInput.checked = DEFAULT_BUDGET_ALERT;
+
+                // Clear saved config
+                localStorage.removeItem(STORAGE_KEYS.SCHEDULER_CONFIG);
+                localStorage.removeItem(STORAGE_KEYS.BUDGET);
+
+                // Try to reset on backend too (best effort)
+                try {
+                    await saveSchedulerPolicy({
+                        weights: { ...DEFAULT_WEIGHTS },
+                        preference: DEFAULT_PREFERENCE,
+                        budget: DEFAULT_BUDGET,
+                        budget_alert: DEFAULT_BUDGET_ALERT,
+                    });
+                } catch (e) {
+                    console.warn('重置后端策略失败', e);
+                }
+
+                updateBudgetDisplay();
+                YunxiAPI.showToast('已重置为默认策略', 'success');
+            });
+        }
+
+        // ===== Cost Statistics (Real API + fallback) =====
+        function loadCostRecords() {
+            // Keep mock data as fallback until API data loads
+            try {
+                var saved = localStorage.getItem(STORAGE_KEYS.COST_RECORDS);
+                if (saved) {
+                    costRecords = JSON.parse(saved);
+                } else {
+                    costRecords = mockCostData.slice();
+                    saveCostRecords();
+                }
+            } catch (e) {
+                console.warn('加载费用记录失败', e);
+                costRecords = mockCostData.slice();
+            }
+        }
+
+        function saveCostRecords() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.COST_RECORDS, JSON.stringify(costRecords));
+            } catch (e) {
+                console.warn('保存费用记录失败', e);
+            }
+        }
+
+        function formatCostDate(dateStr) {
+            if (!dateStr) return '-';
+            // Handle ISO datetime strings like 2024-01-15T10:30:00Z
+            var d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            var hh = String(d.getHours()).padStart(2, '0');
+            var mm = String(d.getMinutes()).padStart(2, '0');
+            return y + '-' + m + '-' + day + ' ' + hh + ':' + mm;
+        }
+
+        function renderCostTable() {
+            var tbody = document.getElementById('cost-table-body');
+            if (!tbody) return;
+
+            // Prefer real API data; fallback to mock costRecords
+            var rows = callLogsData && callLogsData.length > 0 ? callLogsData : costRecords;
+
+            if (rows.length === 0) {
+                tbody.innerHTML =
+                    '<tr>' +
+                        '<td colspan="6" class="text-center py-8" style="color: var(--color-text-tertiary);">' +
+                            '暂无费用记录' +
+                        '</td>' +
+                    '</tr>';
+                updateCostKPIs();
+                updateCostChart();
+                return;
+            }
+
+            // If using real call logs, map fields
+            if (callLogsData && callLogsData.length > 0) {
+                tbody.innerHTML = callLogsData.map(function(log) {
+                    var date = log.created_at || '-';
+                    var source = log.source || '-';
+                    var model = log.model || '-';
+                    var promptTokens = log.prompt_tokens != null ? log.prompt_tokens : 0;
+                    var completionTokens = log.completion_tokens != null ? log.completion_tokens : 0;
+                    var cost = log.cost != null ? log.cost : 0;
+                    var statusBadge = log.status === 'success'
+                        ? '<span style="color: var(--state-success);">成功</span>'
+                        : '<span style="color: var(--state-error);">失败</span>';
+                    return '<tr>' +
+                        '<td style="font-family: var(--font-family-mono); font-size: var(--text-xs);">' + date + '</td>' +
+                        '<td>' + source + ' / ' + model + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + statusBadge + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + Number(promptTokens).toLocaleString() + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + Number(completionTokens).toLocaleString() + '</td>' +
+                        '<td style="font-weight: 600; font-family: var(--font-family-mono); color: var(--state-warning);">$' + Number(cost).toFixed(4) + '</td>' +
+                    '</tr>';
+                }).join('');
+            } else {
+                // Fallback: mock data
+                tbody.innerHTML = costRecords.map(function(row) {
+                    return '<tr>' +
+                        '<td style="font-family: var(--font-family-mono); font-size: var(--text-xs);">' + row.date + '</td>' +
+                        '<td>' + row.agent + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + row.calls.toLocaleString() + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + row.inputTokens.toLocaleString() + '</td>' +
+                        '<td style="font-family: var(--font-family-mono);">' + row.outputTokens.toLocaleString() + '</td>' +
+                        '<td style="font-weight: 600; font-family: var(--font-family-mono); color: var(--state-warning);">$' + row.cost.toFixed(3) + '</td>' +
+                    '</tr>';
+                }).join('');
+            }
+
+            // Update KPI cards and chart
+            updateCostKPIs();
+            updateCostChart();
+        }
+
+        function updateCostKPIs() {
+            var todayCost = 0;
+            var weekCost = 0;
+            var monthCost = 0;
+            var totalCost = 0;
+
+            // Use real stats API if available
+            if (costStatsData) {
+                todayCost = Number(costStatsData.today != null ? costStatsData.today : (costStatsData.today_cost || 0));
+                weekCost = Number(costStatsData.this_week != null ? costStatsData.this_week : (costStatsData.week_cost || 0));
+                monthCost = Number(costStatsData.this_month != null ? costStatsData.this_month : (costStatsData.month_cost || 0));
+                totalCost = Number(costStatsData.total != null ? costStatsData.total : (costStatsData.total_cost || 0));
+            } else if (costRecords.length > 0) {
+                // Fallback: calculate from mock records
+                totalCost = costRecords.reduce(function(sum, r) { return sum + (r.cost || 0); }, 0);
+                var latestDate = costRecords[0] && costRecords[0].date;
+                todayCost = costRecords.filter(function(r) { return r.date === latestDate; })
+                    .reduce(function(s, r) { return s + r.cost; }, 0);
+                weekCost = totalCost * 0.7;
+                monthCost = totalCost;
+            }
+
+            // Update KPI text in tab 4
+            var kpiCards = document.querySelectorAll('#tab-panel-4 .glass-surface');
+            if (kpiCards.length >= 3) {
+                var todayEl = kpiCards[0].querySelector('.text-3xl');
+                if (todayEl) todayEl.textContent = '$' + todayCost.toFixed(2);
+
+                var weekEl = kpiCards[1].querySelector('.text-3xl');
+                if (weekEl) weekEl.textContent = '$' + weekCost.toFixed(2);
+
+                var monthEl = kpiCards[2].querySelector('.text-3xl');
+                if (monthEl) monthEl.textContent = '$' + monthCost.toFixed(2);
+
+                // Update budget percentage
+                var budgetPct = monthlyBudget > 0 ? ((monthCost / monthlyBudget) * 100).toFixed(1) : '0';
+                var pctEl = kpiCards[2].querySelector('.text-xs:last-child');
+                if (pctEl) pctEl.textContent = '占预算 ' + budgetPct + '%';
+            }
+        }
+
+        function updateCostChart() {
+            var chartData = [];
+
+            // Use trend data from stats API if available
+            if (costStatsData && costStatsData.trend && costStatsData.trend.length > 0) {
+                chartData = costStatsData.trend.map(function(item) {
+                    return {
+                        label: item.date || item.day || '-',
+                        value: Number(item.cost != null ? item.cost : 0)
+                    };
+                });
+            } else if (costStatsData && costStatsData.by_model && Object.keys(costStatsData.by_model).length > 0) {
+                // Fallback to by_model breakdown if trend not available (by_model is an object)
+                chartData = Object.entries(costStatsData.by_model)
+                    .sort(function(a, b) { return b[1] - a[1]; })
+                    .slice(0, 7)
+                    .map(function(entry) {
+                        return { label: entry[0], value: Number(entry[1]) };
+                    });
+            } else if (costStatsData && costStatsData.by_source && Object.keys(costStatsData.by_source).length > 0) {
+                // Fallback to by_source breakdown (by_source is an object)
+                chartData = Object.entries(costStatsData.by_source)
+                    .sort(function(a, b) { return b[1] - a[1]; })
+                    .slice(0, 7)
+                    .map(function(entry) {
+                        return { label: entry[0], value: Number(entry[1]) };
+                    });
+            } else {
+                // Final fallback: aggregate cost by agent from mock records
+                var agentCosts = {};
+                costRecords.forEach(function(r) {
+                    if (!agentCosts[r.agent]) agentCosts[r.agent] = 0;
+                    agentCosts[r.agent] += r.cost;
+                });
+                chartData = Object.entries(agentCosts)
+                    .sort(function(a, b) { return b[1] - a[1]; })
+                    .slice(0, 7)
+                    .map(function(entry) {
+                        return { label: entry[0], value: entry[1] };
+                    });
+            }
+
+            if (chartData.length === 0) return;
+
+            var maxValue = chartData.reduce(function(m, item) { return Math.max(m, item.value); }, 0) || 1;
+
+            // Update bar chart HTML
+            var chartContainer = document.querySelector('#tab-panel-4 .flex.items-end');
+            if (!chartContainer) return;
+
+            chartContainer.innerHTML = chartData.map(function(item, index) {
+                var heightPct = (item.value / maxValue) * 85 + 15;
+                var opacity = 1 - (index * 0.08);
+                var label = item.label;
+                if (label.length > 8) label = label.slice(0, 8);
+                return '<div class="flex flex-col items-center gap-2 flex-1 max-w-[80px]">' +
+                    '<div class="w-full bar-chart-bar" style="height: ' + heightPct + '%; opacity: ' + opacity + ';"></div>' +
+                    '<span style="font-size: var(--text-xs); color: var(--color-text-secondary);">' + label + '</span>' +
+                    '<span style="font-size: var(--text-xs); font-weight: 600; font-family: var(--font-family-mono);">$' + item.value.toFixed(2) + '</span>' +
+                '</div>';
+            }).join('');
+        }
+
+        async function exportCostData() {
+            YunxiAPI.showLoading('正在导出数据...');
+            try {
+                // Try to fetch more logs for export (up to 200)
+                var exportData = callLogsData;
+                if (!exportData || exportData.length === 0) {
+                    // Try fetching first
+                    try {
+                        await fetchCallLogs(200);
+                        exportData = callLogsData;
+                    } catch (e) {
+                        // ignore, use fallback
+                    }
+                }
+
+                var csvContent;
+                var filename;
+
+                if (exportData && exportData.length > 0) {
+                    // Export real call logs
+                    var headers = ['时间', '来源', '模型', 'Prompt Tokens', 'Completion Tokens', '费用(USD)', '状态', '延迟(ms)'];
+                    var rows = exportData.map(function(log) {
+                        var date = log.created_at || log.time || '';
+                        var source = log.source || log.source_id || '';
+                        var model = log.model || '';
+                        var promptTokens = log.prompt_tokens != null ? log.prompt_tokens : (log.input_tokens || 0);
+                        var completionTokens = log.completion_tokens != null ? log.completion_tokens : (log.output_tokens || 0);
+                        var cost = log.cost != null ? log.cost : 0;
+                        var status = log.status === 'success' ? '成功' : '失败';
+                        var latency = log.latency_ms != null ? log.latency_ms : (log.latency || '');
+                        return [date, source, model, promptTokens, completionTokens, cost, status, latency]
+                            .map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; })
+                            .join(',');
+                    });
+                    csvContent = headers.join(',') + '\n' + rows.join('\n');
+                    filename = 'call_logs_' + new Date().toISOString().slice(0, 10) + '.csv';
+                } else {
+                    // Fallback: export mock cost records
+                    var headers2 = ['日期', 'Agent', '调用次数', '输入Tokens', '输出Tokens', '费用(USD)'];
+                    var rows2 = costRecords.map(function(r) {
+                        return [r.date, r.agent, r.calls, r.inputTokens, r.outputTokens, r.cost]
+                            .map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; })
+                            .join(',');
+                    });
+                    csvContent = headers2.join(',') + '\n' + rows2.join('\n');
+                    filename = 'cost_records_' + new Date().toISOString().slice(0, 10) + '.csv';
+                }
+
+                var blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('费用明细已导出为 CSV 文件', 'success');
+            } catch (e) {
+                YunxiAPI.hideLoading();
+                YunxiAPI.showToast('导出失败：' + e.message, 'error');
+            }
+        }
+
+        // ===== Close modals on backdrop click =====
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal-overlay')) {
+                e.target.classList.add('hidden');
+            }
+        });
+
+        // ===== Keyboard shortcuts =====
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('agent-modal')?.classList.add('hidden');
+                document.getElementById('key-modal')?.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+

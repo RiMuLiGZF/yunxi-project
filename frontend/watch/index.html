@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>云汐 · 手表端</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+    <style>
+        /* ============================================================
+           云汐系统 v1.1 · 手表端 H5 原型
+           圆形屏幕 390x390px · 深色主题 · OLED 优化
+           ============================================================ */
+
+        :root {
+            /* 主题色 - 云汐蓝 */
+            --watch-primary: #38bdf8;
+            --watch-primary-glow: rgba(56, 189, 248, 0.4);
+            --watch-accent: #22d3ee;
+            --watch-success: #34d399;
+            --watch-warning: #fbbf24;
+            --watch-danger: #f87171;
+            --watch-purple: #a78bfa;
+
+            /* 背景 - 纯黑 OLED 优化 */
+            --watch-bg: #000000;
+            --watch-bg-surface: #0a0a0a;
+            --watch-bg-card: rgba(255, 255, 255, 0.06);
+            --watch-bg-card-hover: rgba(255, 255, 255, 0.1);
+
+            /* 文字 */
+            --watch-text-primary: #ffffff;
+            --watch-text-secondary: rgba(255, 255, 255, 0.7);
+            --watch-text-tertiary: rgba(255, 255, 255, 0.4);
+
+            /* 边框/分割线 */
+            --watch-border: rgba(255, 255, 255, 0.1);
+            --watch-border-strong: rgba(255, 255, 255, 0.18);
+
+            /* 尺寸 */
+            --watch-size: 390px;
+            --watch-padding: 20px;
+
+            /* 动画 */
+            --watch-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --watch-transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'SF Pro Display', sans-serif;
+            background: #1a1a2e;
+            color: var(--watch-text-primary);
+        }
+
+        /* 页面容器 - 居中手表 */
+        .page-wrapper {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse at center, #16213e 0%, #0f0f23 70%, #000 100%);
+            padding: 20px;
+        }
+
+        .watch-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .watch-hint {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            margin-top: 16px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .watch-hint kbd {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 0 2px;
+        }
+
+        /* 手表外框 */
+        .watch-frame {
+            width: var(--watch-size);
+            height: var(--watch-size);
+            border-radius: 50%;
+            background: #1a1a1a;
+            padding: 8px;
+            box-shadow:
+                0 0 0 2px #2a2a2a,
+                0 0 0 4px #1a1a1a,
+                0 20px 60px rgba(0, 0, 0, 0.6),
+                inset 0 2px 4px rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        /* 手表屏幕 - 圆形裁剪 */
+        .watch-screen {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--watch-bg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 页面容器 - 横向滚动 */
+        .pages-container {
+            display: flex;
+            width: 500%;
+            height: 100%;
+            transition: transform var(--watch-transition);
+            will-change: transform;
+        }
+
+        .page {
+            width: 20%;
+            height: 100%;
+            flex-shrink: 0;
+            padding: var(--watch-padding);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 页面指示器 */
+        .page-indicators {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            z-index: 100;
+        }
+
+        .indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--watch-text-tertiary);
+            transition: all var(--watch-transition);
+        }
+
+        .indicator.active {
+            background: var(--watch-primary);
+            width: 18px;
+            border-radius: 3px;
+            box-shadow: 0 0 8px var(--watch-primary-glow);
+        }
+
+        /* 页面 1: 表盘主页 */
+        .watch-face {
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .watch-face .date {
+            font-size: 14px;
+            color: var(--watch-text-secondary);
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .watch-face .time {
+            font-size: 72px;
+            font-weight: 200;
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, #ffffff 0%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .watch-face .time .seconds {
+            font-size: 24px;
+            color: var(--watch-primary);
+            -webkit-text-fill-color: var(--watch-primary);
+            font-weight: 400;
+            margin-left: 2px;
+        }
+
+        /* 状态环 */
+        .status-rings {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .status-ring-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ring-svg {
+            width: 48px;
+            height: 48px;
+            transform: rotate(-90deg);
+        }
+
+        .ring-bg {
+            fill: none;
+            stroke: var(--watch-border);
+            stroke-width: 3;
+        }
+
+        .ring-fill {
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+
+        .ring-heart .ring-fill { stroke: var(--watch-danger); }
+        .ring-steps .ring-fill { stroke: var(--watch-success); }
+        .ring-battery .ring-fill { stroke: var(--watch-primary); }
+
+        .status-ring-item .label {
+            font-size: 10px;
+            color: var(--watch-text-tertiary);
+        }
+
+        .status-ring-item .value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--watch-text-primary);
+        }
+
+        /* 表盘顶部状态条 */
+        .watch-face .top-status {
+            position: absolute;
+            top: 16px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--watch-text-tertiary);
+        }
+
+        .top-status .bluetooth,
+        .top-status .battery-icon {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* 页面 2: 健康数据页 */
+        .health-page .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            flex: 1;
+            align-content: center;
+        }
+
+        .health-card {
+            background: var(--watch-bg-card);
+            border-radius: 16px;
+            padding: 14px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--watch-border);
+            transition: all var(--watch-transition);
+        }
+
+        .health-card:active {
+            background: var(--watch-bg-card-hover);
+            transform: scale(0.96);
+        }
+
+        .health-card .icon {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+
+        .health-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .health-card .unit {
+            font-size: 11px;
+            color: var(--watch-text-tertiary);
+            margin-left: 2px;
+            font-weight: 400;
+        }
+
+        .health-card .label {
+            font-size: 11px;
+            color: var(--watch-text-secondary);
+        }
+
+        .health-card.heart .value { color: var(--watch-danger); }
+        .health-card.spo2 .value { color: var(--watch-primary); }
+        .health-card.steps .value { color: var(--watch-success); }
+        .health-card.calories .value { color: var(--watch-warning); }
+
+        /* 页面 3: 通知中心页 */
+        .notif-page .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .notif-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+            scrollbar-width: none;
+        }
+
+        .notif-list::-webkit-scrollbar { display: none; }
+
+        .notif-item {
+            background: var(--watch-bg-card);
+            border-radius: 14px;
+            padding: 10px 12px;
+            border: 1px solid var(--watch-border);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            transition: all var(--watch-transition);
+        }
+
+        .notif-item:active {
+            background: var(--watch-bg-card-hover);
+        }
+
+        .notif-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .notif-icon.msg { background: rgba(56, 189, 248, 0.15); }
+        .notif-icon.system { background: rgba(167, 139, 250, 0.15); }
+        .notif-icon.health { background: rgba(52, 211, 153, 0.15); }
+        .notif-icon.reminder { background: rgba(251, 191, 36, 0.15); }
+
+        .notif-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notif-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
+        }
+
+        .notif-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--watch-text-primary);
+        }
+
+        .notif-time {
+            font-size: 10px;
+            color: var(--watch-text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .notif-text {
+            font-size: 12px;
+            color: var(--watch-text-secondary);
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        /* 页面 4: 快捷操作页 */
+        .quick-page .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .quick-actions {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .quick-btn {
+            background: var(--watch-bg-card);
+            border: 1px solid var(--watch-border);
+            border-radius: 16px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--watch-text-primary);
+            cursor: pointer;
+            transition: all var(--watch-transition);
+            font-family: inherit;
+        }
+
+        .quick-btn:active {
+            background: var(--watch-bg-card-hover);
+            transform: scale(0.97);
+        }
+
+        .quick-btn .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .quick-btn.voice .icon { background: rgba(248, 113, 113, 0.15); }
+        .quick-btn.note .icon { background: rgba(251, 191, 36, 0.15); }
+        .quick-btn.reminder .icon { background: rgba(167, 139, 250, 0.15); }
+
+        .quick-btn .text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .quick-btn .title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .quick-btn .subtitle {
+            font-size: 11px;
+            color: var(--watch-text-tertiary);
+            margin-top: 2px;
+        }
+
+        /* 页面 5: 云汐助手页 */
+        .assistant-page {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .assistant-header {
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--watch-border);
+            margin-bottom: 8px;
+        }
+
+        .assistant-header .title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .assistant-header .status {
+            font-size: 10px;
+            color: var(--watch-success);
+            margin-top: 2px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--watch-success);
+            margin-right: 4px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 4px 2px;
+            scrollbar-width: none;
+        }
+
+        .chat-messages::-webkit-scrollbar { display: none; }
+
+        .chat-msg {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 14px;
+            font-size: 12px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            animation: msgIn 0.3s ease;
+        }
+
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-msg.bot {
+            background: var(--watch-bg-card);
+            border: 1px solid var(--watch-border);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            color: var(--watch-text-primary);
+        }
+
+        .chat-msg.user {
+            background: linear-gradient(135deg, var(--watch-primary), var(--watch-accent));
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding-top: 8px;
+            border-top: 1px solid var(--watch-border);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: var(--watch-bg-card);
+            border: 1px solid var(--watch-border);
+            border-radius: 20px;
+            padding: 8px 14px;
+            color: var(--watch-text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: all var(--watch-transition);
+        }
+
+        .chat-input:focus {
+            border-color: var(--watch-primary);
+            box-shadow: 0 0 0 2px var(--watch-primary-glow);
+        }
+
+        .chat-input::placeholder {
+            color: var(--watch-text-tertiary);
+        }
+
+        .voice-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--watch-danger), #fb923c);
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all var(--watch-transition);
+            box-shadow: 0 2px 8px rgba(248, 113, 113, 0.3);
+        }
+
+        .voice-btn:active {
+            transform: scale(0.9);
+            box-shadow: 0 1px 4px rgba(248, 113, 113, 0.4);
+        }
+
+        .voice-btn.recording {
+            animation: recordPulse 1s ease-in-out infinite;
+            background: var(--watch-danger);
+        }
+
+        @keyframes recordPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(248, 113, 113, 0); }
+        }
+
+        .send-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--watch-primary);
+            border: none;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all var(--watch-transition);
+        }
+
+        .send-btn:active {
+            transform: scale(0.9);
+            background: var(--watch-accent);
+        }
+
+        /* 通用动画 */
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            :root {
+                --watch-size: 340px;
+                --watch-padding: 16px;
+            }
+            .watch-face .time {
+                font-size: 60px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            :root {
+                --watch-size: 300px;
+                --watch-padding: 14px;
+            }
+            .watch-face .time {
+                font-size: 52px;
+            }
+            .health-card .value {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="watch-label">Yunxi Watch OS</div>
+
+        <div class="watch-frame">
+            <div class="watch-screen" id="watchScreen">
+                <div class="pages-container" id="pagesContainer">
+                    <!-- 页面 1: 表盘主页 -->
+                    <div class="page watch-face" data-page="0">
+                        <div class="top-status">
+                            <span class="bluetooth">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M14.88 16.29L13 18.17v-3.76l1.88 1.88zM13 5.83l1.88 1.88L13 9.59V5.83zm6.71 5.38l-4.88 4.88L11 22h-1v-7.59L4.12 20.29 3.71 19.88 10.59 13 3.71 6.12l.41-.41L10 11.59V2h1l3.83 3.83 4.88 4.88-.42.42zM14.12 6.29L12 4.17v4.76l2.12-2.64zM12 19.83l2.12-2.12L12 15.07v4.76z"/></svg>
+                            </span>
+                            <span class="battery-icon">
+                                <svg width="12" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+                                82%
+                            </span>
+                        </div>
+                        <div class="date" id="dateDisplay">加载中...</div>
+                        <div class="time" id="timeDisplay">
+                            --:--<span class="seconds">--</span>
+                        </div>
+                        <div class="status-rings">
+                            <div class="status-ring-item">
+                                <svg class="ring-svg ring-heart" viewBox="0 0 48 48">
+                                    <circle class="ring-bg" cx="24" cy="24" r="20"/>
+                                    <circle class="ring-fill" cx="24" cy="24" r="20"
+                                        stroke-dasharray="125.6" stroke-dashoffset="37.7"/>
+                                </svg>
+                                <span class="value" id="heartRate">72</span>
+                                <span class="label">心率</span>
+                            </div>
+                            <div class="status-ring-item">
+                                <svg class="ring-svg ring-steps" viewBox="0 0 48 48">
+                                    <circle class="ring-bg" cx="24" cy="24" r="20"/>
+                                    <circle class="ring-fill" cx="24" cy="24" r="20"
+                                        stroke-dasharray="125.6" stroke-dashoffset="50.2"/>
+                                </svg>
+                                <span class="value" id="stepCount">6.3k</span>
+                                <span class="label">步数</span>
+                            </div>
+                            <div class="status-ring-item">
+                                <svg class="ring-svg ring-battery" viewBox="0 0 48 48">
+                                    <circle class="ring-bg" cx="24" cy="24" r="20"/>
+                                    <circle class="ring-fill" cx="24" cy="24" r="20"
+                                        stroke-dasharray="125.6" stroke-dashoffset="22.6"/>
+                                </svg>
+                                <span class="value" id="batteryLevel">82%</span>
+                                <span class="label">电量</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 页面 2: 健康数据页 -->
+                    <div class="page health-page" data-page="1">
+                        <div class="page-title">健康数据</div>
+                        <div class="health-grid">
+                            <div class="health-card heart">
+                                <div class="icon">&#10084;&#65039;</div>
+                                <div class="value">72<span class="unit">bpm</span></div>
+                                <div class="label">心率</div>
+                            </div>
+                            <div class="health-card spo2">
+                                <div class="icon">&#128167;</div>
+                                <div class="value">98<span class="unit">%</span></div>
+                                <div class="label">血氧</div>
+                            </div>
+                            <div class="health-card steps">
+                                <div class="icon">&#128095;</div>
+                                <div class="value">6,324<span class="unit">步</span></div>
+                                <div class="label">步数</div>
+                            </div>
+                            <div class="health-card calories">
+                                <div class="icon">&#128293;</div>
+                                <div class="value">342<span class="unit">kcal</span></div>
+                                <div class="label">卡路里</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 页面 3: 通知中心页 -->
+                    <div class="page notif-page" data-page="2">
+                        <div class="page-title">通知中心</div>
+                        <div class="notif-list">
+                            <div class="notif-item">
+                                <div class="notif-icon msg">&#128172;</div>
+                                <div class="notif-content">
+                                    <div class="notif-header">
+                                        <span class="notif-title">微信消息</span>
+                                        <span class="notif-time">2分钟前</span>
+                                    </div>
+                                    <div class="notif-text">李明: 晚上的会议改到7点了，记得准时参加。</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon system">&#127754;</div>
+                                <div class="notif-content">
+                                    <div class="notif-header">
+                                        <span class="notif-title">云汐助手</span>
+                                        <span class="notif-time">15分钟前</span>
+                                    </div>
+                                    <div class="notif-text">今日待办还有3项未完成，需要我帮你规划吗？</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon health">&#128154;</div>
+                                <div class="notif-content">
+                                    <div class="notif-header">
+                                        <span class="notif-title">健康提醒</span>
+                                        <span class="notif-time">1小时前</span>
+                                    </div>
+                                    <div class="notif-text">久坐提醒：你已经坐了2小时，起来活动一下吧。</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon reminder">&#9200;</div>
+                                <div class="notif-content">
+                                    <div class="notif-header">
+                                        <span class="notif-title">日程提醒</span>
+                                        <span class="notif-time">2小时前</span>
+                                    </div>
+                                    <div class="notif-text">下午3点 产品评审会议 将在30分钟后开始</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 页面 4: 快捷操作页 -->
+                    <div class="page quick-page" data-page="3">
+                        <div class="page-title">快捷操作</div>
+                        <div class="quick-actions">
+                            <button class="quick-btn voice" onclick="startVoiceMemo()">
+                                <div class="icon">&#127908;&#65039;</div>
+                                <div class="text">
+                                    <span class="title">语音备忘</span>
+                                    <span class="subtitle">点击开始录音</span>
+                                </div>
+                            </button>
+                            <button class="quick-btn note" onclick="quickNote()">
+                                <div class="icon">&#128221;</div>
+                                <div class="text">
+                                    <span class="title">快速记录</span>
+                                    <span class="subtitle">随手记一笔</span>
+                                </div>
+                            </button>
+                            <button class="quick-btn reminder" onclick="setReminder()">
+                                <div class="icon">&#9200;</div>
+                                <div class="text">
+                                    <span class="title">提醒设置</span>
+                                    <span class="subtitle">添加新提醒</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 页面 5: 云汐助手页 -->
+                    <div class="page assistant-page" data-page="4">
+                        <div class="assistant-header">
+                            <div class="title">&#127754; 云汐助手</div>
+                            <div class="status"><span class="status-dot"></span>在线</div>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-msg bot">你好！我是云汐助手，有什么可以帮你的吗？</div>
+                            <div class="chat-msg user">今天天气怎么样？</div>
+                            <div class="chat-msg bot">今天晴转多云，气温24-32°C，空气质量良好，适合户外活动。</div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" class="chat-input" id="chatInput" placeholder="输入消息..." onkeypress="handleKeyPress(event)">
+                            <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="语音输入">&#127908;</button>
+                            <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">&#10148;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 页面指示器 -->
+                <div class="page-indicators" id="pageIndicators">
+                    <div class="indicator active"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="watch-hint">
+            左右滑动切换页面 · 键盘 <kbd>&larr;</kbd><kbd>&rarr;</kbd> 也可以<br>
+            点击屏幕与手表交互
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // 云汐手表端 H5 原型 - 交互逻辑
+        // ============================================================
+
+        var TOTAL_PAGES = 5;
+        var currentPage = 0;
+
+        var pagesContainer = document.getElementById('pagesContainer');
+        var indicators = document.querySelectorAll('.indicator');
+        var watchScreen = document.getElementById('watchScreen');
+
+        // 页面切换
+        function goToPage(index) {
+            if (index < 0 || index >= TOTAL_PAGES) return;
+            currentPage = index;
+            pagesContainer.style.transform = 'translateX(-' + (index * 20) + '%)';
+            updateIndicators();
+        }
+
+        function updateIndicators() {
+            indicators.forEach(function(ind, i) {
+                ind.classList.toggle('active', i === currentPage);
+            });
+        }
+
+        // 触摸滑动
+        var touchStartX = 0, touchStartY = 0, isDragging = false, startTranslateX = 0;
+        var SWIPE_THRESHOLD = 50;
+
+        watchScreen.addEventListener('touchstart', function(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isDragging = true;
+            startTranslateX = -currentPage * watchScreen.offsetWidth;
+            pagesContainer.style.transition = 'none';
+        }, { passive: true });
+
+        watchScreen.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            var deltaX = e.touches[0].clientX - touchStartX;
+            var deltaY = e.touches[0].clientY - touchStartY;
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                var newTranslate = startTranslateX + deltaX;
+                if (newTranslate > 0) newTranslate *= 0.3;
+                var maxTranslate = -(TOTAL_PAGES - 1) * watchScreen.offsetWidth;
+                if (newTranslate < maxTranslate) {
+                    newTranslate = maxTranslate + (newTranslate - maxTranslate) * 0.3;
+                }
+                pagesContainer.style.transform = 'translateX(' + newTranslate + 'px)';
+            }
+        }, { passive: false });
+
+        watchScreen.addEventListener('touchend', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            pagesContainer.style.transition = '';
+            var endX = e.changedTouches[0].clientX;
+            var deltaX = endX - touchStartX;
+            if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+                if (deltaX > 0) goToPage(currentPage - 1);
+                else goToPage(currentPage + 1);
+            } else {
+                goToPage(currentPage);
+            }
+        }, { passive: true });
+
+        // 鼠标拖拽（桌面端调试）
+        var isMouseDown = false, mouseStartX = 0;
+        watchScreen.addEventListener('mousedown', function(e) {
+            isMouseDown = true;
+            mouseStartX = e.clientX;
+            startTranslateX = -currentPage * watchScreen.offsetWidth;
+            pagesContainer.style.transition = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!isMouseDown) return;
+            var deltaX = e.clientX - mouseStartX;
+            var newTranslate = startTranslateX + deltaX;
+            if (newTranslate > 0) newTranslate *= 0.3;
+            var maxTranslate = -(TOTAL_PAGES - 1) * watchScreen.offsetWidth;
+            if (newTranslate < maxTranslate) {
+                newTranslate = maxTranslate + (newTranslate - maxTranslate) * 0.3;
+            }
+            pagesContainer.style.transform = 'translateX(' + newTranslate + 'px)';
+        });
+        document.addEventListener('mouseup', function(e) {
+            if (!isMouseDown) return;
+            isMouseDown = false;
+            pagesContainer.style.transition = '';
+            var deltaX = e.clientX - mouseStartX;
+            if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+                if (deltaX > 0) goToPage(currentPage - 1);
+                else goToPage(currentPage + 1);
+            } else {
+                goToPage(currentPage);
+            }
+        });
+
+        // 键盘导航
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight') goToPage(currentPage + 1);
+            else if (e.key === 'ArrowLeft') goToPage(currentPage - 1);
+        });
+
+        // 表盘时钟
+        function updateClock() {
+            var now = new Date();
+            var h = String(now.getHours()).padStart(2, '0');
+            var m = String(now.getMinutes()).padStart(2, '0');
+            var s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('timeDisplay').innerHTML =
+                h + ':' + m + '<span class="seconds">' + s + '</span>';
+            var days = ['周日','周一','周二','周三','周四','周五','周六'];
+            document.getElementById('dateDisplay').textContent =
+                (now.getMonth()+1) + '月' + now.getDate() + '日 ' + days[now.getDay()];
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // 模拟健康数据变化
+        function simulateHealthData() {
+            var hr = 65 + Math.floor(Math.random() * 15);
+            document.getElementById('heartRate').textContent = hr;
+            updateRing('.ring-heart .ring-fill', hr / 100);
+            var steps = 6324 + Math.floor(Math.random() * 50);
+            document.getElementById('stepCount').textContent = (steps / 1000).toFixed(1) + 'k';
+            updateRing('.ring-steps .ring-fill', Math.min(steps / 10000, 1));
+        }
+        function updateRing(selector, percent) {
+            var ring = document.querySelector(selector);
+            if (ring) {
+                var c = 2 * Math.PI * 20;
+                ring.style.strokeDashoffset = c * (1 - percent);
+            }
+        }
+        setInterval(simulateHealthData, 5000);
+
+        // 快捷操作
+        function startVoiceMemo() {
+            alert('语音备忘功能已启动\n（原型演示）');
+        }
+        function quickNote() {
+            var n = prompt('快速记录', '');
+            if (n && n.trim()) alert('已保存到云汐笔记');
+        }
+        function setReminder() {
+            var r = prompt('设置提醒', '');
+            if (r && r.trim()) alert('提醒已设置');
+        }
+
+        // 助手对话
+        var chatMessagesEl = document.getElementById('chatMessages');
+        var chatInput = document.getElementById('chatInput');
+        var voiceBtn = document.getElementById('voiceBtn');
+        var isRecording = false;
+
+        function sendMessage() {
+            var text = chatInput.value.trim();
+            if (!text) return;
+            addMessage(text, 'user');
+            chatInput.value = '';
+            setTimeout(function() {
+                var replies = [
+                    '好的，我来帮你处理这个问题。',
+                    '明白，这是我的建议...',
+                    '收到，让我想想怎么回答。',
+                    '这是个好问题！我的想法是...',
+                    '没问题，已经为你记录下来了。'
+                ];
+                addMessage(replies[Math.floor(Math.random() * replies.length)], 'bot');
+            }, 800 + Math.random() * 500);
+        }
+        function addMessage(text, type) {
+            var msg = document.createElement('div');
+            msg.className = 'chat-msg ' + type;
+            msg.textContent = text;
+            chatMessagesEl.appendChild(msg);
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        }
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+        function toggleVoice() {
+            isRecording = !isRecording;
+            voiceBtn.classList.toggle('recording', isRecording);
+            voiceBtn.textContent = isRecording ? '\u23F9' : '\uD83C\uDFA4';
+            if (isRecording) {
+                setTimeout(function() {
+                    if (isRecording) {
+                        toggleVoice();
+                        chatInput.value = '今天有什么安排？';
+                    }
+                }, 2000);
+            }
+        }
+
+        // 指示器点击
+        indicators.forEach(function(ind, i) {
+            ind.addEventListener('click', function() { goToPage(i); });
+        });
+
+        console.log('%c 云汐系统 v1.1 · 手表端 H5 原型', 'color: #38bdf8; font-size: 14px; font-weight: bold;');
+        console.log('%c共 ' + TOTAL_PAGES + ' 个页面，支持滑动/键盘/点击切换', 'color: rgba(255,255,255,0.6);');
+    </script>
+</body>
+</html>

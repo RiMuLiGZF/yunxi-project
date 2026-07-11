@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 日志
+*.log
+logs/
+
+# 缓存
+.pytest_cache/
+.mypy_cache/
+.cache/
+*.tmp
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 备份目录
+*_backup*/
+*.bak
+*.backup
+
+# 版本备份
+version_backup/
+
+# 旧git迁移
+.git.old_migration/
+
+# 旧版废弃目录
+M6-wearable-hardware/
+M7-block-orchestration/
+M1-agent-cluster_old2/
+M1-agent-cluster_backup_20260711/
+M1-agent-cluster_backup_20260711.7z
+
+# 备份说明文件
+备份说明.txt
+备份目录说明.md
+BACKUP_ANCHOR.txt
+
+# 测试环境
+.env.test
+
+# Git备份
+.git.backup_before_fix/
+
+# 暂从版本控制排除的目录（文件系统损坏导致Git无法读取，待修复后可重新加入）
+# 完整备份见: c:\云汐\工作台\云汐系统备份\
+M1-agent-cluster/
+M5-tide-memory/
+M8-control-tower/

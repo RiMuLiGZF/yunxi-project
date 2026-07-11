@@ -1,0 +1,139 @@
+"""硬件桥接配置.
+
+定义M3与各类硬件形态的桥接规则，支持桌面屏、笔记本、智能手表、无人机、智能戒指等。
+
+硬件接入模式:
+  desktop:    桌面屏（主力环境）
+  laptop:     笔记本（降级环境）
+  smartwatch: 智能手表（极简环境）
+  drone:      无人机（专用环境）
+  ring:       智能戒指（传感环境）
+
+"""
+
+# 硬件类型注册表
+hardware_types:
+  desktop:
+    display_name: "桌面屏"
+    # 默认同步策略
+    sync_strategy:
+      mode: bidirectional           # 双向同步
+      scopes: [user_preferences, agent_configs, note_metadata, review_reports, session_history]
+      realtime: true                # 实时同步
+      batch_size: 100               # 每批最多100条
+    # 通信协议配置
+    transport:
+      primary: https                # 主通道: HTTPS
+      fallback: websocket           # 降级通道: WebSocket
+      heartbeat_interval_sec: 30    # 心跳间隔
+    # 资源限制
+    resource_limits:
+      max_cache_mb: 4096
+      max_concurrent_sync: 5
+      sync_timeout_sec: 60
+    # 降级策略
+    degradation:
+      network_poor: reduce_batch    # 网络差时降低批次大小
+      low_battery: pause_non_essential  # 低电量暂停非必要同步
+
+  laptop:
+    display_name: "笔记本"
+    sync_strategy:
+      mode: bidirectional
+      scopes: [user_preferences, agent_configs, note_metadata]
+      realtime: false               # 非实时，定时同步
+      interval_min: 5               # 每5分钟同步一次
+      batch_size: 50
+    transport:
+      primary: https
+      fallback: https_poll          # 降级为轮询
+      heartbeat_interval_sec: 60
+    resource_limits:
+      max_cache_mb: 2048
+      max_concurrent_sync: 3
+      sync_timeout_sec: 45
+    degradation:
+      network_poor: switch_to_poll
+      low_battery: pause_sync
+      thermal_throttle: reduce_rate
+
+  smartwatch:
+    display_name: "智能手表"
+    sync_strategy:
+      mode: upload_only             # 仅上传（手表数据→云端）
+      scopes: [health_data, activity_logs]
+      realtime: false
+      interval_min: 15              # 每15分钟同步
+      batch_size: 10
+    transport:
+      primary: bluetooth_le         # 蓝牙BLE→手机代理
+      proxy_device: smartphone      # 代理设备
+      fallback: wifi_direct         # 降级: WiFi直连
+      heartbeat_interval_sec: 300
+    resource_limits:
+      max_cache_mb: 64
+      max_concurrent_sync: 1
+      sync_timeout_sec: 30
+    degradation:
+      low_battery: pause_all
+      bluetooth_disconnected: queue_locally  # 蓝牙断开时本地排队
+
+  drone:
+    display_name: "无人机"
+    sync_strategy:
+      mode: bidirectional
+      scopes: [flight_logs, telemetry, mission_data]
+      realtime: true                # 飞行中实时同步
+      batch_size: 20
+    transport:
+      primary: 4g_lte               # 4G LTE
+      fallback: radio_link          # 降级: 专用无线链路
+      heartbeat_interval_sec: 10    # 高频心跳
+    resource_limits:
+      max_cache_mb: 512
+      max_concurrent_sync: 2
+      sync_timeout_sec: 20
+    degradation:
+      signal_weak: compress_payload   # 信号弱时压缩载荷
+      low_battery: emergency_upload   # 低电量紧急上传
+      out_of_range: store_local       # 超范围时本地存储
+
+  ring:
+    display_name: "智能戒指"
+    sync_strategy:
+      mode: upload_only
+      scopes: [sensor_data, gesture_logs]
+      realtime: false
+      interval_min: 30
+      batch_size: 5
+    transport:
+      primary: bluetooth_le
+      proxy_device: smartphone
+      fallback: nfc                 # 降级: NFC近场
+      heartbeat_interval_sec: 600
+    resource_limits:
+      max_cache_mb: 16
+      max_concurrent_sync: 1
+      sync_timeout_sec: 15
+    degradation:
+      low_battery: pause_all
+      bluetooth_disconnected: queue_locally
+
+# 全局桥接规则
+bridge_rules:
+  # 设备发现超时
+  device_discovery_timeout_sec: 10
+  # 代理设备缓存时间
+  proxy_cache_ttl_sec: 300
+  # 硬件变更通知Topic
+  hardware_change_topic: "hardware.device.changed"
+  # 自动降级检测间隔
+  auto_degradation_check_sec: 60
+
+# 同步优先级映射（硬件类型 -> 同步优先级）
+sync_priority:
+  drone: 10       # 无人机最高（安全相关）
+  desktop: 5      # 桌面屏正常
+  laptop: 4       # 笔记本正常
+  smartwatch: 3   # 手表较低
+  ring: 2         # 戒指最低

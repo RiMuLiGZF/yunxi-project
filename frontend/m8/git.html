@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git 看板 - 云汐管理台</title>
+    <style id="theme-vars">
+/* ============================================================
+   M8 云汐管理台 (M8 Control Tower) — Brand Design Tokens
+   ============================================================ */
+
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #0891b2;
+  --color-gradient-start: #2563eb;
+  --color-gradient-end: #0891b2;
+
+  --color-bg-base: #e8f4f8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+
+  --color-border-default: rgba(15, 23, 42, 0.1);
+  --color-border-subtle: rgba(15, 23, 42, 0.06);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #2563eb;
+
+  --font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.625rem;
+
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+}
+
+html.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-secondary: #06b6d4;
+  --color-gradient-start: #3b82f6;
+  --color-gradient-end: #06b6d4;
+
+  --color-bg-base: #0a1929;
+  --color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --color-bg-card: rgba(16, 40, 65, 0.65);
+  --color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+
+  --color-border-default: rgba(148, 163, 184, 0.12);
+  --color-border-subtle: rgba(148, 163, 184, 0.06);
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+
+  --state-success: #10b981;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+html {
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  min-height: 100%;
+}
+
+body {
+  background: transparent;
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.glass-surface {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+html:not(.dark) .glass-surface {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+}
+
+.text-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.text-subheading {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="min-h-screen antialiased" style="background: var(--color-bg-gradient); background-attachment: fixed;">
+
+    <div class="flex min-h-screen">
+
+        <!-- ========== LEFT SIDEBAR ========== -->
+        <aside class="fixed left-0 top-0 bottom-0 w-[240px] flex flex-col z-[200]"
+               style="background: rgba(6, 18, 32, 0.95); border-right: 1px solid var(--color-border-subtle);">
+
+            <!-- Logo Area -->
+            <div class="flex items-center gap-3 px-5 h-14 shrink-0"
+                 style="border-bottom: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center brand-gradient-bg">
+                    <i data-lucide="hexagon" class="w-4 h-4" style="color: white;"></i>
+                </div>
+                <span class="text-lg font-semibold brand-gradient-text whitespace-nowrap"
+                      style="font-family: var(--font-family-display);">云汐 M8</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto no-scrollbar">
+                <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    总览
+                </a>
+                <a href="tasks.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="list-checks" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    任务中心
+                </a>
+                <a href="modules.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="boxes" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    模块管理
+                </a>
+                <a href="monitor.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="activity" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    系统监控
+                </a>
+                <a href="git.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+                   style="background: rgba(59, 130, 246, 0.1); color: var(--color-text-primary); border-left: 3px solid var(--color-primary);">
+                    <i data-lucide="git-branch" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-primary);"></i>
+                    Git 看板
+                </a>
+                <a href="settings.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all hover:opacity-80"
+                   style="color: var(--color-text-secondary);">
+                    <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0" style="color: var(--color-text-tertiary);"></i>
+                    系统设置
+                </a>
+            </nav>
+
+            <!-- User Info -->
+            <div class="flex items-center gap-3 px-5 py-4 shrink-0"
+                 style="border-top: 1px solid var(--color-border-subtle);">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                     style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                <span class="text-sm whitespace-nowrap truncate" style="color: var(--color-text-secondary);">管理员</span>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN AREA ========== -->
+        <div class="flex-1 flex flex-col" style="margin-left: 240px;">
+
+            <!-- Top Header Bar -->
+            <header class="flex items-center justify-between px-6 h-14 shrink-0"
+                    style="background: rgba(10, 25, 41, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-border-subtle);">
+                <nav class="flex items-center gap-2 text-sm" style="color: var(--color-text-tertiary);">
+                    <span>首页</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    <span style="color: var(--color-text-primary);">Git 看板</span>
+                </nav>
+                <div class="flex items-center gap-3">
+                    <button onclick="refreshAll()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all hover:opacity-80"
+                            style="background: rgba(59, 130, 246, 0.1); color: var(--color-primary); border: 1px solid rgba(59, 130, 246, 0.2);">
+                        <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+                        刷新
+                    </button>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                         style="background: rgba(59, 130, 246, 0.2); color: var(--color-primary);">管</div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6" style="max-width: var(--content-max-width);">
+
+                <!-- ===== KPI Cards ===== -->
+                <section class="grid grid-cols-4 gap-4 mb-6">
+
+                    <!-- Card 1: 当前分支 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2 text-label">当前分支</p>
+                                <p class="text-2xl font-bold whitespace-nowrap truncate" id="current-branch"
+                                   style="color: var(--color-text-primary); font-family: var(--font-family-display);">加载中...</p>
+                                <p class="text-xs mt-1 whitespace-nowrap" id="ahead-behind"
+                                   style="color: var(--color-text-secondary);">--</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(59, 130, 246, 0.1);">
+                                <i data-lucide="git-branch" class="w-5 h-5" style="color: var(--color-primary);"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: 变更文件数 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2 text-label">变更文件</p>
+                                <p class="text-2xl font-bold whitespace-nowrap" id="changed-total"
+                                   style="color: var(--state-warning); font-family: var(--font-family-display);">--</p>
+                                <p class="text-xs mt-1 whitespace-nowrap" id="changed-detail"
+                                   style="color: var(--color-text-secondary);">--</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(245, 158, 11, 0.1);">
+                                <i data-lucide="file-diff" class="w-5 h-5" style="color: var(--state-warning);"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: 本地分支数 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2 text-label">本地分支</p>
+                                <p class="text-2xl font-bold whitespace-nowrap" id="local-branches"
+                                   style="color: var(--color-text-primary); font-family: var(--font-family-display);">--</p>
+                                <p class="text-xs mt-1 whitespace-nowrap" id="remote-branches-info"
+                                   style="color: var(--color-text-secondary);">--</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(6, 182, 212, 0.1);">
+                                <i data-lucide="git-fork" class="w-5 h-5" style="color: var(--color-secondary);"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: 最近提交 -->
+                    <div class="glass-surface rounded-xl p-5 relative overflow-hidden"
+                         style="border-radius: var(--radius-lg);">
+                        <div class="absolute top-0 left-0 right-0 h-[2px] brand-gradient-bg"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-medium whitespace-nowrap mb-2 text-label">最近提交</p>
+                                <p class="text-lg font-bold truncate" id="last-commit-hash"
+                                   style="color: var(--state-success); font-family: var(--font-family-mono); font-size: var(--text-base);">--</p>
+                                <p class="text-xs mt-1 truncate" id="last-commit-msg"
+                                   style="color: var(--color-text-secondary);">--</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                 style="background: rgba(16, 185, 129, 0.1);">
+                                <i data-lucide="git-commit" class="w-5 h-5" style="color: var(--state-success);"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== Main Grid ===== -->
+                <section class="grid grid-cols-12 gap-4">
+
+                    <!-- 提交记录 -->
+                    <div class="col-span-7">
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">
+                                    <i data-lucide="history" class="w-4 h-4 inline mr-2" style="color: var(--color-primary);"></i>
+                                    最近提交记录
+                                </h3>
+                                <span class="text-xs px-2 py-1 rounded" style="background: rgba(148, 163, 184, 0.1); color: var(--color-text-tertiary);" id="commit-count">--</span>
+                            </div>
+                            <div id="commits-list" style="max-height: 480px; overflow-y: auto;" class="no-scrollbar">
+                                <div class="text-center py-8" style="color: var(--color-text-tertiary);">
+                                    <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                                    加载中...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧面板 -->
+                    <div class="col-span-5 flex flex-col gap-4">
+
+                        <!-- 变更文件列表 -->
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">
+                                    <i data-lucide="folder-diff" class="w-4 h-4 inline mr-2" style="color: var(--state-warning);"></i>
+                                    变更文件
+                                </h3>
+                                <button onclick="openCommitModal()" class="text-xs px-3 py-1 rounded-md transition-all hover:opacity-80"
+                                        style="background: var(--color-primary); color: white;">
+                                    提交
+                                </button>
+                            </div>
+                            <div id="changed-files-list" style="max-height: 200px; overflow-y: auto;" class="no-scrollbar">
+                                <div class="text-center py-6 text-xs" style="color: var(--color-text-tertiary);">加载中...</div>
+                            </div>
+                        </div>
+
+                        <!-- 分支列表 -->
+                        <div class="glass-surface rounded-xl p-4" style="border-radius: var(--radius-lg);">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-subheading" style="color: var(--color-text-primary);">
+                                    <i data-lucide="git-branch-plus" class="w-4 h-4 inline mr-2" style="color: var(--color-secondary);"></i>
+                                    分支列表
+                                </h3>
+                            </div>
+                            <div id="branches-list" style="max-height: 200px; overflow-y: auto;" class="no-scrollbar">
+                                <div class="text-center py-6 text-xs" style="color: var(--color-text-tertiary);">加载中...</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ===== 提交弹窗 ===== -->
+    <div id="commit-modal" class="fixed inset-0 z-[500] hidden items-center justify-center"
+         style="background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);">
+        <div class="glass-surface rounded-xl p-6 w-full max-w-md mx-4" style="border-radius: var(--radius-lg);">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-subheading" style="color: var(--color-text-primary);">
+                    <i data-lucide="git-commit" class="w-4 h-4 inline mr-2" style="color: var(--color-primary);"></i>
+                    提交变更
+                </h3>
+                <button onclick="closeCommitModal()" class="w-7 h-7 rounded-md flex items-center justify-center transition-all hover:opacity-80"
+                        style="color: var(--color-text-tertiary);">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--color-text-secondary);">提交信息</label>
+                    <input type="text" id="commit-message" placeholder="feat(m8): add git status dashboard"
+                           class="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
+                           style="background: rgba(148, 163, 184, 0.06); border: 1px solid var(--color-border-default); color: var(--color-text-primary);">
+                    <p class="text-xs mt-1" style="color: var(--color-text-tertiary);">
+                        格式: &lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="add-all" class="w-4 h-4 rounded" checked>
+                    <label for="add-all" class="text-sm" style="color: var(--color-text-secondary);">
+                        自动添加所有变更文件 (git add -A)
+                    </label>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button onclick="closeCommitModal()" class="flex-1 px-4 py-2 rounded-lg text-sm transition-all hover:opacity-80"
+                            style="background: rgba(148, 163, 184, 0.1); color: var(--color-text-secondary); border: 1px solid var(--color-border-default);">
+                        取消
+                    </button>
+                    <button onclick="doCommit()" class="flex-1 px-4 py-2 rounded-lg text-sm transition-all hover:opacity-80"
+                            style="background: var(--color-primary); color: white;">
+                        提交
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Toast ===== -->
+    <div id="toast" class="fixed top-5 right-5 z-[600] hidden px-4 py-3 rounded-lg text-sm shadow-lg transition-all"
+         style="background: rgba(16, 185, 129, 0.9); color: white; backdrop-filter: blur(8px);">
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // ========== API 工具 ==========
+        const API_BASE = '/api/git';
+
+        function getAuthToken() {
+            return localStorage.getItem('m8_token') || '';
+        }
+
+        async function apiGet(path) {
+            const res = await fetch(API_BASE + path, {
+                headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+            });
+            return await res.json();
+        }
+
+        async function apiPost(path, data) {
+            const res = await fetch(API_BASE + path, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getAuthToken()
+                },
+                body: JSON.stringify(data)
+            });
+            return await res.json();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toast-message');
+            msg.textContent = message;
+            toast.style.background = type === 'success' ? 'rgba(16, 185, 129, 0.9)' :
+                                     type === 'error' ? 'rgba(239, 68, 68, 0.9)' :
+                                     'rgba(59, 130, 246, 0.9)';
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // ========== 数据加载 ==========
+        async function loadStatus() {
+            try {
+                const res = await apiGet('/status');
+                if (res.code === 0 && res.data) {
+                    const d = res.data;
+                    document.getElementById('current-branch').textContent = d.branch || 'unknown';
+
+                    const ab = [];
+                    if (d.ahead > 0) ab.push(`领先 ${d.ahead}`);
+                    if (d.behind > 0) ab.push(`落后 ${d.behind}`);
+                    document.getElementById('ahead-behind').textContent = ab.length ? ab.join('，') : '与远程同步';
+
+                    document.getElementById('changed-total').textContent = d.changed_files.total;
+                    document.getElementById('changed-detail').textContent =
+                        `暂存 ${d.changed_files.staged} · 未暂存 ${d.changed_files.unstaged} · 未跟踪 ${d.changed_files.untracked}`;
+
+                    if (d.last_commit) {
+                        document.getElementById('last-commit-hash').textContent = d.last_commit.hash.substring(0, 7);
+                        document.getElementById('last-commit-msg').textContent = d.last_commit.message;
+                    } else {
+                        document.getElementById('last-commit-hash').textContent = '无提交';
+                        document.getElementById('last-commit-msg').textContent = '--';
+                    }
+
+                    // 变更文件列表
+                    renderChangedFiles(d.changed_files.files || []);
+                }
+            } catch (e) {
+                console.error('加载状态失败:', e);
+            }
+        }
+
+        async function loadCommits() {
+            try {
+                const res = await apiGet('/commits?limit=20');
+                if (res.code === 0 && res.data) {
+                    document.getElementById('commit-count').textContent = res.data.total + ' 条';
+                    renderCommits(res.data.items || []);
+                }
+            } catch (e) {
+                console.error('加载提交记录失败:', e);
+            }
+        }
+
+        async function loadBranches() {
+            try {
+                const res = await apiGet('/branches');
+                if (res.code === 0 && res.data) {
+                    document.getElementById('local-branches').textContent = res.data.local.total;
+                    document.getElementById('remote-branches-info').textContent = `远程 ${res.data.remote.total} 个`;
+                    renderBranches(res.data.local.items || [], res.data.current_branch);
+                }
+            } catch (e) {
+                console.error('加载分支列表失败:', e);
+            }
+        }
+
+        // ========== 渲染 ==========
+        function renderCommits(commits) {
+            const container = document.getElementById('commits-list');
+            if (!commits.length) {
+                container.innerHTML = '<div class="text-center py-8 text-xs" style="color: var(--color-text-tertiary);">暂无提交记录</div>';
+                return;
+            }
+
+            let html = '';
+            commits.forEach((c, i) => {
+                const date = c.date ? c.date.substring(0, 16) : '--';
+                const isLast = i === commits.length - 1;
+                html += `
+                    <div class="flex gap-3 pb-3 ${isLast ? '' : 'mb-3'}" style="${isLast ? '' : 'border-bottom: 1px solid var(--color-border-subtle);'}">
+                        <div class="flex flex-col items-center shrink-0">
+                            <div class="w-3 h-3 rounded-full brand-gradient-bg mt-1"></div>
+                            ${isLast ? '' : '<div class="flex-1 w-px mt-1" style="background: var(--color-border-subtle);"></div>'}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-sm font-medium truncate" style="color: var(--color-text-primary);">${escapeHtml(c.message)}</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-xs" style="color: var(--color-text-tertiary);">
+                                <span style="font-family: var(--font-family-mono);">${c.short_hash || c.hash.substring(0,7)}</span>
+                                <span>${escapeHtml(c.author || '')}</span>
+                                <span>${date}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderChangedFiles(files) {
+            const container = document.getElementById('changed-files-list');
+            if (!files.length) {
+                container.innerHTML = '<div class="text-center py-6 text-xs" style="color: var(--color-text-tertiary);">工作区干净，无变更文件</div>';
+                return;
+            }
+
+            let html = '';
+            files.forEach(f => {
+                const status = f.status || '';
+                let badgeColor = 'var(--color-text-tertiary)';
+                let badgeBg = 'rgba(148, 163, 184, 0.1)';
+                let statusText = status;
+
+                if (status.includes('M')) { badgeColor = 'var(--state-warning)'; badgeBg = 'rgba(245, 158, 11, 0.1)'; statusText = '修改'; }
+                else if (status.includes('A')) { badgeColor = 'var(--state-success)'; badgeBg = 'rgba(16, 185, 129, 0.1)'; statusText = '新增'; }
+                else if (status.includes('D')) { badgeColor = 'var(--state-error)'; badgeBg = 'rgba(239, 68, 68, 0.1)'; statusText = '删除'; }
+                else if (status === '??') { badgeColor = 'var(--color-text-secondary)'; badgeBg = 'rgba(148, 163, 184, 0.1)'; statusText = '未跟踪'; }
+
+                const fileName = f.file.length > 50 ? '...' + f.file.substring(f.file.length - 47) : f.file;
+                html += `
+                    <div class="flex items-center gap-2 py-1.5 px-2 rounded transition-all hover:opacity-80 cursor-pointer"
+                         onclick="viewDiff('${escapeJs(f.file)}', ${f.staged})"
+                         style="border-bottom: 1px solid var(--color-border-subtle);">
+                        <span class="text-xs px-1.5 py-0.5 rounded shrink-0" style="background: ${badgeBg}; color: ${badgeColor};">${statusText}</span>
+                        <span class="text-xs truncate flex-1" style="color: var(--color-text-secondary); font-family: var(--font-family-mono);" title="${escapeHtml(f.file)}">${escapeHtml(fileName)}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderBranches(branches, current) {
+            const container = document.getElementById('branches-list');
+            if (!branches.length) {
+                container.innerHTML = '<div class="text-center py-6 text-xs" style="color: var(--color-text-tertiary);">暂无分支</div>';
+                return;
+            }
+
+            let html = '';
+            branches.forEach(b => {
+                const isCurrent = b.name === current;
+                const date = b.last_commit_date ? b.last_commit_date.substring(0, 10) : '--';
+                html += `
+                    <div class="flex items-center gap-2 py-1.5 px-2 rounded transition-all"
+                         style="border-bottom: 1px solid var(--color-border-subtle); ${isCurrent ? 'background: rgba(59, 130, 246, 0.08);' : ''}">
+                        ${isCurrent ? '<i data-lucide="check" class="w-3 h-3 shrink-0" style="color: var(--color-primary);"></i>' : '<div class="w-3 h-3 shrink-0"></div>'}
+                        <span class="text-sm flex-1 truncate" style="color: ${isCurrent ? 'var(--color-primary)' : 'var(--color-text-secondary)'}; font-family: var(--font-family-mono); font-size: var(--text-xs);">${escapeHtml(b.name)}</span>
+                        <span class="text-xs shrink-0" style="color: var(--color-text-tertiary);">${date}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // ========== 操作 ==========
+        function openCommitModal() {
+            document.getElementById('commit-modal').classList.remove('hidden');
+            document.getElementById('commit-modal').classList.add('flex');
+            document.getElementById('commit-message').focus();
+        }
+
+        function closeCommitModal() {
+            document.getElementById('commit-modal').classList.add('hidden');
+            document.getElementById('commit-modal').classList.remove('flex');
+            document.getElementById('commit-message').value = '';
+        }
+
+        async function doCommit() {
+            const message = document.getElementById('commit-message').value.trim();
+            const addAll = document.getElementById('add-all').checked;
+
+            if (!message) {
+                showToast('请输入提交信息', 'error');
+                return;
+            }
+
+            try {
+                const res = await apiPost('/commit', { message, add_all: addAll });
+                if (res.code === 0) {
+                    showToast('提交成功: ' + res.data.short_hash);
+                    closeCommitModal();
+                    refreshAll();
+                } else {
+                    showToast(res.message || '提交失败', 'error');
+                }
+            } catch (e) {
+                showToast('提交请求失败', 'error');
+            }
+        }
+
+        function viewDiff(file, staged) {
+            // 简单实现：打开新标签查看 diff
+            const token = getAuthToken();
+            const url = API_BASE + '/diff?file=' + encodeURIComponent(file) + '&staged=' + staged;
+            // 使用 fetch 并在弹窗中显示
+            fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.code === 0 && res.data) {
+                        const diffText = res.data.diff || '(无差异)';
+                        alert(`文件: ${file}\n\n${diffText.substring(0, 2000)}${diffText.length > 2000 ? '\n...(已截断)' : ''}`);
+                    } else {
+                        showToast(res.message || '获取 diff 失败', 'error');
+                    }
+                })
+                .catch(() => showToast('获取 diff 失败', 'error'));
+        }
+
+        function refreshAll() {
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+            Promise.all([loadStatus(), loadCommits(), loadBranches()]).then(() => {
+                if (icon) icon.style.animation = '';
+                lucide.createIcons();
+            });
+        }
+
+        // ========== 工具函数 ==========
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeJs(text) {
+            return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            refreshAll();
+
+            // 自动刷新（每 30 秒）
+            setInterval(refreshAll, 30000);
+        });
+
+        // ESC 关闭弹窗
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeCommitModal();
+        });
+    </script>
+
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        .grid { display: grid; }
+        .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+        .col-span-7 { grid-column: span 7 / span 7; }
+        .col-span-5 { grid-column: span 5 / span 5; }
+        .gap-4 { gap: 1rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-1 { gap: 0.25rem; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1 1 0%; }
+        .shrink-0 { flex-shrink: 0; }
+        .min-w-0 { min-width: 0px; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .items-start { align-items: flex-start; }
+        .fixed { position: fixed; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .top-0 { top: 0; }
+        .right-5 { right: 1.25rem; }
+        .left-0 { left: 0; }
+        .bottom-0 { bottom: 0; }
+        .top-5 { top: 1.25rem; }
+        .z-\[200\] { z-index: 200; }
+        .z-\[500\] { z-index: 500; }
+        .z-\[600\] { z-index: 600; }
+        .w-full { width: 100%; }
+        .w-8 { width: 2rem; }
+        .w-10 { width: 2.5rem; }
+        .w-3 { width: 0.75rem; }
+        .w-4 { width: 1rem; }
+        .w-7 { width: 1.75rem; }
+        .w-px { width: 1px; }
+        .w-\[18px\] { width: 18px; }
+        .w-\[240px\] { width: 240px; }
+        .w-\[240px\] { width: 240px; }
+        .max-w-md { max-width: 28rem; }
+        .max-w-full { max-width: 100%; }
+        .h-14 { height: 3.5rem; }
+        .h-8 { height: 2rem; }
+        .h-10 { height: 2.5rem; }
+        .h-3 { height: 0.75rem; }
+        .h-4 { height: 1rem; }
+        .h-7 { height: 1.75rem; }
+        .h-\[18px\] { height: 18px; }
+        .h-\[2px\] { height: 2px; }
+        .min-h-screen { min-height: 100vh; }
+        .p-6 { padding: 1.5rem; }
+        .p-5 { padding: 1.25rem; }
+        .p-4 { padding: 1rem; }
+        .p-3 { padding: 0.75rem; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
+        .pt-2 { padding-top: 0.5rem; }
+        .pt-1 { padding-top: 0.25rem; }
+        .pb-3 { padding-bottom: 0.75rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 0.75rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-1\.5 { margin-bottom: 0.375rem; }
+        .mt-1 { margin-top: 0.25rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .mx-4 { margin-left: 1rem; margin-right: 1rem; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .text-center { text-align: center; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .whitespace-nowrap { white-space: nowrap; }
+        .overflow-y-auto { overflow-y: auto; }
+        .overflow-hidden { overflow: hidden; }
+        .hidden { display: none; }
+        .block { display: block; }
+        .inline { display: inline; }
+        .rounded-lg { border-radius: var(--radius-lg); }
+        .rounded-xl { border-radius: var(--radius-xl); }
+        .rounded-full { border-radius: var(--radius-full); }
+        .rounded-md { border-radius: var(--radius-md); }
+        .rounded { border-radius: var(--radius-sm); }
+        .font-medium { font-weight: 500; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .text-xs { font-size: var(--text-xs); }
+        .text-sm { font-size: var(--text-sm); }
+        .text-base { font-size: var(--text-base); }
+        .text-lg { font-size: var(--text-lg); }
+        .text-2xl { font-size: var(--text-2xl); }
+        .opacity-80 { opacity: 0.8; }
+        .cursor-pointer { cursor: pointer; }
+        .outline-none { outline: none; }
+    </style>
+</body>
+</html>

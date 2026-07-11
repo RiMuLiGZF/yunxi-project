@@ -1,0 +1,43 @@
+{
+  "dialog_id": "dialog-001",
+  "dialog_name": "M1架构开发对话",
+  "description": "M1多Agent集群调度模块架构设计与开发",
+  "created_at": "2026-07-08T09:00:00",
+  "updated_at": "2026-07-08T10:30:00",
+  "artifact_count": 2,
+  "modules": [
+    "M1"
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "artifact-001",
+      "name": "m1-100-concurrent-test-report",
+      "type": "report",
+      "module": "M1",
+      "path": "by-module/M1-agent-cluster/m1-100-concurrent-test-report.md",
+      "description": "M1调度中心100并发压力测试报告",
+      "tags": [
+        "M1",
+        "report",
+        "测试",
+        "报告"
+      ],
+      "added_at": "2026-07-08T09:30:00"
+    },
+    {
+      "artifact_id": "artifact-002",
+      "name": "m1-architecture-design",
+      "type": "doc",
+      "module": "M1",
+      "path": "by-module/M1-agent-cluster/m1-architecture-design.md",
+      "description": "M1多Agent集群调度架构设计文档",
+      "tags": [
+        "M1",
+        "doc",
+        "架构",
+        "设计"
+      ],
+      "added_at": "2026-07-08T09:00:00"
+    }
+  ]
+}

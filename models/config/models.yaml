@@ -1,0 +1,122 @@
+# ============================================================
+# 云汐系统 - 模型配置清单
+# 定义系统支持的所有模型及其参数
+# ============================================================
+
+# 默认模型配置
+default:
+  provider: ollama          # 默认提供方: ollama / deepseek / openai
+  chat_model: qwen2.5:7b    # 默认对话模型
+  embedding_model: nomic-embed-text  # 默认嵌入模型
+
+# 模型清单
+models:
+  # ========== 本地 Ollama 模型 ==========
+  - name: qwen2.5:7b
+    provider: ollama
+    type: chat
+    display_name: 通义千问2.5 (7B)
+    description: 阿里云开源的对话模型，中文能力优秀，7B参数适合本地部署
+    size: 4.7GB
+    context_window: 32768
+    parameters:
+      temperature: 0.7
+      top_p: 0.9
+      max_tokens: 8192
+    recommended: true
+    status: installed
+
+  - name: qwen2.5:14b
+    provider: ollama
+    type: chat
+    display_name: 通义千问2.5 (14B)
+    description: 更大参数版本，推理能力更强，需更多显存
+    size: 8.5GB
+    context_window: 32768
+    parameters:
+      temperature: 0.7
+      top_p: 0.9
+      max_tokens: 8192
+    status: available
+
+  - name: qwen2.5:1.5b
+    provider: ollama
+    type: chat
+    display_name: 通义千问2.5 (1.5B)
+    description: 轻量版本，速度快，适合简单任务和低配置机器
+    size: 934MB
+    context_window: 32768
+    parameters:
+      temperature: 0.7
+      top_p: 0.9
+      max_tokens: 4096
+    status: available
+
+  - name: qwen2.5-coder:7b
+    provider: ollama
+    type: code
+    display_name: 通义千问2.5 代码版 (7B)
+    description: 专门优化的代码生成模型
+    size: 4.7GB
+    context_window: 128000
+    status: available
+
+  - name: nomic-embed-text
+    provider: ollama
+    type: embedding
+    display_name: Nomic 嵌入模型
+    description: 高质量文本嵌入模型，适合向量检索
+    size: 274MB
+    dimensions: 768
+    status: available
+
+  - name: bge-m3
+    provider: ollama
+    type: embedding
+    display_name: BGE M3 嵌入模型
+    description: 多语言多粒度嵌入模型，中文效果优秀
+    size: 1.2GB
+    dimensions: 1024
+    status: available
+
+  - name: qwen2.5-vl:7b
+    provider: ollama
+    type: multimodal
+    display_name: 通义千问2.5 视觉版 (7B)
+    description: 支持图像理解的多模态模型
+    size: 5.8GB
+    status: available
+
+  # ========== 云端 API 模型 ==========
+  - name: deepseek-chat
+    provider: deepseek
+    type: chat
+    display_name: DeepSeek 对话
+    description: DeepSeek 官方对话 API
+    context_window: 64000
+    parameters:
+      temperature: 0.7
+      max_tokens: 4096
+    status: available
+
+  - name: deepseek-reasoner
+    provider: deepseek
+    type: chat
+    display_name: DeepSeek 推理
+    description: DeepSeek R1 推理模型，擅长数学和逻辑
+    context_window: 64000
+    status: available
+
+# Ollama 服务配置
+ollama:
+  base_url: http://localhost:11434
+  default_timeout: 120
+  keep_alive: 5m
+  max_parallel: 1
+  gpu_layers: 0  # 0=自动，-1=全量GPU offload
+
+# Agent 配置（预留）
+agents:
+  default_framework: builtin  # builtin / autogen / metagpt
+  max_iterations: 10
+  default_model: qwen2.5:7b
