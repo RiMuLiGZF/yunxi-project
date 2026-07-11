@@ -1271,7 +1271,282 @@
       border-radius: 4px;
       transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
-  </style>
+  
+
+/* ===== Panel切换（与生活管理模式一致） ===== */
+.content-panel {
+  display: block;
+  animation: fadeSlideIn 0.25s ease;
+}
+.content-panel.panel-hidden {
+  display: none;
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.panel-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.panel-card-full {
+  margin-bottom: 0;
+}
+.panel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.panel-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.panel-card-subtitle {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.panel-card-action {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.panel-card-action:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.panel-card-body {
+  padding: 20px;
+}
+
+/* 技能追踪 */
+.skill-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.skill-category { }
+.skill-cat-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.skill-cat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.skill-cat-progress {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+.skill-cat-bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.skill-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+.skill-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.skill-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 6px 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: 8px;
+}
+.skill-item.mastered .skill-dot { background: #52C41A; }
+.skill-item.learning .skill-dot { background: #FAAD14; }
+.skill-item.locked .skill-dot { background: #BFBFBF; }
+.skill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skill-level {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.learning-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.learn-stat {
+  text-align: center;
+  padding: 16px 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: 12px;
+}
+.learn-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+}
+.learn-stat-value span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+.learn-stat-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* 预算仪表盘 */
+.budget-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.budget-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 18px;
+}
+.budget-card.primary {
+  background: linear-gradient(135deg, var(--color-accent), #40A9FF);
+  border-color: transparent;
+}
+.budget-card.primary .budget-label,
+.budget-card.primary .budget-value,
+.budget-card.primary .budget-used { color: white; }
+.budget-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 6px;
+}
+.budget-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+.budget-value.income { color: #52C41A; }
+.budget-value.expense { color: #FF4D4F; }
+.budget-value.balance { color: var(--color-accent); }
+.budget-used {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+.budget-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.budget-bar-fill {
+  height: 100%;
+  background: white;
+  border-radius: 999px;
+  width: 0%;
+}
+.budget-trend {
+  font-size: 12px;
+  font-weight: 600;
+}
+.budget-trend.up { color: #52C41A; }
+.budget-trend.down { color: #FF4D4F; }
+
+.expense-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.expense-item { }
+.expense-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.expense-icon { font-size: 18px; }
+.expense-name {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+.expense-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.expense-bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.expense-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+.subscription-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sub-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-bg-tertiary);
+  border-radius: 12px;
+}
+.sub-icon { font-size: 24px; }
+.sub-info { flex: 1; }
+.sub-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.sub-cycle {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.sub-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+.sub-price span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+</style>
 </head>
 <body>
   <div class="app-shell">
@@ -1357,7 +1632,7 @@
             <span>对话主页</span>
           </a>
           <div class="nav-section-label">工作区</div>
-          <a class="nav-item active" href="work-dev.html">
+          <a class="nav-item active" href="javascript:void(0)" data-panel="panel-workspace">
             <span class="nav-icon">
               <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline><line x1="14" y1="4" x2="10" y2="20"></line></svg>
             </span>
@@ -1401,13 +1676,13 @@
           </a>
 
           <div class="nav-section-label" style="margin-top: 8px;">分析</div>
-          <a class="nav-item" href="work-dev.html">
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-skills">
             <span class="nav-icon">
               <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             </span>
             技能追踪
           </a>
-          <a class="nav-item" href="work-dev.html">
+          <a class="nav-item" href="javascript:void(0)" data-panel="panel-budget">
             <span class="nav-icon">
               <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             </span>
@@ -1427,8 +1702,8 @@
       <!-- ── Main Content ── -->
       <main class="main-content">
         <div class="content-scroll">
-
-          <!-- ── Stats Row ── -->
+          <!-- Panel: 代码工作区 -->
+          <div class="content-panel" id="panel-workspace"><!-- ── Stats Row ── -->
           <section class="stats-row">
             <!-- Stat 1: Token Consumption -->
             <div class="stat-card" id="stat-card-token">
@@ -1828,6 +2103,230 @@
 
             </div>
           </section>
+          </div>
+
+          <!-- Panel: 技能追踪 -->
+          <div class="content-panel panel-hidden" id="panel-skills">
+            <div class="panel-card panel-card-full">
+              <div class="panel-card-header">
+                <span class="panel-card-title">技能树</span>
+                <span class="panel-card-subtitle">已掌握 12 / 目标 20</span>
+              </div>
+              <div class="panel-card-body">
+                <div class="skill-tree">
+                  <div class="skill-category">
+                    <div class="skill-cat-header">
+                      <span class="skill-cat-name">前端开发</span>
+                      <span class="skill-cat-progress">75%</span>
+                    </div>
+                    <div class="skill-cat-bar"><div class="skill-bar-fill" style="width:75%; background:linear-gradient(90deg,#1890FF,#40A9FF);"></div></div>
+                    <div class="skill-items">
+                      <div class="skill-item mastered"><span class="skill-dot"></span>HTML/CSS <span class="skill-level">精通</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>JavaScript <span class="skill-level">精通</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>React/Vue <span class="skill-level">熟练</span></div>
+                      <div class="skill-item learning"><span class="skill-dot"></span>TypeScript <span class="skill-level">学习中</span></div>
+                    </div>
+                  </div>
+                  <div class="skill-category">
+                    <div class="skill-cat-header">
+                      <span class="skill-cat-name">后端开发</span>
+                      <span class="skill-cat-progress">60%</span>
+                    </div>
+                    <div class="skill-cat-bar"><div class="skill-bar-fill" style="width:60%; background:linear-gradient(90deg,#52C41A,#73D13D);"></div></div>
+                    <div class="skill-items">
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Python <span class="skill-level">熟练</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Node.js <span class="skill-level">熟练</span></div>
+                      <div class="skill-item learning"><span class="skill-dot"></span>Go <span class="skill-level">学习中</span></div>
+                      <div class="skill-item locked"><span class="skill-dot"></span>Rust <span class="skill-level">计划中</span></div>
+                    </div>
+                  </div>
+                  <div class="skill-category">
+                    <div class="skill-cat-header">
+                      <span class="skill-cat-name">AI / LLM</span>
+                      <span class="skill-cat-progress">85%</span>
+                    </div>
+                    <div class="skill-cat-bar"><div class="skill-bar-fill" style="width:85%; background:linear-gradient(90deg,#722ED1,#9254DE);"></div></div>
+                    <div class="skill-items">
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Prompt工程 <span class="skill-level">精通</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Agent设计 <span class="skill-level">熟练</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>RAG应用 <span class="skill-level">熟练</span></div>
+                      <div class="skill-item learning"><span class="skill-dot"></span>模型微调 <span class="skill-level">学习中</span></div>
+                    </div>
+                  </div>
+                  <div class="skill-category">
+                    <div class="skill-cat-header">
+                      <span class="skill-cat-name">DevOps</span>
+                      <span class="skill-cat-progress">50%</span>
+                    </div>
+                    <div class="skill-cat-bar"><div class="skill-bar-fill" style="width:50%; background:linear-gradient(90deg,#FA8C16,#FFA940);"></div></div>
+                    <div class="skill-items">
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Git <span class="skill-level">熟练</span></div>
+                      <div class="skill-item mastered"><span class="skill-dot"></span>Docker <span class="skill-level">熟练</span></div>
+                      <div class="skill-item learning"><span class="skill-dot"></span>K8s <span class="skill-level">学习中</span></div>
+                      <div class="skill-item locked"><span class="skill-dot"></span>CI/CD <span class="skill-level">计划中</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card panel-card-full" style="margin-top:16px;">
+              <div class="panel-card-header">
+                <span class="panel-card-title">本周学习</span>
+                <button class="panel-card-action">管理</button>
+              </div>
+              <div class="panel-card-body">
+                <div class="learning-stats">
+                  <div class="learn-stat">
+                    <div class="learn-stat-value">12.5<span>h</span></div>
+                    <div class="learn-stat-label">学习时长</div>
+                  </div>
+                  <div class="learn-stat">
+                    <div class="learn-stat-value">5<span>项</span></div>
+                    <div class="learn-stat-label">技能提升</div>
+                  </div>
+                  <div class="learn-stat">
+                    <div class="learn-stat-value">3<span>个</span></div>
+                    <div class="learn-stat-label">完成项目</div>
+                  </div>
+                  <div class="learn-stat">
+                    <div class="learn-stat-value">🔥7</div>
+                    <div class="learn-stat-label">连续打卡</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: 预算仪表盘 -->
+          <div class="content-panel panel-hidden" id="panel-budget">
+            <div class="budget-overview">
+              <div class="budget-card primary">
+                <div class="budget-label">本月预算</div>
+                <div class="budget-value">¥12,000</div>
+                <div class="budget-used">已用 ¥7,850 (65%)</div>
+                <div class="budget-bar"><div class="budget-bar-fill" style="width:65%;"></div></div>
+              </div>
+              <div class="budget-card">
+                <div class="budget-label">收入</div>
+                <div class="budget-value income">¥18,500</div>
+                <div class="budget-trend up">↑ 8% 较上月</div>
+              </div>
+              <div class="budget-card">
+                <div class="budget-label">支出</div>
+                <div class="budget-value expense">¥7,850</div>
+                <div class="budget-trend down">↓ 12% 较上月</div>
+              </div>
+              <div class="budget-card">
+                <div class="budget-label">结余</div>
+                <div class="budget-value balance">¥10,650</div>
+                <div class="budget-trend up">↑ 15% 较上月</div>
+              </div>
+            </div>
+
+            <div class="panel-card panel-card-full" style="margin-top:16px;">
+              <div class="panel-card-header">
+                <span class="panel-card-title">支出分类</span>
+                <span class="panel-card-subtitle">本月</span>
+              </div>
+              <div class="panel-card-body">
+                <div class="expense-categories">
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">🏠</span>
+                      <span class="expense-name">住房</span>
+                      <span class="expense-amount">¥3,500</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:45%; background:#1890FF;"></div></div>
+                  </div>
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">🍜</span>
+                      <span class="expense-name">餐饮</span>
+                      <span class="expense-amount">¥1,800</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:23%; background:#52C41A;"></div></div>
+                  </div>
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">💻</span>
+                      <span class="expense-name">电子设备</span>
+                      <span class="expense-amount">¥1,200</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:15%; background:#722ED1;"></div></div>
+                  </div>
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">🎮</span>
+                      <span class="expense-name">娱乐</span>
+                      <span class="expense-amount">¥650</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:8%; background:#EB2F96;"></div></div>
+                  </div>
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">📚</span>
+                      <span class="expense-name">学习</span>
+                      <span class="expense-amount">¥450</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:6%; background:#FA8C16;"></div></div>
+                  </div>
+                  <div class="expense-item">
+                    <div class="expense-header">
+                      <span class="expense-icon">🎁</span>
+                      <span class="expense-name">其他</span>
+                      <span class="expense-amount">¥250</span>
+                    </div>
+                    <div class="expense-bar"><div class="expense-bar-fill" style="width:3%; background:#8C8C8C;"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card panel-card-full" style="margin-top:16px;">
+              <div class="panel-card-header">
+                <span class="panel-card-title">订阅服务</span>
+                <button class="panel-card-action">管理</button>
+              </div>
+              <div class="panel-card-body">
+                <div class="subscription-list">
+                  <div class="sub-item">
+                    <div class="sub-icon">☁️</div>
+                    <div class="sub-info">
+                      <div class="sub-name">云服务器</div>
+                      <div class="sub-cycle">每月 · 自动续费</div>
+                    </div>
+                    <div class="sub-price">¥99<span>/月</span></div>
+                  </div>
+                  <div class="sub-item">
+                    <div class="sub-icon">🤖</div>
+                    <div class="sub-info">
+                      <div class="sub-name">AI API</div>
+                      <div class="sub-cycle">按量付费</div>
+                    </div>
+                    <div class="sub-price">¥320<span>/月</span></div>
+                  </div>
+                  <div class="sub-item">
+                    <div class="sub-icon">🎨</div>
+                    <div class="sub-info">
+                      <div class="sub-name">设计工具</div>
+                      <div class="sub-cycle">每年 · 10月到期</div>
+                    </div>
+                    <div class="sub-price">¥299<span>/年</span></div>
+                  </div>
+                  <div class="sub-item">
+                    <div class="sub-icon">📖</div>
+                    <div class="sub-info">
+                      <div class="sub-name">学习平台</div>
+                      <div class="sub-cycle">每月 · 自动续费</div>
+                    </div>
+                    <div class="sub-price">¥45<span>/月</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </main>
     </div>
@@ -3181,6 +3680,41 @@
       }, 30000);
     }, 100);
   });
+  
+
+  // ===== 面板切换 =====
+  (function() {
+    const navItems = document.querySelectorAll('.sidebar-nav .nav-item[data-panel]');
+    const panels = document.querySelectorAll('.content-panel');
+    const contentScroll = document.querySelector('.content-scroll');
+
+    function switchPanel(panelId) {
+      panels.forEach(function(p) { p.classList.add('panel-hidden'); });
+      var target = document.getElementById(panelId);
+      if (target) { target.classList.remove('panel-hidden'); }
+      if (contentScroll) { contentScroll.scrollTop = 0; }
+    }
+
+    function setActiveNav(clickedItem) {
+      navItems.forEach(function(item) { item.classList.remove('active'); });
+      clickedItem.classList.add('active');
+    }
+
+    navItems.forEach(function(item) {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        var panelId = this.getAttribute('data-panel');
+        if (panelId) {
+          setActiveNav(this);
+          switchPanel(panelId);
+        }
+      });
+    });
+
+    // 默认显示代码工作区
+    switchPanel('panel-workspace');
+  })();
+
   </script>
 </body>
 </html>
