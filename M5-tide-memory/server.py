@@ -198,17 +198,19 @@ def create_fastapi_app() -> FastAPI:
 
     # 注意：路径参数路由必须放在静态路径路由之后，避免抢先匹配
     @app.get("/api/v1/memory/{memory_id}", summary="获取单条记忆")
-    async def get_memory(memory_id: str):
-        result = api_router.get_memory(memory_id)
+    async def get_memory(memory_id: str, domain: str = "private", agent_id: str = "unknown"):
+        result = api_router.get_memory(memory_id, {"domain": domain, "agent_id": agent_id})
         if result.get("code") != 0:
-            raise HTTPException(status_code=404, detail=result.get("message", "not found"))
+            status_code = 404 if result.get("code") == 404 else 403
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
         return result
 
     @app.delete("/api/v1/memory/{memory_id}", summary="删除记忆")
-    async def delete_memory(memory_id: str):
-        result = api_router.delete_memory(memory_id)
+    async def delete_memory(memory_id: str, domain: str = "private", agent_id: str = "unknown"):
+        result = api_router.delete_memory(memory_id, {"domain": domain, "agent_id": agent_id})
         if result.get("code") != 0:
-            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+            status_code = 404 if result.get("code") == 404 else 403
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
         return result
 
     # M8 标准接口
@@ -239,6 +241,28 @@ def create_fastapi_app() -> FastAPI:
                 "vector_enabled": True,
             }
         }
+
+    @app.post("/m8/memory/recall", summary="M8 标准记忆检索")
+    async def m8_memory_recall(req: RecallRequest):
+        """M8标准记忆检索接口"""
+        result = api_router.recall(req.dict())
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/m8/memory/archive", summary="M8 标准记忆归档")
+    async def m8_memory_archive(req: ArchiveRequest):
+        """M8标准记忆归档接口"""
+        result = api_router.archive(req.dict())
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/m8/memory/stats", summary="M8 标准记忆统计")
+    async def m8_memory_stats():
+        """M8标准记忆统计接口"""
+        result = api_router.get_stats()
+        return result
 
     print("✅ M5 潮汐记忆系统 FastAPI 服务已就绪")
     return app

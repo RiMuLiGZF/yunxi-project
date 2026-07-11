@@ -384,11 +384,16 @@ class RecallEngine:
 
         Args:
             memory_id: 记忆ID
-            domain: 域（用于权限校验）
+            domain: 域（用于权限校验，支持 "private" 或 "private:agent_id" 格式）
 
         Returns:
             记忆信息字典，不存在返回 None
         """
+        # 解析域信息（与recall方法保持一致）
+        domain_parts = domain.split(":") if domain else []
+        domain_type = domain_parts[0] if domain_parts else "private"
+        domain_owner = domain_parts[1] if len(domain_parts) > 1 else None
+
         # 按 L0 -> L1 -> L2 -> L3 顺序查找
         layers = ["l0_beach", "l1_shallow", "l2_deep", "l3_abyss"]
         for layer_name in layers:
@@ -400,9 +405,13 @@ class RecallEngine:
             except Exception:
                 continue
             if item:
-                # 域过滤
-                if domain and item.domain.value != domain:
+                # 域类型过滤
+                if domain_type and item.domain.value != domain_type:
                     return None
+                # owner 过滤（私有域且指定了owner时）
+                if domain_type == "private" and domain_owner:
+                    if item.owner_agent != domain_owner:
+                        return None
                 # 组装返回信息（脱敏，不返回原文）
                 return {
                     "memory_id": item.memory_id,
@@ -428,11 +437,16 @@ class RecallEngine:
 
         Args:
             memory_id: 记忆ID
-            domain: 域（用于权限校验）
+            domain: 域（用于权限校验，支持 "private" 或 "private:agent_id" 格式）
 
         Returns:
             是否删除成功
         """
+        # 解析域信息（与recall方法保持一致）
+        domain_parts = domain.split(":") if domain else []
+        domain_type = domain_parts[0] if domain_parts else "private"
+        domain_owner = domain_parts[1] if len(domain_parts) > 1 else None
+
         deleted = False
         layers = ["l0_beach", "l1_shallow", "l2_deep", "l3_abyss"]
         for layer_name in layers:
@@ -443,8 +457,13 @@ class RecallEngine:
                 # 先检查是否存在且属于该域
                 item = layer.get(memory_id)
                 if item:
-                    if domain and item.domain.value != domain:
-                        continue  # 不属于该域，跳过
+                    # 域类型过滤
+                    if domain_type and item.domain.value != domain_type:
+                        continue  # 不属于该域类型，跳过
+                    # owner 过滤（私有域且指定了owner时）
+                    if domain_type == "private" and domain_owner:
+                        if item.owner_agent != domain_owner:
+                            continue  # 不属于该owner，跳过
                     if layer.remove(memory_id):
                         deleted = True
             except Exception:

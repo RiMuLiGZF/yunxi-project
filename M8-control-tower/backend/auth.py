@@ -2,15 +2,6 @@
 M8 管理工作台 - 认证模块
 """
 
-"""
-M8 Control Tower - Auth Module
-"""
-
-import os
-import hmac
-import secrets
-import string
-from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -20,37 +11,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from .config import settings
 
-
-def _ensure_jwt_secret() -> str:
-    """Ensure JWT secret exists, auto-generate if not configured."""
-    if settings.jwt_secret:
-        return settings.jwt_secret
-
-    alphabet = string.ascii_letters + string.digits + "!@#$%^&*-_=+"
-    generated = "yunxi-jwt-" + "".join(secrets.choice(alphabet) for _ in range(48))
-
-    try:
-        secret_dir = Path.home() / ".yunxi"
-        secret_dir.mkdir(parents=True, exist_ok=True)
-        secret_file = secret_dir / "jwt_secret"
-        if secret_file.exists():
-            saved = secret_file.read_text(encoding="utf-8").strip()
-            if saved:
-                settings.jwt_secret = saved
-                return saved
-        secret_file.write_text(generated, encoding="utf-8")
-        os.chmod(str(secret_file), 0o600)
-    except Exception:
-        pass
-
-    settings.jwt_secret = generated
-    return generated
-
-
-_jwt_secret = _ensure_jwt_secret()
-
 security = HTTPBearer(auto_error=False)
-
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -109,99 +70,71 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return {"username": username, "role": role}
 
 
+def verify_m8_token(token: str) -> bool:
+    """验证 M8 内部 Token"""
+    return token == settings.m8_admin_token
+
 
 def has_role(user_role: str, required_role: str) -> bool:
-    """检查用户是否拥有指定角色权限
+    """
+    判断用户角色是否满足所需角色权限（角色层级向下兼容）。
     
-    角色层级: owner > admin > editor > viewer
+    角色层级: owner > admin > auditor > user > viewer
+    owner 拥有所有权限，admin 拥有除 owner 外的所有权限，依此类推。
     """
     role_hierarchy = {
-        "owner": 4,
-        "admin": 3,
-        "editor": 2,
-        "viewer": 1,
+        "owner": 100,
+        "admin": 80,
+        "auditor": 60,
+        "user": 40,
+        "viewer": 20,
     }
     user_level = role_hierarchy.get(user_role, 0)
     required_level = role_hierarchy.get(required_role, 0)
     return user_level >= required_level
 
 
-def require_role(role: str):
-    """角色权限校验装饰器
-    
-    用法: @router.post("/endpoint")
-          @require_role("admin")
-          async def endpoint(current_user: dict = Depends(get_current_user), ...):
+def require_role(required_role: str):
     """
-    from functools import wraps
-    import inspect
+    角色权限校验装饰器。
     
+    用法（装饰器模式）:
+        @router.post("/admin-only")
+        @require_role("admin")
+        async def admin_endpoint(data: dict, current_user: dict = Depends(get_current_user)):
+            ...
+    
+    注意：被装饰的函数必须已经通过 get_current_user 获取了 current_user，
+    装饰器会从函数的 kwargs 或返回前的上下文中检查角色。
+    为简化实现，装饰器模式下依赖函数参数中的 current_user。
+    """
     def decorator(func):
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            # Try to get current_user from kwargs first
+        import functools
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            # 尝试从 kwargs 中获取 current_user
             current_user = kwargs.get("current_user")
+            # 如果没有，尝试从 args 中找（通常是关键字参数）
             if current_user is None:
-                # Try to find it from args by inspecting the function signature
+                # 尝试从函数签名中找到 current_user 的位置
+                import inspect
                 sig = inspect.signature(func)
-                params = list(sig.parameters.keys())
-                if "current_user" in params:
-                    idx = params.index("current_user")
-                    if idx < len(args):
-                        current_user = args[idx]
+                bound = sig.bind_partial(*args, **kwargs)
+                current_user = bound.arguments.get("current_user")
             
-            if current_user is None or not isinstance(current_user, dict):
+            if current_user is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Not authenticated",
                 )
             
-            if not has_role(current_user.get("role", ""), role):
+            user_role = current_user.get("role", "viewer")
+            if not has_role(user_role, required_role):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Insufficient permissions. Required role: {role}",
+                    detail=f"Insufficient permissions. Required role: {required_role}",
                 )
             
             return await func(*args, **kwargs)
-        
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            current_user = kwargs.get("current_user")
-            if current_user is None:
-                sig = inspect.signature(func)
-                params = list(sig.parameters.keys())
-                if "current_user" in params:
-                    idx = params.index("current_user")
-                    if idx < len(args):
-                        current_user = args[idx]
-            
-            if current_user is None or not isinstance(current_user, dict):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not authenticated",
-                )
-            
-            if not has_role(current_user.get("role", ""), role):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Insufficient permissions. Required role: {role}",
-                )
-            
-            return func(*args, **kwargs)
-        
-        # Check if the wrapped function is async
-        import asyncio
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
-    
+        return wrapper
     return decorator
-
-
-def verify_m8_token(token: str) -> bool:
-    """Verify M8 internal token using hmac.compare_digest."""
-    expected = settings.m8_admin_token
-    if not expected:
-        return False
-    return hmac.compare_digest(token, expected)

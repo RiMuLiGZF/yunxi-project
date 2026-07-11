@@ -41,7 +41,7 @@ class MemoryAPIRouter:
             {"method": "POST", "path": "/api/v1/memory/consolidate", "handler": self.consolidate},
             {"method": "GET", "path": "/api/v1/memory/layers", "handler": self.get_layers},
             {"method": "POST", "path": "/api/v1/memory/search", "handler": self.search},
-            {"method": "GET", "/api/v1/health": "health_check", "handler": self.health_check},
+            {"method": "GET", "path": "/api/v1/health", "handler": self.health_check},
         ]
 
     def recall(self, request: Dict) -> Dict:
@@ -104,24 +104,47 @@ class MemoryAPIRouter:
 
         return self._success({"archive_id": f"mem_{uuid.uuid4().hex[:16]}"})
 
-    def get_memory(self, memory_id: str) -> Dict:
+    def get_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
         """获取单条记忆（返回元数据，不含原文）"""
-        # 只返回元数据，内容需要单独解密请求
-        return self._success({
-            "memory_id": memory_id,
-            "content_available": True,
-            "content_hint": "[ENCRYPTED_CONTENT]",
-            "encryption": "AES-256-GCM",
-            "classification": "TOP_SECRET",
-        })
+        request = request or {}
+        domain = request.get("domain", "private")
+        agent_id = request.get("agent_id", "unknown")
 
-    def delete_memory(self, memory_id: str) -> Dict:
+        skill_if = self._app.get("skill_interface")
+        if skill_if:
+            result = skill_if.get_memory(
+                memory_id=memory_id,
+                domain=domain,
+                agent_id=agent_id,
+            )
+            if result.get("success"):
+                return self._success(result)
+            else:
+                error_code = 404 if result.get("error") == "not_found" else 403
+                return self._error(error_code, result.get("error", "get memory failed"))
+
+        return self._error(404, "memory not found")
+
+    def delete_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
         """删除记忆"""
-        return self._success({
-            "memory_id": memory_id,
-            "deleted": True,
-            "secure_delete": True,
-        })
+        request = request or {}
+        domain = request.get("domain", "private")
+        agent_id = request.get("agent_id", "unknown")
+
+        skill_if = self._app.get("skill_interface")
+        if skill_if:
+            result = skill_if.delete_memory(
+                memory_id=memory_id,
+                domain=domain,
+                agent_id=agent_id,
+            )
+            if result.get("success"):
+                return self._success(result)
+            else:
+                error_code = 404 if result.get("error") == "not_found" else 403
+                return self._error(error_code, result.get("error", "delete failed"))
+
+        return self._error(500, "skill interface not available")
 
     def get_stats(self) -> Dict:
         """获取统计"""

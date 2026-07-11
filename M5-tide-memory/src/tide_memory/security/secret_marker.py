@@ -192,7 +192,7 @@ class SecretMarker:
 
     def local_only(self, level: ClassificationLevel) -> bool:
         """判断该密级是否仅限本地存储（不能同步云端）"""
-        return hmac.compare_digest(level, ClassificationLevel.TOP_SECRET)
+        return level == ClassificationLevel.TOP_SECRET
 
     def get_stats(self) -> Dict:
         stats = {level.value: 0 for level in ClassificationLevel}
