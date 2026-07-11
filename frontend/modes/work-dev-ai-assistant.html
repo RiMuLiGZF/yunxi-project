@@ -473,13 +473,13 @@
 
     async function checkAIStatus() {
       try {
-        const res = await YunxiAPI.request('GET', 'work-dev/code/ai/status');
-        if (res && res.data) {
+        const data = await YunxiAPI.request('GET', 'work-dev/code/ai/status');
+        if (data) {
           const dot = document.getElementById('status-dot');
           const name = document.getElementById('model-name');
-          if (res.data.available) {
+          if (data.available) {
             dot.classList.remove('offline');
-            name.textContent = `${res.data.provider || 'llm'} / ${res.data.model || 'model'}`;
+            name.textContent = `${data.provider || 'llm'} / ${data.model || 'model'}`;
           } else {
             dot.classList.add('offline');
             name.textContent = '模板模式（降级）';
@@ -551,17 +551,19 @@
 
       try {
         // 调用后端代码对话接口（多轮对话）
-        const res = await YunxiAPI.request('POST', 'work-dev/code/chat', {
-          message: text,
-          language: currentLanguage,
-          conversation_id: conversationId,
+        const data = await YunxiAPI.request('POST', 'work-dev/code/chat', {
+          body: {
+            message: text,
+            language: currentLanguage,
+            conversation_id: conversationId,
+          }
         });
 
         removeMessage(loadingId);
 
-        if (res && res.data && res.data.reply) {
-          addMessage('assistant', res.data.reply);
-          messageCount = res.data.message_count || messageCount + 1;
+        if (data && data.reply) {
+          addMessage('assistant', data.reply);
+          messageCount = data.message_count || messageCount + 1;
         } else {
           addMessage('assistant', '抱歉，没有收到有效回复，请稍后重试。');
         }

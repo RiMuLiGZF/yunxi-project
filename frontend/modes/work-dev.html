@@ -1905,53 +1905,53 @@
 
                         <!-- ── Function Module Grid (2x3) ── -->
             <div class="module-grid">
-              <button class="module-card" style="--mod-color: #165DFF; --mod-light: rgba(22,93,255,0.08); --mod-glow: rgba(22,93,255,0.2);">
+              <a class="module-card" href="work-dev-code-sandbox.html" style="--mod-color: #165DFF; --mod-light: rgba(22,93,255,0.08); --mod-glow: rgba(22,93,255,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
                 </div>
                 <div class="module-card__name">开发专区</div>
                 <div class="module-card__desc">代码编写、调试与运行</div>
-              </button>
+              </a>
 
-              <button class="module-card" style="--mod-color: #00B42A; --mod-light: rgba(0,180,42,0.08); --mod-glow: rgba(0,180,42,0.2);">
+              <a class="module-card" href="work-dev-code-sandbox.html" style="--mod-color: #00B42A; --mod-light: rgba(0,180,42,0.08); --mod-glow: rgba(0,180,42,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
                 </div>
                 <div class="module-card__name">编程语言</div>
                 <div class="module-card__desc">Python / TS / Go 多语言支持</div>
-              </button>
+              </a>
 
-              <button class="module-card" style="--mod-color: #722ED1; --mod-light: rgba(114,46,209,0.08); --mod-glow: rgba(114,46,209,0.2);">
+              <a class="module-card" href="work-dev-projects.html" style="--mod-color: #722ED1; --mod-light: rgba(114,46,209,0.08); --mod-glow: rgba(114,46,209,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                 </div>
                 <div class="module-card__name">项目开发</div>
                 <div class="module-card__desc">项目管理与进度追踪</div>
-              </button>
+              </a>
 
-              <button class="module-card" style="--mod-color: #FF7D97; --mod-light: rgba(255,125,151,0.08); --mod-glow: rgba(255,125,151,0.2);">
+              <a class="module-card" href="work-dev-git.html" style="--mod-color: #FF7D97; --mod-light: rgba(255,125,151,0.08); --mod-glow: rgba(255,125,151,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
                 </div>
                 <div class="module-card__name">代码管理</div>
                 <div class="module-card__desc">版本控制、分支与合并</div>
-              </button>
+              </a>
 
-              <button class="module-card" style="--mod-color: #F77234; --mod-light: rgba(247,114,52,0.08); --mod-glow: rgba(247,114,52,0.2);">
+              <a class="module-card" href="work-dev-ai-assistant.html" style="--mod-color: #F77234; --mod-light: rgba(247,114,52,0.08); --mod-glow: rgba(247,114,52,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 </div>
                 <div class="module-card__name">辅助开发</div>
                 <div class="module-card__desc">AI 辅助编程与智能补全</div>
-              </button>
+              </a>
 
-              <button class="module-card" style="--mod-color: #4ECDC4; --mod-light: rgba(78,205,196,0.08); --mod-glow: rgba(78,205,196,0.2);">
+              <a class="module-card" href="work-dev-visualization.html" style="--mod-color: #4ECDC4; --mod-light: rgba(78,205,196,0.08); --mod-glow: rgba(78,205,196,0.2);">
                 <div class="module-card__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </div>
                 <div class="module-card__name">可视化工作台</div>
                 <div class="module-card__desc">数据可视化与图表生成</div>
-              </button>
+              </a>
             </div>
             </div><!-- end workspace-middle -->
 
@@ -2371,11 +2371,23 @@
     init() {
       document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
-          e.preventDefault();
-          document.querySelectorAll('.sidebar-nav .nav-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          const label = item.textContent.trim();
-          YunxiAPI.showToast('已切换到: ' + label, 'success');
+          const dataPanel = item.getAttribute('data-panel');
+          const href = item.getAttribute('href');
+
+          // 如果是面板切换（data-panel），阻止默认行为并切换面板
+          if (dataPanel) {
+            e.preventDefault();
+            document.querySelectorAll('.sidebar-nav .nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            const label = item.textContent.trim();
+            YunxiAPI.showToast('已切换到: ' + label, 'success');
+          }
+          // 如果是普通链接（有 href 且不是 javascript:void(0)），正常跳转
+          else if (href && href !== 'javascript:void(0)') {
+            // 不阻止默认行为，让浏览器正常跳转
+            document.querySelectorAll('.sidebar-nav .nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+          }
         });
       });
 
