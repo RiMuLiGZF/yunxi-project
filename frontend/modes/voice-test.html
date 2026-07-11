@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="work-dev">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语音功能测试 — 云汐系统</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="../common/api.js"></script>
+  <script src="../common/voice.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+    }
+    .app { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+    .page-title {
+      font-size: 24px; font-weight: 700; margin-bottom: 8px;
+      background: linear-gradient(135deg, #165DFF, #722ED1);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .page-subtitle { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 32px; }
+
+    .card {
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .card-title .icon { font-size: 20px; }
+
+    /* 录音按钮 */
+    .record-section { text-align: center; padding: 20px 0; }
+    .record-btn {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #165DFF, #722ED1);
+      color: white; border: none; cursor: pointer;
+      font-size: 32px; display: inline-flex; align-items: center; justify-content: center;
+      transition: all .3s;
+      box-shadow: 0 4px 20px rgba(22, 93, 255, 0.3);
+    }
+    .record-btn:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(22, 93, 255, 0.4); }
+    .record-btn.recording {
+      background: linear-gradient(135deg, #F53F3F, #FF7D00);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(245, 63, 63, 0.3); }
+      50% { box-shadow: 0 4px 40px rgba(245, 63, 63, 0.6); }
+    }
+    .record-hint { margin-top: 16px; font-size: 13px; color: var(--color-text-secondary); }
+    .recording-time { margin-top: 8px; font-size: 18px; font-weight: 600; color: var(--color-primary); }
+
+    /* 识别结果 */
+    .result-box {
+      background: var(--color-page-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      min-height: 80px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .result-label { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 8px; }
+
+    /* TTS区域 */
+    .tts-input {
+      width: 100%; min-height: 100px;
+      background: var(--color-page-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--color-text-primary);
+      resize: vertical;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .tts-input:focus { border-color: var(--color-primary); }
+    .tts-actions { display: flex; gap: 12px; margin-top: 12px; }
+    .btn {
+      padding: 10px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      border: none; transition: all .2s;
+    }
+    .btn-primary { background: var(--color-primary); color: white; }
+    .btn-primary:hover { opacity: .9; }
+    .btn-secondary { background: var(--color-hover-bg); color: var(--color-text-primary); }
+    .btn-secondary:hover { background: var(--color-border); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* 语音类型选择 */
+    .voice-options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .voice-option {
+      flex: 1; min-width: 100px;
+      padding: 12px; border-radius: 10px;
+      border: 1px solid var(--color-border);
+      background: var(--color-page-bg);
+      cursor: pointer; text-align: center;
+      transition: all .2s;
+    }
+    .voice-option:hover { border-color: var(--color-primary); }
+    .voice-option.active {
+      border-color: var(--color-primary);
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .voice-option-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    .voice-option-desc { font-size: 11px; color: var(--color-text-tertiary); }
+
+    /* 状态标签 */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      background: var(--color-hover-bg);
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #00B42A;
+    }
+    .status-dot.offline { background: #FF7D00; }
+
+    /* 滑块 */
+    .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .slider-label { width: 60px; font-size: 13px; color: var(--color-text-secondary); }
+    .slider { flex: 1; accent-color: var(--color-primary); }
+    .slider-value { width: 40px; text-align: right; font-size: 13px; font-weight: 500; }
+
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px;
+      color: var(--color-text-secondary); font-size: 14px;
+      cursor: pointer; transition: all .2s;
+      margin-bottom: 24px;
+    }
+    .back-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="back-btn" onclick="location.href='main-chat.html'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      返回聊天
+    </div>
+
+    <h1 class="page-title">🎤 云汐语音助手</h1>
+    <p class="page-subtitle">语音识别 & 语音合成功能测试</p>
+
+    <!-- 状态卡片 -->
+    <div class="card">
+      <div class="card-title">
+        <span class="icon">📊</span>
+        服务状态
+      </div>
+      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <div>
+          <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 6px;">语音合成 (TTS)</div>
+          <span class="status-badge">
+            <span class="status-dot" id="tts-dot"></span>
+            <span id="tts-engine">检测中...</span>
+          </span>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 6px;">语音识别 (ASR)</div>
+          <span class="status-badge">
+            <span class="status-dot" id="asr-dot"></span>
+            <span id="asr-engine">检测中...</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 语音识别 -->
+    <div class="card">
+      <div class="card-title">
+        <span class="icon">🎙️</span>
+        语音识别
+      </div>
+      <div class="record-section">
+        <button class="record-btn" id="record-btn" onclick="toggleRecording()">🎤</button>
+        <div class="recording-time" id="recording-time" style="display:none;">00:00</div>
+        <div class="record-hint" id="record-hint">点击麦克风开始说话</div>
+      </div>
+      <div class="result-box" id="asr-result">
+        <div class="result-label">识别结果将显示在这里</div>
+      </div>
+    </div>
+
+    <!-- 语音合成 -->
+    <div class="card">
+      <div class="card-title">
+        <span class="icon">🔊</span>
+        语音合成
+      </div>
+
+      <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 10px;">选择音色</div>
+      <div class="voice-options" id="voice-options">
+        <div class="voice-option active" data-voice="warm_female" onclick="selectVoice('warm_female')">
+          <div class="voice-option-name">温暖女声</div>
+          <div class="voice-option-desc">亲切自然</div>
+        </div>
+        <div class="voice-option" data-voice="clear_female" onclick="selectVoice('clear_female')">
+          <div class="voice-option-name">清澈女声</div>
+          <div class="voice-option-desc">明亮通透</div>
+        </div>
+        <div class="voice-option" data-voice="gentle_male" onclick="selectVoice('gentle_male')">
+          <div class="voice-option-name">温柔男声</div>
+          <div class="voice-option-desc">沉稳磁性</div>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">语速</div>
+        <input type="range" class="slider" id="speed-slider" min="0.5" max="2" step="0.1" value="1" oninput="updateSpeed()">
+        <div class="slider-value" id="speed-value">1.0x</div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">音调</div>
+        <input type="range" class="slider" id="pitch-slider" min="0.5" max="2" step="0.1" value="1" oninput="updatePitch()">
+        <div class="slider-value" id="pitch-value">1.0x</div>
+      </div>
+
+      <textarea class="tts-input" id="tts-text" placeholder="输入要合成的文字...">你好，我是云汐，很高兴认识你！有什么我可以帮你的吗？</textarea>
+      <div class="tts-actions">
+        <button class="btn btn-primary" id="speak-btn" onclick="speakText()">🔊 播放语音</button>
+        <button class="btn btn-secondary" onclick="stopSpeaking()">⏹ 停止</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let voice = null;
+    let currentVoice = 'warm_female';
+    let currentSpeed = 1.0;
+    let currentPitch = 1.0;
+    let recordingTimer = null;
+    let recordingSeconds = 0;
+
+    // 初始化
+    async function init() {
+      voice = new YunxiVoice({
+        onResult: (result) => {
+          document.getElementById('asr-result').innerHTML = `
+            <div class="result-label">识别结果（${result.engine}）</div>
+            <div style="font-size:15px;line-height:1.7;">${result.text}</div>
+          `;
+        },
+        onRecordingStart: () => {
+          document.getElementById('record-btn').classList.add('recording');
+          document.getElementById('record-hint').textContent = '正在聆听... 再次点击停止';
+          document.getElementById('recording-time').style.display = 'block';
+          recordingSeconds = 0;
+          updateRecordingTime();
+          recordingTimer = setInterval(() => {
+            recordingSeconds++;
+            updateRecordingTime();
+          }, 1000);
+        },
+        onRecordingStop: () => {
+          document.getElementById('record-btn').classList.remove('recording');
+          document.getElementById('record-hint').textContent = '点击麦克风开始说话';
+          if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+          }
+        }
+      });
+
+      // 获取状态
+      const status = await voice.getStatus();
+      updateStatusDisplay(status);
+    }
+
+    function updateStatusDisplay(status) {
+      // TTS
+      const ttsDot = document.getElementById('tts-dot');
+      const ttsEngine = document.getElementById('tts-engine');
+      if (status.tts_available) {
+        ttsDot.classList.remove('offline');
+        ttsEngine.textContent = status.tts_engine || '可用';
+      } else {
+        ttsDot.classList.add('offline');
+        ttsEngine.textContent = '浏览器兜底';
+      }
+
+      // ASR
+      const asrDot = document.getElementById('asr-dot');
+      const asrEngine = document.getElementById('asr-engine');
+      if (status.asr_available) {
+        asrDot.classList.remove('offline');
+        asrEngine.textContent = status.asr_engine || '可用';
+      } else {
+        asrDot.classList.add('offline');
+        asrEngine.textContent = '未启用';
+      }
+    }
+
+    function updateRecordingTime() {
+      const mins = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+      const secs = (recordingSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('recording-time').textContent = `${mins}:${secs}`;
+    }
+
+    // 录音控制
+    function toggleRecording() {
+      if (!voice) return;
+      voice.toggleRecording();
+    }
+
+    // 音色选择
+    function selectVoice(voiceType) {
+      currentVoice = voiceType;
+      document.querySelectorAll('.voice-option').forEach(el => {
+        el.classList.toggle('active', el.dataset.voice === voiceType);
+      });
+    }
+
+    function updateSpeed() {
+      currentSpeed = parseFloat(document.getElementById('speed-slider').value);
+      document.getElementById('speed-value').textContent = currentSpeed.toFixed(1) + 'x';
+    }
+
+    function updatePitch() {
+      currentPitch = parseFloat(document.getElementById('pitch-slider').value);
+      document.getElementById('pitch-value').textContent = currentPitch.toFixed(1) + 'x';
+    }
+
+    // 语音合成
+    async function speakText() {
+      if (!voice) return;
+      const text = document.getElementById('tts-text').value;
+      if (!text.trim()) return;
+
+      const btn = document.getElementById('speak-btn');
+      btn.disabled = true;
+      btn.textContent = '播放中...';
+
+      try {
+        await voice.speak(text, {
+          voiceType: currentVoice,
+          speed: currentSpeed,
+          pitch: currentPitch,
+        });
+      } catch (e) {
+        console.error('播放失败:', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔊 播放语音';
+      }
+    }
+
+    function stopSpeaking() {
+      if (voice) {
+        voice.stopSpeaking();
+      }
+    }
+
+    // 启动
+    init();
+  </script>
+</body>
+</html>
