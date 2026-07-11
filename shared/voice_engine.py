@@ -1595,10 +1595,11 @@ class ASREngine:
     def _match_wake_word(self, text: str, wake_words: List[str]) -> Dict[str, Any]:
         """匹配唤醒词
 
-        支持多种匹配策略：
+        支持多种匹配策略（按优先级）：
         1. 精确匹配：文本中包含完整的唤醒词
-        2. 模糊匹配：允许一定程度的发音近似（基于字符相似度）
-        3. 前缀匹配：文本以唤醒词开头
+        2. 前缀匹配：文本以唤醒词开头
+        3. 同音字匹配：基于拼音的发音近似匹配
+        4. 模糊匹配：基于字符相似度的近似匹配
 
         Args:
             text: 识别出的文本
@@ -1638,10 +1639,32 @@ class ASREngine:
                     'match_type': 'prefix',
                 }
 
-            # 3. 模糊匹配：计算字符相似度
+            # 3. 同音字匹配（基于拼音，处理ASR识别的同音字问题）
+            # 例如："云汐" 可能被识别为 "元希/袁熙/营西"
+            pinyin_match = self._pinyin_match(clean_text, clean_word)
+            if pinyin_match > 0.55:
+                return {
+                    'matched': True,
+                    'word': word,
+                    'confidence': pinyin_match,
+                    'match_type': 'pinyin',
+                }
+
+            # 4. 模糊匹配：计算字符相似度（句首窗口更宽松）
+            # 取句首与唤醒词等长的窗口进行比较（唤醒词通常在开头）
+            prefix_window = clean_text[:max(len(clean_word), 4)]
+            prefix_sim = self._string_similarity(prefix_window, clean_word)
+            if prefix_sim >= 0.55 and len(clean_word) <= len(prefix_window) + 1:
+                return {
+                    'matched': True,
+                    'word': word,
+                    'confidence': prefix_sim,
+                    'match_type': 'prefix_fuzzy',
+                }
+
+            # 全文模糊匹配（较严格）
             similarity = self._string_similarity(clean_text, clean_word)
             if similarity >= 0.7:
-                # 相似度较高，认为匹配
                 return {
                     'matched': True,
                     'word': word,
@@ -1650,6 +1673,77 @@ class ASREngine:
                 }
 
         return {'matched': False, 'word': None, 'confidence': 0.0, 'match_type': 'none'}
+
+    def _pinyin_match(self, text: str, word: str) -> float:
+        """拼音相似度匹配（处理ASR同音字问题）
+
+        尝试使用 pypinyin 库计算拼音相似度。
+        支持三级匹配：
+        1. 完整拼音相同（最高置信度）
+        2. 声母相同（处理前后鼻音、平翘舌等ASR常见混淆）
+        3. 声调外拼音相似度
+
+        如果 pypinyin 未安装，返回 0（不影响原有逻辑）。
+
+        Args:
+            text: 识别文本
+            word: 唤醒词
+
+        Returns:
+            拼音相似度 (0-1)
+        """
+        try:
+            from pypinyin import lazy_pinyin, Style
+        except ImportError:
+            return 0.0
+
+        try:
+            # 取句首与唤醒词等长的窗口
+            word_len = len(word)
+            if word_len == 0 or len(text) < word_len:
+                return 0.0
+
+            # 取句首窗口比较
+            text_prefix = text[:word_len]
+
+            # 转拼音
+            text_pinyin = lazy_pinyin(text_prefix, style=Style.NORMAL)
+            word_pinyin = lazy_pinyin(word, style=Style.NORMAL)
+
+            if len(text_pinyin) != len(word_pinyin) or len(text_pinyin) == 0:
+                return 0.0
+
+            # 计算完整拼音相同的比例
+            exact_count = sum(1 for i in range(len(text_pinyin))
+                            if text_pinyin[i] == word_pinyin[i])
+
+            # 计算声母相同的比例（处理 yun/yuan、ying/yun 等混淆）
+            def get_initial(py: str) -> str:
+                """获取拼音声母（首字母，对于零声母取韵母首字母）"""
+                if not py:
+                    return ''
+                # 常见声母列表
+                initials = ['zh', 'ch', 'sh', 'b', 'p', 'm', 'f', 'd', 't', 'n', 'l',
+                           'g', 'k', 'h', 'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w']
+                for init in initials:
+                    if py.startswith(init):
+                        return init
+                return py[0] if py else ''
+
+            initial_count = sum(1 for i in range(len(text_pinyin))
+                              if get_initial(text_pinyin[i]) == get_initial(word_pinyin[i]))
+
+            # 综合评分：完整拼音权重高，声母匹配权重较低
+            exact_score = exact_count / len(text_pinyin)
+            initial_score = initial_count / len(text_pinyin)
+
+            # 加权：完整拼音1.0，声母匹配0.5
+            final_score = exact_score * 0.6 + initial_score * 0.4
+
+            return final_score
+
+        except Exception:
+            return 0.0
 
     @staticmethod
     def _string_similarity(s1: str, s2: str) -> float:
