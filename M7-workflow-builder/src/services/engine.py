@@ -15,6 +15,47 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import httpx
 
+# 语音引擎（可选，shared/voice_engine.py）
+# 路径：yunxi-project/shared/voice_engine.py
+_voice_available = False
+_voice_import_error = None
+_tts_engine = None
+_asr_engine = None
+
+try:
+    import sys as _sys
+    import os as _os
+    _current_dir = _os.path.dirname(_os.path.abspath(__file__))
+    # src/services -> src -> M7-workflow-builder -> yunxi-project -> shared
+    _shared_dir = _os.path.normpath(_os.path.join(_current_dir, '..', '..', '..', 'shared'))
+    if _shared_dir not in _sys.path:
+        _sys.path.insert(0, _shared_dir)
+    from voice_engine import TTSEngine, ASREngine, AudioUtils
+    _voice_available = True
+except Exception as _e:
+    _voice_available = False
+    _voice_import_error = str(_e)
+
+
+def _get_tts_engine(config=None):
+    """获取TTS引擎实例（懒加载单例）."""
+    global _tts_engine
+    if not _voice_available:
+        return None
+    if _tts_engine is None or config:
+        _tts_engine = TTSEngine(config)
+    return _tts_engine
+
+
+def _get_asr_engine(config=None):
+    """获取ASR引擎实例（懒加载单例）."""
+    global _asr_engine
+    if not _voice_available:
+        return None
+    if _asr_engine is None or config:
+        _asr_engine = ASREngine(config)
+    return _asr_engine
+
 
 # ============================================================
 # DAG 拓扑排序
@@ -202,6 +243,31 @@ BUILTIN_BLOCKS: Dict[str, Dict[str, Any]] = {
         "category": "logic",
         "type": "control",
     },
+    # 语音处理积木
+    "voice.asr": {
+        "name": "语音识别",
+        "description": "将音频文件转写为文本，支持多语言识别",
+        "actions": ["transcribe"],
+        "category": "voice",
+    },
+    "voice.tts": {
+        "name": "语音合成",
+        "description": "将文本合成为语音，支持多种音色和语速调节",
+        "actions": ["synthesize", "speak"],
+        "category": "voice",
+    },
+    "voice.wake_word": {
+        "name": "唤醒词检测",
+        "description": "检测音频中是否包含预设的唤醒关键词",
+        "actions": ["detect"],
+        "category": "voice",
+    },
+    "voice.record": {
+        "name": "录音控制",
+        "description": "控制麦克风录音，支持指定时长录制",
+        "actions": ["record"],
+        "category": "voice",
+    },
 }
 
 
@@ -343,6 +409,383 @@ async def execute_builtin_block(
             "branch": "true" if condition_result else "false",
             "condition_met": condition_result,
         })
+    elif skill_id == "voice.asr":
+        # 语音识别
+        audio_path = params.get("audio_path", "")
+        language = params.get("language", "zh")
+        asr_engine = _get_asr_engine()
+
+        if not audio_path:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": "缺少 audio_path 参数",
+            }
+
+        if asr_engine:
+            try:
+                lang_param = language if language and language != "auto" else None
+                asr_result = asr_engine.transcribe(str(audio_path), language=lang_param)
+
+                if asr_result.get("success"):
+                    result_data.update({
+                        "text": asr_result.get("text", ""),
+                        "language": asr_result.get("language", language),
+                        "duration": asr_result.get("duration", 0),
+                        "engine": asr_result.get("engine", "unknown"),
+                        "segments": asr_result.get("segments", []),
+                        "note": asr_result.get("note", ""),
+                    })
+                    return {
+                        "success": True,
+                        "data": result_data,
+                    }
+                else:
+                    # 引擎调用失败（非降级）
+                    result_data.update({
+                        "text": "",
+                        "language": language,
+                        "duration": 0,
+                        "engine": asr_result.get("engine", "unknown"),
+                    })
+                    return {
+                        "success": False,
+                        "data": result_data,
+                        "error": asr_result.get("error", "语音识别失败"),
+                    }
+            except Exception as e:
+                result_data.update({
+                    "text": "",
+                    "language": language,
+                    "duration": 0,
+                    "engine": "error",
+                })
+                return {
+                    "success": False,
+                    "data": result_data,
+                    "error": f"语音识别异常: {str(e)}",
+                }
+        else:
+            # 引擎不可用，降级返回 mock
+            result_data.update({
+                "text": "[降级] 语音引擎未加载",
+                "language": language,
+                "duration": 0,
+                "engine": "mock",
+                "note": f"[内置降级] 语音识别引擎未加载: {_voice_import_error or '请安装 faster-whisper 或 vosk'}",
+            })
+            return {
+                "success": True,
+                "data": result_data,
+            }
+
+    elif skill_id == "voice.tts":
+        # 语音合成
+        text = params.get("text", "")
+        voice_type = params.get("voice_type", "warm_female")
+        try:
+            voice_speed = float(params.get("voice_speed", 1.0))
+        except (TypeError, ValueError):
+            voice_speed = 1.0
+        output_path = params.get("output_path")
+        tts_engine = _get_tts_engine()
+
+        if not text:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": "缺少 text 参数",
+            }
+
+        if tts_engine:
+            try:
+                # 更新配置
+                tts_engine.update_config(voice_type=voice_type, voice_speed=voice_speed)
+                tts_result = await tts_engine.synthesize(str(text), output_path=output_path)
+
+                if tts_result.get("success"):
+                    result_data.update({
+                        "audio_path": tts_result.get("audio_path"),
+                        "audio_format": tts_result.get("audio_format"),
+                        "duration": tts_result.get("duration", 0),
+                        "engine": tts_result.get("engine", "unknown"),
+                        "text": text,
+                        "voice": tts_result.get("voice", voice_type),
+                        "note": tts_result.get("note", ""),
+                    })
+                    return {
+                        "success": True,
+                        "data": result_data,
+                    }
+                else:
+                    result_data.update({
+                        "audio_path": None,
+                        "audio_format": None,
+                        "duration": 0,
+                        "engine": tts_result.get("engine", "unknown"),
+                        "text": text,
+                    })
+                    return {
+                        "success": False,
+                        "data": result_data,
+                        "error": tts_result.get("error", "语音合成失败"),
+                    }
+            except Exception as e:
+                result_data.update({
+                    "audio_path": None,
+                    "audio_format": None,
+                    "duration": 0,
+                    "engine": "error",
+                    "text": text,
+                })
+                return {
+                    "success": False,
+                    "data": result_data,
+                    "error": f"语音合成异常: {str(e)}",
+                }
+        else:
+            # 引擎不可用，降级返回 mock
+            result_data.update({
+                "audio_path": None,
+                "audio_format": None,
+                "duration": len(str(text)) * 0.2,
+                "engine": "mock",
+                "text": text,
+                "note": f"[内置降级] 语音合成引擎未加载: {_voice_import_error or '请安装 edge-tts 或 pyttsx3'}",
+            })
+            return {
+                "success": True,
+                "data": result_data,
+            }
+
+    elif skill_id == "voice.wake_word":
+        # 唤醒词检测
+        audio_path = params.get("audio_path", "")
+        keywords = params.get("keywords", ["小云", "小汐"])
+        language = params.get("language", "zh")
+        # 确保 keywords 是列表
+        if isinstance(keywords, str):
+            keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+        elif not isinstance(keywords, list):
+            keywords = ["小云", "小汐"]
+
+        if not audio_path:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": "缺少 audio_path 参数",
+            }
+
+        asr_engine = _get_asr_engine()
+        if asr_engine:
+            try:
+                lang_param = language if language and language != "auto" else None
+                wake_result = asr_engine.detect_wake_word(
+                    str(audio_path),
+                    wake_words=keywords,
+                    language=lang_param,
+                )
+
+                if wake_result.get("success"):
+                    result_data.update({
+                        "detected": wake_result.get("wake_word_detected", False),
+                        "matched_keyword": wake_result.get("matched_word") or "",
+                        "confidence": wake_result.get("confidence", 0.0),
+                        "transcript": wake_result.get("transcript", ""),
+                        "engine": wake_result.get("engine", "unknown"),
+                        "language": wake_result.get("language", language),
+                        "keywords": keywords,
+                        "vad_engine": wake_result.get("vad_engine"),
+                        "note": wake_result.get("note", ""),
+                    })
+                    return {
+                        "success": True,
+                        "data": result_data,
+                    }
+                else:
+                    result_data.update({
+                        "detected": False,
+                        "matched_keyword": "",
+                        "confidence": 0.0,
+                        "transcript": "",
+                        "engine": wake_result.get("engine", "unknown"),
+                        "keywords": keywords,
+                    })
+                    return {
+                        "success": False,
+                        "data": result_data,
+                        "error": wake_result.get("error", "唤醒词检测失败"),
+                    }
+            except Exception as e:
+                result_data.update({
+                    "detected": False,
+                    "matched_keyword": "",
+                    "confidence": 0.0,
+                    "transcript": "",
+                    "engine": "error",
+                    "keywords": keywords,
+                })
+                return {
+                    "success": False,
+                    "data": result_data,
+                    "error": f"唤醒词检测异常: {str(e)}",
+                }
+        else:
+            # 引擎不可用，降级返回 mock
+            result_data.update({
+                "detected": False,
+                "matched_keyword": "",
+                "confidence": 0.0,
+                "transcript": "",
+                "engine": "mock",
+                "keywords": keywords,
+                "note": f"[内置降级] 语音识别引擎未加载: {_voice_import_error or '无法检测唤醒词'}",
+            })
+            return {
+                "success": True,
+                "data": result_data,
+            }
+
+    elif skill_id == "voice.record":
+        # 录音控制
+        try:
+            duration = float(params.get("duration", 5.0))
+        except (TypeError, ValueError):
+            duration = 5.0
+        try:
+            sample_rate = int(params.get("sample_rate", 16000))
+        except (TypeError, ValueError):
+            sample_rate = 16000
+        output_path = params.get("output_path")
+
+        if not output_path:
+            import tempfile as _tempfile
+            tmp_file = _tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            output_path = tmp_file.name
+            tmp_file.close()
+
+        record_success = False
+        actual_duration = 0.0
+        record_error = None
+        record_engine = "mock"
+
+        # 尝试使用 sounddevice 录音
+        try:
+            import sounddevice as sd  # type: ignore
+            import numpy as np  # type: ignore
+            import wave as _wave
+
+            frames = int(duration * sample_rate)
+            recording = sd.rec(frames, samplerate=sample_rate, channels=1, dtype='int16')
+            sd.wait()
+
+            # 保存为 WAV
+            with _wave.open(output_path, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(recording.tobytes())
+
+            record_success = True
+            actual_duration = duration
+            record_engine = "sounddevice"
+        except ImportError:
+            # sounddevice 不可用，使用 pyaudio 备用方案
+            try:
+                import pyaudio  # type: ignore
+                import wave as _wave
+
+                p = pyaudio.PyAudio()
+                stream = p.open(format=pyaudio.paInt16, channels=1,
+                                rate=sample_rate, input=True,
+                                frames_per_buffer=1024)
+                frames_list = []
+                for _ in range(0, int(sample_rate / 1024 * duration)):
+                    data = stream.read(1024)
+                    frames_list.append(data)
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
+
+                with _wave.open(output_path, 'wb') as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+                    wf.setframerate(sample_rate)
+                    wf.writeframes(b''.join(frames_list))
+
+                record_success = True
+                actual_duration = duration
+                record_engine = "pyaudio"
+            except ImportError:
+                # 都不可用，生成一个空的 WAV 文件作为 mock
+                try:
+                    import wave as _wave
+                    import struct
+                    with _wave.open(output_path, 'wb') as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(sample_rate)
+                        # 写入静音数据（简短的空音频，避免完全空文件）
+                        silence_frames = int(min(duration, 1.0) * sample_rate)
+                        wf.writeframes(b'\x00\x00' * silence_frames)
+                    record_success = True
+                    actual_duration = min(duration, 1.0)
+                    record_engine = "mock"
+                except Exception as mock_e:
+                    record_error = f"mock音频生成失败: {str(mock_e)}"
+                    output_path = None
+            except Exception as pa_e:
+                record_error = f"pyaudio录音失败: {str(pa_e)}"
+        except Exception as sd_e:
+            # sounddevice 运行时错误，尝试 pyaudio
+            try:
+                import pyaudio  # type: ignore
+                import wave as _wave
+
+                p = pyaudio.PyAudio()
+                stream = p.open(format=pyaudio.paInt16, channels=1,
+                                rate=sample_rate, input=True,
+                                frames_per_buffer=1024)
+                frames_list = []
+                for _ in range(0, int(sample_rate / 1024 * duration)):
+                    data = stream.read(1024)
+                    frames_list.append(data)
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
+
+                with _wave.open(output_path, 'wb') as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+                    wf.setframerate(sample_rate)
+                    wf.writeframes(b''.join(frames_list))
+
+                record_success = True
+                actual_duration = duration
+                record_engine = "pyaudio"
+            except Exception as pa_e2:
+                record_error = f"录音失败: sounddevice({str(sd_e)}), pyaudio({str(pa_e2)})"
+
+        result_data.update({
+            "audio_path": output_path if record_success else None,
+            "duration": actual_duration,
+            "sample_rate": sample_rate,
+            "recorded": record_success,
+            "engine": record_engine,
+            "note": "" if record_success else f"[内置降级] {record_error or '未安装录音库'}",
+        })
+
+        if record_success:
+            return {
+                "success": True,
+                "data": result_data,
+            }
+        else:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": record_error or "录音失败",
+            }
 
     return {
         "success": True,
