@@ -101,103 +101,61 @@ class WafEngine:
 
     提供 HTTP 请求的安全检测功能，支持多种攻击类型的检测和拦截。
     内置多种检测规则，同时支持自定义规则扩展。
+
+    性能优化：
+    - 预编译正则表达式，避免每次检测重新编译
+    - 规则按类型分组，快速跳过不相关检测
+    - 单次检测目标 < 1ms（正常请求路径）
     """
 
     def __init__(self):
         """初始化 WAF 引擎"""
         self.enabled = True
         self._rules: List[Dict[str, Any]] = []
-        self._stats: Dict[str, int] = {
+        # 预编译正则缓存：rule_id -> compiled_pattern
+        self._compiled_patterns: Dict[int, re.Pattern] = {}
+        self._stats: Dict[str, Any] = {
             "total_checks": 0,
             "total_blocks": 0,
             "today_blocks": 0,
             "start_of_day": time.time(),
+            "total_detection_time_ns": 0,
         }
         self._load_builtin_rules()
 
     def _load_builtin_rules(self) -> None:
-        """加载内置规则"""
+        """加载内置规则并预编译正则表达式"""
         rule_id = 0
 
-        # SQL 注入规则
-        for pattern, name in SQL_INJECTION_PATTERNS:
-            rule_id += 1
-            self._rules.append({
-                "id": rule_id,
-                "name": f"sql_injection_{name}",
-                "type": "sql_injection",
-                "pattern": pattern,
-                "severity": "high",
-                "action": "block",
-                "match_target": "all",
-                "is_builtin": True,
-                "is_active": True,
-                "hit_count": 0,
-            })
+        all_patterns = [
+            ("sql_injection", SQL_INJECTION_PATTERNS, "high", "block", "all"),
+            ("xss", XSS_PATTERNS, "high", "block", "all"),
+            ("command_injection", COMMAND_INJECTION_PATTERNS, "critical", "block", "all"),
+            ("path_traversal", PATH_TRAVERSAL_PATTERNS, "high", "block", "all"),
+            ("csrf", CSRF_PATTERNS, "medium", "log", "header"),
+        ]
 
-        # XSS 规则
-        for pattern, name in XSS_PATTERNS:
-            rule_id += 1
-            self._rules.append({
-                "id": rule_id,
-                "name": f"xss_{name}",
-                "type": "xss",
-                "pattern": pattern,
-                "severity": "high",
-                "action": "block",
-                "match_target": "all",
-                "is_builtin": True,
-                "is_active": True,
-                "hit_count": 0,
-            })
-
-        # 命令注入规则
-        for pattern, name in COMMAND_INJECTION_PATTERNS:
-            rule_id += 1
-            self._rules.append({
-                "id": rule_id,
-                "name": f"command_injection_{name}",
-                "type": "command_injection",
-                "pattern": pattern,
-                "severity": "critical",
-                "action": "block",
-                "match_target": "all",
-                "is_builtin": True,
-                "is_active": True,
-                "hit_count": 0,
-            })
-
-        # 路径遍历规则
-        for pattern, name in PATH_TRAVERSAL_PATTERNS:
-            rule_id += 1
-            self._rules.append({
-                "id": rule_id,
-                "name": f"path_traversal_{name}",
-                "type": "path_traversal",
-                "pattern": pattern,
-                "severity": "high",
-                "action": "block",
-                "match_target": "all",
-                "is_builtin": True,
-                "is_active": True,
-                "hit_count": 0,
-            })
-
-        # CSRF 规则
-        for pattern, name in CSRF_PATTERNS:
-            rule_id += 1
-            self._rules.append({
-                "id": rule_id,
-                "name": f"csrf_{name}",
-                "type": "csrf",
-                "pattern": pattern,
-                "severity": "medium",
-                "action": "log",
-                "match_target": "header",
-                "is_builtin": True,
-                "is_active": True,
-                "hit_count": 0,
-            })
+        for rule_type, patterns, severity, action, match_target in all_patterns:
+            for pattern, name in patterns:
+                rule_id += 1
+                rule = {
+                    "id": rule_id,
+                    "name": f"{rule_type}_{name}",
+                    "type": rule_type,
+                    "pattern": pattern,
+                    "severity": severity,
+                    "action": action,
+                    "match_target": match_target,
+                    "is_builtin": True,
+                    "is_active": True,
+                    "hit_count": 0,
+                }
+                self._rules.append(rule)
+                # 预编译正则表达式
+                try:
+                    self._compiled_patterns[rule_id] = re.compile(pattern, re.IGNORECASE)
+                except re.error:
+                    pass
 
     def enable(self) -> None:
         """启用 WAF"""
@@ -300,6 +258,11 @@ class WafEngine:
             "hit_count": 0,
         }
         self._rules.append(new_rule)
+        # 预编译自定义规则的正则
+        try:
+            self._compiled_patterns[new_id] = re.compile(rule.get("pattern", ""), re.IGNORECASE)
+        except re.error:
+            pass
         return new_rule
 
     def update_rule(self, rule_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -317,6 +280,12 @@ class WafEngine:
                 for key, value in updates.items():
                     if key in rule and key not in ("id", "is_builtin"):
                         rule[key] = value
+                # 如果 pattern 更新了，重新编译
+                if "pattern" in updates:
+                    try:
+                        self._compiled_patterns[rule_id] = re.compile(updates["pattern"], re.IGNORECASE)
+                    except re.error:
+                        self._compiled_patterns.pop(rule_id, None)
                 return rule
         return None
 
@@ -332,6 +301,7 @@ class WafEngine:
         for i, rule in enumerate(self._rules):
             if rule["id"] == rule_id and not rule["is_builtin"]:
                 self._rules.pop(i)
+                self._compiled_patterns.pop(rule_id, None)
                 return True
         return False
 
@@ -346,6 +316,8 @@ class WafEngine:
     ) -> Dict[str, Any]:
         """
         检测请求是否包含攻击特征
+
+        性能优化：使用预编译正则表达式，正常请求检测 < 1ms
 
         Args:
             method: 请求方法
@@ -365,11 +337,19 @@ class WafEngine:
                 "action": str,        # 触发动作
                 "matched_content": str,  # 匹配内容
                 "match_target": str,  # 匹配位置
+                "detection_time_ns": int,  # 检测耗时（纳秒）
             }
         """
+        start_ns = time.perf_counter_ns()
+
         # 如果 WAF 未启用，直接通过
         if not self.enabled:
-            return {"passed": True, "rule_name": "", "rule_type": "", "severity": "", "action": "", "matched_content": "", "match_target": ""}
+            elapsed = time.perf_counter_ns() - start_ns
+            return {
+                "passed": True, "rule_name": "", "rule_type": "",
+                "severity": "", "action": "", "matched_content": "",
+                "match_target": "", "detection_time_ns": elapsed,
+            }
 
         self._stats["total_checks"] += 1
         self._check_day_reset()
@@ -387,13 +367,18 @@ class WafEngine:
             "header": " ".join(f"{k}:{v}" for k, v in (headers or {}).items()),
         }
 
-        # 遍历规则进行检测
+        # 遍历规则进行检测（使用预编译正则）
         for rule in self._rules:
             if not rule["is_active"]:
                 continue
 
-            pattern = rule["pattern"]
+            rule_id = rule["id"]
             match_target = rule["match_target"]
+            compiled = self._compiled_patterns.get(rule_id)
+
+            # 如果没有预编译的正则，跳过（规则无效）
+            if compiled is None:
+                continue
 
             # 确定需要检测的目标
             targets_to_check = []
@@ -408,31 +393,32 @@ class WafEngine:
                 if not target_content:
                     continue
 
-                try:
-                    if re.search(pattern, target_content, re.IGNORECASE):
-                        # 命中规则
-                        rule["hit_count"] += 1
-                        self._stats["total_blocks"] += 1
-                        self._stats["today_blocks"] += 1
+                match = compiled.search(target_content)
+                if match:
+                    # 命中规则
+                    rule["hit_count"] += 1
+                    self._stats["total_blocks"] += 1
+                    self._stats["today_blocks"] += 1
 
-                        # 提取匹配内容
-                        match = re.search(pattern, target_content, re.IGNORECASE)
-                        matched_text = match.group(0) if match else ""
+                    elapsed = time.perf_counter_ns() - start_ns
+                    self._stats["total_detection_time_ns"] += elapsed
 
-                        return {
-                            "passed": False,
-                            "rule_name": rule["name"],
-                            "rule_type": rule["type"],
-                            "severity": rule["severity"],
-                            "action": rule["action"],
-                            "matched_content": matched_text[:200],
-                            "match_target": target_name,
-                        }
-                except re.error:
-                    # 正则表达式错误，跳过该规则
-                    continue
+                    matched_text = match.group(0)
+
+                    return {
+                        "passed": False,
+                        "rule_name": rule["name"],
+                        "rule_type": rule["type"],
+                        "severity": rule["severity"],
+                        "action": rule["action"],
+                        "matched_content": matched_text[:200],
+                        "match_target": target_name,
+                        "detection_time_ns": elapsed,
+                    }
 
         # 未命中任何规则，请求通过
+        elapsed = time.perf_counter_ns() - start_ns
+        self._stats["total_detection_time_ns"] += elapsed
         return {
             "passed": True,
             "rule_name": "",
@@ -441,6 +427,7 @@ class WafEngine:
             "action": "",
             "matched_content": "",
             "match_target": "",
+            "detection_time_ns": elapsed,
         }
 
     def _check_day_reset(self) -> None:
@@ -450,6 +437,134 @@ class WafEngine:
         if now - self._stats["start_of_day"] >= 86400:
             self._stats["today_blocks"] = 0
             self._stats["start_of_day"] = now
+
+    # -----------------------------------------------------------------------
+    # 网关专用检测接口（高性能）
+    # -----------------------------------------------------------------------
+
+    def gateway_check(
+        self,
+        method: str = "GET",
+        path: str = "",
+        headers: Optional[Dict[str, str]] = None,
+        body: str = "",
+        client_ip: str = "",
+        user_agent: str = "",
+    ) -> Dict[str, Any]:
+        """网关专用检测接口
+
+        精简返回格式，方便网关快速判断是否拦截。
+        使用预编译正则，性能 < 1ms。
+
+        Args:
+            method: HTTP 方法
+            path: 请求路径
+            headers: 请求头
+            body: 请求体
+            client_ip: 客户端 IP
+            user_agent: 用户代理
+
+        Returns:
+            {
+                "blocked": bool,       # 是否拦截
+                "reason": str,         # 拦截原因
+                "rule_id": str,        # 触发的规则名称
+                "risk_level": str,     # 风险级别
+                "detection_time_ms": float,  # 检测耗时（毫秒）
+            }
+        """
+        result = self.check_request(
+            method=method,
+            path=path,
+            query="",  # path 已包含完整路径信息
+            body=body,
+            headers=headers,
+            client_ip=client_ip,
+        )
+
+        detection_time_ns = result.get("detection_time_ns", 0)
+        detection_time_ms = detection_time_ns / 1_000_000.0
+
+        if not result["passed"]:
+            return {
+                "blocked": True,
+                "reason": f"{result['rule_type']} attack detected: {result['rule_name']}",
+                "rule_id": result["rule_name"],
+                "risk_level": result["severity"],
+                "detection_time_ms": detection_time_ms,
+            }
+
+        return {
+            "blocked": False,
+            "reason": "",
+            "rule_id": "",
+            "risk_level": "low",
+            "detection_time_ms": detection_time_ms,
+        }
+
+    def gateway_batch_check(
+        self,
+        requests: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """批量检测接口
+
+        Args:
+            requests: 请求列表，每个元素包含 method/path/headers/body/client_ip/user_agent
+
+        Returns:
+            {
+                "results": [...],      # 检测结果列表
+                "total_count": int,    # 总检测数
+                "blocked_count": int,  # 拦截数
+                "total_time_ms": float, # 总耗时
+            }
+        """
+        start_ns = time.perf_counter_ns()
+        results = []
+        blocked_count = 0
+
+        for req in requests:
+            result = self.gateway_check(
+                method=req.get("method", "GET"),
+                path=req.get("path", "/"),
+                headers=req.get("headers", {}),
+                body=req.get("body", ""),
+                client_ip=req.get("client_ip", ""),
+                user_agent=req.get("user_agent", ""),
+            )
+            if result["blocked"]:
+                blocked_count += 1
+            results.append(result)
+
+        total_time_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+
+        return {
+            "results": results,
+            "total_count": len(requests),
+            "blocked_count": blocked_count,
+            "total_time_ms": total_time_ms,
+        }
+
+    # -----------------------------------------------------------------------
+    # 性能统计
+    # -----------------------------------------------------------------------
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """获取性能统计信息
+
+        Returns:
+            性能统计字典
+        """
+        total_checks = self._stats["total_checks"]
+        total_time_ns = self._stats.get("total_detection_time_ns", 0)
+        avg_time_ns = total_time_ns / total_checks if total_checks > 0 else 0
+
+        return {
+            "total_checks": total_checks,
+            "total_detection_time_ms": total_time_ns / 1_000_000.0,
+            "avg_detection_time_ms": avg_time_ns / 1_000_000.0,
+            "avg_detection_time_us": avg_time_ns / 1_000.0,
+        }
 
 
 # ===========================================================================

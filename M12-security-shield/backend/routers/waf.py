@@ -3,19 +3,31 @@
 提供 WAF 规则管理、状态查询、攻击检测等接口
 """
 
-from fastapi import APIRouter, Query
-from typing import Optional
+from fastapi import APIRouter, Query, Depends
+from typing import Optional, List
 
 # 兼容相对导入和直接运行
 try:
     from ..models import make_response, make_error_response
     from ..services.waf_engine import get_waf_engine
+    from ..schemas.waf import (
+        WafRuleCreate, WafRuleUpdate,
+        GatewayWafCheckRequest, GatewayWafCheckResponse,
+        GatewayWafBatchRequest, GatewayWafBatchResponse,
+    )
+    from ..auth import get_current_user, require_scope, SCOPE_WAF_READ, SCOPE_WAF_WRITE
 except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from models import make_response, make_error_response
     from services.waf_engine import get_waf_engine
+    from schemas.waf import (
+        WafRuleCreate, WafRuleUpdate,
+        GatewayWafCheckRequest, GatewayWafCheckResponse,
+        GatewayWafBatchRequest, GatewayWafBatchResponse,
+    )
+    from auth import get_current_user, require_scope, SCOPE_WAF_READ, SCOPE_WAF_WRITE
 
 router = APIRouter(prefix="/api/m12/waf", tags=["M12-WAF防护墙"])
 
@@ -231,6 +243,74 @@ def waf_check(
         return make_response(data=result)
     except Exception as e:
         return make_error_response(f"WAF检测失败: {str(e)}")
+
+
+# ===========================================================================
+# 网关 WAF 检测（M8 网关专用，高性能）
+# ===========================================================================
+
+@router.post("/gateway-check", summary="网关WAF检测（高性能）")
+async def waf_gateway_check(request: GatewayWafCheckRequest):
+    """
+    网关专用 WAF 检测接口，高性能、精简响应格式。
+
+    - 专为 M8 网关接入设计
+    - 检测时间 < 1ms（正常请求）
+    - 返回 blocked/reason/rule_id/risk_level
+    """
+    try:
+        waf = get_waf_engine()
+        result = waf.gateway_check(
+            method=request.method,
+            path=request.path,
+            headers=request.headers,
+            body=request.body,
+            client_ip=request.client_ip,
+            user_agent=request.user_agent,
+        )
+        return make_response(data=result)
+    except Exception as e:
+        return make_error_response(f"WAF网关检测失败: {str(e)}")
+
+
+@router.post("/gateway-batch-check", summary="网关WAF批量检测")
+async def waf_gateway_batch_check(request: GatewayWafBatchRequest):
+    """
+    批量 WAF 检测接口，一次提交多个请求进行检测。
+
+    - 最多支持 100 个请求/批次
+    - 返回每个请求的检测结果
+    """
+    try:
+        waf = get_waf_engine()
+        req_list = [
+            {
+                "method": r.method,
+                "path": r.path,
+                "headers": r.headers,
+                "body": r.body,
+                "client_ip": r.client_ip,
+                "user_agent": r.user_agent,
+            }
+            for r in request.requests
+        ]
+        result = waf.gateway_batch_check(req_list)
+        return make_response(data=result)
+    except Exception as e:
+        return make_error_response(f"WAF批量检测失败: {str(e)}")
+
+
+@router.get("/performance", summary="WAF 性能统计")
+async def waf_performance(current_user: dict = Depends(require_scope(SCOPE_WAF_READ))):
+    """
+    获取 WAF 引擎性能统计信息（需鉴权）
+    """
+    try:
+        waf = get_waf_engine()
+        perf = waf.get_performance_stats()
+        return make_response(data=perf)
+    except Exception as e:
+        return make_error_response(f"获取性能统计失败: {str(e)}")
 
 
 # ===========================================================================

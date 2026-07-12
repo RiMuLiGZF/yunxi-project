@@ -69,6 +69,13 @@ async def _default_lifespan(app: FastAPI):
     """
     print("[M12] 正在初始化...")
 
+    # 0. 检查密钥安全性
+    try:
+        settings.validate_secret_security()
+    except ValueError as e:
+        print(f"[M12] {e}")
+        raise SystemExit(1)
+
     # 1. 初始化数据库
     init_db()
     print("[M12] 数据库初始化完成")
@@ -107,6 +114,15 @@ async def _default_lifespan(app: FastAPI):
     except Exception as e:
         print(f"[M12] 审计服务初始化警告: {e}")
 
+    # 6. 初始化自动响应引擎
+    try:
+        from .services.auto_response import get_auto_response_engine
+        ar_engine = get_auto_response_engine()
+        level = ar_engine.get_response_level()
+        print(f"[M12] 自动响应引擎初始化完成 (级别: {level})")
+    except Exception as e:
+        print(f"[M12] 自动响应引擎初始化警告: {e}")
+
     print(f"[M12] 安全盾启动完成 - 端口 {get_settings().port}")
 
     yield
@@ -134,6 +150,7 @@ def _register_routers(app: FastAPI) -> None:
         from .routers.ip_control import router as ip_router
         from .routers.audit import router as audit_router
         from .routers.dashboard import router as dashboard_router
+        from .routers.auto_response import router as auto_response_router
     except ImportError:
         from routers.status import router as status_router
         from routers.waf import router as waf_router
@@ -141,6 +158,7 @@ def _register_routers(app: FastAPI) -> None:
         from routers.ip_control import router as ip_router
         from routers.audit import router as audit_router
         from routers.dashboard import router as dashboard_router
+        from routers.auto_response import router as auto_response_router
 
     # 注册各模块路由
     app.include_router(status_router)
@@ -149,6 +167,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(ip_router)
     app.include_router(audit_router)
     app.include_router(dashboard_router)
+    app.include_router(auto_response_router)
 
 
 # ===========================================================================
