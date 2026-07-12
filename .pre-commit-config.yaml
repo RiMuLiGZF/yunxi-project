@@ -1,0 +1,105 @@
+# ============================================================
+# pre-commit 配置
+# 在每次 git commit 前自动执行代码检查和格式化
+# 官方文档: https://pre-commit.com/
+# ============================================================
+
+# 全局排除目录
+exclude: |
+  (?x)^(
+    .*__pycache__/.*|
+    \.git/.*|
+    venv/.*|
+    \.venv/.*|
+    build/.*|
+    dist/.*|
+    .*\.egg-info/.*|
+    data/.*|
+    logs/.*|
+    \.mypy_cache/.*|
+    \.ruff_cache/.*
+  )$
+
+repos:
+  # ============================================================
+  # 通用文件检查与格式化
+  # ============================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      # 清理行尾空格
+      - id: trailing-whitespace
+        name: 清理行尾空格
+        args: [--markdown-linebreak-ext=md]
+        exclude_types: [markdown]
+
+      # 确保文件以换行结尾
+      - id: end-of-file-fixer
+        name: 确保文件以换行结尾
+
+      # 检查 YAML 文件格式
+      - id: check-yaml
+        name: 检查 YAML 格式
+
+      # 检查 JSON 文件格式
+      - id: check-json
+        name: 检查 JSON 格式
+
+      # 检查 TOML 文件格式
+      - id: check-toml
+        name: 检查 TOML 格式
+
+      # 检查文件是否存在冲突标记
+      - id: check-merge-conflict
+        name: 检查合并冲突标记
+
+      # 检测超大文件（> 500KB）
+      - id: check-added-large-files
+        name: 检查大文件
+        args: [--maxkb=500]
+
+  # ============================================================
+  # JSON 格式化
+  # ============================================================
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: pretty-format-json
+        name: 格式化 JSON
+        args:
+          - --autofix
+          - --indent=2
+          - --no-sort-keys
+        files: \.json$
+
+  # ============================================================
+  # ruff - Python lint & 格式化
+  # ============================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff 版本与 requirements-dev.txt 保持同步
+    rev: v0.6.9
+    hooks:
+      # 运行 ruff linter（自动修复可修复的问题）
+      - id: ruff
+        name: ruff lint 检查（自动修复）
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+
+      # 运行 ruff formatter（代码格式化）
+      - id: ruff-format
+        name: ruff 代码格式化
+        types_or: [python, pyi]
+
+  # ============================================================
+  # codespell - 拼写检查
+  # ============================================================
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        name: 拼写检查
+        # 忽略的单词（常见缩写、专有名词等）
+        args:
+          - --ignore-words-list=crate,nd,te,fo,uptodate,atleast,bu,acn,ned,ress,ser,nto,wha
+          - --skip=*.pyc,*.pyo,*.pyd,.git,venv,.venv,build,dist,*.egg-info,data,logs,.mypy_cache,.ruff_cache
+        types_or: [python, markdown, text, yaml, toml, json]

@@ -78,3 +78,6 @@ BACKUP_ANCHOR.txt
 M1-agent-cluster/
 M5-tide-memory/
 M8-control-tower/
+
+.coverage
+htmlcov/

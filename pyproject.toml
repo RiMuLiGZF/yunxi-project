@@ -1,0 +1,173 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yunxi-project"
+version = "0.1.0"
+description = "云汐项目 - Python 后端服务"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Yunxi Team", email = "team@yunxi.example.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+# ============================================================
+# ruff - Python linter & formatter
+# 替代 flake8 + isort + pyupgrade + 部分 pylint 功能
+# 官方文档: https://docs.astral.sh/ruff/
+# ============================================================
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+# 排除目录（lint 和 format 均生效）
+exclude = [
+    "__pycache__",
+    ".git",
+    "venv",
+    ".venv",
+    "build",
+    "dist",
+    "*.egg-info",
+    "data",
+    "logs",
+]
+
+# --- 格式化配置 ---
+[tool.ruff.format]
+# 与 black 兼容的引号风格
+quote-style = "double"
+# 多行字符串缩进
+indent-style = "space"
+# 多行结尾逗号（当内容超出行宽时自动添加）
+trailing-comma = "all"
+# 自动格式化的行长度（与 lint 保持一致）
+
+# --- Lint 规则集 ---
+[tool.ruff.lint]
+# 启用的规则集：
+#   E / W  - pycodestyle 风格检查（缩进、空行、命名等）
+#   F      - pyflakes 错误检测（未使用变量、未定义名称等）
+#   I      - isort 导入排序
+#   N      - pep8-naming 命名规范
+#   D      - pydocstyle 文档字符串
+#   UP     - pyupgrade 语法升级建议
+#   B      - flake8-bugbear 常见 bug 模式
+#   SIM    - flake8-simplify 简化建议
+#   T20    - flake8-print 禁止遗留 print 语句
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "T20", # flake8-print
+]
+
+# 忽略的规则（避免过于严格导致难以落地）
+ignore = [
+    "D100", # 缺少模块级 docstring（模块文件不必强制写文档）
+    "D104", # 缺少 __init__.py docstring
+    "D107", # 缺少 __init__ 方法 docstring
+    "D203", # 类 docstring 前空行（与 D211 冲突，保留 D211）
+    "D212", # 多行 docstring 摘要起始位置（与 D213 冲突，保留 D213）
+    "D401", # docstring 首行必须是祈使语气（中文项目不适用）
+    "SIM108", # 建议使用三元表达式（可读性优先，不强求）
+    "UP035", # 建议使用 typing 导入别名（兼容老代码，暂不强制）
+    "B008", # 函数参数默认值为可变对象（已知风险场景除外，暂不强制）
+]
+
+# --- 导入排序（isort 兼容） ---
+[tool.ruff.lint.isort]
+known-first-party = ["yunxi"]
+# 导入分组顺序：标准库 → 第三方 → 本地项目 → 相对导入
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+# 分组之间保留一行空行
+lines-between-types = 1
+# 强制相对导入层级（from . import 而非 from pkg import）
+force-single-line = false
+# 多行导入使用括号
+multi-line-output = "vertical-hanging-indent"
+
+# --- pydocstyle 配置 ---
+[tool.ruff.lint.pydocstyle]
+# 使用 Google 风格 docstring（比 numpy 风格更简洁）
+convention = "google"
+
+# --- 规则级别调整 ---
+[tool.ruff.lint.per-file-ignores]
+# 测试文件允许更宽松的规则
+"tests/**/*.py" = [
+    "D100", "D101", "D102", "D103", # 测试文件不强制 docstring
+    "S101",                          # 允许 assert
+    "T201",                          # 测试中允许 print（调试用）
+]
+# 脚本 / 入口文件允许更宽松的规则
+"scripts/**/*.py" = [
+    "D100", "D101", # 脚本不必强制 docstring
+    "T201",         # 脚本允许 print
+]
+# 配置文件
+"__init__.py" = [
+    "D104", # __init__.py 不必强制 docstring
+    "F401", # 允许在 __init__.py 中导入但未使用（用于 re-export）
+]
+
+# ============================================================
+# mypy - 类型检查（宽松模式）
+# 官方文档: https://mypy.readthedocs.io/
+# ============================================================
+
+[tool.mypy]
+# 目标 Python 版本
+python_version = "3.10"
+# 宽松模式：默认不强制检查未标注类型的函数
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+# 警告未使用的 # type: ignore
+warn_unused_ignores = true
+# 忽略缺失的类型存根（第三方库可能没有 .pyi）
+ignore_missing_imports = true
+# 不强制返回类型注解
+disallow_incomplete_defs = false
+# 允许在运行时动态定义的属性
+allow_untyped_globals = true
+# 错误输出时显示错误代码
+show_error_codes = true
+# 显示列号
+show_column_numbers = true
+# 增量检查缓存
+incremental = true
+cache_dir = ".mypy_cache"
+
+# 特定模块的严格度调整
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+ignore_errors = false
+
+[[tool.mypy.overrides]]
+module = "yunxi.*"
+# 核心业务模块可以逐步开启更严格的检查
+disallow_untyped_defs = false
+warn_return_any = true
+warn_unused_ignores = true
