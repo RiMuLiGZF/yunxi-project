@@ -15,6 +15,12 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from collections import defaultdict
 
+# 脱敏工具
+try:
+    from .masking import mask_audit_data, mask_sensitive_data, AUDIT_SENSITIVE_FIELDS
+except ImportError:
+    from masking import mask_audit_data, mask_sensitive_data, AUDIT_SENSITIVE_FIELDS
+
 
 # ===========================================================================
 # 审计服务
@@ -96,6 +102,7 @@ class AuditService:
             now = time.time()
             now_str = datetime.now().isoformat()
 
+            # 构建事件数据
             event = {
                 "id": self._event_id_counter,
                 "event_type": event_type,
@@ -304,6 +311,7 @@ class AuditService:
         with self._lock:
             self._log_id_counter += 1
 
+            # 构建审计日志数据
             log = {
                 "id": self._log_id_counter,
                 "user_id": user_id,

@@ -5,10 +5,30 @@
 """
 
 import os
+import secrets
+import warnings
 from pathlib import Path
 from typing import List, Optional
 
 from pydantic_settings import BaseSettings
+
+# 默认 JWT 密钥（用于检测用户是否使用了默认值）
+DEFAULT_JWT_SECRET = "yunxi-m12-security-shield-secret-key-2026"
+
+
+def generate_secret_key(length: int = 64) -> str:
+    """生成安全的随机密钥
+
+    使用 secrets 模块生成加密安全的随机字符串，可作为 JWT 密钥、
+    API 密钥或其他需要高熵值的密钥使用。
+
+    Args:
+        length: 密钥长度（字节数），默认 64 字节
+
+    Returns:
+        URL-safe Base64 编码的随机密钥字符串
+    """
+    return secrets.token_urlsafe(length)
 
 
 def _get_base_dir() -> Path:
@@ -92,14 +112,18 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
 
     # ===== JWT 配置 =====
-    # JWT 签名密钥（生产环境请修改）
-    jwt_secret: str = "yunxi-m12-security-shield-secret-key-2026"
+    # JWT 签名密钥（生产环境请修改！默认密钥存在安全风险）
+    jwt_secret: str = DEFAULT_JWT_SECRET
     # JWT 算法
     jwt_algorithm: str = "HS256"
     # Token 过期时间（分钟）
     jwt_expire_minutes: int = 1440
     # 刷新 Token 过期时间（天）
     jwt_refresh_expire_days: int = 7
+    # 是否强制要求安全密钥（生产环境建议开启）
+    # 开启后，如果使用默认密钥或空密钥，启动时将抛出错误
+    # 默认值：生产环境为 True，开发环境为 False
+    require_secure_secret: bool = False
 
     # ===== API 密钥配置 =====
     # 默认 API Key 长度
@@ -138,6 +162,58 @@ class Settings(BaseSettings):
         """确保必要的目录存在"""
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def is_default_secret(self) -> bool:
+        """检查是否使用了默认的 JWT 密钥
+
+        Returns:
+            True 表示使用的是默认密钥或空密钥，存在安全风险
+        """
+        return (
+            not self.jwt_secret
+            or self.jwt_secret == DEFAULT_JWT_SECRET
+            or len(self.jwt_secret) < 16
+        )
+
+    def validate_secret_security(self) -> None:
+        """验证 JWT 密钥安全性
+
+        根据环境和 require_secure_secret 配置执行密钥安全检查：
+        - 如果 require_secure_secret=True 且使用默认密钥，抛出 ValueError
+        - 如果在生产环境使用默认密钥，发出警告
+        - 如果在开发环境使用默认密钥，仅提示
+
+        Raises:
+            ValueError: 当 require_secure_secret=True 且密钥不安全时
+        """
+        if not self.is_default_secret:
+            return
+
+        secret_warning = (
+            "【安全警告】当前使用默认 JWT 密钥，存在严重安全风险！\n"
+            "请通过环境变量 M12_JWT_SECRET 设置自定义密钥，\n"
+            "或在 Python 中调用 generate_secret_key() 生成安全密钥：\n"
+            "    from backend.config import generate_secret_key\n"
+            "    print(generate_secret_key())\n"
+            f"当前环境: {self.env}"
+        )
+
+        if self.require_secure_secret:
+            raise ValueError(
+                f"[M12] 启动失败：JWT 密钥不安全！\n{secret_warning}\n"
+                "如需强制使用默认密钥（仅限开发测试），请设置 "
+                "M12_REQUIRE_SECURE_SECRET=false"
+            )
+
+        if self.env == "production":
+            warnings.warn(
+                f"[M12] {secret_warning}",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            print(f"[M12] {secret_warning}")
+
 
 # 全局配置单例
 _settings: Optional[Settings] = None
@@ -146,6 +222,9 @@ _settings: Optional[Settings] = None
 def get_settings() -> Settings:
     """获取全局配置实例（单例模式）
 
+    首次调用时会验证 JWT 密钥安全性，根据配置决定
+    是抛出错误、发出警告还是仅打印提示。
+
     Returns:
         Settings 配置对象
     """
@@ -153,6 +232,8 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
         _settings.ensure_dirs()
+        # 验证密钥安全性
+        _settings.validate_secret_security()
     return _settings
 
 

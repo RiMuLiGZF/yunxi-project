@@ -3,9 +3,30 @@
 定义安全审计接口的请求和响应数据模型
 """
 
+import re
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# ===========================================================================
+# 安全校验工具
+# ===========================================================================
+
+# 路径遍历攻击特征模式
+_PATH_TRAVERSAL_PATTERN = re.compile(
+    r'(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.\.%2f|%2e\.%2f|%2e\.%5c)',
+    re.IGNORECASE,
+)
+
+
+def _validate_no_path_traversal(value: str, field_name: str) -> str:
+    """校验字段中不包含路径遍历字符"""
+    if value and _PATH_TRAVERSAL_PATTERN.search(value):
+        raise ValueError(
+            f"{field_name} 包含非法的路径遍历字符，不允许使用 ../ 等特殊序列"
+        )
+    return value
 
 
 # ===========================================================================
@@ -39,8 +60,25 @@ class SecurityEventResponse(BaseModel):
 class EventResolveRequest(BaseModel):
     """处理事件请求"""
 
-    resolution_note: str = Field(default="", description="处理说明")
-    status: str = Field(default="resolved", description="事件状态")
+    resolution_note: str = Field(default="", max_length=1000, description="处理说明（最多1000字符）")
+    status: str = Field(default="resolved", max_length=20, description="事件状态")
+
+    @field_validator("resolution_note")
+    @classmethod
+    def validate_resolution_note(cls, v: str) -> str:
+        """校验处理说明：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "处理说明")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        """校验事件状态"""
+        allowed = {"active", "resolved", "ignored", "false_positive"}
+        if v not in allowed:
+            raise ValueError(f"status 必须是以下值之一: {allowed}")
+        return v
 
 
 # ===========================================================================
@@ -81,30 +119,100 @@ class AuditLogResponse(BaseModel):
 class EventQueryParams(BaseModel):
     """安全事件查询参数"""
 
-    event_type: Optional[str] = Field(default=None, description="事件类型")
-    severity: Optional[str] = Field(default=None, description="严重级别")
-    source_ip: Optional[str] = Field(default=None, description="来源 IP")
-    status: Optional[str] = Field(default=None, description="事件状态")
+    event_type: Optional[str] = Field(default=None, max_length=50, description="事件类型")
+    severity: Optional[str] = Field(default=None, max_length=20, description="严重级别")
+    source_ip: Optional[str] = Field(default=None, max_length=50, description="来源 IP")
+    status: Optional[str] = Field(default=None, max_length=20, description="事件状态")
     start_time: Optional[datetime] = Field(default=None, description="开始时间")
     end_time: Optional[datetime] = Field(default=None, description="结束时间")
-    keyword: Optional[str] = Field(default=None, description="关键词搜索")
+    keyword: Optional[str] = Field(default=None, max_length=200, description="关键词搜索（最多200字符）")
     page: int = Field(default=1, ge=1, description="页码")
     page_size: int = Field(default=20, ge=1, le=100, description="每页数量")
+
+    @field_validator("event_type")
+    @classmethod
+    def validate_event_type(cls, v: Optional[str]) -> Optional[str]:
+        """校验事件类型：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "事件类型")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def validate_severity(cls, v: Optional[str]) -> Optional[str]:
+        """校验严重级别"""
+        if v:
+            allowed = {"info", "low", "medium", "high", "critical"}
+            if v not in allowed:
+                raise ValueError(f"severity 必须是以下值之一: {allowed}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
+        """校验事件状态"""
+        if v:
+            allowed = {"active", "resolved", "ignored", "false_positive"}
+            if v not in allowed:
+                raise ValueError(f"status 必须是以下值之一: {allowed}")
+        return v
+
+    @field_validator("keyword")
+    @classmethod
+    def validate_keyword(cls, v: Optional[str]) -> Optional[str]:
+        """校验关键词：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "关键词")
+        return v
 
 
 class AuditQueryParams(BaseModel):
     """审计日志查询参数"""
 
-    user_id: Optional[str] = Field(default=None, description="用户ID")
-    module: Optional[str] = Field(default=None, description="模块")
-    action: Optional[str] = Field(default=None, description="操作类型")
-    status: Optional[str] = Field(default=None, description="操作状态")
-    source_ip: Optional[str] = Field(default=None, description="来源 IP")
+    user_id: Optional[str] = Field(default=None, max_length=100, description="用户ID")
+    module: Optional[str] = Field(default=None, max_length=50, description="模块")
+    action: Optional[str] = Field(default=None, max_length=50, description="操作类型")
+    status: Optional[str] = Field(default=None, max_length=20, description="操作状态")
+    source_ip: Optional[str] = Field(default=None, max_length=50, description="来源 IP")
     start_time: Optional[datetime] = Field(default=None, description="开始时间")
     end_time: Optional[datetime] = Field(default=None, description="结束时间")
-    keyword: Optional[str] = Field(default=None, description="关键词搜索")
+    keyword: Optional[str] = Field(default=None, max_length=200, description="关键词搜索（最多200字符）")
     page: int = Field(default=1, ge=1, description="页码")
     page_size: int = Field(default=20, ge=1, le=100, description="每页数量")
+
+    @field_validator("module")
+    @classmethod
+    def validate_module(cls, v: Optional[str]) -> Optional[str]:
+        """校验模块：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "模块")
+        return v
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: Optional[str]) -> Optional[str]:
+        """校验操作类型：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "操作类型")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
+        """校验操作状态"""
+        if v:
+            allowed = {"success", "failed", "denied", "pending"}
+            if v not in allowed:
+                raise ValueError(f"status 必须是以下值之一: {allowed}")
+        return v
+
+    @field_validator("keyword")
+    @classmethod
+    def validate_keyword(cls, v: Optional[str]) -> Optional[str]:
+        """校验关键词：禁止路径遍历"""
+        if v:
+            _validate_no_path_traversal(v, "关键词")
+        return v
 
 
 # ===========================================================================

@@ -10,12 +10,14 @@ from typing import Optional
 try:
     from ..models import make_response, make_error_response
     from ..services.audit_service import get_audit_service
+    from ..services.masking import mask_audit_data, mask_ip_address
 except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from models import make_response, make_error_response
     from services.audit_service import get_audit_service
+    from services.masking import mask_audit_data, mask_ip_address
 
 router = APIRouter(prefix="/api/m12/audit", tags=["M12-安全审计"])
 
@@ -52,6 +54,8 @@ def list_events(
             page=page,
             page_size=page_size,
         )
+        # 对返回数据进行脱敏处理
+        result["items"] = [mask_audit_data(item) for item in result["items"]]
         return make_response(data=result)
     except Exception as e:
         return make_error_response(f"查询安全事件失败: {str(e)}")
@@ -67,7 +71,9 @@ def get_event_detail(event_id: int):
         event = audit.get_event_by_id(event_id)
         if not event:
             return make_error_response(f"事件不存在: {event_id}", code=404)
-        return make_response(data=event)
+        # 对返回数据进行脱敏处理
+        masked_event = mask_audit_data(event)
+        return make_response(data=masked_event)
     except Exception as e:
         return make_error_response(f"获取事件详情失败: {str(e)}")
 
@@ -90,7 +96,9 @@ def resolve_event(
         )
         if not event:
             return make_error_response(f"事件不存在: {event_id}", code=404)
-        return make_response(data=event, message="事件处理完成")
+        # 对返回数据进行脱敏处理
+        masked_event = mask_audit_data(event)
+        return make_response(data=masked_event, message="事件处理完成")
     except Exception as e:
         return make_error_response(f"处理事件失败: {str(e)}")
 
@@ -125,6 +133,8 @@ def list_audit_logs(
             page=page,
             page_size=page_size,
         )
+        # 对返回数据进行脱敏处理
+        result["items"] = [mask_audit_data(item) for item in result["items"]]
         return make_response(data=result)
     except Exception as e:
         return make_error_response(f"查询审计日志失败: {str(e)}")
@@ -248,10 +258,15 @@ def stats_top_ips(
         stats = audit.get_stats()
 
         top_ips = stats["top_source_ips"][:limit]
+        # 对 IP 地址进行脱敏
+        top_ips_masked = [
+            {"ip": mask_ip_address(item["ip"]), "count": item["count"]}
+            for item in top_ips
+        ]
 
         return make_response(data={
-            "items": top_ips,
-            "total": len(top_ips),
+            "items": top_ips_masked,
+            "total": len(top_ips_masked),
         })
     except Exception as e:
         return make_error_response(f"获取 IP 排行失败: {str(e)}")
