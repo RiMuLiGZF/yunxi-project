@@ -76,7 +76,7 @@ BACKUP_ANCHOR.txt
 # 暂从版本控制排除的目录（文件系统损坏导致Git无法读取，待修复后可重新加入）
 # 完整备份见: c:\云汐\工作台\云汐系统备份\
 M1-agent-cluster/
-M8-control-tower/
+# M8 已重新纳入版本控制（2026-07-12 架构调整Phase2/Phase3）
 # M5 已重新纳入版本控制（2026-07-12 Phase1优化开始）
 
 .coverage
