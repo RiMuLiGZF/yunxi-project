@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>安全仪表盘 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* 安全评分圆环 */
+  .security-score-ring {
+    position: relative;
+    width: 160px;
+    height: 160px;
+  }
+  .security-score-ring .score-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .security-score-ring .score-value .num {
+    font-family: var(--font-mono);
+    font-size: 42px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .security-score-ring .score-value .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* 状态卡片网格 */
+  .status-card {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .status-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+  }
+  .status-card .icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .status-card .icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .status-card.waf .icon { background: rgba(16, 185, 129, 0.15); color: var(--primary-light); }
+  .status-card.ip .icon { background: rgba(59, 130, 246, 0.15); color: var(--info-light); }
+  .status-card.auth .icon { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+  .status-card .info .name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .status-card .info .desc {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .status-card .info .status-text {
+    font-size: 12px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* 攻击类型分布图表容器 */
+  .chart-container {
+    position: relative;
+    height: 280px;
+  }
+
+  /* 实时事件流光点 */
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 8px var(--primary);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  /* 趋势迷你图 */
+  .mini-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+
+  /* 安全等级指示条 */
+  .security-level-bar {
+    display: flex;
+    gap: 4px;
+    margin-top: 12px;
+  }
+  .security-level-bar .bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .security-level-bar .bar.active {
+    background: linear-gradient(90deg, var(--primary-dark), var(--primary-light));
+    box-shadow: 0 0 6px var(--primary-glow);
+  }
+  .security-level-bar .bar.active.warning {
+    background: linear-gradient(90deg, var(--amber-dark), var(--amber-light));
+    box-shadow: 0 0 6px var(--amber-glow);
+  }
+  .security-level-bar .bar.active.danger {
+    background: linear-gradient(90deg, var(--danger-dark), var(--danger-light));
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+    <linearGradient id="dangerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f87171" />
+      <stop offset="50%" style="stop-color:#ef4444" />
+      <stop offset="100%" style="stop-color:#dc2626" />
+    </linearGradient>
+    <linearGradient id="warningGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fcd34d" />
+      <stop offset="50%" style="stop-color:#f59e0b" />
+      <stop offset="100%" style="stop-color:#d97706" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+        <span class="nav-badge badge-success">运行中</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">安全仪表盘</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>安全态势 <span class="accent">总览</span></h1>
+    <p>实时监控系统安全状态，快速响应安全威胁</p>
+  </div>
+
+  <!-- 骨架屏 -->
+  <div class="skeleton-wrapper loading" id="skeleton">
+    <div class="glass-strong p-6 mb-6" style="border-radius: var(--radius-xl);">
+      <div class="flex items-center gap-8">
+        <div class="skeleton" style="width:160px;height:160px;border-radius:50%;"></div>
+        <div class="flex-1">
+          <div class="skeleton skeleton-text short mb-4" style="height:20px;"></div>
+          <div class="grid grid-cols-4 gap-4">
+            <div class="skeleton skeleton-card" style="height:80px;"></div>
+            <div class="skeleton skeleton-card" style="height:80px;"></div>
+            <div class="skeleton skeleton-card" style="height:80px;"></div>
+            <div class="skeleton skeleton-card" style="height:80px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实际内容 -->
+  <div class="content-wrapper" id="mainContent">
+
+    <!-- 顶部：安全评分 + 核心指标 -->
+    <div class="glass-strong p-6 mb-6 fade-in-up delay-100" style="border-radius: var(--radius-xl);">
+      <div class="flex flex-col lg:flex-row items-center gap-8">
+        <!-- 左侧：安全评分 -->
+        <div class="flex-shrink-0">
+          <div class="security-score-ring">
+            <svg class="ring-progress" width="160" height="160" viewBox="0 0 160 160">
+              <circle class="ring-bg" cx="80" cy="80" r="68" stroke-width="10"/>
+              <circle id="scoreRing" class="ring-fill" cx="80" cy="80" r="68" stroke-width="10"
+                stroke-dasharray="427.26" stroke-dashoffset="427.26"/>
+            </svg>
+            <div class="score-value">
+              <div class="num" id="securityScore">0</div>
+              <div class="label">安全评分</div>
+            </div>
+          </div>
+          <div class="security-level-bar">
+            <div class="bar active"></div>
+            <div class="bar active"></div>
+            <div class="bar active"></div>
+            <div class="bar active"></div>
+            <div class="bar active"></div>
+          </div>
+          <div class="text-center mt-2">
+            <span class="tag tag-success" id="securityLevelTag">安全等级：优秀</span>
+          </div>
+        </div>
+
+        <!-- 右侧：核心指标 -->
+        <div class="flex-1 w-full">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="section-title" style="margin-bottom:0;">今日安全概览</h3>
+            <span class="tag tag-success"><span class="live-dot" style="display:inline-block;margin-right:6px;"></span>实时监控中</span>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="stat-card">
+              <div class="label">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                今日攻击数
+              </div>
+              <div class="value danger" id="todayAttacks">0</div>
+              <div class="trend up">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                <span id="attackTrend">+12.5%</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="label">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                拦截数
+              </div>
+              <div class="value primary" id="todayBlocks">0</div>
+              <div class="trend up">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                <span>拦截率 99.7%</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="label">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                封禁 IP 数
+              </div>
+              <div class="value warning" id="bannedIps">0</div>
+              <div class="trend down">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                <span>较昨日 -3</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="label">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                平均响应
+              </div>
+              <div class="value info"><span id="avgResponse">0</span><span style="font-size:14px;">ms</span></div>
+              <div class="trend up">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                <span>性能良好</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二行：攻击类型分布 + 防护状态卡片 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- 攻击类型分布 -->
+      <div class="glass-strong p-6 fade-in-up delay-200" style="border-radius: var(--radius-xl);">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="section-title" style="margin-bottom:0;">攻击类型分布</h3>
+          <select class="form-input form-select" style="width:auto;padding:6px 28px 6px 12px;font-size:12px;" onchange="updateAttackChart(this.value)">
+            <option value="today">今日</option>
+            <option value="week">本周</option>
+            <option value="month">本月</option>
+          </select>
+        </div>
+        <div class="chart-container">
+          <canvas id="attackTypeChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 防护状态卡片组 -->
+      <div class="lg:col-span-2 glass-strong p-6 fade-in-up delay-300" style="border-radius: var(--radius-xl);">
+        <h3 class="section-title">防护模块状态</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <a href="waf.html" class="status-card waf" style="text-decoration:none;">
+            <div class="icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <div class="info">
+              <div class="name">WAF 防护墙</div>
+              <div class="desc">Web 应用防火墙</div>
+              <div class="status-text">
+                <span class="status-dot status-online" style="width:6px;height:6px;"></span>
+                <span class="text-primary">运行中 · 5 条规则</span>
+              </div>
+            </div>
+          </a>
+          <a href="ip-control.html" class="status-card ip" style="text-decoration:none;">
+            <div class="icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+            </div>
+            <div class="info">
+              <div class="name">IP 访问控制</div>
+              <div class="desc">黑白名单 + 自动封禁</div>
+              <div class="status-text">
+                <span class="status-dot status-online" style="width:6px;height:6px;"></span>
+                <span class="text-primary">运行中 · 47 封禁</span>
+              </div>
+            </div>
+          </a>
+          <a href="auth.html" class="status-card auth" style="text-decoration:none;">
+            <div class="icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <div class="info">
+              <div class="name">鉴权系统</div>
+              <div class="desc">API 密钥 + 角色权限</div>
+              <div class="status-text">
+                <span class="status-dot status-online" style="width:6px;height:6px;"></span>
+                <span class="text-primary">运行中 · 12 密钥</span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- 攻击趋势折线图 -->
+        <div class="mt-6 pt-6" style="border-top: 1px solid var(--border);">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="section-title" style="margin-bottom:0;">近 24 小时攻击趋势</h3>
+            <div class="flex gap-4 text-xs text-muted">
+              <span class="flex items-center gap-1.5">
+                <span style="width:10px;height:10px;border-radius:50%;background:var(--danger);"></span>
+                攻击数
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span style="width:10px;height:10px;border-radius:50%;background:var(--primary);"></span>
+                拦截数
+              </span>
+            </div>
+          </div>
+          <div class="chart-container" style="height:180px;">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第三行：实时安全事件流 + 攻击来源 TOP -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- 实时安全事件流 -->
+      <div class="lg:col-span-2 glass-strong p-6 fade-in-up delay-400" style="border-radius: var(--radius-xl);">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="section-title" style="margin-bottom:0;">实时安全事件</h3>
+          <div class="flex items-center gap-2">
+            <span class="live-dot"></span>
+            <span class="text-xs text-primary">实时更新</span>
+          </div>
+        </div>
+        <div class="event-stream" id="eventStream">
+          <!-- 事件由 JS 动态生成 -->
+        </div>
+      </div>
+
+      <!-- 攻击来源 TOP -->
+      <div class="glass-strong p-6 fade-in-up delay-500" style="border-radius: var(--radius-xl);">
+        <h3 class="section-title">攻击来源 TOP 5</h3>
+        <div class="space-y-4" id="topAttackSources">
+          <!-- 由 JS 生成 -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // ========== 鉴权检查 ==========
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) {
+      window.location.href = 'login.html';
+      return false;
+    }
+    return true;
+  }
+  checkAuth();
+
+  // ========== 显示用户信息 ==========
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  // ========== 退出登录 ==========
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      localStorage.removeItem('m12_login_type');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // ========== 时间更新 ==========
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== 数字滚动动画 ==========
+  function animateCounter(el, target, duration = 1500) {
+    const isFloat = target % 1 !== 0;
+    const startTime = performance.now();
+    function update(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const current = target * easeProgress;
+      el.textContent = isFloat ? current.toFixed(1) : Math.floor(current).toLocaleString();
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+
+  // ========== 安全评分圆环 ==========
+  function animateScoreRing(score) {
+    const ring = document.getElementById('scoreRing');
+    const circumference = 2 * Math.PI * 68;
+    const offset = circumference - (score / 100) * circumference;
+    setTimeout(() => {
+      ring.style.strokeDashoffset = offset;
+    }, 300);
+  }
+
+  // ========== 攻击类型饼图 ==========
+  let attackTypeChart = null;
+  function initAttackTypeChart() {
+    const ctx = document.getElementById('attackTypeChart').getContext('2d');
+    const data = {
+      labels: ['SQL 注入', 'XSS 攻击', 'CSRF', '命令注入', '路径遍历', '其他'],
+      datasets: [{
+        data: [342, 256, 128, 189, 95, 47],
+        backgroundColor: [
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(59, 130, 246, 0.8)',
+          'rgba(168, 85, 247, 0.8)',
+          'rgba(16, 185, 129, 0.8)',
+          'rgba(107, 114, 128, 0.8)'
+        ],
+        borderColor: 'rgba(0,0,0,0.3)',
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    };
+
+    attackTypeChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#9ca3af',
+              font: { size: 11 },
+              padding: 12,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = ((context.parsed / total) * 100).toFixed(1);
+                return ` ${context.label}: ${context.parsed} 次 (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function updateAttackChart(period) {
+    const dataMap = {
+      today: [342, 256, 128, 189, 95, 47],
+      week: [2380, 1792, 896, 1323, 665, 329],
+      month: [10260, 7680, 3840, 5705, 2865, 1417]
+    };
+    if (attackTypeChart) {
+      attackTypeChart.data.datasets[0].data = dataMap[period] || dataMap.today;
+      attackTypeChart.update();
+    }
+  }
+
+  // ========== 趋势折线图 ==========
+  let trendChart = null;
+  function initTrendChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const hours = Array.from({length: 24}, (_, i) => `${String(i).padStart(2,'0')}:00`);
+    const attacks = [12, 8, 5, 3, 4, 6, 15, 28, 42, 38, 45, 52, 48, 55, 62, 58, 65, 72, 68, 55, 42, 35, 28, 22];
+    const blocks = attacks.map(v => Math.round(v * (0.98 + Math.random() * 0.02)));
+
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: hours,
+        datasets: [
+          {
+            label: '攻击数',
+            data: attacks,
+            borderColor: 'rgba(239, 68, 68, 0.9)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2
+          },
+          {
+            label: '拦截数',
+            data: blocks,
+            borderColor: 'rgba(16, 185, 129, 0.9)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 12 }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ========== 实时事件流 ==========
+  const eventTemplates = [
+    { type: 'critical', icon: 'critical', title: '检测到 SQL 注入攻击', source: 'WAF', detail: 'IP 45.33.32.156 尝试 UNION SELECT 注入' },
+    { type: 'warning', icon: 'warning', title: 'XSS 攻击尝试被拦截', source: 'WAF', detail: 'POST /api/comment 包含恶意脚本' },
+    { type: 'info', icon: 'info', title: '新 IP 加入白名单', source: 'IP控制', detail: '管理员添加 192.168.1.100 至白名单' },
+    { type: 'critical', icon: 'critical', title: '暴力破解检测', source: '鉴权', detail: 'IP 203.0.113.45 连续 50 次登录失败' },
+    { type: 'success', icon: 'success', title: 'API 密钥轮换完成', source: '鉴权', detail: '密钥 sk_prod_xxxx 已成功轮换' },
+    { type: 'warning', icon: 'warning', title: '路径遍历攻击', source: 'WAF', detail: 'GET /static/../../etc/passwd 已拦截' },
+    { type: 'info', icon: 'info', title: '自动封禁 IP', source: 'IP控制', detail: 'IP 198.51.100.23 因高频请求被封禁 1 小时' },
+    { type: 'critical', icon: 'critical', title: '命令注入攻击', source: 'WAF', detail: '参数 cmd 包含系统命令调用' },
+    { type: 'success', icon: 'success', title: '安全扫描完成', source: '系统', detail: '今日全量扫描未发现高危漏洞' },
+    { type: 'warning', icon: 'warning', title: 'CSRF 攻击尝试', source: 'WAF', detail: '请求缺少有效 CSRF Token' }
+  ];
+
+  function generateEvent() {
+    const tpl = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8);
+    const icons = {
+      critical: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+      warning: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+      info: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+      success: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+    };
+
+    return `
+      <div class="event-item">
+        <div class="event-icon ${tpl.icon}">${icons[tpl.icon]}</div>
+        <div class="event-content">
+          <div class="event-title">${tpl.title}</div>
+          <div class="event-meta">
+            <span class="text-primary">${tpl.source}</span>
+            <span>·</span>
+            <span>${tpl.detail}</span>
+            <span style="margin-left:auto;" class="font-mono">${timeStr}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function initEventStream() {
+    const stream = document.getElementById('eventStream');
+    let html = '';
+    for (let i = 0; i < 8; i++) {
+      html += generateEvent();
+    }
+    stream.innerHTML = html;
+  }
+
+  function addNewEvent() {
+    const stream = document.getElementById('eventStream');
+    const newEvent = document.createElement('div');
+    newEvent.innerHTML = generateEvent();
+    const eventEl = newEvent.firstElementChild;
+    stream.insertBefore(eventEl, stream.firstChild);
+    // 保持最多 20 条
+    while (stream.children.length > 20) {
+      stream.removeChild(stream.lastChild);
+    }
+  }
+
+  // ========== 攻击来源 TOP ==========
+  function initTopAttackSources() {
+    const sources = [
+      { ip: '45.33.32.156', count: 234, country: '美国', pct: 100 },
+      { ip: '203.0.113.45', count: 189, country: '新加坡', pct: 81 },
+      { ip: '198.51.100.23', count: 156, country: '俄罗斯', pct: 67 },
+      { ip: '185.220.101.34', count: 128, country: '德国', pct: 55 },
+      { ip: '103.224.182.251', count: 97, country: '越南', pct: 41 }
+    ];
+
+    const container = document.getElementById('topAttackSources');
+    container.innerHTML = sources.map((s, i) => `
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+          style="background: ${i < 3 ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'rgba(255,255,255,0.1)'}; color: #fff;">
+          ${i + 1}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-mono text-sm text-gray-200 truncate">${s.ip}</span>
+            <span class="text-xs text-danger font-mono">${s.count}</span>
+          </div>
+          <div class="progress-bar" style="height:4px;">
+            <div class="progress-fill-danger" style="width:${s.pct}%;height:100%;border-radius:3px;"></div>
+          </div>
+          <div class="text-xs text-muted mt-1">${s.country}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ========== 加载数据 ==========
+  async function loadDashboardData() {
+    // 模拟 API 延迟
+    await new Promise(r => setTimeout(r, 800));
+
+    // 隐藏骨架屏，显示内容
+    document.getElementById('skeleton').classList.remove('loading');
+    document.getElementById('mainContent').classList.add('loaded');
+
+    // 动画计数
+    animateCounter(document.getElementById('securityScore'), 92.5);
+    animateCounter(document.getElementById('todayAttacks'), 1057);
+    animateCounter(document.getElementById('todayBlocks'), 1054);
+    animateCounter(document.getElementById('bannedIps'), 47);
+    animateCounter(document.getElementById('avgResponse'), 23);
+
+    // 圆环动画
+    animateScoreRing(92.5);
+
+    // 初始化图表
+    initAttackTypeChart();
+    initTrendChart();
+    initEventStream();
+    initTopAttackSources();
+
+    // 定时添加新事件
+    setInterval(addNewEvent, 5000);
+  }
+
+  // ========== Toast ==========
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ========== 初始化 ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    loadDashboardData();
+  });
+</script>
+
+</body>
+</html>

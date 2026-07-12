@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WAF 防护墙 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* WAF 开关大按钮 */
+  .waf-toggle-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 24px;
+  }
+  .waf-toggle-section .info h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .waf-toggle-section .info p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .waf-toggle-section .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .status-badge.online {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary-light);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .status-badge.offline {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-secondary);
+    border: 1px solid rgba(107, 114, 128, 0.3);
+  }
+
+  /* 大开关 */
+  .big-switch {
+    position: relative;
+    width: 72px;
+    height: 36px;
+  }
+  .big-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .big-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
+    transition: 0.4s;
+    border-radius: 36px;
+  }
+  .big-slider:before {
+    position: absolute;
+    content: "";
+    height: 28px;
+    width: 28px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--text-muted);
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+  .big-switch input:checked + .big-slider {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+  }
+  .big-switch input:checked + .big-slider:before {
+    transform: translateX(36px);
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  }
+
+  /* 规则卡片 */
+  .rule-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+    margin-bottom: 12px;
+  }
+  .rule-card:hover {
+    border-color: var(--border-strong);
+  }
+  .rule-card.disabled {
+    opacity: 0.5;
+  }
+  .rule-card .rule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .rule-card .rule-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rule-card .rule-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rule-card .rule-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  .rule-card .rule-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .rule-card .rule-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .rule-card .rule-stats {
+    display: flex;
+    gap: 16px;
+  }
+  .rule-card .rule-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .rule-card .rule-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* 模式选择 */
+  .mode-selector {
+    display: flex;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+    font-weight: 500;
+  }
+  .mode-btn.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+  }
+
+  /* 拦截统计图表 */
+  .stat-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .stat-mini:last-child { border-bottom: none; }
+  .stat-mini .label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stat-mini .value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-light);
+  }
+
+  /* 规则等级标签 */
+  .severity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .sev-high { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .sev-medium { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+  .sev-low { background: var(--info); box-shadow: 0 0 6px var(--info); }
+
+  /* 搜索栏 */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .search-bar .form-input {
+    flex: 1;
+  }
+  .filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filter-chip {
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: transparent;
+  }
+  .filter-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+  .filter-chip.active {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+        <span class="nav-badge badge-success">运行中</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">WAF 防护墙</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>WAF 防护墙 <span class="accent">管理</span></h1>
+    <p>Web 应用防火墙配置与规则管理，防护各类 Web 攻击</p>
+  </div>
+
+  <div class="content-wrapper loaded">
+
+    <!-- WAF 总开关 -->
+    <div class="waf-toggle-section fade-in-up delay-100">
+      <div class="info">
+        <h2>
+          Web 应用防火墙
+          <span class="status-badge online" id="wafStatusBadge">
+            <span class="status-dot status-online" style="width:6px;height:6px;"></span>
+            运行中
+          </span>
+        </h2>
+        <p>实时拦截 SQL 注入、XSS、CSRF、命令注入等 Web 攻击</p>
+      </div>
+      <label class="big-switch">
+        <input type="checkbox" id="wafToggle" checked onchange="toggleWaf(this)">
+        <span class="big-slider"></span>
+      </label>
+    </div>
+
+    <!-- 主体：左侧规则列表 + 右侧统计 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- 左侧：规则管理 -->
+      <div class="lg:col-span-2">
+        <div class="glass-strong p-6 fade-in-up delay-200" style="border-radius: var(--radius-xl);">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="section-title" style="margin-bottom:0;">防护规则</h3>
+            <button class="btn btn-primary btn-sm" onclick="showAddRuleModal()">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              自定义规则
+            </button>
+          </div>
+
+          <!-- 搜索和筛选 -->
+          <div class="search-bar">
+            <input type="text" class="form-input" placeholder="搜索规则名称..." oninput="filterRules(this.value)">
+          </div>
+          <div class="filter-chips">
+            <button class="filter-chip active" onclick="filterBySeverity('all', this)">全部</button>
+            <button class="filter-chip" onclick="filterBySeverity('high', this)">高危</button>
+            <button class="filter-chip" onclick="filterBySeverity('medium', this)">中危</button>
+            <button class="filter-chip" onclick="filterBySeverity('low', this)">低危</button>
+            <button class="filter-chip" onclick="filterBySeverity('custom', this)">自定义</button>
+          </div>
+
+          <!-- 模式选择 -->
+          <div class="mb-4">
+            <div class="text-sm text-muted mb-2">防护模式</div>
+            <div class="mode-selector">
+              <div class="mode-btn active" data-mode="block" onclick="setMode('block', this)">拦截模式</div>
+              <div class="mode-btn" data-mode="log" onclick="setMode('log', this)">日志模式</div>
+              <div class="mode-btn" data-mode="off" onclick="setMode('off', this)">关闭</div>
+            </div>
+          </div>
+
+          <!-- 规则列表 -->
+          <div id="ruleList">
+            <!-- 规则由 JS 生成 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：统计信息 -->
+      <div class="space-y-6">
+        <!-- 拦截统计 -->
+        <div class="glass-strong p-6 fade-in-up delay-300" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">今日拦截统计</h3>
+          <div class="chart-container" style="height:180px;">
+            <canvas id="wafBlockChart"></canvas>
+          </div>
+          <div class="mt-4 pt-4" style="border-top: 1px solid var(--border);">
+            <div class="stat-mini">
+              <span class="label"><span class="severity-dot sev-high"></span>高危拦截</span>
+              <span class="value" style="color: var(--danger-light);" id="highBlocks">342</span>
+            </div>
+            <div class="stat-mini">
+              <span class="label"><span class="severity-dot sev-medium"></span>中危拦截</span>
+              <span class="value" style="color: var(--amber-light);" id="mediumBlocks">456</span>
+            </div>
+            <div class="stat-mini">
+              <span class="label"><span class="severity-dot sev-low"></span>低危拦截</span>
+              <span class="value" style="color: var(--info-light);" id="lowBlocks">259</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="glass-strong p-6 fade-in-up delay-400" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">快速操作</h3>
+          <div class="space-y-3">
+            <button class="btn btn-outline w-full" onclick="showToast('正在导出 WAF 规则...', 'info')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              导出规则
+            </button>
+            <button class="btn btn-outline w-full" onclick="showToast('正在导入规则...', 'info')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              导入规则
+            </button>
+            <button class="btn btn-outline w-full" onclick="clearWafCache()">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              清空缓存
+            </button>
+            <button class="btn btn-outline w-full" onclick="showToast('正在运行规则自检...', 'info')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              规则自检
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 添加规则弹窗 -->
+<div class="modal-overlay" id="addRuleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>添加自定义规则</h3>
+      <div class="modal-close" onclick="hideAddRuleModal()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+    </div>
+    <form onsubmit="addCustomRule(event)">
+      <div class="form-group">
+        <label class="form-label">规则名称</label>
+        <input type="text" class="form-input" id="newRuleName" placeholder="例如：恶意爬虫拦截" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">规则类型</label>
+        <select class="form-input form-select" id="newRuleType">
+          <option value="sql">SQL 注入防护</option>
+          <option value="xss">XSS 攻击防护</option>
+          <option value="csrf">CSRF 防护</option>
+          <option value="cmd">命令注入防护</option>
+          <option value="path">路径遍历防护</option>
+          <option value="custom">自定义正则</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">匹配规则（正则表达式）</label>
+        <textarea class="form-input form-textarea" id="newRulePattern" placeholder="例如：(union|select|insert|delete).*--" required></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">危险等级</label>
+        <select class="form-input form-select" id="newRuleSeverity">
+          <option value="high">高危</option>
+          <option value="medium">中危</option>
+          <option value="low">低危</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">处理动作</label>
+        <select class="form-input form-select" id="newRuleAction">
+          <option value="block">拦截并返回 403</option>
+          <option value="log">仅记录日志</option>
+          <option value="redirect">重定向到安全页</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="hideAddRuleModal()">取消</button>
+        <button type="submit" class="btn btn-primary">添加规则</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  // 用户信息
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== WAF 规则数据 ==========
+  let wafRules = [
+    {
+      id: 'r001', name: 'SQL 注入防护', type: 'sql', severity: 'high', enabled: true,
+      desc: '检测并拦截 SQL 注入攻击，包括 UNION 注入、布尔盲注、报错注入等',
+      todayBlocks: 342, totalBlocks: 12847, custom: false
+    },
+    {
+      id: 'r002', name: 'XSS 跨站脚本防护', type: 'xss', severity: 'high', enabled: true,
+      desc: '防护反射型、存储型和 DOM 型 XSS 攻击，过滤恶意脚本标签',
+      todayBlocks: 256, totalBlocks: 8923, custom: false
+    },
+    {
+      id: 'r003', name: 'CSRF 跨站请求伪造', type: 'csrf', severity: 'medium', enabled: true,
+      desc: '验证 CSRF Token，防止跨站请求伪造攻击',
+      todayBlocks: 128, totalBlocks: 4521, custom: false
+    },
+    {
+      id: 'r004', name: '命令注入防护', type: 'cmd', severity: 'high', enabled: true,
+      desc: '检测并拦截系统命令注入攻击，防止执行任意系统命令',
+      todayBlocks: 189, totalBlocks: 6734, custom: false
+    },
+    {
+      id: 'r005', name: '路径遍历防护', type: 'path', severity: 'medium', enabled: true,
+      desc: '防止 ../ 等路径遍历攻击，保护敏感文件不被访问',
+      todayBlocks: 95, totalBlocks: 3218, custom: false
+    },
+    {
+      id: 'r006', name: '恶意 User-Agent 拦截', type: 'custom', severity: 'low', enabled: true,
+      desc: '拦截已知的恶意爬虫和扫描器 User-Agent',
+      todayBlocks: 47, totalBlocks: 1856, custom: true
+    }
+  ];
+
+  let currentFilter = 'all';
+  let searchQuery = '';
+
+  // 图标映射
+  const ruleIcons = {
+    sql: { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>' },
+    xss: { bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>' },
+    csrf: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>' },
+    cmd: { bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>' },
+    path: { bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>' },
+    custom: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' }
+  };
+
+  const sevLabels = { high: '高危', medium: '中危', low: '低危' };
+  const sevClasses = { high: 'sev-high', medium: 'sev-medium', low: 'sev-low' };
+
+  // 渲染规则列表
+  function renderRules() {
+    const container = document.getElementById('ruleList');
+    let filtered = wafRules;
+
+    if (currentFilter === 'custom') {
+      filtered = filtered.filter(r => r.custom);
+    } else if (currentFilter !== 'all') {
+      filtered = filtered.filter(r => r.severity === currentFilter);
+    }
+
+    if (searchQuery) {
+      filtered = filtered.filter(r =>
+        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.desc.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    container.innerHTML = filtered.map(rule => {
+      const iconData = ruleIcons[rule.type] || ruleIcons.custom;
+      return `
+        <div class="rule-card ${rule.enabled ? '' : 'disabled'}" data-id="${rule.id}">
+          <div class="rule-header">
+            <div class="rule-name">
+              <div class="rule-icon" style="background: ${iconData.bg}; color: ${iconData.color};">
+                ${iconData.icon}
+              </div>
+              <span>${rule.name}</span>
+              <span class="severity-dot ${sevClasses[rule.severity]}" title="${sevLabels[rule.severity]}"></span>
+              ${rule.custom ? '<span class="tag tag-info" style="font-size:10px;">自定义</span>' : ''}
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${rule.id}', this)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="rule-desc">${rule.desc}</div>
+          <div class="rule-meta">
+            <div class="rule-stats">
+              <span>今日拦截: <strong style="color: var(--primary-light);">${rule.todayBlocks}</strong></span>
+              <span>累计拦截: <strong style="color: var(--text-secondary);">${rule.totalBlocks.toLocaleString()}</strong></span>
+            </div>
+            <div class="rule-actions">
+              <button class="btn btn-ghost btn-sm" onclick="editRule('${rule.id}')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                编辑
+              </button>
+              ${rule.custom ? `<button class="btn btn-ghost btn-sm text-danger" onclick="deleteRule('${rule.id}')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                删除
+              </button>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-8">没有找到匹配的规则</div>';
+    }
+  }
+
+  // 切换规则状态
+  function toggleRule(id, el) {
+    const rule = wafRules.find(r => r.id === id);
+    if (rule) {
+      rule.enabled = el.checked;
+      showToast(`规则「${rule.name}」已${el.checked ? '启用' : '禁用'}`, 'success');
+    }
+  }
+
+  // 筛选
+  function filterRules(query) {
+    searchQuery = query;
+    renderRules();
+  }
+
+  function filterBySeverity(sev, el) {
+    currentFilter = sev;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    renderRules();
+  }
+
+  // 模式切换
+  function setMode(mode, el) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    const modeNames = { block: '拦截模式', log: '日志模式', off: '关闭' };
+    showToast(`已切换到${modeNames[mode]}`, 'success');
+  }
+
+  // WAF 总开关
+  function toggleWaf(el) {
+    const badge = document.getElementById('wafStatusBadge');
+    if (el.checked) {
+      badge.className = 'status-badge online';
+      badge.innerHTML = '<span class="status-dot status-online" style="width:6px;height:6px;"></span>运行中';
+      showToast('WAF 防护墙已开启', 'success');
+    } else {
+      if (!confirm('确定要关闭 WAF 防护墙吗？这将使系统暴露在 Web 攻击风险中。')) {
+        el.checked = true;
+        return;
+      }
+      badge.className = 'status-badge offline';
+      badge.innerHTML = '<span class="status-dot status-offline" style="width:6px;height:6px;"></span>已关闭';
+      showToast('WAF 防护墙已关闭', 'warning');
+    }
+  }
+
+  // 添加自定义规则
+  function showAddRuleModal() {
+    document.getElementById('addRuleModal').classList.add('show');
+  }
+  function hideAddRuleModal() {
+    document.getElementById('addRuleModal').classList.remove('show');
+  }
+
+  function addCustomRule(e) {
+    e.preventDefault();
+    const name = document.getElementById('newRuleName').value;
+    const type = document.getElementById('newRuleType').value;
+    const pattern = document.getElementById('newRulePattern').value;
+    const severity = document.getElementById('newRuleSeverity').value;
+
+    const newRule = {
+      id: 'r' + Date.now(),
+      name, type, severity,
+      enabled: true,
+      desc: `自定义规则：${pattern.substring(0, 50)}${pattern.length > 50 ? '...' : ''}`,
+      todayBlocks: 0,
+      totalBlocks: 0,
+      custom: true
+    };
+
+    wafRules.push(newRule);
+    renderRules();
+    hideAddRuleModal();
+    showToast('自定义规则添加成功', 'success');
+    e.target.reset();
+  }
+
+  function editRule(id) {
+    const rule = wafRules.find(r => r.id === id);
+    if (rule) {
+      showToast(`编辑规则：${rule.name}`, 'info');
+    }
+  }
+
+  function deleteRule(id) {
+    const rule = wafRules.find(r => r.id === id);
+    if (rule && confirm(`确定要删除规则「${rule.name}」吗？`)) {
+      wafRules = wafRules.filter(r => r.id !== id);
+      renderRules();
+      showToast('规则已删除', 'success');
+    }
+  }
+
+  function clearWafCache() {
+    if (confirm('确定要清空 WAF 缓存吗？')) {
+      showToast('WAF 缓存已清空', 'success');
+    }
+  }
+
+  // 拦截统计图表
+  function initWafBlockChart() {
+    const ctx = document.getElementById('wafBlockChart').getContext('2d');
+    const hours = Array.from({length: 12}, (_, i) => `${String(i*2).padStart(2,'0')}:00`);
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: hours,
+        datasets: [{
+          label: '拦截数',
+          data: [12, 18, 25, 42, 68, 95, 82, 110, 125, 98, 72, 45],
+          backgroundColor: 'rgba(16, 185, 129, 0.6)',
+          borderColor: 'rgba(16, 185, 129, 0.9)',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // Toast
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    renderRules();
+    initWafBlockChart();
+  });
+</script>
+
+</body>
+</html>

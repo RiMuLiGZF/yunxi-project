@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>安全审计 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* 级别筛选按钮 */
+  .level-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .level-filter {
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .level-filter:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+  .level-filter.active {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+  .level-filter .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .level-filter.info .dot { background: var(--info); }
+  .level-filter.warning .dot { background: var(--warning); }
+  .level-filter.critical .dot { background: var(--danger); }
+  .level-filter.emergency .dot { background: #dc2626; box-shadow: 0 0 8px var(--danger); }
+
+  /* 事件列表项 */
+  .event-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .event-row:hover {
+    background: rgba(16, 185, 129, 0.04);
+  }
+  .event-row:last-child { border-bottom: none; }
+
+  .event-level {
+    width: 8px;
+    height: 40px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .event-level.info { background: var(--info); }
+  .event-level.warning { background: var(--warning); }
+  .event-level.critical { background: var(--danger); }
+  .event-level.emergency { background: #dc2626; box-shadow: 0 0 10px var(--danger); }
+
+  .event-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .event-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .event-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .event-source {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--primary-light);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .event-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .event-meta {
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .event-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .event-ip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  /* 搜索和操作栏 */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .toolbar .form-input {
+    flex: 1;
+    min-width: 200px;
+  }
+  .toolbar .form-select {
+    max-width: 150px;
+  }
+
+  /* 统计卡片小 */
+  .stat-mini {
+    padding: 14px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-mini .num {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .stat-mini .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* 事件详情弹窗 */
+  .detail-section {
+    margin-bottom: 16px;
+  }
+  .detail-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail-section h4::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .detail-item {
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+  }
+  .detail-item .k {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .detail-item .v {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    word-break: break-all;
+  }
+  .detail-item.full {
+    grid-column: 1 / -1;
+  }
+
+  .raw-log {
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: var(--radius-sm);
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+        <span class="nav-badge badge-success">运行中</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">安全审计</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>安全审计 <span class="accent">中心</span></h1>
+    <p>全面记录安全事件，支持多维度筛选与日志导出</p>
+  </div>
+
+  <div class="content-wrapper loaded">
+
+    <!-- 事件统计概览 -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 fade-in-up delay-100">
+      <div class="stat-mini">
+        <div class="num text-info" id="totalEvents">2,847</div>
+        <div class="label">全部事件</div>
+      </div>
+      <div class="stat-mini">
+        <div class="num text-primary" id="infoEvents">1,892</div>
+        <div class="label">信息</div>
+      </div>
+      <div class="stat-mini">
+        <div class="num text-warning" id="warningEvents">687</div>
+        <div class="label">警告</div>
+      </div>
+      <div class="stat-mini">
+        <div class="num text-danger" id="criticalEvents">234</div>
+        <div class="label">严重</div>
+      </div>
+      <div class="stat-mini">
+        <div class="num" style="color: #dc2626; text-shadow: 0 0 10px rgba(220,38,38,0.5);" id="emergencyEvents">34</div>
+        <div class="label">紧急</div>
+      </div>
+    </div>
+
+    <!-- 主体：左侧事件列表 + 右侧图表 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- 左侧：事件列表 -->
+      <div class="lg:col-span-2">
+        <div class="glass-strong p-6 fade-in-up delay-200" style="border-radius: var(--radius-xl);">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="section-title" style="margin-bottom:0;">安全事件列表</h3>
+            <div class="flex gap-2">
+              <button class="btn btn-outline btn-sm" onclick="exportLogs()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                导出日志
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="refreshEvents()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                刷新
+              </button>
+            </div>
+          </div>
+
+          <!-- 级别筛选 -->
+          <div class="level-filters">
+            <button class="level-filter active" data-level="all" onclick="filterByLevel('all', this)">
+              全部
+            </button>
+            <button class="level-filter info" data-level="info" onclick="filterByLevel('info', this)">
+              <span class="dot"></span>信息
+            </button>
+            <button class="level-filter warning" data-level="warning" onclick="filterByLevel('warning', this)">
+              <span class="dot"></span>警告
+            </button>
+            <button class="level-filter critical" data-level="critical" onclick="filterByLevel('critical', this)">
+              <span class="dot"></span>严重
+            </button>
+            <button class="level-filter emergency" data-level="emergency" onclick="filterByLevel('emergency', this)">
+              <span class="dot"></span>紧急
+            </button>
+          </div>
+
+          <!-- 搜索工具栏 -->
+          <div class="toolbar">
+            <input type="text" class="form-input" placeholder="搜索事件描述、IP、路径..." oninput="searchEvents(this.value)" />
+            <select class="form-input form-select" onchange="filterBySource(this.value)">
+              <option value="all">全部来源</option>
+              <option value="waf">WAF 防护</option>
+              <option value="ip">IP 控制</option>
+              <option value="auth">鉴权系统</option>
+              <option value="system">系统</option>
+            </select>
+            <select class="form-input form-select" onchange="filterByTime(this.value)">
+              <option value="today">今日</option>
+              <option value="week">近 7 天</option>
+              <option value="month">近 30 天</option>
+            </select>
+          </div>
+
+          <!-- 事件列表 -->
+          <div style="border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
+            <div id="eventList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+          <!-- 分页 -->
+          <div class="pagination" id="pagination">
+            <!-- 由 JS 生成 -->
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 右侧：统计图表 + 快速操作 -->
+      <div class="space-y-6">
+        <!-- 事件趋势图 -->
+        <div class="glass-strong p-6 fade-in-up delay-300" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">事件趋势</h3>
+          <div class="chart-container" style="height: 220px;">
+            <canvas id="eventTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 事件来源分布 -->
+        <div class="glass-strong p-6 fade-in-up delay-400" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">来源分布</h3>
+          <div class="chart-container" style="height: 200px;">
+            <canvas id="sourcePieChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 最近严重事件 -->
+        <div class="glass-strong p-6 fade-in-up delay-500" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">最近严重事件</h3>
+          <div class="space-y-2" id="recentCritical">
+            <!-- 由 JS 生成 -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- 事件详情弹窗 -->
+<div class="modal-overlay" id="eventDetailModal">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 id="detailTitle">事件详情</h3>
+      <div class="modal-close" onclick="hideEventDetail()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>基本信息</h4>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="k">事件 ID</div>
+          <div class="v" id="detailId">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">事件级别</div>
+          <div class="v" id="detailLevel">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">来源模块</div>
+          <div class="v" id="detailSource">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">发生时间</div>
+          <div class="v" id="detailTime">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">源 IP</div>
+          <div class="v" id="detailIp">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">地理位置</div>
+          <div class="v" id="detailLocation">-</div>
+        </div>
+        <div class="detail-item full">
+          <div class="k">事件描述</div>
+          <div class="v" id="detailDesc" style="font-family: var(--font-sans);">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>请求信息</h4>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="k">请求方法</div>
+          <div class="v" id="detailMethod">-</div>
+        </div>
+        <div class="detail-item">
+          <div class="k">请求路径</div>
+          <div class="v" id="detailPath">-</div>
+        </div>
+        <div class="detail-item full">
+          <div class="k">User-Agent</div>
+          <div class="v" id="detailUa" style="font-size: 11px;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>原始日志</h4>
+      <div class="raw-log" id="detailRawLog">-</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="copyEventDetail()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        复制详情
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="handleEvent()">
+        标记已处理
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== 事件数据 ==========
+  const eventTemplates = [
+    { level: 'emergency', source: 'waf', sourceName: 'WAF 防护', title: '大规模 SQL 注入攻击', desc: '检测到来自多个 IP 的协同 SQL 注入攻击，目标为 /api/user/login', method: 'POST', path: '/api/user/login' },
+    { level: 'critical', source: 'waf', sourceName: 'WAF 防护', title: 'SQL 注入攻击尝试', desc: 'UNION SELECT 注入被成功拦截，payload: 1\' UNION SELECT username,password FROM admin--', method: 'GET', path: '/product?id=1' },
+    { level: 'critical', source: 'waf', sourceName: 'WAF 防护', title: '命令注入攻击', desc: '检测到系统命令注入尝试，参数包含: ;cat /etc/passwd', method: 'POST', path: '/api/tools/ping' },
+    { level: 'critical', source: 'auth', sourceName: '鉴权系统', title: '暴力破解检测', desc: 'IP 203.0.113.45 在 10 分钟内尝试登录 50 次，已触发自动封禁', method: 'POST', path: '/api/auth/login' },
+    { level: 'critical', source: 'ip', sourceName: 'IP 控制', title: 'DDoS 攻击检测', desc: '检测到来自 185.220.101.0/24 网段的 SYN Flood 攻击', method: '-', path: '-' },
+    { level: 'warning', source: 'waf', sourceName: 'WAF 防护', title: 'XSS 攻击尝试', desc: '存储型 XSS 攻击被拦截，参数 comment 包含恶意脚本', method: 'POST', path: '/api/comment' },
+    { level: 'warning', source: 'waf', sourceName: 'WAF 防护', title: 'CSRF 攻击尝试', desc: '请求缺少有效的 CSRF Token，已拒绝', method: 'POST', path: '/api/settings' },
+    { level: 'warning', source: 'waf', sourceName: 'WAF 防护', title: '路径遍历攻击', desc: '检测到路径遍历尝试: ../../etc/passwd', method: 'GET', path: '/static/../../etc/passwd' },
+    { level: 'warning', source: 'auth', sourceName: '鉴权系统', title: '异常登录行为', desc: '非常用地理位置登录，IP: 103.224.182.251，位置: 越南', method: 'POST', path: '/api/auth/login' },
+    { level: 'warning', source: 'ip', sourceName: 'IP 控制', title: '高频访问警告', desc: 'IP 45.33.32.156 访问频率接近阈值: 95 次/分钟', method: '-', path: '-' },
+    { level: 'warning', source: 'system', sourceName: '系统', title: '配置变更', desc: '管理员修改了 WAF 规则配置', method: '-', path: '-' },
+    { level: 'info', source: 'waf', sourceName: 'WAF 防护', title: '规则匹配日志', desc: '请求命中规则 SQLI-001，已记录', method: 'GET', path: '/search' },
+    { level: 'info', source: 'auth', sourceName: '鉴权系统', title: 'API 密钥创建', desc: '新的 API 密钥已创建: m12sk_xxx', method: '-', path: '-' },
+    { level: 'info', source: 'auth', sourceName: '鉴权系统', title: '登录成功', desc: '用户 admin 登录成功', method: 'POST', path: '/api/auth/login' },
+    { level: 'info', source: 'ip', sourceName: 'IP 控制', title: 'IP 加入白名单', desc: 'IP 192.168.1.100 已加入白名单', method: '-', path: '-' },
+    { level: 'info', source: 'system', sourceName: '系统', title: '安全扫描完成', desc: '每日安全扫描已完成，未发现高危漏洞', method: '-', path: '-' },
+    { level: 'info', source: 'system', sourceName: '系统', title: '日志归档', desc: '昨日安全日志已归档完成', method: '-', path: '-' },
+  ];
+
+  const countries = ['美国', '俄罗斯', '中国', '越南', '朝鲜', '伊朗', '印度', '巴西', '德国', '新加坡'];
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'sqlmap/1.6.12#stable (http://sqlmap.org)',
+    'Mozilla/5.0 (compatible; Nmap Scripting Engine)',
+    'curl/7.81.0',
+    'python-requests/2.28.1',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    'Nikto/2.1.6',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+  ];
+
+  let allEvents = [];
+  let filteredEvents = [];
+  let currentPage = 1;
+  const pageSize = 10;
+  let currentLevel = 'all';
+  let currentSource = 'all';
+  let currentTime = 'today';
+  let searchQuery = '';
+
+  // 生成事件数据
+  function generateEvents() {
+    allEvents = [];
+    for (let i = 0; i < 120; i++) {
+      const tpl = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
+      const ip = `${Math.floor(Math.random()*223)+1}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*254)+1}`;
+      const time = new Date(Date.now() - Math.random() * 86400000);
+      allEvents.push({
+        id: 'EVT' + String(100000 + i),
+        level: tpl.level,
+        source: tpl.source,
+        sourceName: tpl.sourceName,
+        title: tpl.title,
+        desc: tpl.desc,
+        ip,
+        country: countries[Math.floor(Math.random() * countries.length)],
+        method: tpl.method,
+        path: tpl.path,
+        userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+        time: time.toLocaleString('zh-CN'),
+        timestamp: time.getTime(),
+        handled: Math.random() > 0.7
+      });
+    }
+    allEvents.sort((a, b) => b.timestamp - a.timestamp);
+    filteredEvents = [...allEvents];
+  }
+  generateEvents();
+
+  // 级别标签
+  const levelLabels = {
+    info: { text: '信息', class: 'tag-info' },
+    warning: { text: '警告', class: 'tag-warning' },
+    critical: { text: '严重', class: 'tag-danger' },
+    emergency: { text: '紧急', class: 'tag-danger' }
+  };
+
+  // 渲染事件列表
+  function renderEvents() {
+    const container = document.getElementById('eventList');
+    const start = (currentPage - 1) * pageSize;
+    const pageEvents = filteredEvents.slice(start, start + pageSize);
+
+    container.innerHTML = pageEvents.map(e => `
+      <div class="event-row" onclick="showEventDetail('${e.id}')">
+        <div class="event-level ${e.level}"></div>
+        <div class="event-body">
+          <div class="event-title-row">
+            <span class="event-title">${e.title}</span>
+            <span class="event-source">${e.sourceName}</span>
+            <span class="tag ${levelLabels[e.level].class}" style="font-size:10px;">${levelLabels[e.level].text}</span>
+            ${e.handled ? '<span class="tag tag-muted" style="font-size:10px;">已处理</span>' : ''}
+          </div>
+          <div class="event-desc">${e.desc}</div>
+        </div>
+        <div class="event-meta">
+          <div class="event-time">${e.time.split(' ')[1]?.substring(0, 8) || e.time}</div>
+          <div class="event-ip">${e.ip}</div>
+        </div>
+      </div>
+    `).join('');
+
+    renderPagination();
+  }
+
+  // 渲染分页
+  function renderPagination() {
+    const totalPages = Math.ceil(filteredEvents.length / pageSize);
+    const container = document.getElementById('pagination');
+    let html = '';
+
+    html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">上一页</button>`;
+
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">下一页</button>`;
+    html += `<span class="text-xs text-muted ml-2">共 ${filteredEvents.length} 条</span>`;
+
+    container.innerHTML = html;
+  }
+
+  function goToPage(page) {
+    currentPage = page;
+    renderEvents();
+  }
+
+  // 筛选
+  function filterByLevel(level, el) {
+    currentLevel = level;
+    document.querySelectorAll('.level-filter').forEach(f => f.classList.remove('active'));
+    el.classList.add('active');
+    applyFilters();
+  }
+
+  function filterBySource(source) {
+    currentSource = source;
+    applyFilters();
+  }
+
+  function filterByTime(time) {
+    currentTime = time;
+    applyFilters();
+  }
+
+  function searchEvents(query) {
+    searchQuery = query;
+    applyFilters();
+  }
+
+  function applyFilters() {
+    filteredEvents = allEvents.filter(e => {
+      if (currentLevel !== 'all' && e.level !== currentLevel) return false;
+      if (currentSource !== 'all' && e.source !== currentSource) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!e.title.toLowerCase().includes(q) &&
+            !e.desc.toLowerCase().includes(q) &&
+            !e.ip.includes(q) &&
+            !e.path.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+    currentPage = 1;
+    renderEvents();
+    updateStatCounts();
+  }
+
+  function updateStatCounts() {
+    document.getElementById('totalEvents').textContent = filteredEvents.length.toLocaleString();
+    document.getElementById('infoEvents').textContent = filteredEvents.filter(e => e.level === 'info').length.toLocaleString();
+    document.getElementById('warningEvents').textContent = filteredEvents.filter(e => e.level === 'warning').length.toLocaleString();
+    document.getElementById('criticalEvents').textContent = filteredEvents.filter(e => e.level === 'critical').length.toLocaleString();
+    document.getElementById('emergencyEvents').textContent = filteredEvents.filter(e => e.level === 'emergency').length.toLocaleString();
+  }
+
+  function refreshEvents() {
+    showToast('正在刷新事件列表...', 'info');
+    generateEvents();
+    applyFilters();
+    showToast('事件列表已刷新', 'success');
+  }
+
+  // 事件详情
+  let currentEvent = null;
+
+  function showEventDetail(id) {
+    const event = allEvents.find(e => e.id === id);
+    if (!event) return;
+    currentEvent = event;
+
+    document.getElementById('detailTitle').textContent = event.title;
+    document.getElementById('detailId').textContent = event.id;
+    document.getElementById('detailLevel').innerHTML = `<span class="tag ${levelLabels[event.level].class}">${levelLabels[event.level].text}</span>`;
+    document.getElementById('detailSource').textContent = event.sourceName;
+    document.getElementById('detailTime').textContent = event.time;
+    document.getElementById('detailIp').textContent = event.ip;
+    document.getElementById('detailLocation').textContent = event.country;
+    document.getElementById('detailDesc').textContent = event.desc;
+    document.getElementById('detailMethod').textContent = event.method;
+    document.getElementById('detailPath').textContent = event.path;
+    document.getElementById('detailUa').textContent = event.userAgent;
+
+    const rawLog = JSON.stringify({
+      event_id: event.id,
+      level: event.level,
+      source: event.source,
+      timestamp: new Date(event.timestamp).toISOString(),
+      src_ip: event.ip,
+      country: event.country,
+      method: event.method,
+      path: event.path,
+      user_agent: event.userAgent,
+      title: event.title,
+      description: event.desc,
+      handled: event.handled
+    }, null, 2);
+    document.getElementById('detailRawLog').textContent = rawLog;
+
+    document.getElementById('eventDetailModal').classList.add('show');
+  }
+
+  function hideEventDetail() {
+    document.getElementById('eventDetailModal').classList.remove('show');
+  }
+
+  function copyEventDetail() {
+    if (!currentEvent) return;
+    const text = document.getElementById('detailRawLog').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('已复制到剪贴板', 'success');
+    });
+  }
+
+  function handleEvent() {
+    if (!currentEvent) return;
+    currentEvent.handled = true;
+    hideEventDetail();
+    renderEvents();
+    showToast('事件已标记为已处理', 'success');
+  }
+
+  // 导出日志
+  function exportLogs() {
+    showToast('正在生成导出文件...', 'info');
+    setTimeout(() => {
+      const data = JSON.stringify(filteredEvents, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `security-audit-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('日志导出成功', 'success');
+    }, 800);
+  }
+
+  // ========== 事件趋势图 ==========
+  function initEventTrendChart() {
+    const ctx = document.getElementById('eventTrendChart').getContext('2d');
+    const hours = Array.from({length: 12}, (_, i) => `${String(i*2).padStart(2,'0')}:00`);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: hours,
+        datasets: [
+          {
+            label: '紧急',
+            data: [0, 0, 1, 0, 2, 1, 3, 2, 5, 4, 3, 2],
+            borderColor: '#dc2626',
+            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            borderWidth: 2
+          },
+          {
+            label: '严重',
+            data: [5, 3, 8, 6, 12, 18, 25, 22, 30, 28, 20, 15],
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            borderWidth: 2
+          },
+          {
+            label: '警告',
+            data: [20, 15, 28, 25, 40, 55, 70, 65, 80, 72, 58, 45],
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            borderWidth: 2
+          },
+          {
+            label: '信息',
+            data: [80, 60, 120, 100, 150, 180, 220, 200, 250, 230, 180, 140],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#9ca3af', font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', boxWidth: 8 }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ========== 来源分布图 ==========
+  function initSourcePieChart() {
+    const ctx = document.getElementById('sourcePieChart').getContext('2d');
+    const sources = {
+      'WAF 防护': allEvents.filter(e => e.source === 'waf').length,
+      'IP 控制': allEvents.filter(e => e.source === 'ip').length,
+      '鉴权系统': allEvents.filter(e => e.source === 'auth').length,
+      '系统': allEvents.filter(e => e.source === 'system').length
+    };
+
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(sources),
+        datasets: [{
+          data: Object.values(sources),
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(168, 85, 247, 0.8)',
+            'rgba(107, 114, 128, 0.8)'
+          ],
+          borderColor: 'rgba(0,0,0,0.3)',
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { color: '#9ca3af', font: { size: 10 }, padding: 10, usePointStyle: true, pointStyle: 'circle' }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+          }
+        }
+      }
+    });
+  }
+
+  // 最近严重事件
+  function renderRecentCritical() {
+    const criticalEvents = allEvents.filter(e => e.level === 'critical' || e.level === 'emergency').slice(0, 6);
+    const container = document.getElementById('recentCritical');
+    container.innerHTML = criticalEvents.map(e => `
+      <div class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-white/5" onclick="showEventDetail('${e.id}')">
+        <div class="w-1.5 h-1.5 rounded-full ${e.level === 'emergency' ? 'bg-red-600' : 'bg-red-500'}" style="box-shadow: 0 0 6px currentColor;"></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs text-gray-200 truncate">${e.title}</div>
+          <div class="text-xs text-gray-600 font-mono">${e.ip}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Toast
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    renderEvents();
+    updateStatCounts();
+    initEventTrendChart();
+    initSourcePieChart();
+    renderRecentCritical();
+  });
+</script>
+
+</body>
+</html>

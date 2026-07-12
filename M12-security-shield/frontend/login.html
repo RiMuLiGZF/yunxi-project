@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>M12 安全盾 | 登录</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* 粒子背景 */
+  .particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: float-particle linear infinite;
+  }
+  @keyframes float-particle {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* 登录卡片 */
+  .login-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+  }
+
+  .login-card {
+    background: var(--bg-card-strong);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    padding: 40px 36px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--border);
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .login-logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .login-logo-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 30px var(--primary-glow);
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
+  .login-logo-icon svg {
+    width: 32px;
+    height: 32px;
+    color: #fff;
+  }
+  .login-logo h1 {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary), var(--primary-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+  .login-logo p {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+  }
+
+  /* 登录方式切换 */
+  .login-tabs {
+    display: flex;
+    margin-bottom: 24px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+  }
+  .login-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+    font-weight: 500;
+  }
+  .login-tab.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+  }
+
+  .login-form .form-group {
+    margin-bottom: 18px;
+  }
+  .login-form .form-input {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  .login-form .form-input:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+
+  .input-with-icon {
+    position: relative;
+  }
+  .input-with-icon .input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    width: 18px;
+    height: 18px;
+  }
+  .input-with-icon .form-input {
+    padding-left: 42px;
+  }
+
+  .login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    font-size: 12px;
+  }
+  .remember-me {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .remember-me input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 14px;
+    height: 14px;
+  }
+  .forgot-link {
+    color: var(--primary-light);
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .forgot-link:hover {
+    text-decoration: underline;
+  }
+
+  .login-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+  }
+
+  .login-footer {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .login-footer .system-info {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+  .login-footer .copyright {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+
+  /* 加载状态 */
+  .btn-loading {
+    position: relative;
+    color: transparent !important;
+  }
+  .btn-loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  /* API Key 输入框 */
+  .api-key-input {
+    font-family: 'Consolas', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* 安全提示 */
+  .security-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 18px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .security-tip svg {
+    width: 16px;
+    height: 16px;
+    color: var(--primary-light);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+
+<!-- 粒子效果 -->
+<div class="particles" id="particles"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="login-container">
+  <div class="login-card">
+    <!-- Logo -->
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <h1>M12 SECURITY</h1>
+      <p>安全盾管理控制台</p>
+    </div>
+
+    <!-- 登录方式切换 -->
+    <div class="login-tabs">
+      <div class="login-tab active" data-tab="password" onclick="switchLoginTab('password')">
+        账号密码
+      </div>
+      <div class="login-tab" data-tab="apikey" onclick="switchLoginTab('apikey')">
+        API Key
+      </div>
+    </div>
+
+    <!-- 账号密码登录 -->
+    <form class="login-form" id="passwordForm" onsubmit="handlePasswordLogin(event)">
+      <div class="form-group">
+        <label class="form-label">用户名</label>
+        <div class="input-with-icon">
+          <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <input type="text" class="form-input" id="username" placeholder="请输入用户名" autocomplete="username" required />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <div class="input-with-icon">
+          <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <input type="password" class="form-input" id="password" placeholder="请输入密码" autocomplete="current-password" required />
+        </div>
+      </div>
+
+      <div class="login-options">
+        <label class="remember-me">
+          <input type="checkbox" id="remember" />
+          <span>记住我</span>
+        </label>
+        <a href="#" class="forgot-link" onclick="showToast('请联系管理员重置密码', 'warning'); return false;">忘记密码？</a>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg login-btn" id="passwordLoginBtn">
+        登 录
+      </button>
+    </form>
+
+    <!-- API Key 登录 -->
+    <form class="login-form" id="apikeyForm" style="display:none;" onsubmit="handleApiKeyLogin(event)">
+      <div class="security-tip">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>API Key 具有最高权限，请妥善保管。建议使用环境变量或密钥管理器存储。</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <div class="input-with-icon">
+          <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+          <input type="text" class="form-input api-key-input" id="apiKey" placeholder="m12sk-xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" required />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">可选 - 用户名（用于审计追踪）</label>
+        <input type="text" class="form-input" id="apiUser" placeholder="可选：标识使用者" autocomplete="off" />
+      </div>
+
+      <div class="login-options">
+        <label class="remember-me">
+          <input type="checkbox" id="rememberKey" />
+          <span>记住 Key（仅本地）</span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg login-btn" id="apiLoginBtn">
+        安 全 登 录
+      </button>
+    </form>
+
+    <!-- 底部信息 -->
+    <div class="login-footer">
+      <div class="system-info">v1.0.0 · Build 20260712 · Security Shield</div>
+      <div class="copyright">© 2026 云汐智能系统 · M12 安全盾模块</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // ========== 生成粒子背景 ==========
+  function createParticles() {
+    const container = document.getElementById('particles');
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (8 + Math.random() * 12) + 's';
+      p.style.animationDelay = Math.random() * 10 + 's';
+      p.style.width = (1 + Math.random() * 2) + 'px';
+      p.style.height = p.style.width;
+      container.appendChild(p);
+    }
+  }
+  createParticles();
+
+  // ========== 登录方式切换 ==========
+  function switchLoginTab(tab) {
+    document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.login-tab[data-tab="${tab}"]`).classList.add('active');
+
+    document.getElementById('passwordForm').style.display = tab === 'password' ? 'block' : 'none';
+    document.getElementById('apikeyForm').style.display = tab === 'apikey' ? 'block' : 'none';
+  }
+
+  // ========== 账号密码登录 ==========
+  async function handlePasswordLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('passwordLoginBtn');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const remember = document.getElementById('remember').checked;
+
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+
+    try {
+      // 调用登录 API
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        localStorage.setItem('m12_token', data.token);
+        localStorage.setItem('m12_username', username);
+        localStorage.setItem('m12_login_type', 'password');
+        if (remember) {
+          localStorage.setItem('m12_remember_user', username);
+        } else {
+          localStorage.removeItem('m12_remember_user');
+        }
+        showToast('登录成功，正在跳转...', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 800);
+      } else {
+        showToast(data.message || '用户名或密码错误', 'error');
+      }
+    } catch (err) {
+      // API 不可用时使用模拟登录（开发模式）
+      console.warn('API 不可用，使用演示模式登录');
+      if (username && password.length >= 6) {
+        const mockToken = 'm12demo_' + btoa(username + ':' + Date.now());
+        localStorage.setItem('m12_token', mockToken);
+        localStorage.setItem('m12_username', username);
+        localStorage.setItem('m12_login_type', 'password');
+        showToast('演示模式登录成功', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 800);
+      } else {
+        showToast('请输入正确的用户名和密码（密码至少6位）', 'error');
+      }
+    } finally {
+      btn.classList.remove('btn-loading');
+      btn.disabled = false;
+    }
+  }
+
+  // ========== API Key 登录 ==========
+  async function handleApiKeyLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('apiLoginBtn');
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiUser = document.getElementById('apiUser').value.trim();
+    const remember = document.getElementById('rememberKey').checked;
+
+    if (!apiKey.startsWith('m12sk-') && !apiKey.startsWith('sk-')) {
+      showToast('API Key 格式不正确', 'error');
+      return;
+    }
+
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/verify-key`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        },
+        body: JSON.stringify({ username: apiUser })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.valid) {
+        localStorage.setItem('m12_token', data.token || apiKey);
+        localStorage.setItem('m12_username', apiUser || 'api-user');
+        localStorage.setItem('m12_login_type', 'apikey');
+        if (remember) {
+          localStorage.setItem('m12_remember_key', apiKey);
+        }
+        showToast('API Key 验证成功', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 800);
+      } else {
+        showToast(data.message || 'API Key 无效', 'error');
+      }
+    } catch (err) {
+      // 演示模式
+      if (apiKey.length >= 20) {
+        localStorage.setItem('m12_token', apiKey);
+        localStorage.setItem('m12_username', apiUser || 'api-user');
+        localStorage.setItem('m12_login_type', 'apikey');
+        showToast('演示模式：API Key 登录成功', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 800);
+      } else {
+        showToast('API Key 无效', 'error');
+      }
+    } finally {
+      btn.classList.remove('btn-loading');
+      btn.disabled = false;
+    }
+  }
+
+  // ========== Toast 提示 ==========
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ========== 页面加载时检查记住的用户 ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    const rememberedUser = localStorage.getItem('m12_remember_user');
+    if (rememberedUser) {
+      document.getElementById('username').value = rememberedUser;
+      document.getElementById('remember').checked = true;
+    }
+
+    const rememberedKey = localStorage.getItem('m12_remember_key');
+    if (rememberedKey) {
+      document.getElementById('apiKey').value = rememberedKey;
+      document.getElementById('rememberKey').checked = true;
+    }
+
+    // 如果已登录，直接跳转
+    const token = localStorage.getItem('m12_token');
+    if (token) {
+      // 可选：自动跳转到仪表盘
+      // window.location.href = 'dashboard.html';
+    }
+  });
+</script>
+
+</body>
+</html>

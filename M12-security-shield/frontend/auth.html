@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>鉴权管理 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* Tab 切换 */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    background: transparent;
+  }
+  .tab-btn:hover { color: var(--text-secondary); }
+  .tab-btn.active {
+    color: var(--primary-light);
+    border-bottom-color: var(--primary);
+  }
+  .tab-btn .count {
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+  }
+  .tab-btn.active .count {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary-light);
+  }
+  .tab-content { display: none; }
+  .tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* API Key 卡片 */
+  .api-key-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    transition: var(--transition);
+  }
+  .api-key-card:hover {
+    border-color: var(--border-strong);
+    background: rgba(0, 0, 0, 0.3);
+  }
+  .api-key-card .key-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .api-key-card .key-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .api-key-card .key-value {
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .api-key-card .key-value .masked {
+    letter-spacing: 2px;
+  }
+  .api-key-card .key-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .api-key-card .key-stats {
+    display: flex;
+    gap: 16px;
+  }
+  .api-key-card .key-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .api-key-card .key-actions button {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  /* 角色卡片 */
+  .role-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+  }
+  .role-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+  }
+  .role-card .role-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .role-card .role-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .role-card .role-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .role-card .role-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .role-card .role-perms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .role-card .role-perm {
+    padding: 2px 8px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 10px;
+    font-size: 10px;
+    color: var(--primary-light);
+  }
+  .role-card .role-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* 权限树 */
+  .perm-tree {
+    font-size: 13px;
+  }
+  .perm-group {
+    margin-bottom: 12px;
+  }
+  .perm-group-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .perm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin-left: 20px;
+    border-radius: 6px;
+    transition: var(--transition);
+  }
+  .perm-item:hover {
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .perm-item input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 14px;
+    height: 14px;
+  }
+  .perm-item label {
+    cursor: pointer;
+    color: var(--text-secondary);
+    flex: 1;
+  }
+
+  /* 统计指标 */
+  .usage-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .usage-stat:last-child { border-bottom: none; }
+  .usage-stat .label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .usage-stat .value {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary-light);
+  }
+
+  /* 复制按钮 */
+  .copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: var(--transition);
+  }
+  .copy-btn:hover {
+    color: var(--primary-light);
+    background: rgba(16, 185, 129, 0.1);
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+        <span class="nav-badge badge-success">运行中</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">鉴权管理</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>鉴权管理 <span class="accent">中心</span></h1>
+    <p>API 密钥管理、角色权限配置与令牌使用统计</p>
+  </div>
+
+  <div class="content-wrapper loaded">
+
+    <!-- 统计概览 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 fade-in-up delay-100">
+      <div class="stat-card">
+        <div class="label">API 密钥总数</div>
+        <div class="value primary" id="keyCount">12</div>
+        <div class="trend up">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>3 个活跃</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">今日调用次数</div>
+        <div class="value info" id="todayCalls">28,456</div>
+        <div class="trend up">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+          <span>+15.2%</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">失败认证次数</div>
+        <div class="value danger" id="authFails">147</div>
+        <div class="trend down">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+          <span>-8.3%</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">角色数量</div>
+        <div class="value warning" id="roleCount">5</div>
+        <div class="trend up">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          <span>48 个权限</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主体 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- 左侧：API 密钥 + 角色 -->
+      <div class="lg:col-span-2">
+        <div class="glass-strong p-6 fade-in-up delay-200" style="border-radius: var(--radius-xl);">
+
+          <!-- Tab 切换 -->
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="apikeys" onclick="switchTab('apikeys', this)">
+              API 密钥 <span class="count" id="tabKeyCount">12</span>
+            </button>
+            <button class="tab-btn" data-tab="roles" onclick="switchTab('roles', this)">
+              角色权限 <span class="count">5</span>
+            </button>
+            <button class="tab-btn" data-tab="tokens" onclick="switchTab('tokens', this)">
+              令牌统计
+            </button>
+          </div>
+
+          <!-- API 密钥 Tab -->
+          <div class="tab-content active" id="tab-apikeys">
+            <div class="flex items-center justify-between mb-4">
+              <input type="text" class="form-input" style="max-width:300px;" placeholder="搜索密钥名称..." oninput="filterKeys(this.value)">
+              <button class="btn btn-primary btn-sm" onclick="showCreateKeyModal()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                创建密钥
+              </button>
+            </div>
+            <div id="keyList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+          <!-- 角色权限 Tab -->
+          <div class="tab-content" id="tab-roles">
+            <div class="flex items-center justify-between mb-4">
+              <div class="text-sm text-muted">系统预设角色与自定义角色</div>
+              <button class="btn btn-primary btn-sm" onclick="showToast('创建角色功能开发中', 'info')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                新建角色
+              </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="roleList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+          <!-- 令牌统计 Tab -->
+          <div class="tab-content" id="tab-tokens">
+            <div class="chart-container" style="height: 280px; margin-bottom: 20px;">
+              <canvas id="tokenUsageChart"></canvas>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="config-card" style="padding:16px;border-radius:var(--radius-md);background:rgba(0,0,0,0.2);border:1px solid var(--border);">
+                <div class="usage-stat">
+                  <span class="label">总调用量</span>
+                  <span class="value">128,456</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">成功调用</span>
+                  <span class="value" style="color:var(--primary-light);">127,890</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">失败调用</span>
+                  <span class="value" style="color:var(--danger-light);">566</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">成功率</span>
+                  <span class="value" style="color:var(--info-light);">99.56%</span>
+                </div>
+              </div>
+              <div class="config-card" style="padding:16px;border-radius:var(--radius-md);background:rgba(0,0,0,0.2);border:1px solid var(--border);">
+                <div class="usage-stat">
+                  <span class="label">平均响应</span>
+                  <span class="value">23ms</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">P95 延迟</span>
+                  <span class="value" style="color:var(--warning);">45ms</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">QPS 峰值</span>
+                  <span class="value" style="color:var(--info-light);">1,234</span>
+                </div>
+                <div class="usage-stat">
+                  <span class="label">活跃密钥</span>
+                  <span class="value" style="color:var(--primary-light);">8</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 右侧：使用统计 + 快速操作 -->
+      <div class="space-y-6">
+        <!-- 今日令牌使用 -->
+        <div class="glass-strong p-6 fade-in-up delay-300" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">今日令牌使用 TOP 5</h3>
+          <div class="space-y-3" id="topKeys">
+            <!-- 由 JS 生成 -->
+          </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="glass-strong p-6 fade-in-up delay-400" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">快速操作</h3>
+          <div class="space-y-3">
+            <button class="btn btn-outline w-full" onclick="showCreateKeyModal()">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+              创建 API 密钥
+            </button>
+            <button class="btn btn-outline w-full" onclick="showToast('正在导出密钥列表...', 'info')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              导出审计日志
+            </button>
+            <button class="btn btn-outline w-full" onclick="rotateAllKeys()">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              批量轮换密钥
+            </button>
+            <button class="btn btn-outline w-full" onclick="showToast('正在刷新权限缓存...', 'info')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              刷新权限缓存
+            </button>
+          </div>
+        </div>
+
+        <!-- 安全提示 -->
+        <div class="glass-strong p-6 fade-in-up delay-500" style="border-radius: var(--radius-xl); border-left: 3px solid var(--warning);">
+          <div class="flex items-start gap-3">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;color:var(--warning);flex-shrink:0;margin-top:2px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div>
+              <div class="text-sm font-bold text-warning mb-1">安全建议</div>
+              <div class="text-xs text-muted leading-relaxed">
+                建议每 90 天轮换一次 API 密钥，使用最小权限原则分配角色，定期审计密钥使用情况。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- 创建密钥弹窗 -->
+<div class="modal-overlay" id="createKeyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>创建 API 密钥</h3>
+      <div class="modal-close" onclick="hideCreateKeyModal()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+    </div>
+    <form onsubmit="createApiKey(event)">
+      <div class="form-group">
+        <label class="form-label">密钥名称</label>
+        <input type="text" class="form-input" id="newKeyName" placeholder="例如：生产环境主密钥" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">关联角色</label>
+        <select class="form-input form-select" id="newKeyRole">
+          <option value="admin">超级管理员</option>
+          <option value="security" selected>安全管理员</option>
+          <option value="operator">运维工程师</option>
+          <option value="developer">开发者</option>
+          <option value="viewer">只读用户</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">过期时间</label>
+        <select class="form-input form-select" id="newKeyExpiry">
+          <option value="30">30 天</option>
+          <option value="90" selected>90 天</option>
+          <option value="180">180 天</option>
+          <option value="365">1 年</option>
+          <option value="-1">永不过期</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">IP 白名单限制（可选）</label>
+        <input type="text" class="form-input" id="newKeyIpWhitelist" placeholder="多个 IP 用逗号分隔，留空表示不限制" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="hideCreateKeyModal()">取消</button>
+        <button type="submit" class="btn btn-primary">创建密钥</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 密钥创建成功弹窗 -->
+<div class="modal-overlay" id="keyCreatedModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>密钥创建成功</h3>
+    </div>
+    <div class="text-center mb-4">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:32px;height:32px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <p class="text-sm text-muted mb-4">请妥善保管以下密钥，关闭后将无法再次查看完整密钥</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">API Key</label>
+      <div class="key-value-display" style="font-family:Consolas,monospace;font-size:13px;padding:12px;background:rgba(0,0,0,0.4);border-radius:8px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);">
+        <span id="createdKeyValue" style="word-break:break-all;"></span>
+        <button class="copy-btn" onclick="copyCreatedKey()">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="confirmKeyCreated()">我已保存，关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== API 密钥数据 ==========
+  let apiKeys = [
+    { id: 'k001', name: '生产环境主密钥', key: 'm12sk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6', role: 'admin', status: 'active', createdAt: '2026-06-01', expiresAt: '2026-12-01', todayCalls: 8456, totalCalls: 523456, ipWhitelist: [] },
+    { id: 'k002', name: '安全管理密钥', key: 'm12sk_sec_b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8', role: 'security', status: 'active', createdAt: '2026-06-10', expiresAt: '2026-09-10', todayCalls: 5678, totalCalls: 234567, ipWhitelist: ['192.168.1.0/24'] },
+    { id: 'k003', name: '运维监控密钥', key: 'm12sk_ops_c5d6e7f8g9h0i1j2k3l4m5n6o7p8q9r0', role: 'operator', status: 'active', createdAt: '2026-06-15', expiresAt: '2027-06-15', todayCalls: 4321, totalCalls: 189234, ipWhitelist: ['10.0.0.0/8'] },
+    { id: 'k004', name: '开发者密钥 A', key: 'm12sk_dev_d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2', role: 'developer', status: 'active', createdAt: '2026-06-20', expiresAt: '2026-09-20', todayCalls: 3456, totalCalls: 123456, ipWhitelist: [] },
+    { id: 'k005', name: '开发者密钥 B', key: 'm12sk_dev_e9f0g1h2i3j4k5l6m7n8o9p0q1r2s3t4', role: 'developer', status: 'active', createdAt: '2026-06-25', expiresAt: '2026-09-25', todayCalls: 2345, totalCalls: 98765, ipWhitelist: [] },
+    { id: 'k006', name: '审计只读密钥', key: 'm12sk_aud_f1g2h3i4j5k6l7m8n9o0p1q2r3s4t5u6', role: 'viewer', status: 'active', createdAt: '2026-07-01', expiresAt: '2027-01-01', todayCalls: 1234, totalCalls: 45678, ipWhitelist: [] },
+    { id: 'k007', name: '测试环境密钥', key: 'm12sk_test_g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8', role: 'developer', status: 'active', createdAt: '2026-07-05', expiresAt: '2026-10-05', todayCalls: 987, totalCalls: 34567, ipWhitelist: [] },
+    { id: 'k008', name: 'CI/CD 流水线密钥', key: 'm12sk_ci_h5i6j7k8l9m0n1o2p3q4r5s6t7u8v9w0', role: 'operator', status: 'active', createdAt: '2026-07-08', expiresAt: '2027-07-08', todayCalls: 876, totalCalls: 23456, ipWhitelist: [] },
+    { id: 'k009', name: '已过期密钥', key: 'm12sk_old_i7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2', role: 'developer', status: 'expired', createdAt: '2026-01-01', expiresAt: '2026-07-01', todayCalls: 0, totalCalls: 67890, ipWhitelist: [] },
+    { id: 'k010', name: '已禁用密钥', key: 'm12sk_dis_j9k0l1m2n3o4p5q6r7s8t9u0v1w2x3y4', role: 'viewer', status: 'disabled', createdAt: '2026-05-01', expiresAt: '2026-11-01', todayCalls: 0, totalCalls: 12345, ipWhitelist: [] },
+    { id: 'k011', name: '合作伙伴密钥', key: 'm12sk_part_k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6', role: 'viewer', status: 'active', createdAt: '2026-07-01', expiresAt: '2026-12-31', todayCalls: 543, totalCalls: 15678, ipWhitelist: ['203.0.113.0/24'] },
+    { id: 'k012', name: '数据同步密钥', key: 'm12sk_sync_l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8', role: 'operator', status: 'active', createdAt: '2026-06-20', expiresAt: '2027-06-20', todayCalls: 555, totalCalls: 28901, ipWhitelist: [] }
+  ];
+
+  let keySearchQuery = '';
+
+  const roleLabels = {
+    admin: '超级管理员',
+    security: '安全管理员',
+    operator: '运维工程师',
+    developer: '开发者',
+    viewer: '只读用户'
+  };
+
+  const statusLabels = {
+    active: { text: '活跃', class: 'tag-success' },
+    expired: { text: '已过期', class: 'tag-danger' },
+    disabled: { text: '已禁用', class: 'tag-muted' }
+  };
+
+  // 渲染密钥列表
+  function renderKeys() {
+    const container = document.getElementById('keyList');
+    let filtered = apiKeys;
+    if (keySearchQuery) {
+      filtered = filtered.filter(k =>
+        k.name.toLowerCase().includes(keySearchQuery.toLowerCase()) ||
+        k.key.toLowerCase().includes(keySearchQuery.toLowerCase())
+      );
+    }
+
+    container.innerHTML = filtered.map(k => {
+      const maskedKey = k.key.substring(0, 12) + '...' + k.key.substring(k.key.length - 6);
+      const status = statusLabels[k.status] || statusLabels.active;
+      return `
+        <div class="api-key-card">
+          <div class="key-header">
+            <div class="key-name">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+              ${k.name}
+              <span class="tag ${status.class}" style="font-size:10px;">${status.text}</span>
+            </div>
+            <span class="tag tag-info" style="font-size:10px;">${roleLabels[k.role]}</span>
+          </div>
+          <div class="key-value">
+            <span class="masked">${maskedKey}</span>
+            <div class="flex gap-2">
+              <button class="copy-btn" onclick="toggleKeyVisibility('${k.id}', this)" title="显示/隐藏">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </button>
+              <button class="copy-btn" onclick="copyToClipboard('${k.key}')" title="复制">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="key-meta">
+            <div class="key-stats">
+              <span>今日: <strong style="color:var(--primary-light)">${k.todayCalls.toLocaleString()}</strong> 次</span>
+              <span>累计: <strong style="color:var(--text-secondary)">${k.totalCalls.toLocaleString()}</strong> 次</span>
+              <span>过期: ${k.expiresAt}</span>
+            </div>
+            <div class="key-actions">
+              <button class="btn btn-ghost btn-sm" onclick="rotateKey('${k.id}')">轮换</button>
+              ${k.status === 'active'
+                ? `<button class="btn btn-ghost btn-sm text-warning" onclick="disableKey('${k.id}')">禁用</button>`
+                : `<button class="btn btn-ghost btn-sm text-primary" onclick="enableKey('${k.id}')">启用</button>`
+              }
+              <button class="btn btn-ghost btn-sm text-danger" onclick="deleteKey('${k.id}')">删除</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('keyCount').textContent = apiKeys.filter(k => k.status === 'active').length;
+    document.getElementById('tabKeyCount').textContent = apiKeys.length;
+  }
+
+  function filterKeys(query) {
+    keySearchQuery = query;
+    renderKeys();
+  }
+
+  function toggleKeyVisibility(id, btn) {
+    const key = apiKeys.find(k => k.id === id);
+    if (!key) return;
+    // 简化处理 - 通过 toast 提示
+    showToast('完整密钥仅在创建时显示一次', 'info');
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('已复制到剪贴板', 'success');
+    }).catch(() => {
+      showToast('复制失败', 'error');
+    });
+  }
+
+  function rotateKey(id) {
+    const key = apiKeys.find(k => k.id === id);
+    if (!key) return;
+    if (confirm(`确定要轮换密钥「${key.name}」吗？轮换后旧密钥将在 24 小时后失效。`)) {
+      showToast('密钥轮换中...', 'info');
+      setTimeout(() => {
+        key.key = 'm12sk_new_' + Math.random().toString(36).substring(2, 34);
+        renderKeys();
+        showToast('密钥轮换成功', 'success');
+      }, 800);
+    }
+  }
+
+  function disableKey(id) {
+    const key = apiKeys.find(k => k.id === id);
+    if (!key) return;
+    if (confirm(`确定要禁用密钥「${key.name}」吗？`)) {
+      key.status = 'disabled';
+      renderKeys();
+      showToast('密钥已禁用', 'success');
+    }
+  }
+
+  function enableKey(id) {
+    const key = apiKeys.find(k => k.id === id);
+    if (!key) return;
+    key.status = 'active';
+    renderKeys();
+    showToast('密钥已启用', 'success');
+  }
+
+  function deleteKey(id) {
+    const key = apiKeys.find(k => k.id === id);
+    if (!key) return;
+    if (confirm(`确定要删除密钥「${key.name}」吗？此操作不可恢复！`)) {
+      apiKeys = apiKeys.filter(k => k.id !== id);
+      renderKeys();
+      showToast('密钥已删除', 'success');
+    }
+  }
+
+  function rotateAllKeys() {
+    if (confirm('确定要批量轮换所有活跃密钥吗？这将影响所有 API 调用。')) {
+      showToast('正在批量轮换密钥...', 'info');
+      setTimeout(() => {
+        apiKeys.forEach(k => {
+          if (k.status === 'active') {
+            k.key = 'm12sk_rot_' + Math.random().toString(36).substring(2, 34);
+          }
+        });
+        renderKeys();
+        showToast('批量轮换完成', 'success');
+      }, 1000);
+    }
+  }
+
+  // ========== 创建密钥 ==========
+  function showCreateKeyModal() {
+    document.getElementById('createKeyModal').classList.add('show');
+  }
+  function hideCreateKeyModal() {
+    document.getElementById('createKeyModal').classList.remove('show');
+  }
+
+  function createApiKey(e) {
+    e.preventDefault();
+    const name = document.getElementById('newKeyName').value;
+    const role = document.getElementById('newKeyRole').value;
+    const expiry = document.getElementById('newKeyExpiry').value;
+    const ipWhitelist = document.getElementById('newKeyIpWhitelist').value;
+
+    const newKey = 'm12sk_' + role.substring(0, 3) + '_' + Math.random().toString(36).substring(2, 34);
+    const expiryDate = expiry === '-1' ? '永不过期' :
+      new Date(Date.now() + parseInt(expiry) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    apiKeys.unshift({
+      id: 'k' + Date.now(),
+      name, key: newKey, role,
+      status: 'active',
+      createdAt: new Date().toISOString().split('T')[0],
+      expiresAt: expiryDate,
+      todayCalls: 0,
+      totalCalls: 0,
+      ipWhitelist: ipWhitelist ? ipWhitelist.split(',').map(s => s.trim()) : []
+    });
+
+    hideCreateKeyModal();
+    document.getElementById('createdKeyValue').textContent = newKey;
+    document.getElementById('keyCreatedModal').classList.add('show');
+    renderKeys();
+    e.target.reset();
+  }
+
+  function copyCreatedKey() {
+    const key = document.getElementById('createdKeyValue').textContent;
+    copyToClipboard(key);
+  }
+
+  function confirmKeyCreated() {
+    document.getElementById('keyCreatedModal').classList.remove('show');
+  }
+
+  // ========== 角色数据 ==========
+  const roles = [
+    { id: 'admin', name: '超级管理员', desc: '拥有所有权限，可管理系统全部功能', icon: 'crown', perms: ['全部权限', '用户管理', '系统配置', '安全审计', '密钥管理'], userCount: 2 },
+    { id: 'security', name: '安全管理员', desc: '负责安全策略配置与安全事件响应', icon: 'shield', perms: ['WAF管理', 'IP控制', '安全审计', '密钥管理', '角色查看'], userCount: 3 },
+    { id: 'operator', name: '运维工程师', desc: '负责系统运维监控与日常维护', icon: 'tools', perms: ['系统监控', '日志查看', '配置修改', '服务管理'], userCount: 5 },
+    { id: 'developer', name: '开发者', desc: 'API 调用与应用开发权限', icon: 'code', perms: ['API调用', '文档查看', '测试环境', '日志查看'], userCount: 12 },
+    { id: 'viewer', name: '只读用户', desc: '仅可查看数据，无修改权限', icon: 'eye', perms: ['数据查看', '报表查看', '审计查询'], userCount: 8 }
+  ];
+
+  const roleIcons = {
+    crown: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>',
+    shield: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>',
+    tools: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>',
+    code: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>',
+    eye: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>'
+  };
+
+  const roleIconColors = {
+    admin: { bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' },
+    security: { bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399' },
+    operator: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' },
+    developer: { bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' },
+    viewer: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af' }
+  };
+
+  function renderRoles() {
+    const container = document.getElementById('roleList');
+    container.innerHTML = roles.map(r => {
+      const colors = roleIconColors[r.id] || roleIconColors.viewer;
+      return `
+        <div class="role-card">
+          <div class="role-header">
+            <div class="role-icon" style="background:${colors.bg};color:${colors.color};">
+              ${roleIcons[r.icon] || roleIcons.eye}
+            </div>
+            <div>
+              <div class="role-name">${r.name}</div>
+              <div class="role-desc">${r.desc}</div>
+            </div>
+          </div>
+          <div class="role-perms">
+            ${r.perms.map(p => `<span class="role-perm">${p}</span>`).join('')}
+          </div>
+          <div class="role-footer">
+            <span>${r.userCount} 个用户</span>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('编辑角色：${r.name}', 'info')">编辑权限</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ========== 令牌使用 TOP ==========
+  function renderTopKeys() {
+    const topKeys = [...apiKeys].filter(k => k.status === 'active').sort((a, b) => b.todayCalls - a.todayCalls).slice(0, 5);
+    const maxCalls = topKeys[0]?.todayCalls || 1;
+
+    const container = document.getElementById('topKeys');
+    container.innerHTML = topKeys.map((k, i) => {
+      const pct = (k.todayCalls / maxCalls) * 100;
+      return `
+        <div class="flex items-center gap-3">
+          <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+            style="background: ${i < 3 ? 'linear-gradient(135deg, var(--primary-light), var(--primary-dark))' : 'rgba(255,255,255,0.1)'}; color: #fff; font-size: 10px;">
+            ${i + 1}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm text-gray-200 truncate">${k.name}</span>
+              <span class="text-xs font-mono text-primary">${k.todayCalls.toLocaleString()}</span>
+            </div>
+            <div class="progress-bar" style="height:3px;">
+              <div class="progress-fill" style="width:${pct}%;height:100%;border-radius:2px;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ========== 令牌使用图表 ==========
+  function initTokenUsageChart() {
+    const ctx = document.getElementById('tokenUsageChart').getContext('2d');
+    const days = Array.from({length: 7}, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    });
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: days,
+        datasets: [
+          {
+            label: '成功调用',
+            data: [18500, 21200, 19800, 23400, 25600, 22100, 28456],
+            borderColor: 'rgba(16, 185, 129, 0.9)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          },
+          {
+            label: '失败调用',
+            data: [180, 210, 195, 230, 250, 165, 147],
+            borderColor: 'rgba(239, 68, 68, 0.9)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#9ca3af', font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 40, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#9ca3af',
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6b7280', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ========== Tab 切换 ==========
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+
+    if (tab === 'tokens') {
+      setTimeout(initTokenUsageChart, 50);
+    }
+  }
+
+  // Toast
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    renderKeys();
+    renderRoles();
+    renderTopKeys();
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IP 访问控制 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* Tab 切换 */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    background: transparent;
+  }
+  .tab-btn:hover {
+    color: var(--text-secondary);
+  }
+  .tab-btn.active {
+    color: var(--primary-light);
+    border-bottom-color: var(--primary);
+  }
+  .tab-btn .count {
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+  }
+  .tab-btn.active .count {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary-light);
+  }
+
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* IP 输入区域 */
+  .ip-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ip-input-row .form-input {
+    flex: 1;
+    font-family: 'Consolas', monospace;
+  }
+
+  /* IP 列表项 */
+  .ip-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+    transition: var(--transition);
+    border: 1px solid transparent;
+  }
+  .ip-item:hover {
+    border-color: var(--border);
+    background: rgba(0, 0, 0, 0.3);
+  }
+  .ip-item .ip-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  .ip-item .ip-addr {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .ip-item .ip-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .ip-item .ip-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* 封禁配置卡片 */
+  .config-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .config-card .config-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .config-card .config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .config-card .config-row:last-child { border-bottom: none; }
+  .config-card .config-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .config-card .config-value {
+    font-size: 12px;
+    color: var(--primary-light);
+    font-family: var(--font-mono);
+  }
+
+  /* IP 检测测试 */
+  .test-result {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    display: none;
+  }
+  .test-result.show {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+  }
+  .test-result.allowed {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .test-result.blocked {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+  .test-result .result-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .test-result.allowed .result-title { color: var(--primary-light); }
+  .test-result.blocked .result-title { color: var(--danger-light); }
+  .test-result .result-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  /* 封禁剩余时间条 */
+  .ban-progress {
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .ban-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--danger), var(--warning));
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+
+  /* 批量导入 */
+  .import-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 16px;
+  }
+  .import-area:hover {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  .import-area svg {
+    width: 32px;
+    height: 32px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .import-area p {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .import-area p span {
+    color: var(--primary-light);
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+        <span class="nav-badge badge-success">运行中</span>
+      </a>
+      <a href="ip-control.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">IP 访问控制</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>IP 访问控制 <span class="accent">管理</span></h1>
+    <p>管理 IP 黑白名单、自动封禁策略与访问控制规则</p>
+  </div>
+
+  <div class="content-wrapper loaded">
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 fade-in-up delay-100">
+      <div class="stat-card">
+        <div class="label">白名单 IP</div>
+        <div class="value primary" id="whitelistCount">12</div>
+        <div class="trend up">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>永久放行</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">黑名单 IP</div>
+        <div class="value danger" id="blacklistCount">8</div>
+        <div class="trend down">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>永久封禁</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">自动封禁中</div>
+        <div class="value warning" id="autoBanCount">47</div>
+        <div class="trend up">
+          <span class="live-dot" style="display:inline-block;"></span>
+          <span>实时监控</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">今日拦截请求</div>
+        <div class="value info" id="blockedRequests">3,847</div>
+        <div class="trend up">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+          <span>+18.3%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主体：左侧列表 + 右侧配置 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- 左侧：IP 列表 -->
+      <div class="lg:col-span-2">
+        <div class="glass-strong p-6 fade-in-up delay-200" style="border-radius: var(--radius-xl);">
+
+          <!-- Tab 切换 -->
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="whitelist" onclick="switchTab('whitelist', this)">
+              白名单 <span class="count" id="tabWhitelistCount">12</span>
+            </button>
+            <button class="tab-btn" data-tab="blacklist" onclick="switchTab('blacklist', this)">
+              黑名单 <span class="count" id="tabBlacklistCount">8</span>
+            </button>
+            <button class="tab-btn" data-tab="autoban" onclick="switchTab('autoban', this)">
+              自动封禁 <span class="count" id="tabAutoBanCount">47</span>
+            </button>
+          </div>
+
+          <!-- 白名单 -->
+          <div class="tab-content active" id="tab-whitelist">
+            <div class="ip-input-row">
+              <input type="text" class="form-input" id="whiteIpInput" placeholder="输入 IP 地址或网段 (如 192.168.1.0/24)" />
+              <button class="btn btn-primary" onclick="addToWhitelist()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                添加
+              </button>
+            </div>
+            <div class="ip-list" id="whitelistList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+          <!-- 黑名单 -->
+          <div class="tab-content" id="tab-blacklist">
+            <div class="ip-input-row">
+              <input type="text" class="form-input" id="blackIpInput" placeholder="输入 IP 地址或网段 (如 10.0.0.0/8)" />
+              <button class="btn btn-danger" onclick="addToBlacklist()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                封禁
+              </button>
+            </div>
+            <div class="ip-list" id="blacklistList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+          <!-- 自动封禁 -->
+          <div class="tab-content" id="tab-autoban">
+            <div class="flex items-center justify-between mb-4">
+              <div class="text-sm text-muted">基于异常行为自动封禁的 IP 列表</div>
+              <button class="btn btn-outline btn-sm" onclick="clearAutoBan()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                全部解除
+              </button>
+            </div>
+            <div class="ip-list" id="autoBanList">
+              <!-- 由 JS 生成 -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 右侧：配置 + 测试 -->
+      <div class="space-y-6">
+        <!-- 封禁时长配置 -->
+        <div class="glass-strong p-6 fade-in-up delay-300" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">封禁配置</h3>
+
+          <div class="config-card">
+            <div class="config-title">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              自动封禁规则
+            </div>
+            <div class="config-row">
+              <span class="config-label">请求速率阈值</span>
+              <span class="config-value">100 次/分钟</span>
+            </div>
+            <div class="config-row">
+              <span class="config-label">失败登录阈值</span>
+              <span class="config-value">5 次/10分钟</span>
+            </div>
+            <div class="config-row">
+              <span class="config-label">WAF 触发阈值</span>
+              <span class="config-value">10 次/小时</span>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <div class="config-title">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--warning);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              封禁时长
+            </div>
+            <div class="form-group">
+              <label class="form-label">首次违规</label>
+              <select class="form-input form-select" id="banDuration1" onchange="saveBanConfig()">
+                <option value="300">5 分钟</option>
+                <option value="600">10 分钟</option>
+                <option value="1800" selected>30 分钟</option>
+                <option value="3600">1 小时</option>
+                <option value="86400">24 小时</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">二次违规</label>
+              <select class="form-input form-select" id="banDuration2" onchange="saveBanConfig()">
+                <option value="1800">30 分钟</option>
+                <option value="3600">1 小时</option>
+                <option value="86400" selected>24 小时</option>
+                <option value="604800">7 天</option>
+                <option value="-1">永久封禁</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">多次违规</label>
+              <select class="form-input form-select" id="banDuration3" onchange="saveBanConfig()">
+                <option value="3600">1 小时</option>
+                <option value="86400">24 小时</option>
+                <option value="604800">7 天</option>
+                <option value="-1" selected>永久封禁</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary w-full" onclick="saveAllConfig()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            保存配置
+          </button>
+        </div>
+
+        <!-- IP 检测测试 -->
+        <div class="glass-strong p-6 fade-in-up delay-400" style="border-radius: var(--radius-xl);">
+          <h3 class="section-title">IP 检测测试</h3>
+          <p class="text-sm text-muted mb-4">测试指定 IP 地址的访问控制结果</p>
+          <div class="ip-input-row">
+            <input type="text" class="form-input" id="testIpInput" placeholder="输入 IP 地址，如 192.168.1.100" />
+          </div>
+          <button class="btn btn-outline w-full" onclick="testIpAccess()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            检测访问权限
+          </button>
+
+          <div class="test-result" id="testResult">
+            <div class="result-title" id="testResultTitle"></div>
+            <div class="result-detail" id="testResultDetail"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== IP 数据 ==========
+  let whitelist = [
+    { ip: '192.168.1.0/24', desc: '内网办公网段', addedBy: '管理员', addedAt: '2026-06-15 10:30' },
+    { ip: '10.0.0.0/8', desc: '内部服务器网段', addedBy: '管理员', addedAt: '2026-06-01 08:00' },
+    { ip: '172.16.0.0/12', desc: 'Docker 容器网段', addedBy: '系统', addedAt: '2026-05-20 14:20' },
+    { ip: '127.0.0.1', desc: '本地回环', addedBy: '系统', addedAt: '2026-01-01 00:00' },
+    { ip: '8.8.8.8', desc: 'Google DNS', addedBy: '管理员', addedAt: '2026-06-20 16:45' },
+    { ip: '1.1.1.1', desc: 'Cloudflare DNS', addedBy: '管理员', addedAt: '2026-06-20 16:45' },
+    { ip: '203.0.113.10', desc: '合作伙伴 A 出口 IP', addedBy: '管理员', addedAt: '2026-06-25 09:15' },
+    { ip: '198.51.100.25', desc: '合作伙伴 B 出口 IP', addedBy: '管理员', addedAt: '2026-06-28 11:30' },
+    { ip: '192.0.2.0/24', desc: '测试网络', addedBy: '管理员', addedAt: '2026-07-01 14:00' },
+    { ip: '45.33.32.156', desc: '监控节点', addedBy: '运维', addedAt: '2026-07-05 08:20' },
+    { ip: '185.220.101.0/24', desc: '欧洲节点', addedBy: '运维', addedAt: '2026-07-06 17:10' },
+    { ip: '103.224.182.0/24', desc: '亚太节点', addedBy: '运维', addedAt: '2026-07-08 10:45' }
+  ];
+
+  let blacklist = [
+    { ip: '45.33.32.156', desc: '已知攻击源 IP', addedBy: '系统', addedAt: '2026-07-01 00:00', reason: '持续 SQL 注入攻击' },
+    { ip: '203.0.113.45', desc: '暴力破解 IP', addedBy: '系统', addedAt: '2026-07-03 14:20', reason: 'SSH 登录失败 1000+ 次' },
+    { ip: '198.51.100.23', desc: '恶意爬虫', addedBy: '管理员', addedAt: '2026-07-05 09:30', reason: '高频爬取敏感接口' },
+    { ip: '185.220.101.34', desc: 'Tor 出口节点', addedBy: '系统', addedAt: '2026-07-06 12:00', reason: '匿名网络访问' },
+    { ip: '103.224.182.251', desc: '恶意扫描', addedBy: '系统', addedAt: '2026-07-07 16:45', reason: '端口扫描 + 漏洞探测' },
+    { ip: '91.218.114.0/24', desc: '已知僵尸网络', addedBy: '管理员', addedAt: '2026-07-08 11:15', reason: 'C2 服务器网段' },
+    { ip: '104.21.88.123', desc: 'DDoS 攻击源', addedBy: '系统', addedAt: '2026-07-09 20:30', reason: 'SYN Flood 攻击' },
+    { ip: '172.67.175.0/24', desc: '欺诈流量', addedBy: '管理员', addedAt: '2026-07-10 08:00', reason: '信用卡欺诈来源' }
+  ];
+
+  let autoBanList = [];
+  const autoBanTemplates = [
+    { reason: '高频请求 (速率限制)', country: '美国', requests: 234 },
+    { reason: '暴力破解登录', country: '俄罗斯', requests: 156 },
+    { reason: 'WAF 规则频繁触发', country: '中国', requests: 89 },
+    { reason: '端口扫描', country: '朝鲜', requests: 567 },
+    { reason: 'SQL 注入尝试', country: '伊朗', requests: 78 },
+    { reason: '恶意爬虫', country: '越南', requests: 342 },
+    { reason: 'CC 攻击', country: '印度', requests: 892 },
+    { reason: 'XSS 攻击尝试', country: '巴西', requests: 45 }
+  ];
+
+  // 生成自动封禁 IP
+  function generateAutoBanList() {
+    autoBanList = [];
+    for (let i = 0; i < 47; i++) {
+      const tpl = autoBanTemplates[Math.floor(Math.random() * autoBanTemplates.length)];
+      const ip = `${Math.floor(Math.random()*223)+1}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*254)+1}`;
+      const totalDuration = 1800 + Math.floor(Math.random() * 84600); // 30分钟到24小时
+      const remaining = Math.floor(totalDuration * (0.1 + Math.random() * 0.8));
+      autoBanList.push({
+        ip,
+        reason: tpl.reason,
+        country: tpl.country,
+        requests: tpl.requests + Math.floor(Math.random() * 100),
+        bannedAt: new Date(Date.now() - (totalDuration - remaining) * 1000).toLocaleString('zh-CN'),
+        duration: totalDuration,
+        remaining,
+        totalDuration
+      });
+    }
+  }
+  generateAutoBanList();
+
+  // ========== Tab 切换 ==========
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  // ========== 渲染白名单 ==========
+  function renderWhitelist() {
+    const container = document.getElementById('whitelistList');
+    container.innerHTML = whitelist.map(item => `
+      <div class="ip-item">
+        <div class="ip-info">
+          <div style="width:36px;height:36px;border-radius:8px;background:rgba(16,185,129,0.15);display:flex;align-items:center;justify-content:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div>
+            <div class="ip-addr">${item.ip}</div>
+            <div class="ip-detail">${item.desc} · 添加者: ${item.addedBy} · ${item.addedAt}</div>
+          </div>
+        </div>
+        <div class="ip-actions">
+          <button class="btn btn-ghost btn-sm" onclick="removeFromWhitelist('${item.ip}')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--danger);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            移除
+          </button>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('whitelistCount').textContent = whitelist.length;
+    document.getElementById('tabWhitelistCount').textContent = whitelist.length;
+  }
+
+  function addToWhitelist() {
+    const input = document.getElementById('whiteIpInput');
+    const ip = input.value.trim();
+    if (!ip) { showToast('请输入 IP 地址', 'warning'); return; }
+    if (whitelist.find(w => w.ip === ip)) { showToast('该 IP 已在白名单中', 'warning'); return; }
+    whitelist.unshift({
+      ip, desc: '手动添加', addedBy: localStorage.getItem('m12_username') || '管理员',
+      addedAt: new Date().toLocaleString('zh-CN')
+    });
+    renderWhitelist();
+    input.value = '';
+    showToast('IP 已添加到白名单', 'success');
+  }
+
+  function removeFromWhitelist(ip) {
+    if (confirm(`确定要从白名单中移除 ${ip} 吗？`)) {
+      whitelist = whitelist.filter(w => w.ip !== ip);
+      renderWhitelist();
+      showToast('已从白名单移除', 'success');
+    }
+  }
+
+  // ========== 渲染黑名单 ==========
+  function renderBlacklist() {
+    const container = document.getElementById('blacklistList');
+    container.innerHTML = blacklist.map(item => `
+      <div class="ip-item">
+        <div class="ip-info">
+          <div style="width:36px;height:36px;border-radius:8px;background:rgba(239,68,68,0.15);display:flex;align-items:center;justify-content:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--danger-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+          </div>
+          <div>
+            <div class="ip-addr">${item.ip}</div>
+            <div class="ip-detail">${item.reason} · 添加者: ${item.addedBy} · ${item.addedAt}</div>
+          </div>
+        </div>
+        <div class="ip-actions">
+          <button class="btn btn-ghost btn-sm" onclick="removeFromBlacklist('${item.ip}')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            解封
+          </button>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('blacklistCount').textContent = blacklist.length;
+    document.getElementById('tabBlacklistCount').textContent = blacklist.length;
+  }
+
+  function addToBlacklist() {
+    const input = document.getElementById('blackIpInput');
+    const ip = input.value.trim();
+    if (!ip) { showToast('请输入 IP 地址', 'warning'); return; }
+    if (blacklist.find(b => b.ip === ip)) { showToast('该 IP 已在黑名单中', 'warning'); return; }
+    blacklist.unshift({
+      ip, reason: '手动封禁', addedBy: localStorage.getItem('m12_username') || '管理员',
+      addedAt: new Date().toLocaleString('zh-CN'), desc: '手动添加'
+    });
+    renderBlacklist();
+    input.value = '';
+    showToast('IP 已加入黑名单', 'success');
+  }
+
+  function removeFromBlacklist(ip) {
+    if (confirm(`确定要解封 IP ${ip} 吗？`)) {
+      blacklist = blacklist.filter(b => b.ip !== ip);
+      renderBlacklist();
+      showToast('IP 已解封', 'success');
+    }
+  }
+
+  // ========== 渲染自动封禁 ==========
+  function renderAutoBanList() {
+    const container = document.getElementById('autoBanList');
+    container.innerHTML = autoBanList.slice(0, 20).map(item => {
+      const pct = (item.remaining / item.totalDuration) * 100;
+      const mins = Math.floor(item.remaining / 60);
+      const hours = Math.floor(mins / 60);
+      const remainStr = hours > 0 ? `${hours}小时${mins % 60}分` : `${mins}分钟`;
+      return `
+        <div class="ip-item">
+          <div class="ip-info">
+            <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--warning);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div style="flex:1;">
+              <div class="ip-addr">${item.ip} <span class="tag tag-warning" style="margin-left:6px;font-size:10px;">${item.country}</span></div>
+              <div class="ip-detail">${item.reason} · ${item.requests} 次请求 · 剩余 ${remainStr}</div>
+              <div class="ban-progress">
+                <div class="ban-progress-fill" style="width:${pct}%;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="ip-actions">
+            <button class="btn btn-ghost btn-sm" onclick="unbanIp('${item.ip}')">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              解封
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    if (autoBanList.length > 20) {
+      container.innerHTML += `<div class="text-center text-muted py-3 text-sm">还有 ${autoBanList.length - 20} 条记录...</div>`;
+    }
+    document.getElementById('autoBanCount').textContent = autoBanList.length;
+    document.getElementById('tabAutoBanCount').textContent = autoBanList.length;
+  }
+
+  function unbanIp(ip) {
+    if (confirm(`确定要提前解封 IP ${ip} 吗？`)) {
+      autoBanList = autoBanList.filter(b => b.ip !== ip);
+      renderAutoBanList();
+      showToast('IP 已提前解封', 'success');
+    }
+  }
+
+  function clearAutoBan() {
+    if (confirm('确定要解除所有自动封禁吗？')) {
+      autoBanList = [];
+      renderAutoBanList();
+      showToast('已解除所有自动封禁', 'success');
+    }
+  }
+
+  // 每秒更新自动封禁倒计时
+  setInterval(() => {
+    autoBanList.forEach(item => {
+      if (item.remaining > 0) item.remaining--;
+    });
+    autoBanList = autoBanList.filter(b => b.remaining > 0);
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab && activeTab.dataset.tab === 'autoban') {
+      renderAutoBanList();
+    } else {
+      document.getElementById('autoBanCount').textContent = autoBanList.length;
+      document.getElementById('tabAutoBanCount').textContent = autoBanList.length;
+    }
+  }, 1000);
+
+  // ========== 配置保存 ==========
+  function saveBanConfig() {
+    // 实时保存配置
+  }
+
+  function saveAllConfig() {
+    showToast('封禁配置已保存', 'success');
+  }
+
+  // ========== IP 检测测试 ==========
+  function testIpAccess() {
+    const ip = document.getElementById('testIpInput').value.trim();
+    if (!ip) { showToast('请输入 IP 地址', 'warning'); return; }
+
+    const result = document.getElementById('testResult');
+    const title = document.getElementById('testResultTitle');
+    const detail = document.getElementById('testResultDetail');
+
+    // 简单判断
+    const inWhitelist = whitelist.some(w => ipMatches(ip, w.ip));
+    const inBlacklist = blacklist.some(b => ipMatches(ip, b.ip));
+    const inAutoBan = autoBanList.some(a => a.ip === ip);
+
+    result.className = 'test-result show';
+
+    if (inWhitelist) {
+      result.classList.add('allowed');
+      title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>访问允许（白名单）';
+      detail.innerHTML = `
+        IP 地址: <strong>${ip}</strong><br>
+        状态: <span style="color:var(--primary-light)">放行</span><br>
+        匹配规则: 白名单规则<br>
+        访问权限: 完全放行，不受 WAF 和速率限制
+      `;
+    } else if (inBlacklist) {
+      result.classList.add('blocked');
+      const item = blacklist.find(b => ipMatches(ip, b.ip));
+      title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>访问拒绝（黑名单）';
+      detail.innerHTML = `
+        IP 地址: <strong>${ip}</strong><br>
+        状态: <span style="color:var(--danger-light)">封禁</span><br>
+        封禁原因: ${item.reason}<br>
+        封禁类型: 永久封禁<br>
+        HTTP 响应: 403 Forbidden
+      `;
+    } else if (inAutoBan) {
+      result.classList.add('blocked');
+      const item = autoBanList.find(a => a.ip === ip);
+      const mins = Math.floor(item.remaining / 60);
+      title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>访问拒绝（自动封禁）';
+      detail.innerHTML = `
+        IP 地址: <strong>${ip}</strong><br>
+        状态: <span style="color:var(--danger-light)">临时封禁</span><br>
+        封禁原因: ${item.reason}<br>
+        剩余时间: 约 ${mins} 分钟<br>
+        请求次数: ${item.requests} 次
+      `;
+    } else {
+      result.classList.add('allowed');
+      title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>访问允许（正常）';
+      detail.innerHTML = `
+        IP 地址: <strong>${ip}</strong><br>
+        状态: <span style="color:var(--primary-light)">正常访问</span><br>
+        匹配规则: 无特殊规则<br>
+        防护状态: 受 WAF 保护，速率限制生效
+      `;
+    }
+  }
+
+  // 简单 IP 匹配（支持 CIDR 网段）
+  function ipMatches(ip, rule) {
+    if (rule === ip) return true;
+    if (rule.includes('/')) {
+      // 简化的网段匹配判断
+      const parts = ip.split('.');
+      const ruleParts = rule.split('/')[0].split('.');
+      const prefix = parseInt(rule.split('/')[1]);
+      // 简单按前 N 位匹配
+      const matchOctets = Math.floor(prefix / 8);
+      for (let i = 0; i < matchOctets; i++) {
+        if (parts[i] !== ruleParts[i]) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Toast
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    renderWhitelist();
+    renderBlacklist();
+    renderAutoBanList();
+  });
+</script>
+
+</body>
+</html>
