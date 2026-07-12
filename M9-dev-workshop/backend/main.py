@@ -12,10 +12,10 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 # 导入配置和模型
 from config import get_settings
@@ -47,6 +47,54 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ===== 旧 API 路径兼容中间件 =====
+# 将 /api/xxx/* 重定向到 /api/v1/xxx/*，保留请求方法和 body
+# 使用 307/308 重定向，并添加 Deprecation 警告头
+_DEPRECATED_PREFIXES = {
+    "/api/workspace": "/api/v1/workspace",
+    "/api/vscode": "/api/v1/vscode",
+    "/api/mcp": "/api/v1/mcp",
+    "/api/dashboard": "/api/v1/dashboard",
+}
+
+
+@app.middleware("http")
+async def deprecated_api_redirect_middleware(request: Request, call_next):
+    """旧 API 路径兼容中间件
+
+    将 /api/xxx/* 的请求重定向到 /api/v1/xxx/*，
+    同时在响应头中添加 Deprecation 警告，提示客户端迁移到新路径。
+
+    - GET/HEAD 请求使用 308 永久重定向（保留方法）
+    - 其他请求使用 307 临时重定向（保留方法和 body）
+    """
+    path = request.url.path
+
+    # 跳过已经是 /api/v1/ 的路径和非匹配路径
+    if path.startswith("/api/v1/"):
+        return await call_next(request)
+
+    # 检查是否匹配旧路径前缀
+    for old_prefix, new_prefix in _DEPRECATED_PREFIXES.items():
+        if path == old_prefix or path.startswith(old_prefix + "/"):
+            # 构建新路径，保留查询参数
+            new_path = new_prefix + path[len(old_prefix):]
+            new_url = request.url.replace(path=new_path)
+
+            # GET/HEAD 使用 308（永久重定向，保留方法），其他使用 307（临时重定向，保留方法和body）
+            status_code = 308 if request.method in ("GET", "HEAD") else 307
+
+            response = RedirectResponse(url=str(new_url), status_code=status_code)
+            # 添加 Deprecation 警告头（RFC 8594 标准）
+            response.headers["Deprecation"] = "true"
+            response.headers["Warning"] = '299 - "Deprecated API path: use /api/v1/ prefix instead"'
+            response.headers["X-Deprecated-Reason"] = f"Path {old_prefix} is deprecated, use {new_prefix} instead"
+            return response
+
+    return await call_next(request)
+
 
 # ===== 注册路由 =====
 # 注意：各路由文件内部已定义 prefix，这里直接包含即可
@@ -150,10 +198,16 @@ def api_info():
         "version": "1.0.0",
         "description": "VS Code 管理、工作区管理、MCP 桥接服务",
         "modules": [
-            {"name": "VS Code 管理", "prefix": "/api/vscode", "status": "active"},
-            {"name": "工作区管理", "prefix": "/api/workspace", "status": "active"},
-            {"name": "MCP 桥接", "prefix": "/api/mcp", "status": "active"},
-            {"name": "仪表盘", "prefix": "/api/dashboard", "status": "active"},
+            {"name": "VS Code 管理", "prefix": "/api/v1/vscode", "status": "active"},
+            {"name": "工作区管理", "prefix": "/api/v1/workspace", "status": "active"},
+            {"name": "MCP 桥接", "prefix": "/api/v1/mcp", "status": "active"},
+            {"name": "仪表盘", "prefix": "/api/v1/dashboard", "status": "active"},
+        ],
+        "deprecated_prefixes": [
+            "/api/vscode",
+            "/api/workspace",
+            "/api/mcp",
+            "/api/dashboard",
         ],
         "docs": "/docs",
         "redoc": "/redoc",

@@ -18,7 +18,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from mcp_bridge import get_mcp_registry, MCPResponse
 
-router = APIRouter(prefix="/api/mcp", tags=["MCP 桥接"])
+router = APIRouter(prefix="/api/v1/mcp", tags=["MCP 桥接"])
 
 
 # ===== 请求模型 =====

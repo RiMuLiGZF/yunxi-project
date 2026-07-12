@@ -30,6 +30,9 @@ from fastapi import Header, HTTPException
 import time
 import os
 
+# M8 标准接口 - 启动时间记录（用于 uptime_seconds 统计）
+_start_time_m8 = time.time()
+
 
 # M8 标准接口 - Token 验证
 def _verify_m8_token(x_m8_token: str = "") -> bool:
@@ -59,7 +62,7 @@ async def m8_std_health(x_m8_token: str = Header(default="")):
             "module": "m9",
             "module_name": "编程开发",
             "version": "0.1.0",
-            "uptime_seconds": 0,
+            "uptime_seconds": int(time.time() - _start_time_m8),
         },
     }
 

@@ -16,7 +16,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from workspace_manager import get_workspace_manager
 
-router = APIRouter(prefix="/api/workspace", tags=["工作区管理"])
+router = APIRouter(prefix="/api/v1/workspace", tags=["工作区管理"])
 
 
 # ===== 请求模型 =====

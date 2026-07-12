@@ -22,7 +22,7 @@ except ImportError:
     from mcp_bridge import get_mcp_registry
     from models import SessionLocal, DevActivity, WorkspaceProject, VSCodeSession
 
-router = APIRouter(prefix="/api/dashboard", tags=["仪表盘"])
+router = APIRouter(prefix="/api/v1/dashboard", tags=["仪表盘"])
 
 
 def _get_db():
@@ -263,7 +263,7 @@ def get_quick_actions():
             "name": "扫描项目",
             "description": "扫描常用目录中的项目",
             "icon": "search",
-            "action": "/api/workspace/scan",
+            "action": "/api/v1/workspace/scan",
             "method": "POST",
         },
         {
@@ -271,7 +271,7 @@ def get_quick_actions():
             "name": "启动 VS Code",
             "description": "打开 VS Code 编辑器",
             "icon": "code",
-            "action": "/api/vscode/start",
+            "action": "/api/v1/vscode/start",
             "method": "POST",
         },
         {
@@ -279,7 +279,7 @@ def get_quick_actions():
             "name": "MCP 工具",
             "description": "查看可用的 MCP 工具",
             "icon": "tool",
-            "action": "/api/mcp/tools",
+            "action": "/api/v1/mcp/tools",
             "method": "GET",
         },
         {
@@ -287,7 +287,7 @@ def get_quick_actions():
             "name": "新建项目",
             "description": "创建新的工作区项目",
             "icon": "plus",
-            "action": "/api/workspace/projects",
+            "action": "/api/v1/workspace/projects",
             "method": "POST",
         },
     ]

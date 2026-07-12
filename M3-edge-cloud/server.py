@@ -154,7 +154,7 @@ def _init_components() -> None:
         from edge_cloud_kernel.m8_api.device_registry import create_device_registry
         # P2-6: 默认使用 sqlite 持久化，重启不丢失
         _reg_type = "sqlite"
-        _db_path = str(Path(_project_root) / "M3-edge-cloud" / "data" / "devices.db")
+        _db_path = str(Path(PROJECT_ROOT) / "M3-edge-cloud" / "data" / "devices.db") if PROJECT_ROOT else str(BASE_DIR / "data" / "devices.db")
         try:
             _reg_type = config_manager.get("devices.registry_type", "sqlite")
             _db_path = config_manager.get("devices.db_path", _db_path)
@@ -267,60 +267,51 @@ def _init_components() -> None:
 
 def _apply_env_overrides(config_manager: Any) -> None:
     """用环境变量覆盖配置管理器中的关键配置项."""
+    updates: dict[str, Any] = {}
+
     # 端口
     port = os.environ.get("M3_PORT")
     if port:
         try:
-            config_manager.set("basic.port", int(port))
+            updates["basic.port"] = int(port)
         except Exception:
             pass
 
     # 环境
     env = os.environ.get("YUNXI_ENV") or os.environ.get("M3_ENV")
     if env:
-        try:
-            config_manager.set("basic.env", env)
-        except Exception:
-            pass
+        updates["basic.env"] = env
 
     # 日志级别
     log_level = os.environ.get("YUNXI_LOG_LEVEL")
     if log_level:
-        try:
-            config_manager.set("basic.log_level", log_level)
-            config_manager.set("logging.level", log_level)
-        except Exception:
-            pass
+        updates["basic.log_level"] = log_level
+        updates["logging.level"] = log_level
 
     # Admin Token
     admin_token = os.environ.get("M3_ADMIN_TOKEN")
     if admin_token:
-        try:
-            config_manager.set("security.admin_token", admin_token)
-        except Exception:
-            pass
+        updates["security.admin_token"] = admin_token
 
     # 加密密钥
     encryption_key = os.environ.get("M3_ENCRYPTION_KEY")
     if encryption_key:
-        try:
-            config_manager.set("security.encryption_key", encryption_key)
-        except Exception:
-            pass
+        updates["security.encryption_key"] = encryption_key
 
     # CORS
     cors_origins = os.environ.get("CORS_ORIGINS")
     if cors_origins:
-        try:
-            config_manager.set("security.cors_origins", cors_origins.split(","))
-        except Exception:
-            pass
+        updates["security.cors_origins"] = cors_origins.split(",")
 
     # 数据库路径
     db_path = os.environ.get("M3_DATABASE_PATH")
     if db_path:
+        updates["database.path"] = db_path
+
+    # 批量应用更新（敏感字段会被 update_config 自动拒绝，属于正常情况）
+    if updates:
         try:
-            config_manager.set("database.path", db_path)
+            config_manager.update_config(updates=updates, request_id="env_override")
         except Exception:
             pass
 
@@ -862,12 +853,21 @@ async def v1_sync_status(request: Request):
     return await sync_status(request)
 
 @app.get("/api/v1/sync/conflicts", tags=["V1 Alias"], summary="v1冲突列表（别名）")
-async def v1_sync_conflicts(request: Request):
-    return await list_conflicts(request)
+async def v1_sync_conflicts(
+    request: Request,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+):
+    return await sync_conflicts(request, page=page, page_size=page_size)
 
 @app.get("/api/v1/devices", tags=["V1 Alias"], summary="v1设备列表（别名）")
-async def v1_devices(request: Request):
-    return await list_devices(request)
+async def v1_devices(
+    request: Request,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    status: str | None = Query(None, description="按状态过滤"),
+):
+    return await list_devices(request, page=page, page_size=page_size, status=status)
 
 
 # ---- M8 标准对接接口（/m8/* 路径） ----

@@ -144,5 +144,23 @@ def get_settings() -> Settings:
 
 
 # 系统版本号（统一从 shared.version 导入）
-# from shared.version import SYSTEM_VERSION
-SYSTEM_VERSION = "0.4.0"  # 与 shared/version.py 保持同步
+def _load_system_version() -> str:
+    """从 shared.version 导入系统版本号，导入失败则回退到默认值"""
+    try:
+        # 查找项目根目录并加入 sys.path
+        from pathlib import Path
+        current = Path(__file__).resolve().parent
+        for _ in range(10):
+            if (current / "shared" / "version.py").exists():
+                import sys
+                if str(current) not in sys.path:
+                    sys.path.insert(0, str(current))
+                break
+            current = current.parent
+        from shared.version import SYSTEM_VERSION
+        return SYSTEM_VERSION
+    except Exception:
+        return "v1.0.0"
+
+
+SYSTEM_VERSION = _load_system_version()

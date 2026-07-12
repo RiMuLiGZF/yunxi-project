@@ -231,7 +231,7 @@ def _get_m6_real_metrics():
     
     sse_connections = 0
     try:
-        from m6_hardware.services.sse_manager import get_sse_manager
+        from m6_hardware.realtime.sse_manager import get_sse_manager
         sm = get_sse_manager()
         if hasattr(sm, "get_connection_count"):
             sse_connections = sm.get_connection_count()

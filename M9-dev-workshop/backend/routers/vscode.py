@@ -16,7 +16,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from vscode_manager import get_vscode_manager
 
-router = APIRouter(prefix="/api/vscode", tags=["VS Code 管理"])
+router = APIRouter(prefix="/api/v1/vscode", tags=["VS Code 管理"])
 
 
 # ===== 请求模型 =====
