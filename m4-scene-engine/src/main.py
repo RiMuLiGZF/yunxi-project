@@ -342,12 +342,34 @@ from src.routers.context import router as context_router
 from src.routers.config_route import router as config_router
 from src.routers.admin import router as admin_router
 from src.routers.modes import router as modes_router
+from src.modes.appearance.router import router as appearance_router
+from src.modes.emotion_comfort.router import router as emotion_comfort_router
+from src.modes.social_relation.router import router as social_relation_router
+from src.modes.review.router import router as review_router
+from src.modes.life_management.router import router as life_management_router
+from src.modes.study_plan.router import router as study_plan_router
+from src.modes.growth.router import router as growth_router
+from src.modes.work_dev.router import router as work_dev_router
+from src.routers.chat import router as chat_router
+from src.routers.voice import router as voice_router
+from src.routers.watch import router as watch_router
 
 app.include_router(scene_router)
 app.include_router(context_router)
 app.include_router(config_router)
 app.include_router(admin_router)
 app.include_router(modes_router)
+app.include_router(appearance_router)
+app.include_router(emotion_comfort_router)
+app.include_router(social_relation_router)
+app.include_router(review_router)
+app.include_router(life_management_router)
+app.include_router(study_plan_router)
+app.include_router(growth_router)
+app.include_router(work_dev_router)
+app.include_router(chat_router)
+app.include_router(voice_router)
+app.include_router(watch_router)
 
 
 # ---------------------------------------------------------------------------

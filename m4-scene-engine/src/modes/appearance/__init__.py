@@ -1,25 +1,17 @@
 """形象工坊模式.
 
 穿搭建议、形象设计、风格探索，打造个人独特形象。
-（占位实现，后续迁移 M8 业务逻辑）
+
+模块结构:
+    - mode.py: 模式类（继承 BaseMode）
+    - router.py: FastAPI 路由
+    - service.py: 业务逻辑层
+    - repository.py: 数据访问层
+    - models.py: Pydantic 数据模型
 """
 
 from __future__ import annotations
 
-from src.modes.base_mode import BaseMode
+from src.modes.appearance.mode import AppearanceMode
 
-
-class AppearanceMode(BaseMode):
-    """形象工坊模式类.
-
-    提供穿搭建议、形象设计、风格探索、
-    美妆护肤等个人形象相关功能。
-    """
-
-    mode_id = "appearance"
-    mode_name = "形象工坊"
-    mode_description = "穿搭建议、形象设计、风格探索，打造个人独特形象"
-    icon = "👗"
-    category = "appearance"
-    priority = 8
-    is_enabled = True
+__all__ = ["AppearanceMode"]
