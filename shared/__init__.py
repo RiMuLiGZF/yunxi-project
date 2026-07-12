@@ -4,7 +4,7 @@
 """
 
 from shared.config import YunxiConfig, get_config
-from shared.module_client import ModuleRegistry, ModuleInfo, get_registry
+from shared.module_client import ModuleRegistry, ModuleInfo, ModuleKey, ModuleCategory, get_registry, DEFAULT_MODULE_CONFIGS
 from shared.process_manager import ProcessManager, ProcessInfo, get_process_manager
 
 # ===== 统一错误处理 =====
@@ -53,12 +53,31 @@ from shared.auth import (
     mask_api_key,
 )
 
+# ===== 角色与权限 =====
+from shared.roles import (
+    SystemRole,
+    ROLE_HIERARCHY,
+    ROLE_DISPLAY_NAMES,
+    get_role_level,
+    has_min_role,
+    is_owner,
+    is_admin,
+    is_operator,
+    is_viewer,
+    get_role_display_name,
+    get_all_roles,
+    get_role_info,
+)
+
 __all__ = [
     # 原有导出（保持向后兼容）
     "YunxiConfig",
     "get_config",
     "ModuleRegistry",
     "ModuleInfo",
+    "ModuleKey",
+    "ModuleCategory",
+    "DEFAULT_MODULE_CONFIGS",
     "get_registry",
     "ProcessManager",
     "ProcessInfo",
@@ -97,4 +116,17 @@ __all__ = [
     "create_api_key_dependency",
     "generate_api_key",
     "mask_api_key",
+    # 角色与权限
+    "SystemRole",
+    "ROLE_HIERARCHY",
+    "ROLE_DISPLAY_NAMES",
+    "get_role_level",
+    "has_min_role",
+    "is_owner",
+    "is_admin",
+    "is_operator",
+    "is_viewer",
+    "get_role_display_name",
+    "get_all_roles",
+    "get_role_info",
 ]

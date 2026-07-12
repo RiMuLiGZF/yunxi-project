@@ -19,6 +19,7 @@ def get_module_tokens(module_key: str) -> int:
     """
     # 默认配额
     defaults = {
+        "m0": 500000,
         "m1": 100000,
         "m4": 50000,
         "m5": 30000,

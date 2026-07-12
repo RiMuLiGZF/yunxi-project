@@ -17,6 +17,7 @@ class YunxiConfig:
 
         # ===== 模块端口配置 =====
         self.module_ports: dict = {
+            "m0": int(os.getenv("M0_PORT", "8000")),
             "m1": int(os.getenv("M1_PORT", "8001")),
             "m2": int(os.getenv("M2_PORT", "8002")),
             "m3": int(os.getenv("M3_PORT", "8003")),
@@ -30,6 +31,7 @@ class YunxiConfig:
 
         # ===== 模块主机配置 =====
         self.module_hosts: dict = {
+            "m0": os.getenv("M0_HOST", "0.0.0.0"),
             "m1": os.getenv("M1_HOST", "0.0.0.0"),
             "m2": os.getenv("M2_HOST", "0.0.0.0"),
             "m3": os.getenv("M3_HOST", "0.0.0.0"),
@@ -43,6 +45,7 @@ class YunxiConfig:
 
         # ===== 模块管理令牌配置 =====
         self.module_tokens: dict = {
+            "m0": os.getenv("M0_ADMIN_TOKEN", "yunxi-m0-admin-token-2026"),
             "m1": os.getenv("M1_ADMIN_TOKEN", "yunxi-m1-admin-token-2026"),
             "m2": os.getenv("M2_ADMIN_TOKEN", "yunxi-m2-admin-token-2026"),
             "m3": os.getenv("M3_ADMIN_TOKEN", "yunxi-m3-admin-token-2026"),
@@ -56,6 +59,7 @@ class YunxiConfig:
 
         # ===== 模块 Base URL 配置 =====
         self.module_base_urls: dict = {
+            "m0": os.getenv("M0_BASE_URL", "http://localhost:8000"),
             "m1": os.getenv("M1_BASE_URL", "http://localhost:8001"),
             "m2": os.getenv("M2_BASE_URL", "http://localhost:8002"),
             "m3": os.getenv("M3_BASE_URL", "http://localhost:8003"),

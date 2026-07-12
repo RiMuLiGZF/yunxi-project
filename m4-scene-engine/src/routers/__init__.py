@@ -26,6 +26,7 @@ try:
     from src.routers.workspace import router as workspace_router
     from src.routers.mcp_tools import router as mcp_tools_router
     from src.routers.skills import router as skills_router
+    from src.routers.modes import router as modes_router
 except ImportError:
     from routers.scene import router as scene_router  # type: ignore
     from routers.config_route import router as config_router  # type: ignore
@@ -33,6 +34,7 @@ except ImportError:
     from routers.workspace import router as workspace_router  # type: ignore
     from routers.mcp_tools import router as mcp_tools_router  # type: ignore
     from routers.skills import router as skills_router  # type: ignore
+    from routers.modes import router as modes_router  # type: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +49,7 @@ all_routers: list["APIRouter"] = [
     workspace_router,   # 工作空间（VS Code 等）
     mcp_tools_router,   # MCP 工具管理
     skills_router,      # 技能管理
+    modes_router,       # 业务模式
 ]
 
 
@@ -62,6 +65,7 @@ _router_map: dict[str, "APIRouter"] = {
     "workspace": workspace_router,
     "mcp_tools": mcp_tools_router,
     "skills": skills_router,
+    "modes": modes_router,
 }
 
 
@@ -95,6 +99,7 @@ __all__ = [
     "workspace_router",
     "mcp_tools_router",
     "skills_router",
+    "modes_router",
     "get_router",
     "register_all_routers",
 ]

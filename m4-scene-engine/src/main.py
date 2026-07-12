@@ -324,6 +324,10 @@ async def root():
             "scene_config": "/api/v1/scene/{scene_id}/config",
             "context_get": "/api/v1/context/{scene_id}",
             "context_status": "/api/v1/context/status",
+            "modes_list": "/api/v1/modes",
+            "mode_detail": "/api/v1/modes/{mode_id}",
+            "mode_enter": "/api/v1/modes/{mode_id}/enter",
+            "mode_leave": "/api/v1/modes/{mode_id}/leave",
         },
     }
 
@@ -337,11 +341,34 @@ from src.routers.scene import router as scene_router
 from src.routers.context import router as context_router
 from src.routers.config_route import router as config_router
 from src.routers.admin import router as admin_router
+from src.routers.modes import router as modes_router
 
 app.include_router(scene_router)
 app.include_router(context_router)
 app.include_router(config_router)
 app.include_router(admin_router)
+app.include_router(modes_router)
+
+
+# ---------------------------------------------------------------------------
+# 前端静态文件服务
+# ---------------------------------------------------------------------------
+
+try:
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+
+    _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    if _frontend_dir.exists():
+        app.mount("/web", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+
+        @app.get("/web/", include_in_schema=False)
+        async def frontend_index():
+            """前端入口页面."""
+            return FileResponse(str(_frontend_dir / "index.html"))
+except Exception:
+    # 静态文件服务是可选的，失败不影响核心功能
+    pass
 
 
 # ---------------------------------------------------------------------------

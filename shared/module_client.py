@@ -4,6 +4,7 @@
 """
 
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -13,6 +14,30 @@ if str(_shared_parent) not in sys.path:
     sys.path.insert(0, str(_shared_parent))
 
 from shared.config import get_config
+
+
+class ModuleKey(str, Enum):
+    """模块键枚举，统一管理所有模块的 key"""
+
+    M0 = "m0"  # 主理人管控台
+    M1 = "m1"  # 代理集群
+    M2 = "m2"  # 技能集群
+    M3 = "m3"  # 边缘云端
+    M4 = "m4"  # 场景引擎
+    M5 = "m5"  # 潮汐记忆
+    M6 = "m6"  # 硬件外设
+    M7 = "m7"  # 工作流构建器
+    M8 = "m8"  # 控制塔
+    M10 = "m10"  # 系统卫士
+
+
+class ModuleCategory(str, Enum):
+    """模块分类枚举"""
+
+    CONTROL = "control"  # 管控类
+    CORE = "core"  # 核心能力类
+    TOOL = "tool"  # 工具类
+    INFRA = "infra"  # 基础设施类
 
 
 class ModuleInfo:
@@ -26,6 +51,8 @@ class ModuleInfo:
         port: int,
         base_url: str,
         description: str = "",
+        health_endpoint: str = "/health",
+        category: str = "core",
     ):
         self.key = key
         self.name = name
@@ -33,6 +60,8 @@ class ModuleInfo:
         self.port = port
         self.base_url = base_url
         self.description = description
+        self.health_endpoint = health_endpoint
+        self.category = category
         self.status = "unknown"  # unknown / running / stopped / error
 
     def to_dict(self) -> dict:
@@ -44,6 +73,8 @@ class ModuleInfo:
             "port": self.port,
             "base_url": self.base_url,
             "description": self.description,
+            "health_endpoint": self.health_endpoint,
+            "category": self.category,
             "status": self.status,
         }
 
@@ -68,8 +99,17 @@ class ModuleRegistry:
         self._register_default_modules()
 
     def _register_default_modules(self):
-        """注册默认模块（共9个）"""
+        """注册默认模块（共10个）"""
         default_modules = [
+            {
+                "key": "m0",
+                "name": "主理人管控台",
+                "version": "v1.0.0",
+                "port": self._config.get_module_port("m0"),
+                "base_url": self._config.get_module_base_url("m0"),
+                "description": "云汐系统主理人专属管控平台，最高权限",
+                "category": "control",
+            },
             {
                 "key": "m1",
                 "name": "代理集群",
@@ -77,6 +117,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m1"),
                 "base_url": self._config.get_module_base_url("m1"),
                 "description": "多智能体协作、联邦调度、任务编排",
+                "category": "core",
             },
             {
                 "key": "m2",
@@ -85,6 +126,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m2"),
                 "base_url": self._config.get_module_base_url("m2"),
                 "description": "技能库管理、技能发现、技能执行引擎",
+                "category": "core",
             },
             {
                 "key": "m3",
@@ -93,6 +135,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m3"),
                 "base_url": self._config.get_module_base_url("m3"),
                 "description": "边缘计算、云边协同、混合算力调度",
+                "category": "infra",
             },
             {
                 "key": "m4",
@@ -101,6 +144,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m4"),
                 "base_url": self._config.get_module_base_url("m4"),
                 "description": "场景模板、场景编排、交互引擎",
+                "category": "core",
             },
             {
                 "key": "m5",
@@ -109,6 +153,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m5"),
                 "base_url": self._config.get_module_base_url("m5"),
                 "description": "长期记忆、向量检索、知识图谱",
+                "category": "core",
             },
             {
                 "key": "m6",
@@ -117,6 +162,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m6"),
                 "base_url": self._config.get_module_base_url("m6"),
                 "description": "硬件驱动、外设管理、设备联动",
+                "category": "infra",
             },
             {
                 "key": "m7",
@@ -125,6 +171,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m7"),
                 "base_url": self._config.get_module_base_url("m7"),
                 "description": "可视化流程编排、自动化任务、触发器",
+                "category": "tool",
             },
             {
                 "key": "m8",
@@ -133,6 +180,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m8"),
                 "base_url": self._config.get_module_base_url("m8"),
                 "description": "算力调度、API网关、统一管控台",
+                "category": "control",
             },
             {
                 "key": "m10",
@@ -141,6 +189,7 @@ class ModuleRegistry:
                 "port": self._config.get_module_port("m10"),
                 "base_url": self._config.get_module_base_url("m10"),
                 "description": "系统资源监控、进程管理、阈值防护、审计日志",
+                "category": "infra",
             },
         ]
 
@@ -173,6 +222,27 @@ class ModuleRegistry:
         """更新模块状态"""
         if key in self._modules:
             self._modules[key].status = status
+
+
+# ==================== 默认模块配置 ====================
+
+DEFAULT_MODULE_CONFIGS: Dict[str, ModuleInfo] = {}
+"""默认模块配置字典，以模块 key 为键"""
+
+
+def _init_default_module_configs() -> None:
+    """初始化 DEFAULT_MODULE_CONFIGS 字典"""
+    global DEFAULT_MODULE_CONFIGS
+    if DEFAULT_MODULE_CONFIGS:
+        return
+    # 使用 ModuleRegistry 中的默认模块定义
+    registry = ModuleRegistry()
+    for module in registry.get_all_modules():
+        DEFAULT_MODULE_CONFIGS[module.key] = module
+
+
+# 延迟初始化：首次访问时填充
+_init_default_module_configs()
 
 
 # 全局注册表单例
