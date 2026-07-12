@@ -34,6 +34,8 @@ class AuditLogger:
     OP_EXPORT = "export"
     OP_LOGIN = "login"
     OP_PERMISSION_DENIED = "permission_denied"
+    OP_ORIGINAL_READ = "original_read"  # P2-任务1: 原文读取（敏感操作）
+    OP_ORIGINAL_WRITE = "original_write"  # P2-任务1: 原文写入（敏感操作）
 
     def __init__(self, log_path: str = "./logs/m5-audit.log",
                  max_file_size_mb: int = 100,

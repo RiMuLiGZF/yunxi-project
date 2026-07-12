@@ -71,6 +71,10 @@ def create_app(config_path: str = None) -> dict:
     # 9. Skill接口
     skill_if = TideSkillInterface(recall, domain_manager, audit)
     
+    # P2-任务5: 潮汐四相循环控制器
+    from tide_memory.core.tide_phase import TidePhaseController
+    phase_controller = TidePhaseController(auto_switch=True)
+    
     app = {
         "config": config,
         "layers": {"l0": l0, "l1": l1, "l2": l2, "l3": l3},
@@ -81,6 +85,7 @@ def create_app(config_path: str = None) -> dict:
         "secret_marker": secret_marker,
         "audit": audit,
         "skill_interface": skill_if,
+        "phase_controller": phase_controller,  # P2-任务5
     }
     
     # 10. 启动定时巩固调度器（如果配置开启）

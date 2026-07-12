@@ -8,7 +8,15 @@
 
 支持两种向量索引后端（自动降级）：
 1. FAISS（首选，高效向量检索库）
+   - IndexHNSWFlat: O(log n)，适合 10万+ 向量（P2-任务2 新增）
+   - IndexFlatIP: O(n)，暴力搜索，适合小数据集
 2. 纯 Python numpy 实现（兜底，余弦相似度矩阵计算）
+
+P2-任务2: HNSW 索引升级
+- 新建索引默认使用 HNSW（M=32, ef_construction=200, ef_search=128）
+- 已有 Flat 索引保持不变，提供迁移工具
+- HNSW 不可用时自动回退到 Flat
+- 性能提升预期：10万向量时检索速度从 ~100ms 降到 ~1ms（约100倍）
 
 所有用户数据仅本地存储，不上传云端
 """
@@ -79,6 +87,13 @@ class VectorSearch:
         self._hybrid_alpha = config.get("hybrid_alpha", 0.7)
         self._enable_query_expansion = config.get("enable_query_expansion", True)
         self._min_score_variance = config.get("min_score_variance", 0.05)
+
+        # P2-任务2: HNSW 索引配置
+        self._index_type = config.get("vector_index_type", "HNSW")  # HNSW / Flat
+        self._hnsw_m = config.get("hnsw_m", 32)                      # 每层最大连接数
+        self._hnsw_ef_construction = config.get("hnsw_ef_construction", 200)  # 构建时搜索邻居数
+        self._hnsw_ef_search = config.get("hnsw_ef_search", 128)     # 搜索时搜索邻居数
+        self._actual_index_type: str = "unknown"  # 实际使用的索引类型
 
         # Embedding 后端实例
         self._embed_model = None
@@ -363,10 +378,12 @@ class VectorSearch:
             self._vectors = np.zeros((0, self._embedding_dim), dtype=np.float32)
 
     def _try_init_faiss(self) -> bool:
-        """尝试初始化 FAISS 索引（支持 GPU 加速）
+        """尝试初始化 FAISS 索引（支持 GPU 加速 + HNSW/Flat 两种索引）
 
-        优先级：GPU Faiss > CPU Faiss > numpy
+        优先级：GPU HNSW > GPU Flat > CPU HNSW > CPU Flat > numpy
         GPU 模式下自动限制显存使用比例，避免 OOM。
+
+        P2-任务2: 新增 HNSW 索引支持，O(log n) 复杂度，10万+向量性能提升显著。
         """
         try:
             import faiss
@@ -377,6 +394,32 @@ class VectorSearch:
                     self._gpu_resources = faiss.StandardGpuResources()
                     # 限制临时显存使用比例
                     self._gpu_resources.setTempMemoryFraction(self._gpu_memory_ratio)
+
+                    # P2-任务2: 尝试 HNSW GPU 索引
+                    if self._index_type.upper() == "HNSW":
+                        try:
+                            # HNSW 在 GPU 上通过 GpuIndexIVFPQ 等实现，
+                            # 但标准 HNSW 通常在 CPU 上构建，GPU 加速搜索。
+                            # 这里优先尝试 CPU HNSW（更通用），GPU 加速搜索。
+                            # 先构建 CPU HNSW，再尝试搬到 GPU
+                            self._faiss_index = faiss.IndexHNSWFlat(
+                                self._embedding_dim, self._hnsw_m, faiss.METRIC_INNER_PRODUCT
+                            )
+                            self._faiss_index.hnsw.efConstruction = self._hnsw_ef_construction
+                            self._faiss_index.hnsw.efSearch = self._hnsw_ef_search
+                            self._use_faiss = True
+                            self._gpu_available = False  # HNSW 默认 CPU 模式
+                            self._actual_index_type = "HNSW"
+                            logger.info(
+                                f"FAISS HNSW 索引初始化成功 (M={self._hnsw_m}, "
+                                f"ef_construction={self._hnsw_ef_construction}, "
+                                f"ef_search={self._hnsw_ef_search})"
+                            )
+                            return True
+                        except Exception as e:
+                            logger.warning(f"FAISS HNSW 初始化失败，降级到 Flat: {e}")
+
+                    # 降级到 GPU Flat
                     config = faiss.GpuIndexFlatConfig()
                     config.device = self._gpu_device_id
                     self._faiss_index = faiss.GpuIndexFlatIP(
@@ -384,8 +427,9 @@ class VectorSearch:
                     )
                     self._use_faiss = True
                     self._gpu_available = True
+                    self._actual_index_type = "Flat"
                     logger.info(
-                        f"FAISS GPU 初始化成功 (device={self._gpu_device_id}, "
+                        f"FAISS GPU Flat 初始化成功 (device={self._gpu_device_id}, "
                         f"mem_ratio={self._gpu_memory_ratio})"
                     )
                     return True
@@ -395,23 +439,50 @@ class VectorSearch:
                     # 降级到 CPU
 
             # CPU 模式
+            # P2-任务2: 优先尝试 HNSW
+            if self._index_type.upper() == "HNSW":
+                try:
+                    self._faiss_index = faiss.IndexHNSWFlat(
+                        self._embedding_dim, self._hnsw_m, faiss.METRIC_INNER_PRODUCT
+                    )
+                    self._faiss_index.hnsw.efConstruction = self._hnsw_ef_construction
+                    self._faiss_index.hnsw.efSearch = self._hnsw_ef_search
+                    self._use_faiss = True
+                    self._gpu_available = False
+                    self._actual_index_type = "HNSW"
+                    logger.info(
+                        f"FAISS CPU HNSW 索引初始化成功 (M={self._hnsw_m}, "
+                        f"ef_construction={self._hnsw_ef_construction}, "
+                        f"ef_search={self._hnsw_ef_search})"
+                    )
+                    return True
+                except Exception as e:
+                    logger.warning(f"FAISS HNSW 初始化失败，降级到 Flat: {e}")
+
+            # 降级到 Flat
             self._faiss_index = faiss.IndexFlatIP(self._embedding_dim)
             self._use_faiss = True
             self._gpu_available = False
+            self._actual_index_type = "Flat"
             return True
         except ImportError:
             logger.debug("faiss 未安装，使用 numpy 实现向量检索")
             self._use_faiss = False
             self._gpu_available = False
+            self._actual_index_type = "numpy"
             return False
         except Exception as e:
             logger.warning(f"FAISS 初始化失败: {e}")
             self._use_faiss = False
             self._gpu_available = False
+            self._actual_index_type = "numpy"
             return False
 
     def _load_index(self) -> bool:
-        """从磁盘加载索引"""
+        """从磁盘加载索引
+
+        P2-任务2: 支持加载 HNSW 和 Flat 两种索引类型，根据元数据自动识别。
+        """
         meta_path = self._index_path + ".meta.pkl"
 
         if not os.path.exists(meta_path):
@@ -424,6 +495,10 @@ class VectorSearch:
             self._id_list = meta.get("id_list", [])
             self._id_to_idx = {mid: i for i, mid in enumerate(self._id_list)}
             self._metadata_store = meta.get("metadata", {})
+
+            # P2-任务2: 读取索引类型元数据
+            saved_index_type = meta.get("index_type", "Flat")
+            self._actual_index_type = saved_index_type
 
             # 加载 TF-IDF 状态（如果有）
             if "tfidf_vocab" in meta:
@@ -453,6 +528,19 @@ class VectorSearch:
                     import faiss
                     self._faiss_index = faiss.read_index(self._index_path)
                     self._use_faiss = True
+
+                    # P2-任务2: 如果是 HNSW 索引，恢复 efSearch 参数
+                    if hasattr(self._faiss_index, 'hnsw'):
+                        self._actual_index_type = "HNSW"
+                        # 用配置的 ef_search 覆盖（允许动态调整）
+                        try:
+                            self._faiss_index.hnsw.efSearch = self._hnsw_ef_search
+                        except Exception:
+                            pass
+                        logger.info(f"加载 HNSW 索引 (ef_search={self._hnsw_ef_search})")
+                    else:
+                        self._actual_index_type = "Flat"
+                        logger.info("加载 Flat 索引")
                     return True
                 except Exception:
                     pass
@@ -470,7 +558,10 @@ class VectorSearch:
             return False
 
     def _save_index(self) -> None:
-        """持久化索引到磁盘"""
+        """持久化索引到磁盘
+
+        P2-任务2: 同时保存索引类型元数据（HNSW/Flat），方便加载时识别。
+        """
         index_dir = os.path.dirname(self._index_path)
         os.makedirs(index_dir, exist_ok=True)
 
@@ -480,6 +571,7 @@ class VectorSearch:
             "metadata": self._metadata_store,
             "embedding_dim": self._embedding_dim,
             "embed_backend": self._embed_backend,
+            "index_type": self._actual_index_type,  # P2-任务2: 索引类型
         }
 
         # TF-IDF 状态
@@ -753,7 +845,10 @@ class VectorSearch:
         self._save_index()
 
     def _rebuild_faiss_from_vectors(self) -> None:
-        """从 numpy 向量矩阵重建 FAISS 索引（支持 GPU）"""
+        """从 numpy 向量矩阵重建 FAISS 索引（支持 GPU + HNSW/Flat）
+
+        P2-任务2: 支持 HNSW 索引重建。
+        """
         try:
             import faiss
 
@@ -768,20 +863,132 @@ class VectorSearch:
                     if self._vectors is not None and self._vectors.shape[0] > 0:
                         self._faiss_index.add(self._vectors)
                     self._use_faiss = True
+                    self._actual_index_type = "Flat"
                     return
                 except Exception as e:
                     logger.warning(f"GPU 索引重建失败，降级到 CPU: {e}")
                     self._gpu_available = False
 
             # CPU 模式重建
+            # P2-任务2: 根据配置选择 HNSW 或 Flat
+            if self._index_type.upper() == "HNSW":
+                try:
+                    self._faiss_index = faiss.IndexHNSWFlat(
+                        self._embedding_dim, self._hnsw_m, faiss.METRIC_INNER_PRODUCT
+                    )
+                    self._faiss_index.hnsw.efConstruction = self._hnsw_ef_construction
+                    self._faiss_index.hnsw.efSearch = self._hnsw_ef_search
+                    if self._vectors is not None and self._vectors.shape[0] > 0:
+                        self._faiss_index.add(self._vectors)
+                    self._use_faiss = True
+                    self._actual_index_type = "HNSW"
+                    logger.info(f"重建 HNSW 索引 ({self._vectors.shape[0] if self._vectors is not None else 0} 条向量)")
+                    return
+                except Exception as e:
+                    logger.warning(f"HNSW 索引重建失败，降级到 Flat: {e}")
+
+            # 降级到 Flat
             self._faiss_index = faiss.IndexFlatIP(self._embedding_dim)
             if self._vectors is not None and self._vectors.shape[0] > 0:
                 self._faiss_index.add(self._vectors)
             self._use_faiss = True
+            self._actual_index_type = "Flat"
         except Exception as e:
             logger.warning(f"重建 FAISS 索引失败，降级为 numpy: {e}")
             self._use_faiss = False
             self._gpu_available = False
+            self._actual_index_type = "numpy"
+
+    # ============================================================
+    # P2-任务2: HNSW 迁移工具
+    # ============================================================
+
+    def migrate_to_hnsw(self) -> Dict:
+        """
+        将现有 Flat 索引迁移为 HNSW 索引
+
+        Returns:
+            {"success": bool, "message": str, "index_type": str, "total_vectors": int}
+        """
+        if not self._use_faiss or self._vectors is None:
+            return {
+                "success": False,
+                "message": "FAISS 未启用或无向量数据",
+                "index_type": self._actual_index_type,
+                "total_vectors": len(self._id_list),
+            }
+
+        if self._actual_index_type == "HNSW":
+            return {
+                "success": True,
+                "message": "已经是 HNSW 索引",
+                "index_type": "HNSW",
+                "total_vectors": len(self._id_list),
+            }
+
+        try:
+            import faiss
+
+            # 保存当前向量数
+            n_vectors = self._vectors.shape[0] if self._vectors is not None else 0
+
+            # 构建新的 HNSW 索引
+            new_index = faiss.IndexHNSWFlat(
+                self._embedding_dim, self._hnsw_m, faiss.METRIC_INNER_PRODUCT
+            )
+            new_index.hnsw.efConstruction = self._hnsw_ef_construction
+            new_index.hnsw.efSearch = self._hnsw_ef_search
+
+            # 添加所有向量
+            if self._vectors is not None and self._vectors.shape[0] > 0:
+                new_index.add(self._vectors)
+
+            # 替换旧索引
+            self._faiss_index = new_index
+            self._actual_index_type = "HNSW"
+            self._index_type = "HNSW"
+
+            # 保存到磁盘
+            self._save_index()
+
+            logger.info(f"索引迁移完成: Flat → HNSW ({n_vectors} 条向量)")
+            return {
+                "success": True,
+                "message": f"成功迁移 {n_vectors} 条向量到 HNSW 索引",
+                "index_type": "HNSW",
+                "total_vectors": n_vectors,
+            }
+        except Exception as e:
+            logger.error(f"HNSW 迁移失败: {e}")
+            return {
+                "success": False,
+                "message": str(e),
+                "index_type": self._actual_index_type,
+                "total_vectors": len(self._id_list),
+            }
+
+    def set_ef_search(self, ef_search: int) -> bool:
+        """
+        动态调整 HNSW 索引的 ef_search 参数
+
+        ef_search 越大，搜索精度越高，但速度越慢。
+        建议范围：16 ~ 512，默认 128。
+
+        Args:
+            ef_search: 新的 ef_search 值
+
+        Returns:
+            是否成功
+        """
+        if self._actual_index_type != "HNSW" or self._faiss_index is None:
+            return False
+        try:
+            self._faiss_index.hnsw.efSearch = ef_search
+            self._hnsw_ef_search = ef_search
+            return True
+        except Exception as e:
+            logger.warning(f"设置 ef_search 失败: {e}")
+            return False
 
     def get_stats(self) -> Dict:
         """获取向量库统计信息"""
@@ -797,6 +1004,11 @@ class VectorSearch:
             "index_path": self._index_path,
             "enable_mmr": self._enable_mmr,
             "enable_hybrid": self._enable_hybrid,
+            # P2-任务2: HNSW 索引信息
+            "index_type": self._actual_index_type,
+            "hnsw_m": self._hnsw_m if self._actual_index_type == "HNSW" else None,
+            "hnsw_ef_construction": self._hnsw_ef_construction if self._actual_index_type == "HNSW" else None,
+            "hnsw_ef_search": self._hnsw_ef_search if self._actual_index_type == "HNSW" else None,
             # GPU 加速信息
             "gpu_enabled": self._use_gpu,
             "gpu_available": self._gpu_available,

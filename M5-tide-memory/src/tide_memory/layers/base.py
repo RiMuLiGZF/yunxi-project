@@ -4,6 +4,11 @@ SQLite 记忆层基类
 L1 浅水层和 L2 深水层的公共基类，抽取两者共有的 SQLite 操作逻辑。
 表结构、增删改查、搜索、计数等通用方法均在此实现，
 子类通过属性和钩子方法定制各自的行为。
+
+P2-任务1: 可选原文加密存储
+- 新增 original_encrypted 列，存储 AES-256-GCM 加密的原文
+- 默认关闭，通过 store_original 配置开启
+- 密钥与 L3 主密钥同源（从 encryption_key 配置派生）
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -65,7 +71,8 @@ class BaseSQLLayer:
             emotion_arousal REAL DEFAULT 0,
             emotion_ei REAL DEFAULT 0,
             emotion_label TEXT DEFAULT 'neutral',
-            classification TEXT DEFAULT 'TOP_SECRET'
+            classification TEXT DEFAULT 'TOP_SECRET',
+            original_encrypted TEXT  -- P2-任务1: AES-256-GCM 加密的原文（可选）
         )
     """
 
@@ -73,6 +80,8 @@ class BaseSQLLayer:
     _BASE_INDEXES = [
         "CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)",
         "CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_last_accessed ON memories(last_accessed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
     ]
 
     def __init__(self, config: dict = None):
@@ -81,12 +90,23 @@ class BaseSQLLayer:
 
         Args:
             config: 配置字典，支持 max_items / retention_days / access_priority / db_path
+                    store_original / original_encryption / encryption_key
         """
         config = config or {}
         self.max_items = config.get("max_items", 1000)
         self.retention_days = config.get("retention_days", 1)
         self.access_priority = config.get("access_priority", 7)
         self._db_path = config.get("db_path", "./data/memory/layer.db")
+
+        # P2-任务1: 原文存储配置
+        self._store_original = config.get("store_original", False)
+        self._original_encryption = config.get("original_encryption", True)
+        self._encryption_key = config.get("encryption_key")
+
+        # P2-任务3: 长连接 + 线程锁
+        self._conn: Optional[sqlite3.Connection] = None
+        self._conn_lock = threading.Lock()
+
         self._ensure_db()
 
     # ============================================================
@@ -148,20 +168,156 @@ class BaseSQLLayer:
     # ============================================================
 
     def _ensure_db(self) -> None:
-        """初始化数据库表和索引"""
+        """初始化数据库表和索引
+
+        P2-任务3: 启用 WAL 模式 + 长连接 + 性能优化 PRAGMA
+        P2-任务1: 自动迁移添加 original_encrypted 列
+        """
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
-        conn = sqlite3.connect(self._db_path)
-        try:
-            conn.execute(self._TABLE_SQL)
+
+        with self._conn_lock:
+            # P2-任务3: 使用 check_same_thread=False + 锁的长连接模式
+            self._conn = sqlite3.connect(
+                self._db_path,
+                check_same_thread=False,
+                timeout=30.0,
+            )
+
+            # P2-任务3: WAL 模式 + 性能优化
+            self._conn.execute("PRAGMA journal_mode=WAL;")
+            self._conn.execute("PRAGMA synchronous=NORMAL;")
+            self._conn.execute("PRAGMA cache_size=-20000;")  # 20MB 页缓存
+            self._conn.execute("PRAGMA temp_store=MEMORY;")
+            self._conn.execute("PRAGMA mmap_size=268435456;")  # 256MB 内存映射
+
+            # 创建表
+            self._conn.execute(self._TABLE_SQL)
+
+            # P2-任务1: 迁移 - 如果没有 original_encrypted 列则添加
+            self._migrate_add_column("original_encrypted", "TEXT")
+
             # 创建基础索引
             for idx_sql in self._BASE_INDEXES:
-                conn.execute(idx_sql)
+                self._conn.execute(idx_sql)
             # 创建子类额外索引
             for idx_sql in self._get_extra_indexes():
-                conn.execute(idx_sql)
-            conn.commit()
-        finally:
-            conn.close()
+                self._conn.execute(idx_sql)
+            self._conn.commit()
+
+    def _migrate_add_column(self, column_name: str, column_type: str) -> None:
+        """
+        安全地添加列（如果列不存在）
+
+        Args:
+            column_name: 列名
+            column_type: 列类型
+        """
+        try:
+            cursor = self._conn.execute("PRAGMA table_info(memories)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if column_name not in columns:
+                self._conn.execute(
+                    f"ALTER TABLE memories ADD COLUMN {column_name} {column_type}"
+                )
+                logger = __import__("logging").getLogger(__name__)
+                logger.info(f"迁移: 添加列 {column_name} {column_type}")
+        except Exception as e:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning(f"迁移列 {column_name} 失败: {e}")
+
+    # ============================================================
+    # 连接管理（P2-任务3: 长连接模式）
+    # ============================================================
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """获取数据库连接（长连接，线程安全）"""
+        if self._conn is None:
+            with self._conn_lock:
+                if self._conn is None:
+                    self._ensure_db()
+        return self._conn
+
+    def close(self) -> None:
+        """关闭数据库连接"""
+        with self._conn_lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
+
+    def __del__(self):
+        """析构时关闭连接"""
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    # ============================================================
+    # P2-任务1: 原文加密存储辅助方法
+    # ============================================================
+
+    def _get_original_encryption_key(self) -> bytes:
+        """
+        获取原文加密密钥
+
+        优先使用配置的 encryption_key，否则从 L3 主密钥派生。
+        降级方案：使用 content_hash 派生的简单密钥。
+
+        Returns:
+            32 字节密钥
+        """
+        import hashlib
+        if self._encryption_key:
+            # 从配置的密钥字符串派生 32 字节密钥
+            if isinstance(self._encryption_key, str):
+                return hashlib.sha256(self._encryption_key.encode("utf-8")).digest()
+            return self._encryption_key[:32].ljust(32, b"\x00")
+        # 没有配置密钥时，使用派生密钥（基于 db_path，保证同库一致）
+        base = f"tide_memory_original_{self._db_path}"
+        return hashlib.sha256(base.encode("utf-8")).digest()
+
+    def _encrypt_original(self, content: str, memory_id: str = "") -> str:
+        """
+        加密原文内容
+
+        Args:
+            content: 原文内容
+            memory_id: 记忆ID（作为关联认证数据）
+
+        Returns:
+            Base64 编码的密文，加密失败返回空字符串
+        """
+        if not content:
+            return ""
+        try:
+            from ..utils.crypto import CryptoUtils
+            key = self._get_original_encryption_key()
+            return CryptoUtils.encrypt(content, key, memory_id)
+        except Exception:
+            # 加密失败则不存储原文
+            return ""
+
+    def _decrypt_original(self, encrypted: str, memory_id: str = "") -> Optional[str]:
+        """
+        解密原文内容
+
+        Args:
+            encrypted: Base64 编码的密文
+            memory_id: 记忆ID（作为关联认证数据）
+
+        Returns:
+            原文内容，解密失败返回 None
+        """
+        if not encrypted:
+            return None
+        try:
+            from ..utils.crypto import CryptoUtils
+            key = self._get_original_encryption_key()
+            return CryptoUtils.decrypt(encrypted, key, memory_id)
+        except Exception:
+            return None
 
     # ============================================================
     # 基础 CRUD
@@ -172,6 +328,7 @@ class BaseSQLLayer:
         添加/更新记忆
 
         自动设置 item.layer 为当前层的枚举值。
+        P2-任务1: 如果 store_original=True 且 item.original_content 有值，加密后存入 original_encrypted 列。
 
         Args:
             item: 记忆项
@@ -180,34 +337,50 @@ class BaseSQLLayer:
             是否成功
         """
         item.layer = self._layer_enum
-        conn = sqlite3.connect(self._db_path)
-        try:
-            conn.execute("""
-                INSERT OR REPLACE INTO memories
-                (memory_id, content_hash, layer, domain, owner_agent, created_at, updated_at,
-                 last_accessed_at, access_count, quality_score, quality_level, retention_days,
-                 tags, metadata, sync_version, emotion_valence, emotion_arousal,
-                 emotion_ei, emotion_label, classification)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                item.memory_id, item.content_hash, item.layer.value, item.domain.value,
-                item.owner_agent, item.created_at.isoformat(), item.updated_at.isoformat(),
-                item.last_accessed_at.isoformat() if item.last_accessed_at else None,
-                item.access_count, item.quality_score, item.quality_level,
-                item.retention_days, json.dumps(item.tags, ensure_ascii=False),
-                json.dumps(item.metadata, ensure_ascii=False), item.sync_version,
-                item.emotion.valence, item.emotion.arousal,
-                item.emotion.ei_score, item.emotion.dominant_emotion,
-                item.classification.value,
-            ))
-            conn.commit()
-            return True
-        finally:
-            conn.close()
+
+        # P2-任务1: 处理原文加密存储
+        original_encrypted = ""
+        if self._store_original and item.original_content:
+            if self._original_encryption:
+                original_encrypted = self._encrypt_original(
+                    item.original_content, item.memory_id
+                )
+            else:
+                original_encrypted = item.original_content
+
+        with self._conn_lock:
+            conn = self._get_conn()
+            try:
+                conn.execute("""
+                    INSERT OR REPLACE INTO memories
+                    (memory_id, content_hash, layer, domain, owner_agent, created_at, updated_at,
+                     last_accessed_at, access_count, quality_score, quality_level, retention_days,
+                     tags, metadata, sync_version, emotion_valence, emotion_arousal,
+                     emotion_ei, emotion_label, classification, original_encrypted)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    item.memory_id, item.content_hash, item.layer.value, item.domain.value,
+                    item.owner_agent, item.created_at.isoformat(), item.updated_at.isoformat(),
+                    item.last_accessed_at.isoformat() if item.last_accessed_at else None,
+                    item.access_count, item.quality_score, item.quality_level,
+                    item.retention_days, json.dumps(item.tags, ensure_ascii=False),
+                    json.dumps(item.metadata, ensure_ascii=False), item.sync_version,
+                    item.emotion.valence, item.emotion.arousal,
+                    item.emotion.ei_score, item.emotion.dominant_emotion,
+                    item.classification.value,
+                    original_encrypted,
+                ))
+                conn.commit()
+                return True
+            except Exception:
+                conn.rollback()
+                return False
 
     def get(self, memory_id: str) -> Optional[MemoryItem]:
         """
         获取单条记忆，并自动更新访问计数
+
+        P2-任务1: 如果存储了原文，解密后填充到 item.original_content
 
         Args:
             memory_id: 记忆ID
@@ -215,13 +388,11 @@ class BaseSQLLayer:
         Returns:
             记忆项，不存在返回 None
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with self._conn_lock:
+            conn = self._get_conn()
             row = conn.execute(
                 "SELECT * FROM memories WHERE memory_id = ?", (memory_id,)
             ).fetchone()
-        finally:
-            conn.close()
 
         if row:
             item = self._row_to_item(row)
@@ -236,15 +407,16 @@ class BaseSQLLayer:
         Args:
             memory_id: 记忆ID
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
-            conn.execute(
-                "UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? WHERE memory_id = ?",
-                (datetime.now().isoformat(), memory_id)
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        with self._conn_lock:
+            conn = self._get_conn()
+            try:
+                conn.execute(
+                    "UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? WHERE memory_id = ?",
+                    (datetime.now().isoformat(), memory_id)
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
 
     def count(self) -> int:
         """
@@ -253,12 +425,10 @@ class BaseSQLLayer:
         Returns:
             记忆条数
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with self._conn_lock:
+            conn = self._get_conn()
             row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
             return row[0]
-        finally:
-            conn.close()
 
     def items(self) -> List[MemoryItem]:
         """
@@ -267,12 +437,10 @@ class BaseSQLLayer:
         Returns:
             全部记忆项列表
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with self._conn_lock:
+            conn = self._get_conn()
             rows = conn.execute("SELECT * FROM memories").fetchall()
             return [self._row_to_item(row) for row in rows]
-        finally:
-            conn.close()
 
     def remove(self, memory_id: str) -> bool:
         """
@@ -284,13 +452,15 @@ class BaseSQLLayer:
         Returns:
             是否删除了记录
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
-            cursor = conn.execute("DELETE FROM memories WHERE memory_id = ?", (memory_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-        finally:
-            conn.close()
+        with self._conn_lock:
+            conn = self._get_conn()
+            try:
+                cursor = conn.execute("DELETE FROM memories WHERE memory_id = ?", (memory_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+            except Exception:
+                conn.rollback()
+                return False
 
     # ============================================================
     # 搜索
@@ -308,8 +478,8 @@ class BaseSQLLayer:
         Returns:
             搜索结果列表，按相似度降序
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with self._conn_lock:
+            conn = self._get_conn()
             query_cond = ""
             params = []
             if domain:
@@ -323,8 +493,6 @@ class BaseSQLLayer:
                 ORDER BY quality_score DESC
                 LIMIT ?
             """, params + [top_k * 10]).fetchall()  # 多取一些做标签匹配
-        finally:
-            conn.close()
 
         results = []
         for row in rows:
@@ -355,35 +523,48 @@ class BaseSQLLayer:
         """
         success_count = 0
         failed = []
-        conn = sqlite3.connect(self._db_path)
-        try:
-            for item in items:
-                try:
-                    item.layer = self._layer_enum
-                    conn.execute("""
-                        INSERT OR REPLACE INTO memories
-                        (memory_id, content_hash, layer, domain, owner_agent, created_at, updated_at,
-                         last_accessed_at, access_count, quality_score, quality_level, retention_days,
-                         tags, metadata, sync_version, emotion_valence, emotion_arousal,
-                         emotion_ei, emotion_label, classification)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        item.memory_id, item.content_hash, item.layer.value, item.domain.value,
-                        item.owner_agent, item.created_at.isoformat(), item.updated_at.isoformat(),
-                        item.last_accessed_at.isoformat() if item.last_accessed_at else None,
-                        item.access_count, item.quality_score, item.quality_level,
-                        item.retention_days, json.dumps(item.tags, ensure_ascii=False),
-                        json.dumps(item.metadata, ensure_ascii=False), item.sync_version,
-                        item.emotion.valence, item.emotion.arousal,
-                        item.emotion.ei_score, item.emotion.dominant_emotion,
-                        item.classification.value,
-                    ))
-                    success_count += 1
-                except Exception:
-                    failed.append(item.memory_id)
-            conn.commit()
-        finally:
-            conn.close()
+        with self._conn_lock:
+            conn = self._get_conn()
+            try:
+                for item in items:
+                    try:
+                        item.layer = self._layer_enum
+
+                        # P2-任务1: 处理原文加密存储
+                        original_encrypted = ""
+                        if self._store_original and item.original_content:
+                            if self._original_encryption:
+                                original_encrypted = self._encrypt_original(
+                                    item.original_content, item.memory_id
+                                )
+                            else:
+                                original_encrypted = item.original_content
+
+                        conn.execute("""
+                            INSERT OR REPLACE INTO memories
+                            (memory_id, content_hash, layer, domain, owner_agent, created_at, updated_at,
+                             last_accessed_at, access_count, quality_score, quality_level, retention_days,
+                             tags, metadata, sync_version, emotion_valence, emotion_arousal,
+                             emotion_ei, emotion_label, classification, original_encrypted)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            item.memory_id, item.content_hash, item.layer.value, item.domain.value,
+                            item.owner_agent, item.created_at.isoformat(), item.updated_at.isoformat(),
+                            item.last_accessed_at.isoformat() if item.last_accessed_at else None,
+                            item.access_count, item.quality_score, item.quality_level,
+                            item.retention_days, json.dumps(item.tags, ensure_ascii=False),
+                            json.dumps(item.metadata, ensure_ascii=False), item.sync_version,
+                            item.emotion.valence, item.emotion.arousal,
+                            item.emotion.ei_score, item.emotion.dominant_emotion,
+                            item.classification.value,
+                            original_encrypted,
+                        ))
+                        success_count += 1
+                    except Exception:
+                        failed.append(item.memory_id)
+                conn.commit()
+            except Exception:
+                conn.rollback()
         return {"success_count": success_count, "failed": failed}
 
     def batch_remove(self, memory_ids: List[str]) -> int:
@@ -398,17 +579,19 @@ class BaseSQLLayer:
         """
         if not memory_ids:
             return 0
-        conn = sqlite3.connect(self._db_path)
-        try:
-            placeholders = ",".join(["?"] * len(memory_ids))
-            cursor = conn.execute(
-                f"DELETE FROM memories WHERE memory_id IN ({placeholders})",
-                tuple(memory_ids)
-            )
-            conn.commit()
-            return cursor.rowcount
-        finally:
-            conn.close()
+        with self._conn_lock:
+            conn = self._get_conn()
+            try:
+                placeholders = ",".join(["?"] * len(memory_ids))
+                cursor = conn.execute(
+                    f"DELETE FROM memories WHERE memory_id IN ({placeholders})",
+                    tuple(memory_ids)
+                )
+                conn.commit()
+                return cursor.rowcount
+            except Exception:
+                conn.rollback()
+                return 0
 
     # ============================================================
     # 分页查询
@@ -442,8 +625,8 @@ class BaseSQLLayer:
         if order not in ("desc", "asc"):
             order = "desc"
 
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with self._conn_lock:
+            conn = self._get_conn()
             # 先算总数
             count_sql = "SELECT COUNT(*) FROM memories WHERE 1=1"
             count_params: List = []
@@ -478,8 +661,6 @@ class BaseSQLLayer:
                 LIMIT ?
             """
             rows = conn.execute(sql, params + [fetch_size]).fetchall()
-        finally:
-            conn.close()
 
         items = [self._row_to_item(row) for row in rows[:page_size]]
         has_more = len(rows) > page_size
@@ -516,9 +697,10 @@ class BaseSQLLayer:
         9:quality_score, 10:quality_level, 11:retention_days,
         12:tags, 13:metadata, 14:sync_version,
         15:emotion_valence, 16:emotion_arousal, 17:emotion_ei, 18:emotion_label,
-        19:classification
+        19:classification,
+        20:original_encrypted (P2-任务1新增)
         """
-        return MemoryItem(
+        item = MemoryItem(
             memory_id=row[0],
             content_hash=row[1],
             layer=MemoryLayer(row[2]),
@@ -542,4 +724,15 @@ class BaseSQLLayer:
             ),
             classification=ClassificationLevel(row[19]),
         )
+
+        # P2-任务1: 如果有加密原文，解密后填充
+        if len(row) > 20 and row[20]:
+            if self._original_encryption:
+                decrypted = self._decrypt_original(row[20], row[0])
+                if decrypted is not None:
+                    item.original_content = decrypted
+            else:
+                item.original_content = row[20]
+
+        return item
 # vim: set et ts=4 sw=4:

@@ -79,7 +79,10 @@ class MemoryItem(BaseModel):
     
     # 密级
     classification: ClassificationLevel = ClassificationLevel.TOP_SECRET
-    
+
+    # P2-任务1: 可选原文存储（内存中暂存，落盘时加密）
+    original_content: Optional[str] = None  # 原文内容（仅在内存中持有，落盘时加密存入 original_encrypted 列）
+
     def touch(self) -> None:
         """标记被访问"""
         self.last_accessed_at = datetime.now()
@@ -112,9 +115,4 @@ class MemoryItem(BaseModel):
 class MemoryStats(BaseModel):
     """记忆统计"""
     total_memories: int = 0
-    layers: Dict[str, Dict] = Field(default_factory=dict)
-    by_domain: Dict[str, int] = Field(default_factory=dict)
-    total_size_bytes: int = 0
-    oldest_memory: Optional[str] = None
-    newest_memory: Optional[str] = None
-# vim: set et ts=4 sw=4:
+    layers: Dict[str, Di

@@ -35,6 +35,7 @@ class RecallEngine:
         ei_engine=None,
         keyword_search=None,
         vector_search=None,
+        cache_coordinator=None,
     ):
         self._l0 = l0
         self._l1 = l1
@@ -63,6 +64,24 @@ class RecallEngine:
 
         # 域索引映射：domain -> set of memory_ids（用于域过滤）
         self._domain_index: Dict[str, set] = {}
+
+        # P2-任务4: L0-L1 缓存协调器
+        if cache_coordinator is not None:
+            self._cache_coord = cache_coordinator
+        elif l0 is not None and l1 is not None:
+            try:
+                from ..layers.cache_coordinator import CacheCoordinator
+                self._cache_coord = CacheCoordinator(
+                    l0_layer=l0,
+                    l1_layer=l1,
+                    settle_threshold_access=2,
+                    preload_top_k=3,
+                )
+            except Exception as e:
+                logger.warning(f"缓存协调器初始化失败: {e}")
+                self._cache_coord = None
+        else:
+            self._cache_coord = None
 
         # 启动时从L1/L2加载已有记忆到索引
         self._rebuild_index()
@@ -196,6 +215,14 @@ class RecallEngine:
         else:
             all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
 
+        # P2-任务4: L1→L0 预加载 - 将 top 结果预加载到 L0 缓存
+        if self._cache_coord is not None and all_results:
+            try:
+                top_ids = [r.get("memory_id", "") for r in all_results[:10] if r.get("memory_id")]
+                self._cache_coord.preload_to_l0(top_ids)
+            except Exception as e:
+                logger.debug(f"预加载到 L0 失败: {e}")
+
         return all_results[:top_k]
 
     def _rrf_fusion(
@@ -263,6 +290,7 @@ class RecallEngine:
         emotion_context: Dict = None,
         metadata: Dict = None,
         content_text: str = "",
+        store_original: bool = False,
     ) -> Dict:
         """
         归档新记忆
@@ -276,6 +304,7 @@ class RecallEngine:
             emotion_context: 情绪上下文
             metadata: 元数据
             content_text: 记忆内容文本（用于向量索引，不存储原文）
+            store_original: P2-任务1: 是否存储原文（覆盖配置默认值）
 
         Returns:
             {memory_id, layer, created_at}
@@ -295,6 +324,10 @@ class RecallEngine:
             tags=tags,
             metadata=metadata or {},
         )
+
+        # P2-任务1: 可选原文存储
+        if store_original and content_text:
+            item.original_content = content_text
 
         # 情绪推断
         if self._ei and emotion_context:
@@ -333,9 +366,11 @@ class RecallEngine:
         # 建立向量索引
         if self._vector is not None and content_text:
             try:
+                # P2-任务1: 如果有原文，用原文生成 embedding；否则用标签+元数据的代理文本
+                vec_text = content_text if store_original else self._build_proxy_text(tags, metadata, item.emotion.dominant_emotion)
                 self._vector.add(
                     memory_id=memory_id,
-                    text=content_text,
+                    text=vec_text,
                     metadata={
                         "layer": "l1_shallow",
                         "domain": domain,
@@ -663,6 +698,14 @@ class RecallEngine:
             except Exception:
                 pass
 
+        # P2-任务4: 缓存协调器统计
+        if self._cache_coord is not None:
+            try:
+                cache_stats = self._cache_coord.get_stats()
+                stats["cache"] = cache_stats
+            except Exception:
+                pass
+
         return stats
 
     def _rebuild_index(self) -> None:
@@ -730,6 +773,9 @@ class RecallEngine:
 
     def _build_vector_text(self, item) -> str:
         """从记忆项构建用于向量索引的文本（内容不可用时的代理文本）"""
+        # P2-任务1: 如果有原文，优先用原文
+        if hasattr(item, 'original_content') and item.original_content:
+            return item.original_content
         parts = []
         if item.tags:
             parts.extend(item.tags)
@@ -741,6 +787,20 @@ class RecallEngine:
                     parts.append(val)
         if item.emotion and item.emotion.dominant_emotion:
             parts.append(item.emotion.dominant_emotion)
+        return " ".join(parts)
+
+    def _build_proxy_text(self, tags: List[str], metadata: Dict, emotion_label: str) -> str:
+        """构建代理文本（用于无原文时的向量索引）"""
+        parts = []
+        if tags:
+            parts.extend(tags)
+        if metadata:
+            parts.extend(metadata.keys())
+            for key, val in metadata.items():
+                if isinstance(val, str) and len(val) < 50:
+                    parts.append(val)
+        if emotion_label:
+            parts.append(emotion_label)
         return " ".join(parts)
 
     def _get_memory_info(

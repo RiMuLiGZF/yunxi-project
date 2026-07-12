@@ -86,6 +86,8 @@ class MemoryAPIRouter:
             {"method": "DELETE", "path": "/api/v1/memory/batch_delete", "handler": self.batch_delete},
             {"method": "GET", "path": "/api/v1/memory/list", "handler": self.list_memories},
             {"method": "GET", "path": "/api/v1/health", "handler": self.health_check},
+            {"method": "GET", "path": "/api/v1/memory/phase", "handler": self.get_phase},  # P2-任务5
+            {"method": "POST", "path": "/api/v1/memory/phase/switch", "handler": self.switch_phase},  # P2-任务5
         ]
 
     def recall(self, request: Dict) -> Dict:
@@ -303,6 +305,40 @@ class MemoryAPIRouter:
         """高级搜索"""
         # 委托给recall接口
         return self.recall(request)
+
+    # ============================================================
+    # P2-任务5: 潮汐相位 API
+    # ============================================================
+
+    def get_phase(self, request: Optional[Dict] = None) -> Dict:
+        """获取当前潮汐相位信息"""
+        phase_controller = self._app.get("phase_controller")
+        if phase_controller:
+            return self._success(phase_controller.get_stats())
+        return self._success({
+            "current_phase": "unknown",
+            "phase_controller": "not_available",
+        })
+
+    def switch_phase(self, request: Dict) -> Dict:
+        """手动切换潮汐相位"""
+        phase_controller = self._app.get("phase_controller")
+        if not phase_controller:
+            return self._error(500, "phase controller not available")
+
+        target_phase = request.get("phase", "")
+        valid_phases = ["flood", "rising", "slack", "ebb"]
+        if target_phase not in valid_phases:
+            return self._error(400, f"invalid phase, must be one of {valid_phases}")
+
+        from tide_memory.core.tide_phase import TidePhase
+        phase_enum = TidePhase(target_phase)
+        success = phase_controller.switch_to(phase_enum, reason="api_manual")
+
+        return self._success({
+            "switched": success,
+            "current_phase": phase_controller.current_phase.value,
+        })
 
     def health_check(self) -> Dict:
         """健康检查"""

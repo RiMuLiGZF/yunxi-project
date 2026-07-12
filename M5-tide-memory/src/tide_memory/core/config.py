@@ -91,6 +91,12 @@ class TideConfig:
             "sleep_consolidation": True,
             "deduplication": True,
             "quality_driven_transfer": True,
+            # P2-任务1: 可选原文加密存储
+            "store_original": False,         # 是否存储记忆原文（默认关闭，隐私优先）
+            "original_encryption": True,     # 原文是否加密存储（默认开启）
+            # P2-任务4: L0-L1 缓存联动
+            "settle_threshold_access": 2,    # L0→L1 沉降访问次数阈值
+            "preload_top_k": 3,              # recall 结果前 N 个预加载到 L0
         },
         "emotion": {
             "ei_inference": True,
@@ -107,6 +113,11 @@ class TideConfig:
             "hnsw_index": True,
             "embedding_api_key": None,
             "embedding_base_url": None,
+            # P2-任务2: HNSW 索引配置
+            "vector_index_type": "HNSW",  # HNSW / Flat，新建索引时使用
+            "hnsw_m": 32,                  # HNSW M 参数（每层最大连接数）
+            "hnsw_ef_construction": 200,   # HNSW 构建时 ef 参数
+            "hnsw_ef_search": 128,         # HNSW 搜索时 ef 参数
         },
         "storage": {
             "local_path": "./data/memory",
@@ -235,23 +246,4 @@ class TideConfig:
         """导出完整配置字典（会脱敏敏感字段）"""
         import copy
         result = copy.deepcopy(self._config)
-        # 脱敏敏感字段
-        sensitive = ["encryption_key", "admin_token", "jwt_secret", "embedding_api_key"]
-        self._sanitize_dict(result, sensitive)
-        return result
-
-    def _sanitize_dict(self, d: Dict, sensitive_keys: list) -> None:
-        for key in list(d.keys()):
-            if key in sensitive_keys and d[key]:
-                d[key] = "***MASKED***"
-            elif isinstance(d[key], dict):
-                self._sanitize_dict(d[key], sensitive_keys)
-
-    def _deep_update(self, base: Dict, update: Dict) -> None:
-        """深度合并字典"""
-        for key, value in update.items():
-            if isinstance(value, dict) and key in base and isinstance(base[key], dict):
-                self._deep_update(base[key], value)
-            else:
-                base[key] = value
-# vim: set et ts=4 sw=4:
+        # 脱敏
