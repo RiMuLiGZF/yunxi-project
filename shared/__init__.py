@@ -41,6 +41,18 @@ from shared.utils import (
     format_file_size,
 )
 
+# ===== 轻量级鉴权工具 =====
+from shared.auth import (
+    hash_api_key,
+    verify_api_key,
+    is_public_path,
+    DEFAULT_PUBLIC_PATHS,
+    SimpleRateLimiter,
+    create_api_key_dependency,
+    generate_api_key,
+    mask_api_key,
+)
+
 __all__ = [
     # 原有导出（保持向后兼容）
     "YunxiConfig",
@@ -76,4 +88,13 @@ __all__ = [
     "safe_get",
     "truncate_text",
     "format_file_size",
+    # 鉴权工具
+    "hash_api_key",
+    "verify_api_key",
+    "is_public_path",
+    "DEFAULT_PUBLIC_PATHS",
+    "SimpleRateLimiter",
+    "create_api_key_dependency",
+    "generate_api_key",
+    "mask_api_key",
 ]

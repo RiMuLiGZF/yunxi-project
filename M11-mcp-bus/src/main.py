@@ -18,6 +18,7 @@ from .routers import admin as admin_router
 from .routers import console as console_router
 from .routers import health as health_router
 from .routers import mcp as mcp_router
+from .routers import monitor as monitor_router
 
 
 # ============================================================
@@ -43,12 +44,20 @@ async def lifespan(app: FastAPI):
     if offline_count > 0:
         print(f"[M11] 检测到 {offline_count} 个离线服务器")
 
+    # 启动健康检查巡检线程
+    from .services.health_checker import mcp_health_checker
+    mcp_health_checker.start()
+
     print("[M11] MCP Bus 服务启动完成")
 
     yield
 
     # 关闭事件
     print("[M11] MCP Bus 服务正在关闭...")
+
+    # 停止健康检查巡检
+    from .services.health_checker import mcp_health_checker
+    mcp_health_checker.stop()
 
 
 # ============================================================
@@ -96,6 +105,9 @@ def create_app() -> FastAPI:
     # 管理控制台 - /console 和 /api/console/*
     app.include_router(console_router.router)
 
+    # 监控统计 API - /api/v1/monitor/*
+    app.include_router(monitor_router.router)
+
     # ---------- 根路径 ----------
     @app.get("/", summary="根路径 - 服务状态", tags=["root"])
     async def root() -> Dict[str, Any]:
@@ -114,6 +126,11 @@ def create_app() -> FastAPI:
                 "admin_servers": "/api/admin/servers",
                 "admin_tools": "/api/admin/tools",
                 "api_tools": "/api/v1/tools",
+                "monitor_overview": "/api/v1/monitor/overview",
+                "monitor_server_stats": "/api/v1/monitor/server-stats",
+                "monitor_tool_stats": "/api/v1/monitor/tool-stats",
+                "monitor_recent_calls": "/api/v1/monitor/recent-calls",
+                "monitor_health_status": "/api/v1/monitor/health-status",
                 "docs": "/docs",
             },
         }
