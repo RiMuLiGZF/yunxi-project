@@ -24,6 +24,9 @@ from main import create_app
 from tide_memory.api.routes import MemoryAPIRouter
 from tide_memory.api.m8_interface import M8Interface
 
+# 导入成长系统
+from tide_memory.growth.router import GrowthAPIRouter
+
 # 导入版本号
 from tide_memory import __version__ as M5_VERSION
 
@@ -74,6 +77,11 @@ def create_fastapi_app() -> FastAPI:
     app_ctx = create_app()
     api_router = MemoryAPIRouter(app_ctx)
     m8_interface = M8Interface(app_ctx)
+
+    # 初始化成长系统
+    print("初始化成长系统（成就/天赋/历法/编年史/记忆回响/赛季征程）...")
+    growth_router = GrowthAPIRouter(app_ctx)
+    print("✅ 成长系统初始化完成")
 
     # 创建 FastAPI 应用
     app = FastAPI(
@@ -195,6 +203,261 @@ def create_fastapi_app() -> FastAPI:
         result = api_router.delete_memory(memory_id, {"domain": domain, "agent_id": agent_id})
         if result.get("code") != 0:
             status_code = 404 if result.get("code") == 404 else 403
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    # ============ 成长系统 API 路由 ============
+
+    @app.get("/api/v1/growth/achievements", summary="获取成就列表")
+    async def growth_achievements(category: Optional[str] = None, status: Optional[str] = None):
+        result = growth_router.list_achievements({"category": category, "status": status})
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/achievements/stats", summary="获取成就统计")
+    async def growth_achievement_stats():
+        result = growth_router.get_achievement_stats()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/api/v1/growth/achievements/{achievement_id}/unlock", summary="解锁成就")
+    async def growth_unlock_achievement(achievement_id: str):
+        result = growth_router.unlock_achievement(achievement_id)
+        if result.get("code") != 0:
+            raise HTTPException(status_code=400, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/talents", summary="获取天赋树")
+    async def growth_talents(tree: Optional[str] = None):
+        result = growth_router.get_talent_tree({"tree": tree})
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/api/v1/growth/talents/{nodeId}/upgrade", summary="升级天赋节点")
+    async def growth_upgrade_talent(nodeId: str):
+        result = growth_router.upgrade_talent(nodeId)
+        if result.get("code") != 0:
+            raise HTTPException(status_code=400, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/api/v1/growth/talents/reset", summary="重置天赋树")
+    async def growth_reset_talents():
+        result = growth_router.reset_talents()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/talents/points", summary="获取可用天赋点数")
+    async def growth_talent_points():
+        result = growth_router.get_talent_points()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/talents/stats", summary="获取天赋统计")
+    async def growth_talent_stats():
+        result = growth_router.get_talent_stats()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/calendar/{year}/{month}", summary="获取指定年月日历")
+    async def growth_calendar_month(year: int, month: int):
+        result = growth_router.get_month_calendar(str(year), str(month))
+        if result.get("code") != 0:
+            raise HTTPException(status_code=400, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/calendar/day/{date}", summary="获取指定日期数据")
+    async def growth_calendar_day(date: str):
+        result = growth_router.get_day_data(date)
+        if result.get("code") != 0:
+            raise HTTPException(status_code=400, detail=result.get("message", "error"))
+        return result
+
+    class CheckinRequest(BaseModel):
+        date: Optional[str] = None
+        mood: int = 7
+        energy: int = 7
+        summary: str = ""
+        tags: List[str] = []
+
+    @app.post("/api/v1/growth/calendar/checkin", summary="打卡")
+    async def growth_calendar_checkin(req: CheckinRequest):
+        result = growth_router.checkin(req.dict())
+        if result.get("code") != 0:
+            raise HTTPException(status_code=400, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/calendar/stats", summary="获取日历统计")
+    async def growth_calendar_stats():
+        result = growth_router.get_calendar_stats()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    # ============ 编年史 API ============
+
+    @app.get("/api/v1/growth/chronicle", summary="分页查询纪事列表")
+    async def growth_chronicle_list(
+        page: int = 1,
+        size: int = 20,
+        category: Optional[str] = None,
+        year: Optional[str] = None,
+    ):
+        result = growth_router.list_chronicles({
+            "page": page, "size": size, "category": category, "year": year
+        })
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/chronicle/{chronicle_id}", summary="获取单条纪事详情")
+    async def growth_chronicle_get(chronicle_id: str):
+        result = growth_router.get_chronicle(chronicle_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    class ChronicleCreateRequest(BaseModel):
+        date: str
+        title: str
+        category: str = "main-quest"
+        category_text: str = "主线任务"
+        difficulty: str = "普通"
+        content: str = ""
+        tags: List[str] = []
+        has_git: bool = False
+        git_commits: List[Dict[str, Any]] = []
+
+    @app.post("/api/v1/growth/chronicle", summary="创建纪事")
+    async def growth_chronicle_create(req: ChronicleCreateRequest):
+        result = growth_router.create_chronicle(req.dict())
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    class ChronicleUpdateRequest(BaseModel):
+        date: Optional[str] = None
+        title: Optional[str] = None
+        category: Optional[str] = None
+        category_text: Optional[str] = None
+        difficulty: Optional[str] = None
+        content: Optional[str] = None
+        tags: Optional[List[str]] = None
+        has_git: Optional[bool] = None
+        git_commits: Optional[List[Dict[str, Any]]] = None
+
+    @app.put("/api/v1/growth/chronicle/{chronicle_id}", summary="更新纪事")
+    async def growth_chronicle_update(chronicle_id: str, req: ChronicleUpdateRequest):
+        result = growth_router.update_chronicle(chronicle_id, req.dict(exclude_none=True))
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    @app.delete("/api/v1/growth/chronicle/{chronicle_id}", summary="删除纪事")
+    async def growth_chronicle_delete(chronicle_id: str):
+        result = growth_router.delete_chronicle(chronicle_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    # ============ 记忆回响 API ============
+
+    @app.get("/api/v1/growth/memories", summary="分页查询记忆回响列表")
+    async def growth_memories_list(
+        page: int = 1,
+        size: int = 20,
+        category: Optional[str] = None,
+        keyword: Optional[str] = None,
+    ):
+        result = growth_router.list_echoes({
+            "page": page, "size": size, "category": category, "keyword": keyword
+        })
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/memories/{echo_id}", summary="获取单条回响详情")
+    async def growth_memories_get(echo_id: str):
+        result = growth_router.get_echo(echo_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    class EchoGenerateRequest(BaseModel):
+        type: str = "growth"
+        memory_id: Optional[str] = None
+        before: Optional[Dict[str, Any]] = None
+        after: Optional[Dict[str, Any]] = None
+
+    @app.post("/api/v1/growth/memories/generate", summary="生成记忆回响")
+    async def growth_memories_generate(req: EchoGenerateRequest):
+        result = growth_router.generate_echo(req.dict())
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.delete("/api/v1/growth/memories/{echo_id}", summary="删除回响")
+    async def growth_memories_delete(echo_id: str):
+        result = growth_router.delete_echo(echo_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    # ============ 赛季征程 API ============
+
+    @app.get("/api/v1/growth/season/current", summary="获取当前赛季详情")
+    async def growth_season_current():
+        result = growth_router.get_current_season()
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/season/history", summary="历史赛季列表")
+    async def growth_season_history():
+        result = growth_router.get_season_history()
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.get("/api/v1/growth/season/tasks", summary="任务列表")
+    async def growth_season_tasks(
+        type: Optional[str] = None,
+        phase_id: Optional[str] = None,
+        season_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ):
+        result = growth_router.list_season_tasks({
+            "type": type, "phase_id": phase_id,
+            "season_id": season_id, "status": status,
+        })
+        if result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/api/v1/growth/season/tasks/{task_id}/complete", summary="完成任务")
+    async def growth_season_task_complete(task_id: str):
+        result = growth_router.complete_season_task(task_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 500
+            raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
+        return result
+
+    @app.post("/api/v1/growth/season/tasks/{task_id_or_phase_id}/claim", summary="领取奖励")
+    async def growth_season_task_claim(task_id_or_phase_id: str):
+        result = growth_router.claim_season_reward(task_id_or_phase_id)
+        if result.get("code") != 0:
+            status_code = 404 if result.get("code") == 404 else 400
             raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
         return result
 
