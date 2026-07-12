@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M11 MCP Bus - 管理控制台</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="icon" type="image/svg+xml" href="/static/assets/logo.svg">
+</head>
+<body>
+
+<!-- ========== 顶部导航栏 ========== -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">
+      <svg viewBox="0 0 36 36" width="36" height="36">
+        <defs>
+          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#58a6ff"/>
+            <stop offset="100%" style="stop-color:#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="32" height="32" rx="8" fill="url(#logoGrad)"/>
+        <text x="18" y="23" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="system-ui, sans-serif">M11</text>
+      </svg>
+    </div>
+    <div class="title-group">
+      <h1 class="title">MCP Bus 管理控制台</h1>
+      <p class="subtitle">统一管理和路由所有 MCP 工具服务</p>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="api-key-input">
+      <input type="password" id="apiKeyInput" placeholder="输入 API Key 进行鉴权" autocomplete="off">
+      <button class="api-key-btn" id="apiKeyBtn" title="保存 API Key">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="status-indicator">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">连接中...</span>
+    </div>
+
+    <div class="auto-refresh-toggle">
+      <label class="toggle-switch">
+        <input type="checkbox" id="autoRefreshToggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">自动刷新</span>
+      <select id="refreshInterval" class="refresh-interval">
+        <option value="10">10s</option>
+        <option value="30" selected>30s</option>
+        <option value="60">60s</option>
+      </select>
+    </div>
+
+    <button class="refresh-btn" id="refreshBtn" title="刷新数据">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="refresh-icon">
+        <path d="M23 4v6h-6"/>
+        <path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/>
+        <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"/>
+      </svg>
+      刷新
+    </button>
+  </div>
+</header>
+
+<!-- ========== 主内容区 ========== -->
+<main class="main">
+
+  <!-- 登录提示（401时显示） -->
+  <div class="auth-prompt" id="authPrompt" style="display:none;">
+    <div class="auth-card">
+      <div class="auth-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
+      </div>
+      <h2 class="auth-title">需要鉴权</h2>
+      <p class="auth-desc">请在顶部输入框中输入有效的 API Key 以访问管理控制台</p>
+      <input type="password" id="authKeyInput" placeholder="请输入 API Key" class="auth-input">
+      <button class="auth-submit" id="authSubmitBtn">验证并访问</button>
+    </div>
+  </div>
+
+  <!-- 仪表盘内容 -->
+  <div id="dashboardContent">
+
+    <!-- 统计卡片区域 -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon icon-server">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+        </div>
+        <div class="stat-label">服务器总数</div>
+        <div class="stat-value" id="totalServers">-</div>
+        <div class="stat-sub">
+          <span class="text-success" id="onlineServers">- 在线</span>
+          <span class="text-muted"> / </span>
+          <span class="text-danger" id="offlineServers">- 离线</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon icon-tool">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <div class="stat-label">工具总数</div>
+        <div class="stat-value" id="totalTools">-</div>
+        <div class="stat-sub">跨所有在线服务器</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon icon-call">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </div>
+        <div class="stat-label">调用总数</div>
+        <div class="stat-value" id="totalCalls">-</div>
+        <div class="stat-sub">
+          成功率: <span id="successRate">-</span>%
+          <div class="success-bar"><div class="success-fill fill-high" id="successFill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon icon-alert">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="stat-label">活跃告警</div>
+        <div class="stat-value" id="activeAlerts">-</div>
+        <div class="stat-sub" id="alertSub">无告警</div>
+      </div>
+    </section>
+
+    <!-- 告警区域 -->
+    <section class="alerts-panel" id="alertsPanel" style="display:none;">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            活跃告警
+          </span>
+          <span class="panel-badge" id="alertCount">0</span>
+        </div>
+        <div class="panel-body" id="alertList"></div>
+      </div>
+    </section>
+
+    <!-- 服务器列表 + 调用记录 双栏布局 -->
+    <section class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="20" height="8" rx="2"/>
+              <rect x="2" y="14" width="20" height="8" rx="2"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/>
+              <line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+            服务器列表
+          </span>
+          <button class="action-btn" id="refreshToolsBtn">刷新工具</button>
+        </div>
+        <div class="panel-body" id="serverList">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            最近调用记录
+          </span>
+          <span class="panel-badge">最近 20 条</span>
+        </div>
+        <div class="panel-body" id="callList">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ========== 页脚 ========== -->
+<footer class="footer">
+  <span>M11 MCP Bus</span>
+  <span class="footer-sep">&middot;</span>
+  <span>版本 0.1.0</span>
+  <span class="footer-sep">&middot;</span>
+  <span id="updateTime">-</span>
+</footer>
+
+<!-- ========== Toast 通知 ========== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ========== 脚本引用 ========== -->
+<script src="/static/js/api.js"></script>
+<script src="/static/js/components.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

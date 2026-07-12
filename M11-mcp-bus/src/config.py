@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     circuit_breaker_open_duration: int = Field(default=30, description="熔断器打开持续时间（秒）")
     circuit_breaker_half_open_limit: int = Field(default=1, description="半开状态放行请求数")
 
+    # ---------- Redis 配置 ----------
+    redis_url: str = Field(default="", description="Redis 连接 URL（为空表示不启用 Redis")
+    redis_prefix: str = Field(default="m11:", description="Redis Key 前缀")
+    redis_timeout: int = Field(default=5, description="Redis 操作超时时间（秒）")
+
+    # ---------- stdio 传输配置 ----------
+    stdio_enabled: bool = Field(default=True, description="是否启用 stdio 传输支持")
+    stdio_max_services: int = Field(default=10, description="最大同时运行的 stdio 服务数")
+    stdio_start_timeout: int = Field(default=10, description="stdio 服务启动超时时间（秒）")
+    stdio_stop_timeout: int = Field(default=5, description="stdio 服务停止超时时间（秒）")
+
     # ---------- CORS 配置 ----------
     cors_origins: str = Field(default="*", description="CORS 允许的来源，逗号分隔")
 
@@ -76,6 +87,15 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """是否为生产环境."""
         return self.env == "production"
+
+    @property
+    def use_redis(self) -> bool:
+        """是否启用 Redis（根据 redis_url 是否为空判断）.
+
+        Returns:
+            True 表示配置了 Redis 并应尝试使用
+        """
+        return bool(self.redis_url)
 
     @property
     def cors_origin_list(self) -> list[str]:

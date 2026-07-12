@@ -286,6 +286,27 @@ class McpRegistry:
     def _fetch_server_tools(self, server: McpServer) -> List[Dict[str, Any]]:
         """从远程服务器获取工具列表.
 
+        支持 http 和 stdio 两种传输类型。
+
+        Args:
+            server: 服务器对象
+
+        Returns:
+            工具列表
+
+        Raises:
+            Exception: 请求失败时抛出
+        """
+        if server.transport_type == "http":
+            return self._fetch_server_tools_http(server)
+        elif server.transport_type == "stdio":
+            return self._fetch_server_tools_stdio(server)
+        else:
+            raise ValueError(f"不支持的传输类型: {server.transport_type}")
+
+    def _fetch_server_tools_http(self, server: McpServer) -> List[Dict[str, Any]]:
+        """从 HTTP 服务器获取工具列表.
+
         Args:
             server: 服务器对象
 
@@ -297,9 +318,6 @@ class McpRegistry:
         """
         if not server.endpoint:
             raise ValueError("服务器未配置端点地址")
-
-        if server.transport_type != "http":
-            raise ValueError(f"不支持的传输类型: {server.transport_type}")
 
         # 发送 MCP JSON-RPC 请求
         payload = {
@@ -323,6 +341,59 @@ class McpRegistry:
             raise ValueError(f"工具列表获取失败: {error.get('message', '未知错误')}")
 
         return data.get("result", {}).get("tools", [])
+
+    def _fetch_server_tools_stdio(self, server: McpServer) -> List[Dict[str, Any]]:
+        """从 stdio 服务获取工具列表.
+
+        通过 stdio_manager 向子进程发送 tools/list 请求。
+
+        Args:
+            server: 服务器对象
+
+        Returns:
+            工具列表
+
+        Raises:
+            Exception: 请求失败时抛出
+        """
+        from .stdio_manager import stdio_manager
+
+        # 查找对应的 stdio 服务实例
+        # stdio 服务通过名称与注册中心服务器关联
+        stdio_service = None
+        for svc in stdio_manager.list_services():
+            if svc.name == server.name:
+                stdio_service = svc
+                break
+
+        if not stdio_service:
+            raise ValueError(f"stdio 服务未运行: {server.name}")
+
+        # 使用 asyncio 运行时调用（同步方法内调用异步）
+        # 注意：refresh_all_tools 是同步方法，这里需要在事件循环中运行
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        if loop.is_running():
+            # 如果已有运行中的事件循环（如在 FastAPI 中），返回空列表
+            # 实际场景中 stdio 服务的工具刷新应该由异步任务处理
+            raise RuntimeError("事件循环已在运行，无法同步获取 stdio 工具列表")
+
+        result = loop.run_until_complete(
+            stdio_manager.send_request(
+                service_id=stdio_service.service_id,
+                method="tools/list",
+                params={},
+                timeout=10.0,
+            )
+        )
+
+        return result.get("tools", [])
 
     def _update_server_tools(
         self,
@@ -452,6 +523,88 @@ class McpRegistry:
             return db.query(McpTool).filter(McpTool.server_id == server_id).count()
         finally:
             db.close()
+
+    # --------------------------------------------------------
+    # stdio 服务集成
+    # --------------------------------------------------------
+
+    async def refresh_stdio_server_tools(self, server_id: int) -> int:
+        """异步刷新 stdio 服务的工具列表.
+
+        专门用于 stdio 传输类型的服务器，通过 stdio_manager 发送 tools/list 请求。
+
+        Args:
+            server_id: 服务器 ID
+
+        Returns:
+            刷新后的工具数量
+
+        Raises:
+            ValueError: 服务器不存在或不是 stdio 类型
+        """
+        from .stdio_manager import stdio_manager
+
+        db = get_session()
+        try:
+            server = db.query(McpServer).filter(McpServer.id == server_id).first()
+            if not server:
+                raise ValueError(f"服务器不存在: {server_id}")
+
+            if server.transport_type != "stdio":
+                raise ValueError(f"服务器不是 stdio 类型: {server.transport_type}")
+
+            # 查找对应的 stdio 服务实例
+            stdio_service = None
+            for svc in stdio_manager.list_services():
+                if svc.name == server.name:
+                    stdio_service = svc
+                    break
+
+            if not stdio_service:
+                raise ValueError(f"stdio 服务未运行: {server.name}")
+
+            # 发送 tools/list 请求
+            result = await stdio_manager.send_request(
+                service_id=stdio_service.service_id,
+                method="tools/list",
+                params={},
+                timeout=10.0,
+            )
+
+            tools = result.get("tools", [])
+
+            # 更新数据库
+            self._update_server_tools(db, server.id, server.name, tools)
+            db.commit()
+
+            return len(tools)
+        finally:
+            db.close()
+
+    def register_stdio_server(
+        self,
+        name: str,
+        description: str = "",
+    ) -> Tuple[McpServer, str]:
+        """注册一个 stdio 类型的 MCP 服务器.
+
+        便捷方法：创建 transport_type=stdio 的服务器记录。
+        stdio 服务由 stdio_manager 管理，启动时会自动注册到服务列表。
+
+        Args:
+            name: 服务器名称（唯一）
+            description: 服务描述
+
+        Returns:
+            (服务器对象, 明文 api_key) 元组
+        """
+        return self.register_server(
+            name=name,
+            transport_type="stdio",
+            endpoint="stdio://local",
+            description=description,
+            health_check_url="",
+        )
 
 
 # ============================================================

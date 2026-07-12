@@ -10,6 +10,7 @@ Phase 1 安全加固：
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 import string
@@ -33,12 +34,17 @@ from ..models import (
     McpServerResponse,
     McpToolListResponse,
     McpToolResponse,
+    StdioServiceListResponse,
+    StdioServiceLogsResponse,
+    StdioServiceResponse,
+    StdioServiceStartRequest,
     ToolRefreshRequest,
 )
 from ..models_db import ApiKey, McpCall, McpTool
 from ..services.audit import audit_logger
 from ..services.monitor import mcp_monitor
 from ..services.registry import mcp_registry
+from ..config import get_settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -603,3 +609,290 @@ async def delete_api_key(
         "key_id": key_id,
         "message": "API Key 已删除",
     }
+
+
+# ============================================================
+# stdio 服务管理
+# ============================================================
+
+@router.post("/stdio/start", response_model=StdioServiceResponse, summary="启动 stdio 服务")
+async def start_stdio_service(
+    body: StdioServiceStartRequest,
+    request: Request,
+    api_key: ApiKey = Depends(require_authenticated),
+) -> StdioServiceResponse:
+    """启动一个新的 stdio MCP 服务.
+
+    通过子进程方式启动本地 MCP 服务，使用 stdin/stdout 管道通信。
+    服务启动成功后会自动注册到 MCP 服务列表（transport_type=stdio）。
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    try:
+        service = await stdio_manager.start_service(
+            name=body.name,
+            command=body.command,
+            args=body.args,
+            env=body.env,
+            description=body.description,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="服务启动超时")
+
+    # 自动注册到服务列表（如果不存在）
+    try:
+        existing = mcp_registry.get_server_by_name(body.name)
+        if not existing:
+            server, _ = mcp_registry.register_stdio_server(
+                name=body.name,
+                description=body.description,
+            )
+            mcp_registry.heartbeat(server.id, status="online")
+
+            # 刷新工具列表
+            try:
+                await mcp_registry.refresh_stdio_server_tools(server.id)
+            except Exception:
+                pass  # 工具刷新失败不影响启动
+        else:
+            # 已存在的 stdio 服务，更新状态为 online
+            if existing.transport_type == "stdio":
+                mcp_registry.heartbeat(existing.id, status="online")
+    except Exception as e:
+        # 注册失败不影响服务启动
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"stdio 服务注册到注册中心失败: {e}")
+
+    # 审计日志
+    actor = api_key.name
+    audit_logger.log_event(
+        event_type="stdio.start",
+        actor=actor,
+        action="start",
+        resource=f"stdio:{service.service_id}",
+        metadata={
+            "service_id": service.service_id,
+            "service_name": service.name,
+            "command": service.command,
+            "pid": service.pid,
+        },
+        description=f"stdio 服务启动: {service.name}",
+        ip_address=request.client.host if request.client else "",
+    )
+
+    return StdioServiceResponse(**service.to_dict())
+
+
+@router.post("/stdio/{service_id}/stop", summary="停止 stdio 服务")
+async def stop_stdio_service(
+    service_id: str,
+    request: Request,
+    api_key: ApiKey = Depends(require_authenticated),
+) -> Dict[str, Any]:
+    """停止指定的 stdio 服务.
+
+    先发送 SIGTERM，超时后发送 SIGKILL 强制终止。
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    # 获取服务信息用于审计
+    try:
+        service_info = stdio_manager.get_service_status(service_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    try:
+        await stdio_manager.stop_service(service_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    # 更新注册中心状态
+    try:
+        server = mcp_registry.get_server_by_name(service_info["name"])
+        if server and server.transport_type == "stdio":
+            mcp_registry.heartbeat(server.id, status="offline")
+    except Exception:
+        pass
+
+    # 审计日志
+    actor = api_key.name
+    audit_logger.log_event(
+        event_type="stdio.stop",
+        actor=actor,
+        action="stop",
+        resource=f"stdio:{service_id}",
+        metadata={
+            "service_id": service_id,
+            "service_name": service_info["name"],
+        },
+        description=f"stdio 服务停止: {service_info['name']}",
+        ip_address=request.client.host if request.client else "",
+    )
+
+    return {
+        "status": "ok",
+        "service_id": service_id,
+        "message": "服务已停止",
+    }
+
+
+@router.post("/stdio/{service_id}/restart", response_model=StdioServiceResponse, summary="重启 stdio 服务")
+async def restart_stdio_service(
+    service_id: str,
+    request: Request,
+    api_key: ApiKey = Depends(require_authenticated),
+) -> StdioServiceResponse:
+    """重启指定的 stdio 服务.
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    # 获取服务信息用于审计
+    try:
+        service_info = stdio_manager.get_service_status(service_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    try:
+        service = await stdio_manager.restart_service(service_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="服务重启超时")
+
+    # 更新注册中心状态
+    try:
+        server = mcp_registry.get_server_by_name(service.name)
+        if server and server.transport_type == "stdio":
+            mcp_registry.heartbeat(server.id, status="online")
+            # 刷新工具列表
+            try:
+                await mcp_registry.refresh_stdio_server_tools(server.id)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 审计日志
+    actor = api_key.name
+    audit_logger.log_event(
+        event_type="stdio.restart",
+        actor=actor,
+        action="restart",
+        resource=f"stdio:{service_id}",
+        metadata={
+            "service_id": service_id,
+            "service_name": service.name,
+            "pid": service.pid,
+        },
+        description=f"stdio 服务重启: {service.name}",
+        ip_address=request.client.host if request.client else "",
+    )
+
+    return StdioServiceResponse(**service.to_dict())
+
+
+@router.get("/stdio", response_model=StdioServiceListResponse, summary="获取 stdio 服务列表")
+async def list_stdio_services(
+    api_key: ApiKey = Depends(require_authenticated),
+) -> StdioServiceListResponse:
+    """获取所有 stdio 服务的列表.
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    services = stdio_manager.list_services()
+    items = [StdioServiceResponse(**svc.to_dict()) for svc in services]
+
+    return StdioServiceListResponse(
+        items=items,
+        total=len(items),
+    )
+
+
+@router.get("/stdio/{service_id}", response_model=StdioServiceResponse, summary="获取 stdio 服务详情")
+async def get_stdio_service(
+    service_id: str,
+    api_key: ApiKey = Depends(require_authenticated),
+) -> StdioServiceResponse:
+    """获取指定 stdio 服务的详细信息和状态.
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    try:
+        status = stdio_manager.get_service_status(service_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return StdioServiceResponse(**status)
+
+
+@router.get("/stdio/{service_id}/logs", response_model=StdioServiceLogsResponse, summary="获取 stdio 服务日志")
+async def get_stdio_service_logs(
+    service_id: str,
+    limit: int = Query(100, ge=1, le=500, description="返回的最大日志行数"),
+    api_key: ApiKey = Depends(require_authenticated),
+) -> StdioServiceLogsResponse:
+    """获取指定 stdio 服务的 stderr 日志.
+
+    日志为环形缓冲区，最多保留最近 500 行。
+
+    需要鉴权。
+    """
+    settings = get_settings()
+    if not settings.stdio_enabled:
+        raise HTTPException(status_code=400, detail="stdio 传输支持未启用")
+
+    from ..services.stdio_manager import stdio_manager
+
+    try:
+        service = next(
+            (svc for svc in stdio_manager.list_services() if svc.service_id == service_id),
+            None,
+        )
+        if not service:
+            raise ValueError(f"stdio 服务不存在: {service_id}")
+        logs = service.get_stderr_logs(limit=limit)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return StdioServiceLogsResponse(
+        service_id=service_id,
+        logs=logs,
+        total=len(logs),
+    )

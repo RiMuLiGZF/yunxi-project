@@ -241,3 +241,45 @@ class ConfigResponse(BaseModel):
     tool_refresh_interval: int = 300
     db_path: str = ""
     log_level: str = "info"
+
+
+# ============================================================
+# stdio 服务相关模型
+# ============================================================
+
+class StdioServiceStartRequest(BaseModel):
+    """启动 stdio 服务请求."""
+    name: str = Field(..., min_length=1, max_length=100, description="服务名称")
+    command: str = Field(..., min_length=1, max_length=200, description="要执行的命令")
+    args: List[str] = Field(default_factory=list, description="命令参数列表")
+    env: Dict[str, str] = Field(default_factory=dict, description="环境变量")
+    description: str = Field(default="", max_length=500, description="服务描述")
+
+
+class StdioServiceResponse(BaseModel):
+    """stdio 服务响应."""
+    service_id: str
+    name: str
+    command: str
+    args: List[str] = Field(default_factory=list)
+    description: str = ""
+    status: str = "stopped"
+    pid: Optional[int] = None
+    exit_code: Optional[int] = None
+    started_at: Optional[datetime] = None
+    stopped_at: Optional[datetime] = None
+    error_message: str = ""
+    pending_requests: int = 0
+
+
+class StdioServiceListResponse(BaseModel):
+    """stdio 服务列表响应."""
+    items: List[StdioServiceResponse]
+    total: int
+
+
+class StdioServiceLogsResponse(BaseModel):
+    """stdio 服务日志响应."""
+    service_id: str
+    logs: List[str]
+    total: int

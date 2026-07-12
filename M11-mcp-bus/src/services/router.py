@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import time
 from threading import Lock
@@ -19,7 +20,10 @@ from ..config import get_settings
 from .audit import audit_logger
 from .cache import mcp_cache
 from .monitor import mcp_monitor
+from .redis_client import redis_client
 from .registry import mcp_registry
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -67,6 +71,86 @@ class CircuitBreaker:
         self._open_at: float = 0.0
         self._half_open_count = 0
         self._lock = Lock()
+
+        # 尝试从 Redis 加载状态
+        self._load_state()
+
+    # --------------------------------------------------------
+    # Redis 状态持久化
+    # --------------------------------------------------------
+
+    def _redis_key(self) -> str:
+        """获取 Redis 中熔断器状态的 Hash Key.
+
+        Returns:
+            Redis Hash Key
+        """
+        return f"circuit_breaker:{self.server_id}"
+
+    def _save_state(self) -> None:
+        """保存熔断器状态到 Redis.
+
+        Redis 可用时将状态持久化到 Hash，多实例共享。
+        Redis 不可用时静默降级。
+        """
+        if not redis_client.is_available():
+            return
+
+        try:
+            key = self._redis_key()
+            mapping = {
+                "state": self._state,
+                "consecutive_failures": str(self._consecutive_failures),
+                "open_at": str(self._open_at),
+                "last_update": str(time.time()),
+            }
+            redis_client.hset_dict(key, mapping)
+            # 设置过期时间（熔断时长的 2 倍，避免长期残留）
+            ttl = int(self._open_duration * 2) + 60
+            redis_client.expire(key, ttl)
+        except Exception as e:
+            logger.debug("[CircuitBreaker] 保存状态到 Redis 失败: %s", e)
+
+    def _load_state(self) -> None:
+        """从 Redis 加载熔断器状态.
+
+        Redis 可用时从 Hash 恢复状态，实现多实例共享。
+        Redis 不可用时静默降级，保持默认初始状态。
+        """
+        if not redis_client.is_available():
+            return
+
+        try:
+            key = self._redis_key()
+            data = redis_client.hgetall(key)
+            if not data:
+                return
+
+            state = data.get("state")
+            if state in (self.STATE_CLOSED, self.STATE_OPEN, self.STATE_HALF_OPEN):
+                self._state = state
+
+            failures = data.get("consecutive_failures")
+            if failures is not None:
+                try:
+                    self._consecutive_failures = int(failures)
+                except (ValueError, TypeError):
+                    pass
+
+            open_at = data.get("open_at")
+            if open_at is not None:
+                try:
+                    self._open_at = float(open_at)
+                except (ValueError, TypeError):
+                    pass
+
+            logger.debug(
+                "[CircuitBreaker] 从 Redis 加载状态: server_id=%s, state=%s",
+                self.server_id,
+                self._state,
+            )
+        except Exception as e:
+            logger.debug("[CircuitBreaker] 从 Redis 加载状态失败: %s", e)
 
     # --------------------------------------------------------
     # 状态查询
@@ -116,25 +200,36 @@ class CircuitBreaker:
     def record_success(self) -> None:
         """记录一次成功调用."""
         with self._lock:
+            state_changed = False
             if self._state == self.STATE_HALF_OPEN:
                 # 半开状态下成功，恢复到关闭状态
                 self._state = self.STATE_CLOSED
                 self._consecutive_failures = 0
                 self._half_open_count = 0
+                state_changed = True
             elif self._state == self.STATE_CLOSED:
                 # 正常状态下成功，重置连续失败计数
-                self._consecutive_failures = 0
+                if self._consecutive_failures > 0:
+                    self._consecutive_failures = 0
+                    state_changed = True
+
+            # 状态变更时同步到 Redis
+            if state_changed:
+                self._save_state()
 
     def record_failure(self) -> None:
         """记录一次失败调用."""
         with self._lock:
             self._consecutive_failures += 1
 
+            state_changed = False
+
             if self._state == self.STATE_HALF_OPEN:
                 # 半开状态下失败，重新进入熔断
                 self._state = self.STATE_OPEN
                 self._open_at = time.time()
                 self._half_open_count = 0
+                state_changed = True
             elif (
                 self._state == self.STATE_CLOSED
                 and self._consecutive_failures >= self._fail_threshold
@@ -142,6 +237,11 @@ class CircuitBreaker:
                 # 达到失败阈值，触发熔断
                 self._state = self.STATE_OPEN
                 self._open_at = time.time()
+                state_changed = True
+
+            # 状态变更时同步到 Redis
+            if state_changed or self._state == self.STATE_CLOSED:
+                self._save_state()
 
     # --------------------------------------------------------
     # 内部方法

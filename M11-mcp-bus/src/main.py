@@ -36,14 +36,36 @@ from .routers import monitor as monitor_router
 async def lifespan(app: FastAPI):
     """应用生命周期管理.
 
-    - 启动时：初始化数据库、启动后台任务
-    - 关闭时：清理资源
+    - 启动时：初始化数据库、初始化 Redis、启动后台任务
+    - 关闭时：清理资源、关闭 Redis 连接
     """
     # 启动事件
     settings = get_settings()
     print(f"[M11] 初始化数据库: {settings.db_file_path}")
     init_db()
     print("[M11] 数据库初始化完成")
+
+    # 初始化 Redis 连接
+    from .services.redis_client import redis_client
+    if settings.use_redis:
+        print(f"[M11] 正在连接 Redis: {settings.redis_url}")
+        redis_ok = redis_client.connect()
+        if redis_ok:
+            print("[M11] Redis 连接成功")
+        else:
+            print("[M11] Redis 连接失败，将降级为内存模式")
+    else:
+        print("[M11] 未配置 Redis，使用内存模式")
+
+    # 初始化限流器（根据 Redis 状态选择后端）
+    from .services.rate_limiter import init_rate_limiter
+    rl = init_rate_limiter()
+    print(f"[M11] 限流器后端: {rl.get_stats().get('backend', 'unknown')}")
+
+    # 重新加载缓存后端（Redis 连接后刷新）
+    if settings.use_redis and redis_client.is_available():
+        from .services.cache import CacheService
+        CacheService().reload_backend()
 
     # 检查离线服务器（后台任务可由调度器负责，这里做一次初始检查）
     from .services.registry import mcp_registry
@@ -59,12 +81,25 @@ async def lifespan(app: FastAPI):
     from .services.scheduler import task_scheduler
     task_scheduler.start()
 
+    # 初始化 stdio 管理器（如果启用）
+    if settings.stdio_enabled:
+        from .services.stdio_manager import stdio_manager
+        print("[M11] stdio 传输支持已启用")
+    else:
+        print("[M11] stdio 传输支持已禁用")
+
     print("[M11] MCP Bus 服务启动完成")
 
     yield
 
     # 关闭事件
     print("[M11] MCP Bus 服务正在关闭...")
+
+    # 停止所有 stdio 服务（如果启用）
+    settings = get_settings()
+    if settings.stdio_enabled:
+        from .services.stdio_manager import stdio_manager
+        await stdio_manager.shutdown_all()
 
     # 停止后台定时任务调度器
     from .services.scheduler import task_scheduler
@@ -73,6 +108,12 @@ async def lifespan(app: FastAPI):
     # 停止健康检查巡检
     from .services.health_checker import mcp_health_checker
     mcp_health_checker.stop()
+
+    # 关闭 Redis 连接
+    from .services.redis_client import redis_client
+    if redis_client.is_available():
+        redis_client.disconnect()
+        print("[M11] Redis 连接已关闭")
 
 
 # ============================================================
@@ -140,6 +181,7 @@ def create_app() -> FastAPI:
                 "health": "/health",
                 "admin_servers": "/api/admin/servers",
                 "admin_tools": "/api/admin/tools",
+                "admin_stdio": "/api/admin/stdio",
                 "api_tools": "/api/v1/tools",
                 "monitor_overview": "/api/v1/monitor/overview",
                 "monitor_server_stats": "/api/v1/monitor/server-stats",
