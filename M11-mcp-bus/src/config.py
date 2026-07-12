@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # ---------- 业务配置 ----------
     heartbeat_timeout: int = Field(default=30, description="心跳超时时间（秒）")
     tool_refresh_interval: int = Field(default=300, description="工具刷新间隔（秒）")
+    sse_heartbeat_interval: int = Field(default=30, description="SSE 心跳间隔（秒）")
+    sse_max_clients: int = Field(default=100, description="SSE 最大连接数")
+
+    # ---------- 熔断与重试配置 ----------
+    retry_max_attempts: int = Field(default=2, description="工具调用最大重试次数")
+    retry_base_delay_ms: int = Field(default=100, description="重试基础延迟（毫秒），指数退避")
+    circuit_breaker_fail_threshold: int = Field(default=5, description="熔断器连续失败阈值")
+    circuit_breaker_open_duration: int = Field(default=30, description="熔断器打开持续时间（秒）")
+    circuit_breaker_half_open_limit: int = Field(default=1, description="半开状态放行请求数")
 
     # ---------- CORS 配置 ----------
     cors_origins: str = Field(default="*", description="CORS 允许的来源，逗号分隔")

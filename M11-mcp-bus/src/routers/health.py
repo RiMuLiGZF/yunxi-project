@@ -28,7 +28,7 @@ _start_time = time.time()
 
 def _get_uptime_seconds() -> float:
     """获取服务运行时长（秒）."""
-    return time.time() - start_time if False else time.time() - _start_time
+    return time.time() - _start_time
 
 
 def _check_db_status() -> str:

@@ -132,7 +132,11 @@ class McpBlockExecutor:
                 err_data = e.response.json()
                 error_msg = err_data.get("detail", err_data.get("message", error_msg))
             except Exception:
-                pass
+                # JSON 解析失败，保持默认错误信息
+                import logging
+                logging.getLogger(__name__).debug(
+                    "解析 HTTP 错误响应 JSON 失败，使用默认错误信息"
+                )
             return self._build_result(
                 block_name=block_name,
                 tool_name=tool_name,

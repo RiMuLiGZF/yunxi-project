@@ -92,8 +92,12 @@ class M2SkillAdapter(BaseMcpAdapter):
                         self._bridge_available = True
                         print(f"[{self.server_name}] 检测到 M2 内置 MCP 端点，启用桥接模式")
                         return True
-        except Exception:
-            pass
+        except Exception as e:
+            # M2 MCP 端点不可用，记录后降级到封装模式
+            import logging
+            logging.getLogger(__name__).debug(
+                "检测 M2 MCP 端点失败，将使用封装模式: %s", e
+            )
 
         self._bridge_available = False
         print(f"[{self.server_name}] M2 MCP 端点不可用，使用封装模式")

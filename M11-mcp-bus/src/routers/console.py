@@ -2,17 +2,24 @@
 
 提供基于 HTML 的管理控制台页面和相关数据 API。
 深色主题，现代简洁风格，卡片布局，状态指示灯。
+
+Phase 1 安全加固：
+- 所有 /api/console/* 数据接口接入 API Key 鉴权
+- /console HTML 页面增加鉴权检查（无有效token返回401）
+- 数据库会话统一使用 Depends(get_db) 依赖注入
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
 
-from ..db import get_session
-from ..models_db import McpCall, McpServer, McpTool
+from ..db import get_db
+from ..middleware.auth import require_authenticated, get_current_api_key
+from ..models_db import ApiKey, McpCall, McpServer, McpTool
 from ..services.alert import alert_service
 from ..services.monitor import mcp_monitor
 
@@ -480,6 +487,10 @@ function formatDuration(ms) {
 async function loadStats() {
   try {
     const resp = await fetch('/api/console/stats');
+    if (resp.status === 401) {
+      document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h2>401 - 未授权</h2><p>请先登录或提供有效的 API Key 才能访问控制台。</p></div>';
+      return;
+    }
     const data = await resp.json();
 
     document.getElementById('totalServers').textContent = data.total_servers || 0;
@@ -668,12 +679,31 @@ setInterval(refreshAll, 30000); // 每 30 秒自动刷新
 # ============================================================
 
 @router.get("/console", response_class=HTMLResponse, summary="管理控制台页面")
-async def console_page() -> HTMLResponse:
+async def console_page(
+    request: Request,
+    api_key: Optional[ApiKey] = Depends(get_current_api_key),
+) -> HTMLResponse:
     """管理控制台首页.
 
     返回 HTML 页面，展示服务器状态、工具统计、调用记录等信息。
     深色主题，现代简洁风格。
+
+    需要鉴权：未提供有效 API Key 时返回 401 未授权页面。
     """
+    # 鉴权检查：如果没有有效 API Key，返回 401
+    if api_key is None:
+        # 开发环境下 api_key 可能为 None（is_development 且未配置 admin_token）
+        # 此时仍然允许访问，但生产环境会在 get_current_api_key 中直接抛出 401
+        # 这里做双重检查，确保安全
+        from ..config import get_settings
+        settings = get_settings()
+        if not settings.is_development:
+            raise HTTPException(
+                status_code=401,
+                detail="需要鉴权才能访问管理控制台",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     return HTMLResponse(content=_CONSOLE_HTML)
 
 
@@ -682,91 +712,96 @@ async def console_page() -> HTMLResponse:
 # ============================================================
 
 @router.get("/api/console/stats", summary="控制台统计数据")
-async def console_stats() -> Dict[str, Any]:
+async def console_stats(
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_authenticated),
+) -> Dict[str, Any]:
     """获取控制台统计数据.
 
     返回服务器数、工具数、调用数、成功率、告警数等概览数据。
+
+    需要鉴权。
     """
-    db = get_session()
-    try:
-        # 服务器统计
-        total_servers = db.query(McpServer).count()
-        online_servers = db.query(McpServer).filter(McpServer.status == "online").count()
-        offline_servers = total_servers - online_servers
+    # 服务器统计
+    total_servers = db.query(McpServer).count()
+    online_servers = db.query(McpServer).filter(McpServer.status == "online").count()
+    offline_servers = total_servers - online_servers
 
-        # 工具统计
-        total_tools = db.query(McpTool).count()
+    # 工具统计
+    total_tools = db.query(McpTool).count()
 
-        # 调用统计（从内存 + 数据库）
-        monitor_stats = mcp_monitor.get_stats()
+    # 调用统计（从内存 + 数据库）
+    monitor_stats = mcp_monitor.get_stats()
 
-        # 告警统计
-        alert_stats = alert_service.get_alert_stats()
-        active_alerts = alert_service.get_active_alerts()
-        alert_list = [a.to_dict() for a in active_alerts[:10]]
+    # 告警统计
+    alert_stats = alert_service.get_alert_stats()
+    active_alerts = alert_service.get_active_alerts()
+    alert_list = [a.to_dict() for a in active_alerts[:10]]
 
-        critical_alerts = sum(1 for a in active_alerts if a.severity == "critical")
-        warning_alerts = sum(1 for a in active_alerts if a.severity == "warning")
+    critical_alerts = sum(1 for a in active_alerts if a.severity == "critical")
+    warning_alerts = sum(1 for a in active_alerts if a.severity == "warning")
 
-        return {
-            "total_servers": total_servers,
-            "online_servers": online_servers,
-            "offline_servers": offline_servers,
-            "total_tools": total_tools,
-            "total_calls": monitor_stats.get("total_calls", 0),
-            "success_calls": monitor_stats.get("success_calls", 0),
-            "failed_calls": monitor_stats.get("failed_calls", 0),
-            "success_rate": monitor_stats.get("success_rate", 0.0),
-            "avg_duration_ms": monitor_stats.get("avg_duration_ms", 0.0),
-            "active_alerts": alert_stats.get("total_active", 0),
-            "critical_alerts": critical_alerts,
-            "warning_alerts": warning_alerts,
-            "alerts": alert_list,
-            "popular_tools": monitor_stats.get("popular_tools", []),
-        }
-    finally:
-        db.close()
+    return {
+        "total_servers": total_servers,
+        "online_servers": online_servers,
+        "offline_servers": offline_servers,
+        "total_tools": total_tools,
+        "total_calls": monitor_stats.get("total_calls", 0),
+        "success_calls": monitor_stats.get("success_calls", 0),
+        "failed_calls": monitor_stats.get("failed_calls", 0),
+        "success_rate": monitor_stats.get("success_rate", 0.0),
+        "avg_duration_ms": monitor_stats.get("avg_duration_ms", 0.0),
+        "active_alerts": alert_stats.get("total_active", 0),
+        "critical_alerts": critical_alerts,
+        "warning_alerts": warning_alerts,
+        "alerts": alert_list,
+        "popular_tools": monitor_stats.get("popular_tools", []),
+    }
 
 
 @router.get("/api/console/servers", summary="控制台服务器列表")
-async def console_servers() -> Dict[str, Any]:
+async def console_servers(
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_authenticated),
+) -> Dict[str, Any]:
     """获取服务器列表（带状态和工具数量）.
 
     用于控制台服务器列表展示。
+
+    需要鉴权。
     """
-    db = get_session()
-    try:
-        servers = db.query(McpServer).order_by(McpServer.name.asc()).all()
+    servers = db.query(McpServer).order_by(McpServer.name.asc()).all()
 
-        server_list = []
-        for s in servers:
-            tool_count = db.query(McpTool).filter(McpTool.server_id == s.id).count()
-            server_list.append({
-                "id": s.id,
-                "name": s.name,
-                "status": s.status,
-                "transport_type": s.transport_type,
-                "endpoint": s.endpoint or "",
-                "tool_count": tool_count,
-                "last_heartbeat": s.last_heartbeat.isoformat() if s.last_heartbeat else None,
-                "created_at": s.created_at.isoformat() if s.created_at else None,
-            })
+    server_list = []
+    for s in servers:
+        tool_count = db.query(McpTool).filter(McpTool.server_id == s.id).count()
+        server_list.append({
+            "id": s.id,
+            "name": s.name,
+            "status": s.status,
+            "transport_type": s.transport_type,
+            "endpoint": s.endpoint or "",
+            "tool_count": tool_count,
+            "last_heartbeat": s.last_heartbeat.isoformat() if s.last_heartbeat else None,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        })
 
-        return {
-            "servers": server_list,
-            "total": len(server_list),
-        }
-    finally:
-        db.close()
+    return {
+        "servers": server_list,
+        "total": len(server_list),
+    }
 
 
 @router.get("/api/console/recent-calls", summary="控制台最近调用记录")
 async def console_recent_calls(
     limit: int = Query(20, ge=1, le=100, description="返回数量"),
+    api_key: ApiKey = Depends(require_authenticated),
 ) -> Dict[str, Any]:
     """获取最近的调用记录.
 
     优先从内存环形缓冲区读取，速度快。
+
+    需要鉴权。
 
     Args:
         limit: 返回数量限制

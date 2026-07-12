@@ -28,6 +28,7 @@ from ..services.rate_limiter import rate_limiter
 DEFAULT_PUBLIC_PATHS: List[str] = [
     "/health",
     "/m8/*",
+    "/mcp",
     "/",
     "/docs",
     "/redoc",
@@ -204,6 +205,35 @@ async def get_current_api_key(
     # 更新最后使用时间（异步后台处理可优化，此处直接更新）
     _update_last_used(api_key)
 
+    return api_key
+
+
+# ============================================================
+# FastAPI 依赖：强制鉴权
+# ============================================================
+
+async def require_authenticated(
+    api_key: Optional[ApiKey] = Depends(get_current_api_key),
+) -> ApiKey:
+    """FastAPI 依赖：强制要求鉴权通过.
+
+    与 get_current_api_key（可选）不同，本依赖在未提供有效 API Key 时
+    会抛出 401 异常，确保接口必须鉴权才能访问。
+
+    适用于管理接口、控制台接口等需要保护的端点。
+
+    Returns:
+        ApiKey 对象（验证通过）
+
+    Raises:
+        HTTPException: 401 - 未提供有效 API Key
+    """
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="需要鉴权才能访问此接口，请通过 X-API-Key 或 Authorization: Bearer 提供有效 API Key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return api_key
 
 

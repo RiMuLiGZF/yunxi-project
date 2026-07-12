@@ -116,13 +116,15 @@ class AuditLogger:
 
     def _ensure_table(self) -> None:
         """确保审计日志表存在."""
+        import logging
+        logger = logging.getLogger(__name__)
         try:
             engine = get_engine()
             AuditLog.__table__.create(bind=engine, checkfirst=True)
-        except Exception:
-            # 表可能已存在或数据库未初始化，忽略错误
-            # 首次写入时会再次尝试
-            pass
+        except Exception as e:
+            # 表可能已存在或数据库未初始化，记录警告
+            # 首次写入时会再次尝试建表
+            logger.warning("审计日志表初始化检查失败: %s", e)
 
     # --------------------------------------------------------
     # 记录事件

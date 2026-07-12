@@ -2,6 +2,13 @@
 
 MCP 总线服务的主入口，整合所有路由和中间件。
 提供 MCP 协议端点、管理 API、健康检查等接口。
+
+Phase 1 安全加固：
+- 管理接口（/api/admin/*, /api/console/*, /api/v1/monitor/*）接入 API Key 鉴权
+- 鉴权通过 FastAPI 依赖注入（Depends(get_current_api_key)）实现
+- 公开接口保持不变：/health, /m8/*, /mcp, /docs, /redoc, /openapi.json
+- 关键操作接入审计日志（服务注册/注销、API Key 管理、工具调用）
+- 数据库会话统一使用 Depends(get_db) 依赖注入
 """
 
 from __future__ import annotations
@@ -48,12 +55,20 @@ async def lifespan(app: FastAPI):
     from .services.health_checker import mcp_health_checker
     mcp_health_checker.start()
 
+    # 启动后台定时任务调度器（工具自动刷新等）
+    from .services.scheduler import task_scheduler
+    task_scheduler.start()
+
     print("[M11] MCP Bus 服务启动完成")
 
     yield
 
     # 关闭事件
     print("[M11] MCP Bus 服务正在关闭...")
+
+    # 停止后台定时任务调度器
+    from .services.scheduler import task_scheduler
+    task_scheduler.stop()
 
     # 停止健康检查巡检
     from .services.health_checker import mcp_health_checker

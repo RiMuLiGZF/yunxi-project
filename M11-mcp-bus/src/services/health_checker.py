@@ -213,8 +213,11 @@ class McpHealthChecker:
                             session.commit()
                     finally:
                         session.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "更新服务器离线状态失败 (server_id=%s): %s", server_id, e
+                    )
 
         self._update_cache(server_id, result)
         return result
