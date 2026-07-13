@@ -13,7 +13,7 @@ from typing import Any
 import structlog
 from interfaces import IAgentPlugin, RegistryError
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 class AgentRegistry:
@@ -31,7 +31,7 @@ class AgentRegistry:
         # [V9.6] 能力反向索引：capability -> set(agent_id)，O(1) 查询
         self._capability_index: dict[str, set[str]] = {}
         self._lock: asyncio.Lock = asyncio.Lock()
-        self._logger = logger.bind(service="agent_registry")
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="agent_registry")
 
     # ── 注册与注销 ────────────────────────────────────────
 

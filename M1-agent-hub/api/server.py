@@ -5,6 +5,12 @@
 解决与M3的submit_task命名冲突，
 将核心Python API暴露为RESTful HTTP接口。
 
+[V11.4] 全链路追踪增强：
+- HTTP 请求入口从 X-Trace-Id 请求头读取 trace_id，无则生成
+- 将 trace_id 设置到 contextvars 上下文，协程安全
+- 所有响应头包含 X-Trace-Id
+- 错误响应中自动注入 trace_id
+
 新增端点：
 - POST   /api/v1/tasks/submit           → OrchestratorV9.process()
 - DELETE /api/v1/agents/{agent_id}      → AgentRegistry.unregister()
@@ -39,283 +45,361 @@ except ImportError:
         def default_factory(*args, **kwargs):
             pass
 
+# 全链路追踪上下文（基于 contextvars，异步安全）
+try:
+    from trace_context import (
+        get_trace_id as _get_trace_id,
+        set_trace_id as _set_trace_id,
+        reset_trace_id as _reset_trace_id,
+        set_request_start as _set_request_start,
+        reset_request_start as _reset_request_start,
+        clear_trace_id as _clear_trace_id,
+    )
+    _trace_context_available = True
+except ImportError:
+    _trace_context_available = False
+
+    def _get_trace_id() -> str:
+        import uuid
+        return uuid.uuid4().hex
+
+    def _set_trace_id(trace_id: str) -> Any:
+        return None
+
+    def _reset_trace_id(token: Any) -> None:
+        pass
+
+    def _set_request_start(timestamp: float | None = None) -> Any:
+        return None
+
+    def _reset_request_start(token: Any) -> None:
+        pass
+
+    def _clear_trace_id() -> None:
+        pass
+
 
 # ── Pydantic 请求/响应模型 ──────────────────────────────
+# [V12.0] 模型已迁移至 models/ 目录统一管理。
+# 优先从 models 包导入，失败时回退到本地定义以保持向后兼容。
 
-class SubmitTaskRequest(BaseModel):
-    """[V10.0] 提交任务请求
+try:
+    from models.task import (
+        SubmitTaskRequest,
+        SubmitTaskResponse,
+        TaskStatusResponse,
+        CloneRequest,
+        CloneReleaseRequest,
+    )
+    from models.agent import AgentStatusResponse
+    from models.message import BusPublishRequest
+    _models_imported = True
+except ImportError:
+    _models_imported = False
 
-    字段边界校验：
-    - user_input: 1~10000 字符
-    - task_id: 最长 64 字符，允许空字符串（服务端自动生成）
-    - trace_id: 最长 64 字符
-    - model: 最长 128 字符
-    - priority: 1~10 整数
-    """
-    user_input: str = Field(..., min_length=1, max_length=10000)
-    task_id: str = Field(default="", max_length=64)
-    trace_id: str = Field(default="", max_length=64)
-    model: str = Field(default="", max_length=128)
-    budget: dict[str, Any] = Field(default_factory=dict)  # [v2.0-LINKAGE]
-    input_tokens: int = Field(default=0, ge=0)
-    output_tokens: int = Field(default=0, ge=0)
-    priority: int = Field(default=5, ge=1, le=10)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    # deprecated: use models.task.SubmitTaskRequest instead
+    class SubmitTaskRequest(BaseModel):  # type: ignore[no-redef]
+        """[V10.0] 提交任务请求
 
+        字段边界校验：
+        - user_input: 1~10000 字符
+        - task_id: 最长 64 字符，允许空字符串（服务端自动生成）
+        - trace_id: 最长 64 字符
+        - model: 最长 128 字符
+        - priority: 1~10 整数
+        """
+        user_input: str = Field(..., min_length=1, max_length=10000)
+        task_id: str = Field(default="", max_length=64)
+        trace_id: str = Field(default="", max_length=64)
+        model: str = Field(default="", max_length=128)
+        budget: dict[str, Any] = Field(default_factory=dict)  # [v2.0-LINKAGE]
+        input_tokens: int = Field(default=0, ge=0)
+        output_tokens: int = Field(default=0, ge=0)
+        priority: int = Field(default=5, ge=1, le=10)
+        metadata: dict[str, Any] = Field(default_factory=dict)
 
-class SubmitTaskResponse(BaseModel):
-    """[V10.0] 提交任务响应"""
-    status: str
-    task_id: str = ""
-    result: dict[str, Any] = Field(default_factory=dict)
-    trace_id: str = ""  # [v2.0-LINKAGE]
-    agents_deployed: list[str] = Field(default_factory=list)  # [v2.0-LINKAGE]
-    budget_consumed: float = 0.0  # [v2.0-LINKAGE]
+    # deprecated: use models.task.SubmitTaskResponse instead
+    class SubmitTaskResponse(BaseModel):  # type: ignore[no-redef]
+        """[V10.0] 提交任务响应"""
+        status: str
+        task_id: str = ""
+        result: dict[str, Any] = Field(default_factory=dict)
+        trace_id: str = ""  # [v2.0-LINKAGE]
+        agents_deployed: list[str] = Field(default_factory=list)  # [v2.0-LINKAGE]
+        budget_consumed: float = 0.0  # [v2.0-LINKAGE]
 
+    # deprecated: use models.message.BusPublishRequest instead
+    class BusPublishRequest(BaseModel):  # type: ignore[no-redef]
+        """[V10.0] 消息总线发布请求
 
-class BusPublishRequest(BaseModel):
-    """[V10.0] 消息总线发布请求
+        字段边界校验：
+        - topic: 1~128 字符
+        - sender: 最长 64 字符
+        - msg_type: 最长 64 字符
+        - priority: 1~10 整数
+        - ttl: 0~3600 秒
+        """
+        topic: str = Field(..., min_length=1, max_length=128)
+        payload: dict[str, Any] = Field(default_factory=dict)
+        sender: str = Field(default="api_client", max_length=64)
+        recipient: str | None = Field(default=None, max_length=64)
+        msg_type: str = Field(default="user.input", max_length=64)
+        priority: int = Field(default=5, ge=1, le=10)
+        ttl: int = Field(default=300, ge=0, le=3600)
+        trace_id: str = Field(default="", max_length=64)
 
-    字段边界校验：
-    - topic: 1~128 字符
-    - sender: 最长 64 字符
-    - msg_type: 最长 64 字符
-    - priority: 1~10 整数
-    - ttl: 0~3600 秒
-    """
-    topic: str = Field(..., min_length=1, max_length=128)
-    payload: dict[str, Any] = Field(default_factory=dict)
-    sender: str = Field(default="api_client", max_length=64)
-    recipient: str | None = Field(default=None, max_length=64)
-    msg_type: str = Field(default="user.input", max_length=64)
-    priority: int = Field(default=5, ge=1, le=10)
-    ttl: int = Field(default=300, ge=0, le=3600)
-    trace_id: str = Field(default="", max_length=64)
+    # deprecated: use models.task.CloneRequest instead
+    class CloneRequest(BaseModel):  # type: ignore[no-redef]
+        """[V10.0-P2-1] 分身申请请求
 
+        字段边界校验：
+        - parent_agent_id: 1~64 字符
+        - clone_type: 枚举值（scout/planner/writer/reviewer）
+        - ttl: 0~86400 秒（0表示使用默认TTL）
+        """
+        parent_agent_id: str = Field(..., min_length=1, max_length=64)
+        clone_type: Literal["scout", "planner", "writer", "reviewer"] = "scout"
+        task_id: str = Field(default="", max_length=64)
+        capabilities: list[str] = Field(default_factory=list)
+        context: dict[str, Any] = Field(default_factory=dict)
+        ttl: int = Field(default=0, ge=0, le=86400)  # 0表示使用默认TTL
 
-class CloneRequest(BaseModel):
-    """[V10.0-P2-1] 分身申请请求
+    # deprecated: use models.task.CloneReleaseRequest instead
+    class CloneReleaseRequest(BaseModel):  # type: ignore[no-redef]
+        """[V10.0-P2-1] 分身释放请求
 
-    字段边界校验：
-    - parent_agent_id: 1~64 字符
-    - clone_type: 枚举值（scout/planner/writer/reviewer）
-    - ttl: 0~86400 秒（0表示使用默认TTL）
-    """
-    parent_agent_id: str = Field(..., min_length=1, max_length=64)
-    clone_type: Literal["scout", "planner", "writer", "reviewer"] = "scout"
-    task_id: str = Field(default="", max_length=64)
-    capabilities: list[str] = Field(default_factory=list)
-    context: dict[str, Any] = Field(default_factory=dict)
-    ttl: int = Field(default=0, ge=0, le=86400)  # 0表示使用默认TTL
+        字段边界校验：
+        - clone_id: 1~64 字符
+        """
+        clone_id: str = Field(..., min_length=1, max_length=64)
 
+    # deprecated: use models.agent.AgentStatusResponse instead
+    class AgentStatusResponse(BaseModel):  # type: ignore[no-redef]
+        """[V10.0] Agent状态响应"""
+        agent_id: str
+        registered: bool
+        version: str = ""
+        capabilities: list[str] = Field(default_factory=list)
+        health: dict[str, Any] = Field(default_factory=dict)
 
-class CloneReleaseRequest(BaseModel):
-    """[V10.0-P2-1] 分身释放请求
-
-    字段边界校验：
-    - clone_id: 1~64 字符
-    """
-    clone_id: str = Field(..., min_length=1, max_length=64)
-
-
-class AgentStatusResponse(BaseModel):
-    """[V10.0] Agent状态响应"""
-    agent_id: str
-    registered: bool
-    version: str = ""
-    capabilities: list[str] = Field(default_factory=list)
-    health: dict[str, Any] = Field(default_factory=dict)
-
-
-class TaskStatusResponse(BaseModel):
-    """[V10.0] 任务状态响应"""
-    task_id: str
-    goal: str = ""
-    status: str
-    completion_rate: float = 0.0
-    plans: list[dict[str, Any]] = Field(default_factory=list)
-    agents: list[dict[str, Any]] = Field(default_factory=list)
-    active: bool = False
+    # deprecated: use models.task.TaskStatusResponse instead
+    class TaskStatusResponse(BaseModel):  # type: ignore[no-redef]
+        """[V10.0] 任务状态响应"""
+        task_id: str
+        goal: str = ""
+        status: str
+        completion_rate: float = 0.0
+        plans: list[dict[str, Any]] = Field(default_factory=list)
+        agents: list[dict[str, Any]] = Field(default_factory=list)
+        active: bool = False
 
 
 # ── 联邦调度请求/响应模型 ──────────────────────────────
+# [V12.0] 模型已迁移至 models/federation.py 统一管理。
+# 优先从 models 包导入，失败时回退到本地定义以保持向后兼容。
 
-class FedRegisterRequest(BaseModel):
-    """[V11.0] 注册外部Agent请求
+if not _models_imported:
+    # deprecated: use models.federation.FedRegisterRequest instead
+    class FedRegisterRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] 注册外部Agent请求
 
-    字段边界校验：
-    - display_name: 最长 128 字符
-    - provider: 最长 64 字符
-    - agent_type: 枚举值（llm/code/design/search/tool/custom）
-    """
-    display_name: str = Field(default="", max_length=128)
-    provider: str = Field(default="", max_length=64)
-    agent_type: Literal["llm", "code", "design", "search", "tool", "custom"] = "llm"
-    capabilities: list[str] = []
-    privacy_level: str = "standard"
-    connection_type: str = "api_key"
-    config: dict[str, Any] = {}
-    api_key: str = ""
+        字段边界校验：
+        - display_name: 最长 128 字符
+        - provider: 最长 64 字符
+        - agent_type: 枚举值（llm/code/design/search/tool/custom）
+        """
+        display_name: str = Field(default="", max_length=128)
+        provider: str = Field(default="", max_length=64)
+        agent_type: Literal["llm", "code", "design", "search", "tool", "custom"] = "llm"
+        capabilities: list[str] = []
+        privacy_level: str = "standard"
+        connection_type: str = "api_key"
+        config: dict[str, Any] = {}
+        api_key: str = ""
 
+    # deprecated: use models.federation.FedInvokeRequest instead
+    class FedInvokeRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] 调用外部Agent请求
 
-class FedInvokeRequest(BaseModel):
-    """[V11.0] 调用外部Agent请求
+        字段边界校验：
+        - agent_id: 最长 64 字符
+        - prompt: 最长 100000 字符
+        - system_prompt: 最长 50000 字符
+        - temperature: 0~2 浮点数
+        - max_tokens: 1~32768 整数
+        """
+        agent_id: str = Field(default="", max_length=64)
+        prompt: str = Field(default="", max_length=100000)
+        system_prompt: str = Field(default="", max_length=50000)
+        temperature: float = Field(default=0.7, ge=0, le=2)
+        max_tokens: int = Field(default=2048, ge=1, le=32768)
+        security_level: str = "PUBLIC"
 
-    字段边界校验：
-    - agent_id: 最长 64 字符
-    - prompt: 最长 100000 字符
-    - system_prompt: 最长 50000 字符
-    - temperature: 0~2 浮点数
-    - max_tokens: 1~32768 整数
-    """
-    agent_id: str = Field(default="", max_length=64)
-    prompt: str = Field(default="", max_length=100000)
-    system_prompt: str = Field(default="", max_length=50000)
-    temperature: float = Field(default=0.7, ge=0, le=2)
-    max_tokens: int = Field(default=2048, ge=1, le=32768)
-    security_level: str = "PUBLIC"
+    # deprecated: use models.federation.FedDecideRequest instead
+    class FedDecideRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] 联邦调度决策请求
 
+        字段边界校验：
+        - remaining_budget: >= -1（-1表示不限制）
+        - task_complexity: 0~1 浮点数
+        """
+        task_type: str = "general"
+        security_level: str = "PUBLIC"
+        user_preference: str = "balanced"
+        remaining_budget: float = Field(default=-1.0, ge=-1.0)
+        speed_requirement: str = "medium"
+        task_complexity: float = Field(default=0.5, ge=0.0, le=1.0)
 
-class FedDecideRequest(BaseModel):
-    """[V11.0] 联邦调度决策请求
+    # deprecated: use models.federation.FedCompareRequest instead
+    class FedCompareRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] Agent对比请求
 
-    字段边界校验：
-    - remaining_budget: >= -1（-1表示不限制）
-    - task_complexity: 0~1 浮点数
-    """
-    task_type: str = "general"
-    security_level: str = "PUBLIC"
-    user_preference: str = "balanced"
-    remaining_budget: float = Field(default=-1.0, ge=-1.0)
-    speed_requirement: str = "medium"
-    task_complexity: float = Field(default=0.5, ge=0.0, le=1.0)
+        字段边界校验：
+        - prompt: 最长 100000 字符
+        - system_prompt: 最长 50000 字符
+        - temperature: 0~2 浮点数
+        - max_tokens: 1~32768 整数
+        """
+        agent_ids: list[str] = []
+        prompt: str = Field(default="", max_length=100000)
+        system_prompt: str = Field(default="", max_length=50000)
+        temperature: float = Field(default=0.7, ge=0, le=2)
+        max_tokens: int = Field(default=2048, ge=1, le=32768)
+        output_mode: str = "best_only"
+        task_type: str = "general"
 
+    # deprecated: use models.federation.FedPrivacyScanRequest instead
+    class FedPrivacyScanRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] 隐私扫描请求
 
-class FedCompareRequest(BaseModel):
-    """[V11.0] Agent对比请求
+        字段边界校验：
+        - content: 最长 100000 字符
+        """
+        content: str = Field(default="", max_length=100000)
+        security_level: str = "PUBLIC"
+        task_type: str = "general"
 
-    字段边界校验：
-    - prompt: 最长 100000 字符
-    - system_prompt: 最长 50000 字符
-    - temperature: 0~2 浮点数
-    - max_tokens: 1~32768 整数
-    """
-    agent_ids: list[str] = []
-    prompt: str = Field(default="", max_length=100000)
-    system_prompt: str = Field(default="", max_length=50000)
-    temperature: float = Field(default=0.7, ge=0, le=2)
-    max_tokens: int = Field(default=2048, ge=1, le=32768)
-    output_mode: str = "best_only"
-    task_type: str = "general"
+    # deprecated: use models.federation.FedBudgetRequest instead
+    class FedBudgetRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.0] 预算设置请求
 
-
-class FedPrivacyScanRequest(BaseModel):
-    """[V11.0] 隐私扫描请求
-
-    字段边界校验：
-    - content: 最长 100000 字符
-    """
-    content: str = Field(default="", max_length=100000)
-    security_level: str = "PUBLIC"
-    task_type: str = "general"
-
-
-class FedBudgetRequest(BaseModel):
-    """[V11.0] 预算设置请求
-
-    字段边界校验：
-    - monthly_budget: 0~100000 浮点数
-    """
-    monthly_budget: float = Field(default=10.0, ge=0, le=100000)
+        字段边界校验：
+        - monthly_budget: 0~100000 浮点数
+        """
+        monthly_budget: float = Field(default=10.0, ge=0, le=100000)
+else:
+    from models.federation import (  # noqa: F401
+        FedRegisterRequest,
+        FedInvokeRequest,
+        FedDecideRequest,
+        FedCompareRequest,
+        FedPrivacyScanRequest,
+        FedBudgetRequest,
+    )
 
 
 # ── Chat 请求模型 ──────────────────────────────────
+# [V12.0] 模型已迁移至 models/task.py 统一管理。
 
-class ChatRequest(BaseModel):
-    """[V11.3] 同步对话请求
+if not _models_imported:
+    # deprecated: use models.task.ChatRequest instead
+    class ChatRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.3] 同步对话请求
 
-    用于 /api/v1/chat 端点，替代直接读取 request.json() 的方式。
-    字段边界校验：
-    - user_input: 1~10000 字符
-    - trace_id: 最长 64 字符
-    - model: 最长 128 字符
-    """
-    user_input: str = Field(..., min_length=1, max_length=10000)
-    trace_id: str = Field(default="", max_length=64)
-    model: str = Field(default="", max_length=128)
+        用于 /api/v1/chat 端点，替代直接读取 request.json() 的方式。
+        字段边界校验：
+        - user_input: 1~10000 字符
+        - trace_id: 最长 64 字符
+        - model: 最长 128 字符
+        """
+        user_input: str = Field(..., min_length=1, max_length=10000)
+        trace_id: str = Field(default="", max_length=64)
+        model: str = Field(default="", max_length=128)
 
+    # deprecated: use models.task.ChatStreamRequest instead
+    class ChatStreamRequest(BaseModel):  # type: ignore[no-redef]
+        """[V11.3] 流式对话请求
 
-class ChatStreamRequest(BaseModel):
-    """[V11.3] 流式对话请求
-
-    用于 /api/v1/chat/stream 端点，替代直接读取 request.json() 的方式。
-    字段边界校验：
-    - user_input: 1~10000 字符
-    - trace_id: 最长 64 字符
-    - voice_polish: 是否启用人格润色（默认 True）
-    """
-    user_input: str = Field(..., min_length=1, max_length=10000)
-    trace_id: str = Field(default="", max_length=64)
-    voice_polish: bool = True  # [V10.1] 流式润色开关
+        用于 /api/v1/chat/stream 端点，替代直接读取 request.json() 的方式。
+        字段边界校验：
+        - user_input: 1~10000 字符
+        - trace_id: 最长 64 字符
+        - voice_polish: 是否启用人格润色（默认 True）
+        """
+        user_input: str = Field(..., min_length=1, max_length=10000)
+        trace_id: str = Field(default="", max_length=64)
+        voice_polish: bool = True  # [V10.1] 流式润色开关
+else:
+    from models.task import ChatRequest, ChatStreamRequest  # noqa: F401
 
 
 # ── 通用响应模型 ──────────────────────────────────
+# [V12.0] 模型已迁移至 models/common.py 统一管理。
+# 泛型类型变量 T 保持在本文件作用域内可用。
 
-# 泛型类型变量，用于 ApiResponse 和 PaginatedResponse
-T = TypeVar("T")
+if not _models_imported:
+    # 泛型类型变量，用于 ApiResponse 和 PaginatedResponse
+    T = TypeVar("T")
 
+    # deprecated: use models.common.ApiResponse instead
+    class ApiResponse(BaseModel, Generic[T]):  # type: ignore[no-redef]
+        """[V11.3] 通用成功响应模型
 
-class ApiResponse(BaseModel, Generic[T]):
-    """[V11.3] 通用成功响应模型
+        统一 API 成功响应格式，包含状态标识、业务数据和提示信息。
 
-    统一 API 成功响应格式，包含状态标识、业务数据和提示信息。
+        Attributes:
+            success: 操作是否成功，固定为 True
+            data: 响应数据，泛型类型，由具体接口决定
+            message: 可选提示信息
+        """
+        success: bool = True
+        data: T | None = None
+        message: str = ""
 
-    Attributes:
-        success: 操作是否成功，固定为 True
-        data: 响应数据，泛型类型，由具体接口决定
-        message: 可选提示信息
-    """
-    success: bool = True
-    data: T | None = None
-    message: str = ""
+    # deprecated: use models.common.ErrorResponse instead
+    class ErrorResponse(BaseModel):  # type: ignore[no-redef]
+        """[V11.3] 通用错误响应模型
 
+        统一 API 错误响应格式，包含错误码、错误信息和追踪ID。
 
-class ErrorResponse(BaseModel):
-    """[V11.3] 通用错误响应模型
+        Attributes:
+            success: 操作是否成功，固定为 False
+            error: 错误码标识
+            message: 错误详细描述
+            trace_id: 追踪ID，用于问题排查
+        """
+        success: bool = False
+        error: str = ""
+        message: str = ""
+        trace_id: str = ""
 
-    统一 API 错误响应格式，包含错误码、错误信息和追踪ID。
+    # deprecated: use models.common.PaginatedResponse instead
+    class PaginatedResponse(BaseModel, Generic[T]):  # type: ignore[no-redef]
+        """[V11.3] 分页响应模型
 
-    Attributes:
-        success: 操作是否成功，固定为 False
-        error: 错误码标识
-        message: 错误详细描述
-        trace_id: 追踪ID，用于问题排查
-    """
-    success: bool = False
-    error: str = ""
-    message: str = ""
-    trace_id: str = ""
+        统一分页查询响应格式，包含数据列表和分页信息。
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    """[V11.3] 分页响应模型
-
-    统一分页查询响应格式，包含数据列表和分页信息。
-
-    Attributes:
-        success: 操作是否成功
-        items: 当前页数据列表
-        total: 总记录数
-        page: 当前页码（从1开始）
-        page_size: 每页记录数
-        total_pages: 总页数
-    """
-    success: bool = True
-    items: list[T] = Field(default_factory=list)
-    total: int = 0
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=20, ge=1, le=500)
-    total_pages: int = Field(default=0, ge=0)
+        Attributes:
+            success: 操作是否成功
+            items: 当前页数据列表
+            total: 总记录数
+            page: 当前页码（从1开始）
+            page_size: 每页记录数
+            total_pages: 总页数
+        """
+        success: bool = True
+        items: list[T] = Field(default_factory=list)
+        total: int = 0
+        page: int = Field(default=1, ge=1)
+        page_size: int = Field(default=20, ge=1, le=500)
+        total_pages: int = Field(default=0, ge=0)
+else:
+    from models.common import (  # noqa: F401
+        ApiResponse,
+        ErrorResponse,
+        PaginatedResponse,
+        T,
+    )
 
 
 # ── API 工厂 ────────────────────────────────────────────
@@ -361,6 +445,9 @@ def create_server(
         description="云汐多Agent集群调度系统 RESTful HTTP API",
         version="10.0.0",
     )
+
+    # [V11.4] 注册全链路追踪中间件（必须在所有业务中间件之前）
+    _register_trace_middleware(app)
 
     # [V11.1] 鉴权中间件 — 保护联邦调度关键接口
     if federation_registry is not None:
@@ -441,6 +528,53 @@ class YunxiAPI:
             except asyncio.CancelledError:
                 pass
         self._logger.info("yunxi_api_stopped")
+
+
+# ── 全链路追踪中间件 ──────────────────────────────────────
+
+def _register_trace_middleware(app: "FastAPI") -> None:
+    """[V11.4] 注册全链路追踪中间件。
+
+    职责：
+    1. 从请求头 X-Trace-Id 读取 trace_id，没有则生成新的
+    2. 将 trace_id 设置到 contextvars 上下文（协程安全）
+    3. 记录请求开始时间
+    4. 所有响应头包含 X-Trace-Id
+    5. 请求处理完毕后清理上下文，避免污染
+
+    此中间件必须在所有业务中间件之前注册，确保 trace_id 全程可用。
+    """
+    from fastapi import Request
+
+    @app.middleware("http")
+    async def trace_middleware(request: Request, call_next: Any) -> Any:
+        """全链路追踪中间件核心逻辑"""
+        # 1. 从请求头读取 trace_id，没有则生成
+        trace_id = request.headers.get("x-trace-id", "")
+        if not trace_id:
+            # 也尝试从请求体中读取（兼容旧版通过 body 传递 trace_id 的方式）
+            trace_id = _get_trace_id() if _trace_context_available else _generate_trace_id_fallback()
+
+        # 2. 设置到 contextvars 上下文
+        trace_token = _set_trace_id(trace_id)
+        start_token = _set_request_start(time.time())
+
+        try:
+            # 3. 执行业务逻辑
+            response = await call_next(request)
+
+            # 4. 响应头注入 X-Trace-Id
+            response.headers["X-Trace-Id"] = _get_trace_id()
+            return response
+        finally:
+            # 5. 恢复上下文，避免协程复用时的污染
+            _reset_request_start(start_token)
+            _reset_trace_id(trace_token)
+
+    def _generate_trace_id_fallback() -> str:
+        """trace_context 不可用时的降级 trace_id 生成"""
+        import uuid
+        return uuid.uuid4().hex
 
 
 # ── 鉴权中间件 ────────────────────────────────────────
@@ -603,14 +737,8 @@ def _register_exception_handlers(app: "FastAPI") -> None:
                 detail_parts.append(f"{msg} ({err_type})")
         detail = "; ".join(detail_parts) if detail_parts else "参数校验失败"
 
-        # 尝试从请求中获取 trace_id
-        trace_id = ""
-        try:
-            body = getattr(request, "_body", None)
-            if body and isinstance(body, dict):
-                trace_id = body.get("trace_id", "")
-        except Exception:
-            pass
+        # 从 contextvars 获取当前 trace_id（V11.4 增强）
+        trace_id = _get_trace_id()
 
         response = build_error_response(
             error_code=ERR_PARAM_INVALID,
@@ -618,10 +746,13 @@ def _register_exception_handlers(app: "FastAPI") -> None:
             trace_id=trace_id,
             data={"errors": errors},
         )
-        return JSONResponse(
+        resp = JSONResponse(
             status_code=ERR_PARAM_INVALID.http_status,
             content=response,
         )
+        # 响应头注入 trace_id
+        resp.headers["X-Trace-Id"] = trace_id
+        return resp
 
     if M1BaseException is not None:
         @app.exception_handler(M1BaseException)
@@ -632,18 +763,23 @@ def _register_exception_handlers(app: "FastAPI") -> None:
 
             直接使用异常对象的结构化信息生成标准错误响应。
             """
+            # 从 contextvars 获取当前 trace_id（V11.4 增强）
+            current_trace_id = _get_trace_id()
             logger.warning(
                 "m1_exception_caught",
                 code=exc.code,
                 message=exc.error_code.message,
                 detail=exc.detail,
-                trace_id=exc.trace_id,
+                trace_id=exc.trace_id or current_trace_id,
                 exc_type=exc.__class__.__name__,
             )
-            return JSONResponse(
+            resp = JSONResponse(
                 status_code=exc.http_status,
                 content=exc.to_response(),
             )
+            # 响应头注入 trace_id
+            resp.headers["X-Trace-Id"] = exc.trace_id or current_trace_id
+            return resp
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(
@@ -653,23 +789,29 @@ def _register_exception_handlers(app: "FastAPI") -> None:
 
         返回内部错误响应，避免泄露敏感信息，同时记录错误日志。
         """
+        # 从 contextvars 获取当前 trace_id（V11.4 增强）
+        trace_id = _get_trace_id()
         logger.error(
             "unhandled_exception",
             error=str(exc),
             exc_type=exc.__class__.__name__,
             path=request.url.path,
             method=request.method,
+            trace_id=trace_id,
         )
         response = build_error_response(
             error_code=ERR_INTERNAL,
             detail="服务器内部错误",
-            trace_id="",
+            trace_id=trace_id,
             data=None,
         )
-        return JSONResponse(
+        resp = JSONResponse(
             status_code=ERR_INTERNAL.http_status,
             content=response,
         )
+        # 响应头注入 trace_id
+        resp.headers["X-Trace-Id"] = trace_id
+        return resp
 
 
 # ── 辅助函数 ──────────────────────────────────────────

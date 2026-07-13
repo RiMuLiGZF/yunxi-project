@@ -18,6 +18,7 @@ M1 错误码统一定义
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, TypedDict
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,35 @@ class ErrorCode:
     message: str
     http_status: int = 400
     level: str = "error"  # info / warning / error / critical
+
+
+# ═══════════════════════════════════════════════════════
+# TypedDict 响应结构定义
+# ═══════════════════════════════════════════════════════
+
+
+class ErrorInfoDict(TypedDict):
+    """错误信息子结构"""
+    code: int
+    message: str
+    detail: str
+    level: str
+
+
+class ErrorResponseDict(TypedDict):
+    """统一错误响应结构"""
+    success: bool
+    error: ErrorInfoDict
+    trace_id: str
+    data: Any
+
+
+class SuccessResponseDict(TypedDict):
+    """统一成功响应结构"""
+    success: bool
+    message: str
+    trace_id: str
+    data: Any
 
 
 # ═══════════════════════════════════════════════════════
@@ -157,8 +187,8 @@ def build_error_response(
     error_code: ErrorCode,
     detail: str = "",
     trace_id: str = "",
-    data: dict | None = None,
-) -> dict:
+    data: Any = None,
+) -> ErrorResponseDict:
     """构建统一格式的错误响应
 
     响应格式：
@@ -191,7 +221,7 @@ def build_success_response(
     data: Any = None,
     message: str = "成功",
     trace_id: str = "",
-) -> dict:
+) -> SuccessResponseDict:
     """构建统一格式的成功响应"""
     return {
         "success": True,

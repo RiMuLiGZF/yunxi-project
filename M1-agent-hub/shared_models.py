@@ -19,7 +19,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -600,3 +600,75 @@ class PrivacyScanResult(BaseModel):
     blocked: bool = False
     block_reason: str = ""
     summary: str = ""
+
+
+# ══════════════════════════════════════════════════════════
+# TypedDict 核心数据结构定义
+# ══════════════════════════════════════════════════════════
+
+
+class TaskInfoDict(TypedDict):
+    """任务信息 TypedDict
+
+    用于在各模块间传递任务核心信息的结构化字典，
+    替代松散的 dict[str, Any] 以提升类型安全性。
+    """
+    task_id: str
+    trace_id: str
+    intent: str
+    status: str                    # pending / running / completed / failed / timeout
+    target_agent: str
+    priority: int
+    created_at: float
+    completed_at: float | None
+    latency_ms: float
+    metadata: dict[str, Any]
+
+
+class AgentInfoDict(TypedDict):
+    """Agent 信息 TypedDict
+
+    用于 Agent 注册中心对外暴露的 Agent 结构化信息。
+    """
+    agent_id: str
+    name: str
+    version: str
+    role: str                      # supervisor / executor / reviewer / external
+    capabilities: list[str]
+    status: str                    # active / inactive / error
+    registered: bool
+    health_status: str             # up / down / degraded / unknown
+    security_clearance: int        # SecurityClassification 的值
+    last_health_check: float | None
+
+
+class TraceSpanDict(TypedDict):
+    """追踪 Span TypedDict
+
+    用于链路追踪系统的 Span 结构化数据。
+    """
+    span_id: str
+    parent_span_id: str
+    name: str
+    start_time: float              # 秒级时间戳
+    end_time: float | None         # 秒级时间戳
+    duration_ms: float
+    status: str                    # ok / error
+    error_message: str | None
+    attributes: dict[str, Any]
+    events: list[dict[str, Any]]
+
+
+class HealthStatusDict(TypedDict):
+    """健康状态 TypedDict
+
+    用于健康监控系统的状态结构化字典表示。
+    """
+    status: str                    # up / down / degraded / unknown
+    timestamp: float
+    latency_ms: float
+    details: dict[str, Any]
+    error: str | None
+    level: str                     # liveness / readiness / deep
+    component_type: str            # database / message_bus / memory / disk / circuit_breaker / custom
+    threshold: dict[str, Any]

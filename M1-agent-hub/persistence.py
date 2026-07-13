@@ -31,7 +31,7 @@ from typing import Any, Callable
 
 import structlog
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 class SQLitePersistence:
@@ -47,16 +47,16 @@ class SQLitePersistence:
     - 健康检查接口
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION: int = 1
 
     # 重试配置
-    MAX_RETRIES = 3
-    RETRY_BACKOFFS = (0.05, 0.1, 0.2)  # 秒，指数退避
+    MAX_RETRIES: int = 3
+    RETRY_BACKOFFS: tuple[float, ...] = (0.05, 0.1, 0.2)  # 秒，指数退避
 
     def __init__(self, db_path: str = ":memory:") -> None:
-        self.db_path = db_path
+        self.db_path: str = db_path
         self._connection: sqlite3.Connection | None = None
-        self._logger = logger.bind(service="sqlite_persistence", db_path=db_path)
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="sqlite_persistence", db_path=db_path)
         self._init_db()
 
     def _init_db(self) -> None:

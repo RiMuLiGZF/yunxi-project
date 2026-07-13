@@ -66,6 +66,11 @@ class M1BaseException(Exception):
         data: 附加数据字典
     """
 
+    error_code: ErrorCode
+    detail: str
+    trace_id: str
+    data: dict[str, Any] | None
+
     def __init__(
         self,
         error_code: ErrorCode,

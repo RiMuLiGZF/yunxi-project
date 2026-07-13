@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 import structlog
 from interfaces import (
@@ -25,7 +25,7 @@ from agent_registry import AgentRegistry
 from budget_manager import BudgetManager
 from idempotency import IdempotencyManager, generate_task_key
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 class TaskDispatcher:
@@ -47,22 +47,22 @@ class TaskDispatcher:
         message_bus: Any,  # MessageBus
         circuit_breaker: Any | None = None,  # [P2-009] CircuitBreakerRegistry
         retry_coordinator: Any | None = None,  # [P3-002] RetryCoordinator
-        budget_manager: Any | None = None,
+        budget_manager: BudgetManager | None = None,
     ) -> None:
-        self._registry = registry
-        self._bus = message_bus
-        self._circuit_breaker = circuit_breaker  # [P2-009] 可选熔断器
-        self._retry_coordinator = retry_coordinator  # [P3-002] 可选重试协调器
-        self._budget_manager = budget_manager
-        self._logger = logger.bind(service="task_dispatcher")
+        self._registry: AgentRegistry = registry
+        self._bus: Any = message_bus
+        self._circuit_breaker: Any | None = circuit_breaker  # [P2-009] 可选熔断器
+        self._retry_coordinator: Any | None = retry_coordinator  # [P3-002] 可选重试协调器
+        self._budget_manager: BudgetManager | None = budget_manager
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="task_dispatcher")
         # [V11.2] 幂等性管理器
-        self._idempotency = IdempotencyManager(ttl=3600, max_entries=10000)
+        self._idempotency: IdempotencyManager = IdempotencyManager(ttl=3600, max_entries=10000)
         from interfaces import CancelToken
         self._cancel_tokens: dict[str, CancelToken] = {}  # [V9.8] 取消令牌映射
         # [V10.0-R06] 硬件状态映射：device_id -> HardwareStatus
         self._hardware_status: dict[str, Any] = {}
         # [V10.0-R06] 断连任务缓存：device_id -> list[AgentTask]
-        self._offline_cache: dict[str, list[Any]] = {}
+        self._offline_cache: dict[str, list[AgentTask]] = {}
         # [V10.0-R06] 硬件健康回调注册表
         self._hardware_callbacks: list[Callable[[str, bool], Awaitable[None]]] = []
 

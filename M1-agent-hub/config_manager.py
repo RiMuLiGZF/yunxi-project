@@ -25,9 +25,9 @@ try:
     from pydantic import BaseModel, Field, field_validator, ConfigDict
     from pydantic import ValidationError as PydanticValidationError
 
-    _PYDANTIC_AVAILABLE = True
+    _PYDANTIC_AVAILABLE: bool = True
 except ImportError:  # pragma: no cover
-    _PYDANTIC_AVAILABLE = False
+    _PYDANTIC_AVAILABLE: bool = False
     # 降级：定义占位类，避免运行时 ImportError
     class BaseModel:  # type: ignore[no-redef]
         pass
@@ -38,100 +38,117 @@ except ImportError:  # pragma: no cover
     class PydanticValidationError(Exception):  # type: ignore[no-redef]
         pass
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 # ── Pydantic 配置模型 ────────────────────────────────────────────────────────
+# [V12.0] 配置模型已迁移至 models/config.py 统一管理。
+# 优先从 models 包导入，失败时回退到本地定义以保持向后兼容。
 
+try:
+    from models.config import (
+        M1Config,
+        ServerConfig,
+        DatabaseConfig,
+        MessageBusConfig,
+        FederationConfig,
+        AgentsConfig,
+        MemoryConfig,
+        SecurityConfig,
+    )
+    _config_models_imported = True
+except ImportError:
+    _config_models_imported = False
 
-class ServerConfig(BaseModel):
-    """服务端配置子模型。"""
+    # deprecated: use models.config.ServerConfig instead
+    class ServerConfig(BaseModel):  # type: ignore[no-redef]
+        """服务端配置子模型。"""
 
-    model_config = ConfigDict(extra="allow")
+        model_config = ConfigDict(extra="allow")
 
-    host: str = "0.0.0.0"
-    port: int = Field(default=8000, ge=1, le=65535)
-    log_level: str = "info"
+        host: str = "0.0.0.0"
+        port: int = Field(default=8000, ge=1, le=65535)
+        log_level: str = "info"
 
-    @field_validator("log_level")
-    @classmethod
-    def _validate_log_level(cls, v: str) -> str:
-        allowed = {"debug", "info", "warning", "error"}
-        if v.lower() not in allowed:
-            raise ValueError(f"log_level 必须是 {allowed} 之一，当前值: {v}")
-        return v.lower()
+        @field_validator("log_level")
+        @classmethod
+        def _validate_log_level(cls, v: str) -> str:
+            allowed = {"debug", "info", "warning", "error"}
+            if v.lower() not in allowed:
+                raise ValueError(f"log_level 必须是 {allowed} 之一，当前值: {v}")
+            return v.lower()
 
+    # deprecated: use models.config.DatabaseConfig instead
+    class DatabaseConfig(BaseModel):  # type: ignore[no-redef]
+        """数据库配置子模型。"""
 
-class DatabaseConfig(BaseModel):
-    """数据库配置子模型。"""
+        model_config = ConfigDict(extra="allow")
 
-    model_config = ConfigDict(extra="allow")
+        db_path: str = "./data/m1.db"
+        wal_mode: bool = True
+        busy_timeout: int = 5000
 
-    db_path: str = "./data/m1.db"
-    wal_mode: bool = True
-    busy_timeout: int = 5000
+    # deprecated: use models.config.MessageBusConfig instead
+    class MessageBusConfig(BaseModel):  # type: ignore[no-redef]
+        """消息总线配置子模型。"""
 
+        model_config = ConfigDict(extra="allow")
 
-class MessageBusConfig(BaseModel):
-    """消息总线配置子模型。"""
+        max_queue_size: int = 10000
+        topic_pattern: str = "m1.*"
 
-    model_config = ConfigDict(extra="allow")
+    # deprecated: use models.config.FederationConfig instead
+    class FederationConfig(BaseModel):  # type: ignore[no-redef]
+        """联邦调度配置子模型。"""
 
-    max_queue_size: int = 10000
-    topic_pattern: str = "m1.*"
+        model_config = ConfigDict(extra="allow")
 
+        enabled: bool = True
+        default_privacy_level: str = "L1"
 
-class FederationConfig(BaseModel):
-    """联邦调度配置子模型。"""
+    # deprecated: use models.config.AgentsConfig instead
+    class AgentsConfig(BaseModel):  # type: ignore[no-redef]
+        """Agent 管理配置子模型。"""
 
-    model_config = ConfigDict(extra="allow")
+        model_config = ConfigDict(extra="allow")
 
-    enabled: bool = True
-    default_privacy_level: str = "L1"
+        max_concurrent: int = 100
+        default_timeout_s: int = 300
 
+    # deprecated: use models.config.MemoryConfig instead
+    class MemoryConfig(BaseModel):  # type: ignore[no-redef]
+        """记忆系统配置子模型。"""
 
-class AgentsConfig(BaseModel):
-    """Agent 管理配置子模型。"""
+        model_config = ConfigDict(extra="allow")
 
-    model_config = ConfigDict(extra="allow")
+        enabled: bool = True
+        max_entries: int = 10000
 
-    max_concurrent: int = 100
-    default_timeout_s: int = 300
+    # deprecated: use models.config.SecurityConfig instead
+    class SecurityConfig(BaseModel):  # type: ignore[no-redef]
+        """安全配置子模型。"""
 
+        model_config = ConfigDict(extra="allow")
 
-class MemoryConfig(BaseModel):
-    """记忆系统配置子模型。"""
+        admin_key: str | None = None
+        rate_limit_per_minute: int = 60
 
-    model_config = ConfigDict(extra="allow")
+    # deprecated: use models.config.M1Config instead
+    class M1Config(BaseModel):  # type: ignore[no-redef]
+        """M1 调度中心配置校验 Schema。
 
-    enabled: bool = True
-    max_entries: int = 10000
+        使用 Pydantic v2 风格的模型配置，允许额外字段（extra="allow"），
+        仅对已知字段进行类型与范围校验，未知字段原样保留以保证向后兼容。
+        """
 
+        model_config = ConfigDict(extra="allow")
 
-class SecurityConfig(BaseModel):
-    """安全配置子模型。"""
-
-    model_config = ConfigDict(extra="allow")
-
-    admin_key: str | None = None
-    rate_limit_per_minute: int = 60
-
-
-class M1Config(BaseModel):
-    """M1 调度中心配置校验 Schema。
-
-    使用 Pydantic v2 风格的模型配置，允许额外字段（extra="allow"），
-    仅对已知字段进行类型与范围校验，未知字段原样保留以保证向后兼容。
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    server: ServerConfig = Field(default_factory=ServerConfig)
-    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
-    message_bus: MessageBusConfig = Field(default_factory=MessageBusConfig)
-    federation: FederationConfig = Field(default_factory=FederationConfig)
-    agents: AgentsConfig = Field(default_factory=AgentsConfig)
-    memory: MemoryConfig = Field(default_factory=MemoryConfig)
-    security: SecurityConfig = Field(default_factory=SecurityConfig)
+        server: ServerConfig = Field(default_factory=ServerConfig)
+        database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+        message_bus: MessageBusConfig = Field(default_factory=MessageBusConfig)
+        federation: FederationConfig = Field(default_factory=FederationConfig)
+        agents: AgentsConfig = Field(default_factory=AgentsConfig)
+        memory: MemoryConfig = Field(default_factory=MemoryConfig)
+        security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 
 class ConfigValidationError(Exception):
@@ -212,7 +229,7 @@ class ConfigManager:
             "master_key",
             "jwt_secret",
         ]
-        self._logger = logger.bind(service="config_manager")
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="config_manager")
 
         # 热加载回退相关状态
         # 上一版有效配置的深拷贝，热加载失败时用于回退
@@ -221,6 +238,9 @@ class ConfigManager:
         self._reload_status: bool = True
         # 上次热加载失败的原因（成功时为空字符串）
         self._reload_error: str = ""
+
+        # 配置变更回调注册表：key -> list[callback]
+        self._change_callbacks: dict[str, list[Callable[[Any, Any], None]]] = {}
 
         # 1. 先加载默认配置作为基础
         self._load_defaults()
@@ -1277,9 +1297,6 @@ class ConfigManager:
             key: 监听的配置键（点号路径）
             callback: 变更回调函数
         """
-        if not hasattr(self, "_change_callbacks"):
-            self._change_callbacks: dict[str, list[Callable[[Any, Any], None]]] = {}
-
         if key not in self._change_callbacks:
             self._change_callbacks[key] = []
         self._change_callbacks[key].append(callback)
@@ -1290,9 +1307,6 @@ class ConfigManager:
         Args:
             old_config: 变更前的配置字典
         """
-        if not hasattr(self, "_change_callbacks"):
-            return
-
         for key, callbacks in self._change_callbacks.items():
             old_val = self._get_from_dict(old_config, key)
             new_val = self.get(key)

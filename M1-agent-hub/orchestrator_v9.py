@@ -28,7 +28,7 @@ from guardrails_v2 import GuardrailsV2
 from ledger_engine import LedgerEngine, LedgerStatus
 from budget_manager import BudgetManager
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 class OrchestratorV9:
@@ -51,13 +51,13 @@ class OrchestratorV9:
         ledger: LedgerEngine | None = None,
         budget_manager: BudgetManager | None = None,
     ) -> None:
-        self._v8 = orchestrator_v8
-        self._intent = intent_classifier or SemanticIntentClassifierV3()
-        self._otlp = otlp_exporter
-        self._guardrails = guardrails or GuardrailsV2()
-        self._ledger = ledger or LedgerEngine()
-        self._budget = budget_manager
-        self._logger = logger.bind(service="orchestrator_v9")
+        self._v8: OrchestratorV8 = orchestrator_v8
+        self._intent: SemanticIntentClassifierV3 = intent_classifier or SemanticIntentClassifierV3()
+        self._otlp: OTLPExporter | None = otlp_exporter
+        self._guardrails: GuardrailsV2 = guardrails or GuardrailsV2()
+        self._ledger: LedgerEngine = ledger or LedgerEngine()
+        self._budget: BudgetManager | None = budget_manager
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="orchestrator_v9")
 
     # ── 语义意图路由 ────────────────────────────────
 

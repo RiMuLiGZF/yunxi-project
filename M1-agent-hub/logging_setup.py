@@ -1,12 +1,25 @@
 """
 M1 日志规范模块 — Logging Setup
 
-实现 P1-6 日志规范：
+实现 P1-6 日志规范 + 全链路追踪增强（V11.4）：
 - JSON 格式日志
-- 包含 trace_id（全链路追踪）
+- 包含 trace_id / span_id（全链路追踪，基于 contextvars 异步安全）
 - 日志级别正确使用
 - 敏感字段自动脱敏
 - 日志轮转（按大小 + 按天）
+- structlog 自动注入 trace 上下文
+
+日志级别使用规范：
+- DEBUG：开发调试信息，生产环境默认关闭，记录变量值、执行路径等
+- INFO：正常业务流程信息，如请求进入、任务完成、消息投递成功
+- WARNING：可恢复的异常情况，如重试、降级、参数不合法但有兜底
+- ERROR：业务错误或系统异常，需要人工关注，如接口调用失败、数据库异常
+- CRITICAL：致命错误，系统不可用，需要立即处理，如核心依赖全部宕机
+
+全链路追踪：
+- 从 trace_context 模块的 contextvars 读取 trace_id / span_id
+- 每条日志自动注入 trace_id、span_id，便于日志关联排查
+- 兼容旧版 get_trace_id / set_trace_id 函数调用方式
 """
 
 from __future__ import annotations
@@ -15,12 +28,20 @@ import os
 import re
 import json
 import time
-import uuid
 import logging
 import logging.handlers
 from typing import Any
 
 import structlog
+
+# 全链路追踪上下文（基于 contextvars，异步安全）
+from trace_context import (
+    get_trace_id as _ctx_get_trace_id,
+    get_span_id as _ctx_get_span_id,
+    set_trace_id as _ctx_set_trace_id,
+    generate_trace_id as _ctx_generate_trace_id,
+    clear_trace_id as _ctx_clear_trace_id,
+)
 
 # 敏感字段列表（日志中自动脱敏）
 DEFAULT_SENSITIVE_FIELDS = {
@@ -60,6 +81,7 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
             "trace_id": getattr(record, "trace_id", ""),
+            "span_id": getattr(record, "span_id", ""),
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
@@ -88,30 +110,8 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_entry, ensure_ascii=False, default=str)
 
     def _sanitize_dict(self, data: dict[str, Any]) -> dict[str, Any]:
-        """递归脱敏字典中的敏感字段"""
-        result = {}
-        for key, value in data.items():
-            # 字段名匹配敏感字段
-            if key.lower() in DEFAULT_SENSITIVE_FIELDS:
-                result[key] = "***"
-                continue
-
-            # 值中包含敏感模式
-            if isinstance(value, str):
-                result[key] = self._sanitize_value(value)
-            elif isinstance(value, dict):
-                result[key] = self._sanitize_dict(value)
-            elif isinstance(value, list):
-                result[key] = [
-                    self._sanitize_value(item) if isinstance(item, str)
-                    else self._sanitize_dict(item) if isinstance(item, dict)
-                    else item
-                    for item in value
-                ]
-            else:
-                result[key] = value
-
-        return result
+        """递归脱敏字典中的敏感字段（委托给模块级函数）"""
+        return sanitize_dict(data)
 
     @staticmethod
     def _sanitize_value(value: str) -> str:
@@ -122,62 +122,179 @@ class JsonFormatter(logging.Formatter):
         return result
 
 
-class TraceIdContext:
-    """Trace ID 上下文管理
+def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
+    """递归脱敏字典中的敏感字段（模块级函数，供 structlog processor 复用）。
 
-    用于在请求处理流程中传递 trace_id。
+    Args:
+        data: 待脱敏的字典数据
+
+    Returns:
+        脱敏后的字典
     """
+    result: dict[str, Any] = {}
+    for key, value in data.items():
+        # 字段名匹配敏感字段
+        if key.lower() in DEFAULT_SENSITIVE_FIELDS:
+            result[key] = "***"
+            continue
 
-    def __init__(self) -> None:
-        self._current_trace_id: str = ""
+        # 值中包含敏感模式
+        if isinstance(value, str):
+            result[key] = _sanitize_value(value)
+        elif isinstance(value, dict):
+            result[key] = sanitize_dict(value)
+        elif isinstance(value, list):
+            result[key] = [
+                _sanitize_value(item) if isinstance(item, str)
+                else sanitize_dict(item) if isinstance(item, dict)
+                else item
+                for item in value
+            ]
+        else:
+            result[key] = value
 
-    def generate(self) -> str:
-        """生成新的 trace_id"""
-        self._current_trace_id = uuid.uuid4().hex
-        return self._current_trace_id
-
-    def set(self, trace_id: str) -> None:
-        """设置当前 trace_id"""
-        self._current_trace_id = trace_id
-
-    def get(self) -> str:
-        """获取当前 trace_id"""
-        return self._current_trace_id
-
-    def clear(self) -> None:
-        """清除 trace_id"""
-        self._current_trace_id = ""
-
-
-# 全局 trace_id 上下文
-_trace_context = TraceIdContext()
-
-
-def get_trace_id() -> str:
-    """获取当前 trace_id"""
-    return _trace_context.get()
+    return result
 
 
-def set_trace_id(trace_id: str) -> None:
-    """设置 trace_id"""
-    _trace_context.set(trace_id)
+def _sanitize_value(value: str) -> str:
+    """脱敏字符串值中的敏感模式（模块级函数）。
+
+    Args:
+        value: 待脱敏的字符串
+
+    Returns:
+        脱敏后的字符串
+    """
+    result = value
+    for pattern in SENSITIVE_VALUE_PATTERNS:
+        result = pattern.sub("***", result)
+    return result
 
 
-def new_trace_id() -> str:
-    """生成新的 trace_id 并设置"""
-    return _trace_context.generate()
+class TraceContextFilter(logging.Filter):
+    """Trace 上下文日志过滤器
 
-
-class TraceIdFilter(logging.Filter):
-    """Trace ID 日志过滤器
-
-    自动将当前 trace_id 注入到日志记录中。
+    自动从 contextvars 读取当前 trace_id / span_id 并注入到日志记录中。
+    基于 contextvars 实现，协程安全，支持异步环境。
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # 注入 trace_id
         if not hasattr(record, "trace_id") or not record.trace_id:
-            record.trace_id = get_trace_id()
+            record.trace_id = _ctx_get_trace_id()
+        # 注入 span_id
+        if not hasattr(record, "span_id") or not record.span_id:
+            record.span_id = _ctx_get_span_id()
         return True
+
+
+# ── 兼容旧版 API（委托给 trace_context 模块） ──────────────
+
+def get_trace_id() -> str:
+    """获取当前 trace_id（从 contextvars 读取，异步安全）。
+
+    如不存在则自动生成新的 trace_id 并设置到上下文。
+
+    Returns:
+        当前 trace_id 字符串
+    """
+    return _ctx_get_trace_id()
+
+
+def set_trace_id(trace_id: str) -> Any:
+    """设置当前 trace_id（写入 contextvars，异步安全）。
+
+    Args:
+        trace_id: 要设置的 trace_id 字符串
+
+    Returns:
+        contextvars.Token 对象，可用于恢复原值
+    """
+    return _ctx_set_trace_id(trace_id)
+
+
+def new_trace_id() -> str:
+    """生成新的 trace_id 并设置到上下文。
+
+    Returns:
+        新生成的 trace_id
+    """
+    tid = _ctx_generate_trace_id()
+    _ctx_set_trace_id(tid)
+    return tid
+
+
+def clear_trace_id() -> None:
+    """清除当前 trace_id（置空）。"""
+    _ctx_clear_trace_id()
+
+
+def get_span_id() -> str:
+    """获取当前 span_id（从 contextvars 读取）。
+
+    Returns:
+        当前 span_id 字符串
+    """
+    return _ctx_get_span_id()
+
+
+def add_trace_context_processor(logger_name: str | None = None) -> None:
+    """为 structlog 添加 trace 上下文注入 processor。
+
+    自定义 processor，从 contextvars 读取 trace_id 和 span_id，
+    自动注入到每条 structlog 日志条目中。
+
+    Args:
+        logger_name: 可选，指定日志器名称，暂未使用（保留扩展）
+    """
+    # 此函数作为对外 API 保留，实际注入在 setup_logging 的 processor 链中完成
+    _ = logger_name  # 静默未使用参数
+
+
+def _inject_trace_context(
+    logger: Any,
+    method_name: str,
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
+    """structlog processor：从 contextvars 注入 trace_id / span_id。
+
+    自动将当前上下文中的 trace_id 和 span_id 添加到日志事件中。
+    若事件字典中已存在 trace_id（如调用方手动传入），则以传入值为准。
+
+    Args:
+        logger: 日志器实例（structlog 约定参数）
+        method_name: 调用的日志方法名（structlog 约定参数）
+        event_dict: 日志事件字典
+
+    Returns:
+        注入了 trace_id / span_id 的事件字典
+    """
+    if "trace_id" not in event_dict or not event_dict["trace_id"]:
+        event_dict["trace_id"] = _ctx_get_trace_id()
+    if "span_id" not in event_dict or not event_dict["span_id"]:
+        event_dict["span_id"] = _ctx_get_span_id()
+    return event_dict
+
+
+def _sanitize_event_dict(
+    logger: Any,
+    method_name: str,
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
+    """structlog processor：对日志事件字典进行敏感字段脱敏。
+
+    复用 JsonFormatter 的脱敏逻辑，对 structlog 输出的日志也进行
+    敏感字段检查与掩码处理。
+
+    Args:
+        logger: 日志器实例（structlog 约定参数）
+        method_name: 调用的日志方法名（structlog 约定参数）
+        event_dict: 日志事件字典
+
+    Returns:
+        脱敏后的事件字典
+    """
+    return _sanitize_dict(event_dict)
 
 
 def setup_logging(
@@ -227,7 +344,7 @@ def setup_logging(
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
-    console_handler.addFilter(TraceIdFilter())
+    console_handler.addFilter(TraceContextFilter())
     root_logger.addHandler(console_handler)
 
     # 文件处理器（带轮转）
@@ -245,15 +362,19 @@ def setup_logging(
         )
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
-        file_handler.addFilter(TraceIdFilter())
+        file_handler.addFilter(TraceContextFilter())
         root_logger.addHandler(file_handler)
 
     # structlog 配置
+    # processor 链：合并 contextvars -> 注入 trace_id/span_id -> 添加日志级别
+    #               -> 时间戳 -> JSON/Console 渲染
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
+            _inject_trace_context,  # 自动从 contextvars 注入 trace_id / span_id
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
+            _sanitize_event_dict,   # 敏感字段脱敏
             structlog.processors.JSONRenderer(ensure_ascii=False)
             if log_format == "json"
             else structlog.dev.ConsoleRenderer(),
@@ -296,21 +417,54 @@ def get_logger(name: str) -> Any:
 
 
 # 便捷日志函数
+# 注：trace_id / span_id 由 structlog processor 自动从 contextvars 注入，
+#     无需手动传入。若需覆盖可在 kwargs 中显式指定。
+
 def debug(msg: str, **kwargs: Any) -> None:
-    structlog.get_logger().debug(msg, trace_id=get_trace_id(), **kwargs)
+    """输出 DEBUG 级别日志。
+
+    Args:
+        msg: 日志消息
+        **kwargs: 附加的结构化字段
+    """
+    structlog.get_logger().debug(msg, **kwargs)
 
 
 def info(msg: str, **kwargs: Any) -> None:
-    structlog.get_logger().info(msg, trace_id=get_trace_id(), **kwargs)
+    """输出 INFO 级别日志。
+
+    Args:
+        msg: 日志消息
+        **kwargs: 附加的结构化字段
+    """
+    structlog.get_logger().info(msg, **kwargs)
 
 
 def warning(msg: str, **kwargs: Any) -> None:
-    structlog.get_logger().warning(msg, trace_id=get_trace_id(), **kwargs)
+    """输出 WARNING 级别日志。
+
+    Args:
+        msg: 日志消息
+        **kwargs: 附加的结构化字段
+    """
+    structlog.get_logger().warning(msg, **kwargs)
 
 
 def error(msg: str, **kwargs: Any) -> None:
-    structlog.get_logger().error(msg, trace_id=get_trace_id(), **kwargs)
+    """输出 ERROR 级别日志。
+
+    Args:
+        msg: 日志消息
+        **kwargs: 附加的结构化字段
+    """
+    structlog.get_logger().error(msg, **kwargs)
 
 
 def critical(msg: str, **kwargs: Any) -> None:
-    structlog.get_logger().critical(msg, trace_id=get_trace_id(), **kwargs)
+    """输出 CRITICAL 级别日志。
+
+    Args:
+        msg: 日志消息
+        **kwargs: 附加的结构化字段
+    """
+    structlog.get_logger().critical(msg, **kwargs)

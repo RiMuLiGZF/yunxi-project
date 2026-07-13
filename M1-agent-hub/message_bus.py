@@ -4,6 +4,11 @@
 
 基于 asyncio 的发布-订阅（Pub/Sub）模式消息总线，
 支持 topic 过滤、优先级队列、TTL 过期检查、背压控制。
+
+[V11.4] 全链路追踪增强：
+- 发布消息时自动附加当前 contextvars 中的 trace_id（若消息未设置）
+- 消费消息时从消息中提取 trace_id 并设置到上下文
+- 确保消息处理链路上的所有日志都具有相同 trace_id
 """
 
 from __future__ import annotations
@@ -18,6 +23,28 @@ from interfaces import BusMessage, BusHandler, BusError
 from dead_letter_queue import DeadLetterQueue
 
 logger = structlog.get_logger(__name__)
+
+# 全链路追踪上下文（基于 contextvars，异步安全）
+# 惰性导入，避免循环依赖
+_trace_ctx = None
+
+
+def _get_trace_module() -> Any:
+    """惰性获取 trace_context 模块。
+
+    Returns:
+        trace_context 模块对象，导入失败返回 None
+    """
+    global _trace_ctx
+    if _trace_ctx is not None:
+        return _trace_ctx
+    try:
+        import trace_context as tc
+        _trace_ctx = tc
+        return tc
+    except ImportError:
+        _trace_ctx = False  # type: ignore[assignment]
+        return None
 
 
 class MessageBus:
@@ -48,10 +75,10 @@ class MessageBus:
         self._running: bool = False
         self._consumer_task: asyncio.Task[None] | None = None
         self._sub_lock: asyncio.Lock = asyncio.Lock()
-        self._dlq = DeadLetterQueue()
+        self._dlq: DeadLetterQueue = DeadLetterQueue()
         self._max_hops: int = 10
         self._enable_breadcrumb: bool = True
-        self._logger = logger.bind(service="message_bus")
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="message_bus")
 
     @classmethod
     async def get_instance(cls) -> MessageBus:
@@ -123,7 +150,16 @@ class MessageBus:
 
         将消息放入优先级队列，若队列满则丢弃最低优先级消息并记录错误。
         自动注入 hop_count 和 breadcrumb，检测循环消息。
+
+        [V11.4] 自动注入 trace_id：若消息未设置 trace_id，
+        从当前 contextvars 上下文中获取并注入。
         """
+        # [V11.4] 自动注入 trace_id
+        if not message.trace_id:
+            tc = _get_trace_module()
+            if tc is not None:
+                message.trace_id = tc.get_trace_id()
+
         # 消息防循环：递增 hop_count 并记录路径
         meta = dict(message.payload.get("_meta", {}))
         hop_count = meta.get("hop_count", 0) + 1
@@ -246,6 +282,9 @@ class MessageBus:
         检查 TTL，过期则丢弃。
         若 recipient 不为 None，仅投递给该 recipient 的 handler。
         若 recipient 为 None，投递给所有匹配 topic 的 handler。
+
+        [V11.4] 全链路追踪：投递前从消息中提取 trace_id 并设置到 contextvars，
+        确保消息处理链路上的所有日志都带有相同 trace_id。
         """
         # TTL 检查
         if time.time() > message.timestamp + message.ttl:
@@ -273,6 +312,12 @@ class MessageBus:
         # 投递
         delivery_errors: list[str] = []
         for sub_id, handler in matched_handlers:
+            # [V11.4] 设置 trace_id 到上下文，确保 handler 内日志有 trace_id
+            trace_token = None
+            tc = _get_trace_module()
+            if tc is not None and message.trace_id:
+                trace_token = tc.set_trace_id(message.trace_id)
+
             try:
                 await handler(message)
                 self._logger.info(
@@ -293,6 +338,10 @@ class MessageBus:
                     error=error_msg,
                     exc_info=True,
                 )
+            finally:
+                # [V11.4] 恢复 trace_id 上下文
+                if trace_token is not None and tc is not None:
+                    tc.reset_trace_id(trace_token)
 
         # 全部投递失败时转入死信队列
         if matched_handlers and len(delivery_errors) == len(matched_handlers):

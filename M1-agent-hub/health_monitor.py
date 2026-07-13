@@ -25,7 +25,7 @@ from typing import Any, Awaitable, Callable, Literal
 
 import structlog
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 # ── 类型定义 ──────────────────────────────────────────
@@ -130,13 +130,13 @@ class HealthMonitor:
             "readiness": None,
             "deep": None,
         }
-        self._cache_lock = asyncio.Lock()
+        self._cache_lock: asyncio.Lock = asyncio.Lock()
 
         # 兼容旧版：保留单一 TTL 属性（映射到 readiness 级别）
         self._cache_ttl: float = 5.0
         self._last_check: float = 0.0
 
-        self._logger = logger.bind(service="health_monitor")
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(service="health_monitor")
 
     # ── 注册接口 ──────────────────────────────────────
 

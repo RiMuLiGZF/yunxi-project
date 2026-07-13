@@ -13,7 +13,7 @@ import uuid
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Literal, Awaitable, Callable
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,25 +24,29 @@ from pydantic import BaseModel, Field
 class AgentClusterError(Exception):
     """Agent 集群基础异常"""
 
-    pass
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
 
 
 class DispatchError(AgentClusterError):
     """任务分发异常"""
 
-    pass
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
 
 
 class BusError(AgentClusterError):
     """消息总线异常"""
 
-    pass
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
 
 
 class RegistryError(AgentClusterError):
     """Agent 注册中心异常"""
 
-    pass
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
 
 
 # ── 数据模型 ──────────────────────────────────────────────────
@@ -160,7 +164,7 @@ class IAgentPlugin(ABC):
         """处理一个任务"""
         ...
 
-    async def on_mount(self, registry: Any | None = None) -> None:
+    async def on_mount(self, registry: Optional["AgentRegistry"] = None) -> None:
         """Agent 被注册到注册中心时调用"""
         pass
 

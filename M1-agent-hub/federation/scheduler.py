@@ -17,11 +17,11 @@ from shared_models import (
     SecurityClassification,
 )
 
-logger = structlog.get_logger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
 # 决策因子权重
-FACTOR_WEIGHTS = {
+FACTOR_WEIGHTS: dict[str, float] = {
     "privacy": 0.30,       # 隐私合规要求
     "capability": 0.25,    # 任务类型匹配度
     "preference": 0.20,    # 用户偏好模式
@@ -47,10 +47,10 @@ class FederatedScheduler:
         default_preference: UserPreferenceMode = UserPreferenceMode.BALANCED,
         internal_capability_coverage: float = 0.7,  # 内部 Agent 能力覆盖率
     ) -> None:
-        self._registry = registry
-        self._default_preference = default_preference
-        self._internal_coverage = internal_capability_coverage
-        self._logger = logger.bind(component="federated_scheduler")
+        self._registry: Any = registry
+        self._default_preference: UserPreferenceMode = default_preference
+        self._internal_coverage: float = internal_capability_coverage
+        self._logger: structlog.stdlib.BoundLogger = logger.bind(component="federated_scheduler")
 
     # ── 核心决策 ────────────────────────────────────────
 
