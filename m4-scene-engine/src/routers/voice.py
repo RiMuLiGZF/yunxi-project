@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, Form, HTTPExcep
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from src.database import get_session
+from src.models.db import get_session
 from src.models import make_response
 from src.services.voice_service import VoiceService
 

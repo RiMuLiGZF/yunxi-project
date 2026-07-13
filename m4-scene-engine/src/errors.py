@@ -1,5 +1,4 @@
-"""
-M4 场景引擎 - 统一错误码定义
+"""M4 场景引擎 - 统一错误码定义
 
 错误码规则:
 - 4xxxx: 客户端错误 (40000-49999)
@@ -17,85 +16,99 @@ M4 场景引擎 - 统一错误码定义
     return error_response(ErrorCode.SCENE_NOT_FOUND)
     # 方式2: 抛出异常
     raise M4Error(ErrorCode.SCENE_NOT_FOUND)
+    # 方式3: 获取错误消息
+    msg = ErrorCode.SCENE_NOT_FOUND.message
 """
 
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 
 class ErrorCode(IntEnum):
-    """统一错误码枚举"""
+    """统一错误码枚举.
+
+    每个枚举成员的 value 为 (code, message) 元组，
+    通过 IntEnum 继承保证与整数的兼容性。
+    新增错误码时只需在此处添加一项，消息与错误码集中管理。
+    """
 
     # ---- 通用错误 (400xx) ----
-    SUCCESS = 0
-    BAD_REQUEST = 40000
-    INVALID_PARAMETER = 40001
-    MISSING_PARAMETER = 40002
-    RESOURCE_NOT_FOUND = 40004
-    METHOD_NOT_ALLOWED = 40005
-    RATE_LIMITED = 40029
+    SUCCESS = (0, "成功")
+    BAD_REQUEST = (40000, "请求参数错误")
+    INVALID_PARAMETER = (40001, "参数无效")
+    MISSING_PARAMETER = (40002, "缺少必需参数")
+    RESOURCE_NOT_FOUND = (40004, "资源不存在")
+    METHOD_NOT_ALLOWED = (40005, "方法不允许")
+    RATE_LIMITED = (40029, "请求过于频繁")
 
     # ---- 场景相关 (410xx) ----
-    SCENE_NOT_FOUND = 41001
-    SCENE_SWITCH_FAILED = 41002
-    SCENE_ALREADY_ACTIVE = 41003
-    SCENE_INVALID_CONFIG = 41004
-    SCENE_ENGINE_ERROR = 41005
+    SCENE_NOT_FOUND = (41001, "场景不存在")
+    SCENE_SWITCH_FAILED = (41002, "场景切换失败")
+    SCENE_ALREADY_ACTIVE = (41003, "场景已在运行")
+    SCENE_INVALID_CONFIG = (41004, "场景配置无效")
+    SCENE_ENGINE_ERROR = (41005, "场景引擎内部错误")
 
     # ---- 上下文相关 (420xx) ----
-    CONTEXT_NOT_FOUND = 42001
-    CONTEXT_STORE_ERROR = 42002
-    CONTEXT_TOO_LARGE = 42003
+    CONTEXT_NOT_FOUND = (42001, "上下文不存在")
+    CONTEXT_STORE_ERROR = (42002, "上下文存储错误")
+    CONTEXT_TOO_LARGE = (42003, "上下文内容过大")
 
     # ---- 配置相关 (430xx) ----
-    CONFIG_NOT_FOUND = 43001
-    CONFIG_INVALID = 43002
-    CONFIG_READ_ONLY = 43003
+    CONFIG_NOT_FOUND = (43001, "配置不存在")
+    CONFIG_INVALID = (43002, "配置无效")
+    CONFIG_READ_ONLY = (43003, "配置为只读")
 
     # ---- 鉴权相关 (440xx) ----
-    TOKEN_MISSING = 44001
-    TOKEN_INVALID = 44002
-    PERMISSION_DENIED = 44003
+    TOKEN_MISSING = (44001, "未提供认证令牌")
+    TOKEN_INVALID = (44002, "认证令牌无效")
+    PERMISSION_DENIED = (44003, "权限不足")
 
     # ---- 服务端错误 (500xx) ----
-    INTERNAL_ERROR = 50000
-    SERVICE_UNAVAILABLE = 50003
-    TIMEOUT = 50004
+    INTERNAL_ERROR = (50000, "服务器内部错误")
+    SERVICE_UNAVAILABLE = (50003, "服务暂不可用")
+    TIMEOUT = (50004, "请求超时")
+
+    def __new__(cls, code: int, message: str = "") -> "ErrorCode":
+        """自定义构造方法，支持 (code, message) 元组赋值."""
+        obj = int.__new__(cls, code)
+        obj._value_ = code
+        obj._message_ = message
+        return obj
+
+    @property
+    def code(self) -> int:
+        """获取错误码数值."""
+        return self._value_  # type: ignore[attr-defined]
+
+    @property
+    def message(self) -> str:
+        """获取错误消息."""
+        return self._message_  # type: ignore[attr-defined]
+
+    def __str__(self) -> str:
+        return f"{self.name}({self.code}): {self.message}"
 
 
-# 错误消息映射
-ERROR_MESSAGES: Dict[int, str] = {
-    ErrorCode.SUCCESS: "成功",
-    ErrorCode.BAD_REQUEST: "请求参数错误",
-    ErrorCode.INVALID_PARAMETER: "参数无效",
-    ErrorCode.MISSING_PARAMETER: "缺少必需参数",
-    ErrorCode.RESOURCE_NOT_FOUND: "资源不存在",
-    ErrorCode.METHOD_NOT_ALLOWED: "方法不允许",
-    ErrorCode.RATE_LIMITED: "请求过于频繁",
-    ErrorCode.SCENE_NOT_FOUND: "场景不存在",
-    ErrorCode.SCENE_SWITCH_FAILED: "场景切换失败",
-    ErrorCode.SCENE_ALREADY_ACTIVE: "场景已在运行",
-    ErrorCode.SCENE_INVALID_CONFIG: "场景配置无效",
-    ErrorCode.SCENE_ENGINE_ERROR: "场景引擎内部错误",
-    ErrorCode.CONTEXT_NOT_FOUND: "上下文不存在",
-    ErrorCode.CONTEXT_STORE_ERROR: "上下文存储错误",
-    ErrorCode.CONTEXT_TOO_LARGE: "上下文内容过大",
-    ErrorCode.CONFIG_NOT_FOUND: "配置不存在",
-    ErrorCode.CONFIG_INVALID: "配置无效",
-    ErrorCode.CONFIG_READ_ONLY: "配置为只读",
-    ErrorCode.TOKEN_MISSING: "未提供认证令牌",
-    ErrorCode.TOKEN_INVALID: "认证令牌无效",
-    ErrorCode.PERMISSION_DENIED: "权限不足",
-    ErrorCode.INTERNAL_ERROR: "服务器内部错误",
-    ErrorCode.SERVICE_UNAVAILABLE: "服务暂不可用",
-    ErrorCode.TIMEOUT: "请求超时",
-}
+# ---------------------------------------------------------------------------
+# 向后兼容：ERROR_MESSAGES 字典（从枚举自动生成）
+# ---------------------------------------------------------------------------
+
+ERROR_MESSAGES: Dict[int, str] = {code: code.message for code in ErrorCode}
 
 
 def get_error_message(code: int) -> str:
-    """获取错误码对应的消息"""
+    """获取错误码对应的消息.
+
+    Args:
+        code: 错误码（整数或 ErrorCode 枚举）
+
+    Returns:
+        错误消息字符串，未知错误码返回"未知错误"
+    """
+    if isinstance(code, ErrorCode):
+        return code.message
     return ERROR_MESSAGES.get(code, "未知错误")
 
 

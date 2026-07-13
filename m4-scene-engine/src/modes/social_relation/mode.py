@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.database import get_session
+from src.models.db import get_session
 from src.modes.base_mode import BaseMode
 from src.modes.social_relation.service import SocialService
 

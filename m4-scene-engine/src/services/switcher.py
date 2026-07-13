@@ -833,6 +833,236 @@ class SceneSwitchManager:
         with self._lock:
             return self._current_scenes.get(user_id, self._default_scene)
 
+    # -------------------------------------------------------------------
+    # 切换子步骤
+    # -------------------------------------------------------------------
+
+    def _validate_switch(
+        self,
+        to_scene: str,
+        from_scene: str,
+        user_id: str,
+    ) -> tuple[bool, str]:
+        """参数校验.
+
+        校验目标场景ID是否合法。合法的场景包括：
+        - 在 SCENE_DEFINITIONS 中定义的场景
+        - 特殊场景 "unknown"
+
+        Args:
+            to_scene: 目标场景ID
+            from_scene: 源场景ID
+            user_id: 用户ID
+
+        Returns:
+            (ok, error_msg) - 校验是否通过及错误信息
+        """
+        if to_scene not in SCENE_DEFINITIONS and to_scene != "unknown":
+            return False, f"无效的场景ID: {to_scene}"
+        return True, ""
+
+    def _do_leave(
+        self,
+        from_scene: str,
+        user_id: str,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """执行离开钩子与技能.
+
+        依次执行：
+        1. on_leave 钩子（含 MCP 工具调用）
+        2. on_leave 技能
+
+        任一阻塞级失败立即中止并返回 blocked=True。
+
+        Args:
+            from_scene: 源场景ID
+            user_id: 用户ID
+            context: 上下文数据
+
+        Returns:
+            离开阶段结果字典：
+            - leave_hook_results: 钩子执行结果列表
+            - mcp_leave: MCP 工具结果列表
+            - skill_leave: 技能执行结果列表
+            - blocked: 是否有阻塞级失败
+            - block_reason: 阻塞原因（blocked=True 时有值）
+        """
+        leave_hook_results: list[dict[str, Any]] = []
+        mcp_leave: list[dict[str, Any]] = []
+        skill_leave: list[dict[str, Any]] = []
+
+        # 执行 on_leave 钩子（源场景）
+        if from_scene in self._on_leave_hooks:
+            leave_hook_results = self._run_hooks(
+                self._on_leave_hooks[from_scene],
+                from_scene,
+                user_id,
+                context,
+            )
+            # 提取 MCP 工具结果
+            mcp_leave = self._extract_mcp_results(leave_hook_results)
+
+            # 检查是否有阻塞级别的 MCP 工具失败
+            if self._has_required_mcp_failure(mcp_leave):
+                return {
+                    "leave_hook_results": leave_hook_results,
+                    "mcp_leave": mcp_leave,
+                    "skill_leave": skill_leave,
+                    "blocked": True,
+                    "block_reason": "on_leave MCP 阻塞工具调用失败，场景切换已中止",
+                }
+
+        # 执行 on_leave 技能（源场景）
+        skill_leave = self._execute_scene_skills(
+            scene_id=from_scene,
+            trigger="on_leave",
+            user_id=user_id,
+            context=context,
+        )
+
+        # 检查是否有阻塞级别的技能失败
+        if self._has_required_skill_failure(skill_leave):
+            return {
+                "leave_hook_results": leave_hook_results,
+                "mcp_leave": mcp_leave,
+                "skill_leave": skill_leave,
+                "blocked": True,
+                "block_reason": "on_leave 阻塞技能执行失败，场景切换已中止",
+            }
+
+        return {
+            "leave_hook_results": leave_hook_results,
+            "mcp_leave": mcp_leave,
+            "skill_leave": skill_leave,
+            "blocked": False,
+            "block_reason": "",
+        }
+
+    def _do_enter(
+        self,
+        to_scene: str,
+        user_id: str,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """执行进入钩子与技能.
+
+        依次执行：
+        1. on_enter 钩子（含 MCP 工具调用）
+        2. on_enter 技能
+
+        任一阻塞级失败立即中止并返回 blocked=True。
+
+        Args:
+            to_scene: 目标场景ID
+            user_id: 用户ID
+            context: 上下文数据
+
+        Returns:
+            进入阶段结果字典：
+            - enter_hook_results: 钩子执行结果列表
+            - mcp_enter: MCP 工具结果列表
+            - skill_enter: 技能执行结果列表
+            - blocked: 是否有阻塞级失败
+            - block_reason: 阻塞原因（blocked=True 时有值）
+        """
+        enter_hook_results: list[dict[str, Any]] = []
+        mcp_enter: list[dict[str, Any]] = []
+        skill_enter: list[dict[str, Any]] = []
+
+        # 执行 on_enter 钩子（目标场景）
+        if to_scene in self._on_enter_hooks:
+            enter_hook_results = self._run_hooks(
+                self._on_enter_hooks[to_scene],
+                to_scene,
+                user_id,
+                context,
+            )
+            # 提取 MCP 工具结果
+            mcp_enter = self._extract_mcp_results(enter_hook_results)
+
+            # 检查是否有阻塞级别的 MCP 工具失败
+            if self._has_required_mcp_failure(mcp_enter):
+                return {
+                    "enter_hook_results": enter_hook_results,
+                    "mcp_enter": mcp_enter,
+                    "skill_enter": skill_enter,
+                    "blocked": True,
+                    "block_reason": "on_enter MCP 阻塞工具调用失败，场景切换已回滚",
+                }
+
+        # 执行 on_enter 技能（目标场景）
+        skill_enter = self._execute_scene_skills(
+            scene_id=to_scene,
+            trigger="on_enter",
+            user_id=user_id,
+            context=context,
+        )
+
+        # 检查是否有阻塞级别的技能失败
+        if self._has_required_skill_failure(skill_enter):
+            return {
+                "enter_hook_results": enter_hook_results,
+                "mcp_enter": mcp_enter,
+                "skill_enter": skill_enter,
+                "blocked": True,
+                "block_reason": "on_enter 阻塞技能执行失败，场景切换已回滚",
+            }
+
+        return {
+            "enter_hook_results": enter_hook_results,
+            "mcp_enter": mcp_enter,
+            "skill_enter": skill_enter,
+            "blocked": False,
+            "block_reason": "",
+        }
+
+    def _record_switch_result(
+        self,
+        from_scene: str,
+        to_scene: str,
+        trigger_type: str,
+        user_id: str,
+        reason: str,
+    ) -> SceneSwitchRecord:
+        """记录切换历史并更新统计.
+
+        创建 SceneSwitchRecord，追加到用户历史队列，
+        同时递增用户切换计数。
+
+        Args:
+            from_scene: 源场景ID
+            to_scene: 目标场景ID
+            trigger_type: 触发类型
+            user_id: 用户ID
+            reason: 切换原因
+
+        Returns:
+            创建的切换记录对象
+        """
+        record = SceneSwitchRecord(
+            id=uuid.uuid4().hex[:12],
+            from_scene=from_scene,
+            to_scene=to_scene,
+            trigger_type=trigger_type,
+            user_id=user_id,
+            timestamp=time.time(),
+            reason=reason,
+        )
+
+        if user_id not in self._history:
+            self._history[user_id] = deque(maxlen=self._max_history)
+        self._history[user_id].append(record)
+
+        # 更新统计
+        self._switch_count[user_id] = self._switch_count.get(user_id, 0) + 1
+
+        return record
+
+    # -------------------------------------------------------------------
+    # 主流程
+    # -------------------------------------------------------------------
+
     def switch_scene(
         self,
         to_scene: str,
@@ -855,13 +1085,14 @@ class SceneSwitchManager:
         Returns:
             切换结果字典
         """
-        # 验证目标场景
-        if to_scene not in SCENE_DEFINITIONS and to_scene != "unknown":
+        # 1. 参数校验
+        ok, error_msg = self._validate_switch(to_scene, from_scene, user_id)
+        if not ok:
             return {
                 "success": False,
                 "from_scene": from_scene or self.get_current_scene(user_id),
                 "to_scene": to_scene,
-                "reason": f"无效的场景ID: {to_scene}",
+                "reason": error_msg,
             }
 
         hook_context = context or {}
@@ -894,50 +1125,19 @@ class SceneSwitchManager:
                     "skills_result": skills_result,
                 }
 
-            # 执行 on_leave 钩子（源场景）
-            if actual_from in self._on_leave_hooks:
-                leave_hook_results = self._run_hooks(
-                    self._on_leave_hooks[actual_from],
-                    actual_from,
-                    user_id,
-                    hook_context,
-                )
-                # 提取 MCP 工具结果
-                mcp_results["on_leave"] = self._extract_mcp_results(
-                    leave_hook_results
-                )
+            # 2. 执行离开阶段
+            leave_data = self._do_leave(actual_from, user_id, hook_context)
+            leave_hook_results = leave_data["leave_hook_results"]
+            mcp_results["on_leave"] = leave_data["mcp_leave"]
+            skills_result["on_leave"] = leave_data["skill_leave"]
 
-                # 检查是否有阻塞级别的 MCP 工具失败
-                if self._has_required_mcp_failure(mcp_results["on_leave"]):
-                    return {
-                        "success": False,
-                        "from_scene": actual_from,
-                        "to_scene": to_scene,
-                        "switched": False,
-                        "reason": "on_leave MCP 阻塞工具调用失败，场景切换已中止",
-                        "mcp_results": mcp_results,
-                        "enter_hook_results": [],
-                        "leave_hook_results": leave_hook_results,
-                        "actions_result": actions_result,
-                        "skills_result": skills_result,
-                    }
-
-            # 执行 on_leave 技能（源场景）
-            skills_result["on_leave"] = self._execute_scene_skills(
-                scene_id=actual_from,
-                trigger="on_leave",
-                user_id=user_id,
-                context=hook_context,
-            )
-
-            # 检查是否有阻塞级别的技能失败
-            if self._has_required_skill_failure(skills_result["on_leave"]):
+            if leave_data["blocked"]:
                 return {
                     "success": False,
                     "from_scene": actual_from,
                     "to_scene": to_scene,
                     "switched": False,
-                    "reason": "on_leave 阻塞技能执行失败，场景切换已中止",
+                    "reason": leave_data["block_reason"],
                     "mcp_results": mcp_results,
                     "enter_hook_results": [],
                     "leave_hook_results": leave_hook_results,
@@ -949,46 +1149,13 @@ class SceneSwitchManager:
             if to_scene != "unknown":
                 self._current_scenes[user_id] = to_scene
 
-            # 执行 on_enter 钩子（目标场景）
-            if to_scene in self._on_enter_hooks:
-                enter_hook_results = self._run_hooks(
-                    self._on_enter_hooks[to_scene],
-                    to_scene,
-                    user_id,
-                    hook_context,
-                )
-                # 提取 MCP 工具结果
-                mcp_results["on_enter"] = self._extract_mcp_results(
-                    enter_hook_results
-                )
+            # 3. 执行进入阶段
+            enter_data = self._do_enter(to_scene, user_id, hook_context)
+            enter_hook_results = enter_data["enter_hook_results"]
+            mcp_results["on_enter"] = enter_data["mcp_enter"]
+            skills_result["on_enter"] = enter_data["skill_enter"]
 
-                # 检查是否有阻塞级别的 MCP 工具失败
-                if self._has_required_mcp_failure(mcp_results["on_enter"]):
-                    # 回滚场景切换
-                    self._current_scenes[user_id] = actual_from
-                    return {
-                        "success": False,
-                        "from_scene": actual_from,
-                        "to_scene": to_scene,
-                        "switched": False,
-                        "reason": "on_enter MCP 阻塞工具调用失败，场景切换已回滚",
-                        "mcp_results": mcp_results,
-                        "enter_hook_results": enter_hook_results,
-                        "leave_hook_results": leave_hook_results,
-                        "actions_result": actions_result,
-                        "skills_result": skills_result,
-                    }
-
-            # 执行 on_enter 技能（目标场景）
-            skills_result["on_enter"] = self._execute_scene_skills(
-                scene_id=to_scene,
-                trigger="on_enter",
-                user_id=user_id,
-                context=hook_context,
-            )
-
-            # 检查是否有阻塞级别的技能失败
-            if self._has_required_skill_failure(skills_result["on_enter"]):
+            if enter_data["blocked"]:
                 # 回滚场景切换
                 self._current_scenes[user_id] = actual_from
                 return {
@@ -996,7 +1163,7 @@ class SceneSwitchManager:
                     "from_scene": actual_from,
                     "to_scene": to_scene,
                     "switched": False,
-                    "reason": "on_enter 阻塞技能执行失败，场景切换已回滚",
+                    "reason": enter_data["block_reason"],
                     "mcp_results": mcp_results,
                     "enter_hook_results": enter_hook_results,
                     "leave_hook_results": leave_hook_results,
@@ -1009,23 +1176,10 @@ class SceneSwitchManager:
                 to_scene, user_id, hook_context
             )
 
-            # 记录历史
-            record = SceneSwitchRecord(
-                id=uuid.uuid4().hex[:12],
-                from_scene=actual_from,
-                to_scene=to_scene,
-                trigger_type=trigger_type,
-                user_id=user_id,
-                timestamp=time.time(),
-                reason=reason,
+            # 4. 记录切换历史
+            record = self._record_switch_result(
+                actual_from, to_scene, trigger_type, user_id, reason
             )
-
-            if user_id not in self._history:
-                self._history[user_id] = deque(maxlen=self._max_history)
-            self._history[user_id].append(record)
-
-            # 更新统计
-            self._switch_count[user_id] = self._switch_count.get(user_id, 0) + 1
 
             return {
                 "success": True,

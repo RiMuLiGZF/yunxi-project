@@ -36,8 +36,10 @@ class SceneSwitchRequest(BaseModel):
     )
     trigger_type: str = Field(
         "manual",
-        pattern=r'^(manual|auto|recognize)$',
-        description="触发类型: manual / auto / recognize",
+        min_length=2,
+        max_length=32,
+        pattern=r'^[a-z][a-z0-9_]*$',
+        description="触发类型: 小写字母开头，仅含小写字母、数字和下划线，如 manual/auto/recognize/test_flow",
     )
     user_id: str = Field(
         "default",

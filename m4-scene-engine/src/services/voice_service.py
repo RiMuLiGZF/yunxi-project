@@ -14,7 +14,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from src.database import VoiceConfigDB, VoiceHistoryDB
+from src.models.db import VoiceConfigDB, VoiceHistoryDB
 
 
 # ---------------------------------------------------------------------------

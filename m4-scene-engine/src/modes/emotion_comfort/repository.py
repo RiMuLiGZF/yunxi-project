@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from src.common.db_transaction import transactional_scope
-from src.database import (
+from src.models.db import (
     EmotionRecordDB,
     RelaxContentDB,
     RelaxSessionDB,

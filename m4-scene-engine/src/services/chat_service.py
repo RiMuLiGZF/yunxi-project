@@ -14,7 +14,7 @@ from datetime import datetime
 import structlog
 from sqlalchemy.orm import Session
 
-from src.database import ChatConversationDB, ChatMessageDB
+from src.models.db import ChatConversationDB, ChatMessageDB
 
 logger = structlog.get_logger(__name__)
 

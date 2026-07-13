@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from src.database import WatchDeviceDB, WatchHealthDataDB, WatchNotificationDB
+from src.models.db import WatchDeviceDB, WatchHealthDataDB, WatchNotificationDB
 
 
 # ---------------------------------------------------------------------------

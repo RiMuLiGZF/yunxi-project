@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, Query
 
-from src.database import get_session
+from src.models.db import get_session
 from src.models import make_response
 from src.modes.work_dev.models import (
     CodeChatRequest,

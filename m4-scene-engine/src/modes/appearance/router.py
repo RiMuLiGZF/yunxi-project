@@ -10,7 +10,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from src.database import get_session
+from src.models.db import get_session
 from src.models import make_response
 from src.modes.appearance.models import (
     ConfigUpdateRequest,

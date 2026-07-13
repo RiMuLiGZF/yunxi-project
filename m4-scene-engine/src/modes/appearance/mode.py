@@ -52,7 +52,7 @@ class AppearanceMode(BaseMode):
         user_id = context.get("user_id", "default")
 
         # 延迟导入，避免循环依赖
-        from src.database import get_session
+        from src.models.db import get_session
         from src.modes.appearance.service import AppearanceService
 
         try:

@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 from src.common.db_transaction import transactional_scope
-from src.database import (
+from src.models.db import (
     AppearanceConfigDB,
     MoodHistoryDB,
     AppearanceSnapshotDB,
