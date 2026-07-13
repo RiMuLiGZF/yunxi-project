@@ -75,6 +75,15 @@ from skill_cluster.models.extension import (
     BudgetAlert,
 )
 
+# ---- A2A 协议模型 ----
+from skill_cluster.models.a2a import (
+    A2AAgentCard,
+    A2AArtifact,
+    A2AMessage,
+    A2APart,
+    A2ATask,
+)
+
 __all__ = [
     # 基类
     "M2BaseModel",
@@ -113,4 +122,10 @@ __all__ = [
     "ActionSignature",
     "BudgetEntry",
     "BudgetAlert",
+    # A2A
+    "A2AAgentCard",
+    "A2AArtifact",
+    "A2AMessage",
+    "A2APart",
+    "A2ATask",
 ]

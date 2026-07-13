@@ -38,9 +38,9 @@ from skill_cluster.interfaces import (
     SkillQuery,
 )
 from skill_cluster.security.permissions import PermissionMatrix, SkillPermissionManager
-from skill_cluster.skill_registry import SkillRegistry
-from skill_cluster.skill_router import SkillRouter
-from skill_cluster.skill_pipeline import (
+from skill_cluster.core.registry import SkillRegistry
+from skill_cluster.core.router import SkillRouter
+from skill_cluster.core.pipeline import (
     PipelineDefinition,
     PipelineEngine,
     PipelineStep,
@@ -54,28 +54,28 @@ from skill_cluster.resilience.circuit_breaker import (
     RetryConfig,
     RetryExecutor,
 )
-from skill_cluster.skill_cache import SkillCache
+from skill_cluster.core.cache import SkillCache
 from skill_cluster.infrastructure.config_center import ConfigCenter
-from skill_cluster.function_schema import (
+from skill_cluster.core.function_schema import (
     ActionSignature,
     FunctionParameter,
     FunctionSchema,
     SkillSchemaRegistry,
 )
-from skill_cluster.middleware import (
+from skill_cluster.core.middleware import (
     MiddlewarePipeline,
     cache_middleware,
     event_middleware,
-    resilient_middleware,
-    metrics_middleware,
     logging_middleware,
+    metrics_middleware,
+    resilient_middleware,
 )
 from skill_cluster.agent.runtime import (
     AgentRegistry,
     AgentRuntime,
     AgentState,
 )
-from skill_cluster.pipeline_store import (
+from skill_cluster.core.pipeline.store import (
     PipelineRunRecord,
     PipelineStateStore,
 )
@@ -98,15 +98,15 @@ from skill_cluster.security.sandbox import (
     SandboxPolicy,
     create_sandbox_middleware,
 )
-from skill_cluster.a2a_protocol import (
+from skill_cluster.models.a2a import (
     A2AAgentCard,
     A2AArtifact,
     A2AMessage,
     A2APart,
     A2ATask,
 )
-from skill_cluster.a2a_bus import A2ABus
-from skill_cluster.plugin_loader import PluginInfo, PluginLoader
+from skill_cluster.extensions.a2a.bus import A2ABus
+from skill_cluster.extensions.plugins.loader import PluginInfo, PluginLoader
 from skill_cluster.infrastructure.hooks import HookManager, HookRegistration
 from skill_cluster.agent.memory import AgentMemory, MemoryEntry
 from skill_cluster.discovery.routers.adaptive import AdaptiveRouter, SkillMetrics
@@ -154,22 +154,88 @@ from skill_cluster.infrastructure.tracing.aggregator import (
     TraceChain,
     TraceSpan,
 )
-from skill_cluster.http_api import (
+from skill_cluster.api.http import (
     InvokeRequest,
-    create_app,
     manifest_to_skill_info,
     result_to_dict,
 )
-from skill_cluster.mcp_transport import (
-    handle_mcp_tool_call,
-    handle_mcp_tool_list,
-    wrap_jsonrpc_response,
+from skill_cluster.extensions.mcp.transport import (
+    MCPTransport,
 )
 from skill_cluster.security.ast_scanner import (
     ASTSecurityScanner,
     ScanResult,
     SecurityFinding,
 )
+
+# create_app 是 http_api 中的工厂函数别名
+from skill_cluster.api.http import create_http_app as create_app
+
+# MCP 兼容函数（从 mcp_transport 迁移）
+def handle_mcp_tool_list(registry: Any = None) -> dict:
+    """MCP 工具列表处理函数（向后兼容）."""
+    tools = []
+    if registry:
+        sids = registry.list_skills() if hasattr(registry, "list_skills") else []
+        for sid in sids:
+            skill = registry.get_skill(sid) if hasattr(registry, "get_skill") else None
+            if skill is None:
+                continue
+            manifest = getattr(skill, "manifest", skill)
+            actions = getattr(manifest, "actions", [])
+            for action in actions:
+                action_name = getattr(action, "name", "default")
+                tools.append({
+                    "name": f"{sid}.{action_name}",
+                    "description": getattr(action, "description", "") or getattr(manifest, "description", ""),
+                    "inputSchema": getattr(action, "input_schema", {"type": "object", "properties": {}}),
+                })
+    return {"tools": tools}
+
+
+async def handle_mcp_tool_call(params: dict, registry: Any = None, router: Any = None) -> dict:
+    """MCP 工具调用处理函数（向后兼容）."""
+    tool_name = params.get("name", "")
+    arguments = params.get("arguments", {})
+
+    if "." in tool_name and router:
+        skill_id, action = tool_name.rsplit(".", 1)
+        from skill_cluster.interfaces import SkillInvokeRequest as RouterInvokeRequest
+        import uuid
+        invoke_req = RouterInvokeRequest(
+            skill_id=skill_id,
+            action=action,
+            params=arguments,
+            trace_id=f"mcp-{uuid.uuid4().hex[:8]}",
+        )
+        result = await router.invoke(invoke_req, "mcp-client")
+        if result.status == "success":
+            content = []
+            if result.data is not None:
+                if isinstance(result.data, str):
+                    content.append({"type": "text", "text": result.data})
+                else:
+                    content.append({"type": "text", "text": str(result.data)})
+            return {"content": content}
+        else:
+            return {
+                "content": [{"type": "text", "text": result.error or "Unknown error"}],
+                "isError": True,
+            }
+    return {"content": [], "isError": True}
+
+
+def wrap_jsonrpc_response(request: dict, result: dict) -> dict:
+    """包装 JSON-RPC 响应（向后兼容）."""
+    req_id = request.get("id") if isinstance(request, dict) else None
+    if req_id is not None:
+        return {
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": req_id,
+        }
+    return result
+
 
 __all__ = [
     "ISkill",
