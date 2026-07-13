@@ -23,6 +23,7 @@ from interfaces import (
 )
 from agent_registry import AgentRegistry
 from budget_manager import BudgetManager
+from idempotency import IdempotencyManager, generate_task_key
 
 logger = structlog.get_logger(__name__)
 
@@ -54,6 +55,8 @@ class TaskDispatcher:
         self._retry_coordinator = retry_coordinator  # [P3-002] 可选重试协调器
         self._budget_manager = budget_manager
         self._logger = logger.bind(service="task_dispatcher")
+        # [V11.2] 幂等性管理器
+        self._idempotency = IdempotencyManager(ttl=3600, max_entries=10000)
         from interfaces import CancelToken
         self._cancel_tokens: dict[str, CancelToken] = {}  # [V9.8] 取消令牌映射
         # [V10.0-R06] 硬件状态映射：device_id -> HardwareStatus
@@ -479,9 +482,28 @@ class TaskDispatcher:
         [V10.0-R06] 增加硬件状态感知：
         - 离线设备任务入缓存
         - 手表/戒指离线降级为纯文本
+
+        [V11.2] 增加幂等性保证：
+        - 基于 task_id 的幂等键，重复提交相同任务直接返回缓存结果
+        - 返回结果中 metrics.is_idempotent_hit 标识是否命中缓存
         """
         start_time = time.time()
         trace_id = task.trace_id or task.task_id
+
+        # [V11.2] 幂等性检查：相同 task_id 的重复提交直接返回缓存结果
+        idem_key = generate_task_key(task.task_id)
+        exists, cached_result = await self._idempotency.check(idem_key)
+        if exists and isinstance(cached_result, AgentResult):
+            # 标记幂等命中
+            if "is_idempotent_hit" not in cached_result.metrics:
+                cached_result.metrics["is_idempotent_hit"] = True
+            self._logger.info(
+                "dispatch_idempotent_hit",
+                task_id=task.task_id,
+                trace_id=trace_id,
+                target=task.target,
+            )
+            return cached_result
 
         # [V10.0-R06] 硬件状态检查
         device_id = task.metadata.get("device_id", "")
@@ -591,5 +613,9 @@ class TaskDispatcher:
 
         # [V9.8] 清理取消令牌
         self._cancel_tokens.pop(task.task_id, None)
+
+        # [V11.2] 存储结果到幂等缓存
+        result.metrics["is_idempotent_hit"] = False
+        await self._idempotency.store(idem_key, result, is_error=(result.status == "failure"))
 
         return result

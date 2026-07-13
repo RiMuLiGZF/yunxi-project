@@ -71,8 +71,12 @@ class ExternalAgentRegistry:
         api_key: str = "",
         license: str | LicenseType = LicenseType.OTHER,
         confirm_license_risk: bool = False,
+        agent_id: str | None = None,
     ) -> ExternalAgentProfile:
         """注册外部 Agent
+
+        [V11.2] 支持幂等注册：如果指定 ``agent_id`` 且已存在，
+        则执行更新操作而非创建新实例，保证重复注册无副作用。
 
         Args:
             display_name: 显示名称
@@ -86,6 +90,8 @@ class ExternalAgentRegistry:
             api_key: API Key（加密存储，不写入 profile）
             license: 协议许可证类型
             confirm_license_risk: 是否确认 GPL 等协议风险（GPL 类协议必须为 True 才能注册）
+            agent_id: [V11.2] 可选的 Agent ID。若指定且已存在则执行更新（幂等），
+                若未指定则自动生成。
 
         Returns:
             注册后的 AgentProfile
@@ -114,10 +120,46 @@ class ExternalAgentRegistry:
                     f"{license_warning} 注册 GPL 类协议的 Agent 必须设置 confirm_license_risk=True 确认风险。"
                 )
 
-        agent_id = f"ext_{provider.lower()}_{uuid.uuid4().hex[:8]}"
+        # [V11.2] 幂等注册：如果指定了 agent_id 且已存在，则执行更新
+        if agent_id is not None and agent_id in self._agents:
+            existing = self._agents[agent_id]
+            # 更新已有 Agent 的字段
+            existing.display_name = display_name
+            existing.provider = provider
+            existing.agent_type = agent_type
+            existing.capabilities = capabilities or []
+            if cost_model:
+                existing.cost_model = CostModel(**cost_model)
+            existing.privacy_level = privacy_level
+            existing.connection_type = connection_type
+            existing.config = config or {}
+            existing.license = license_enum
+            existing.updated_at = time.time()
+            # API Key 如有更新则重新加密
+            if api_key:
+                encrypted = self._crypto.encrypt(api_key)
+                self._api_keys_encrypted[agent_id] = encrypted
+
+            self._logger.info(
+                "agent_registered_idempotent",
+                agent_id=agent_id,
+                display_name=display_name,
+                provider=provider,
+                agent_type=agent_type.value,
+                license=license_enum.value,
+                has_api_key=bool(api_key or agent_id in self._api_keys_encrypted),
+                license_warning=bool(license_warning),
+            )
+            return existing
+
+        # 未指定 agent_id 或指定但不存在，走新建流程
+        if agent_id is not None:
+            final_agent_id = agent_id
+        else:
+            final_agent_id = f"ext_{provider.lower()}_{uuid.uuid4().hex[:8]}"
 
         profile = ExternalAgentProfile(
-            agent_id=agent_id,
+            agent_id=final_agent_id,
             display_name=display_name,
             provider=provider,
             agent_type=agent_type,
@@ -130,16 +172,16 @@ class ExternalAgentRegistry:
             license=license_enum,
         )
 
-        self._agents[agent_id] = profile
+        self._agents[final_agent_id] = profile
 
         # API Key 加密存储
         if api_key:
             encrypted = self._crypto.encrypt(api_key)
-            self._api_keys_encrypted[agent_id] = encrypted
+            self._api_keys_encrypted[final_agent_id] = encrypted
 
         self._logger.info(
             "agent_registered",
-            agent_id=agent_id,
+            agent_id=final_agent_id,
             display_name=display_name,
             provider=provider,
             agent_type=agent_type.value,

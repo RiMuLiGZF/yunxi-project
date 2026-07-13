@@ -672,6 +672,67 @@ def _register_exception_handlers(app: "FastAPI") -> None:
         )
 
 
+# ── 辅助函数 ──────────────────────────────────────────
+
+def _check_admin_auth(request: "Request") -> bool:
+    """[V12.0] 检查管理员权限
+
+    用于保护深度健康检查等敏感端点。
+    支持两种鉴权方式：
+    1. Admin API Key：Authorization: Bearer <admin-key>
+    2. 内部调用：X-Internal-Call: true + 有效签名
+
+    Args:
+        request: FastAPI Request 对象
+
+    Returns:
+        是否具有管理员权限
+    """
+    import os
+    import hmac
+    import hashlib
+
+    auth_header = request.headers.get("authorization", "")
+    internal_call = request.headers.get("x-internal-call", "").lower() == "true"
+    signature = request.headers.get("x-signature", "")
+    timestamp = request.headers.get("x-timestamp", "")
+
+    # Admin Key 鉴权
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        admin_key = os.environ.get("HEALTH_ADMIN_KEY", "") or os.environ.get("FEDERATION_ADMIN_KEY", "")
+        if admin_key and hmac.compare_digest(token, admin_key):
+            return True
+
+    # 内部调用鉴权
+    if internal_call and signature and timestamp:
+        secret = os.environ.get("FEDERATION_INTERNAL_SECRET", "")
+        if secret:
+            try:
+                ts = float(timestamp)
+                if abs(time.time() - ts) <= 300:  # 5 分钟窗口
+                    method = request.method
+                    path = request.url.path
+                    msg = f"{method}|{path}|{timestamp}"
+                    expected = hmac.new(
+                        secret.encode(),
+                        msg.encode(),
+                        hashlib.sha256,
+                    ).hexdigest()
+                    if hmac.compare_digest(signature, expected):
+                        return True
+            except (ValueError, TypeError):
+                pass
+
+    # 未配置任何密钥时，允许本地访问（127.0.0.1 / ::1）
+    if not os.environ.get("HEALTH_ADMIN_KEY") and not os.environ.get("FEDERATION_ADMIN_KEY"):
+        client_host = getattr(request.client, "host", "") if request.client else ""
+        if client_host in ("127.0.0.1", "::1", "localhost"):
+            return True
+
+    return False
+
+
 # ── 路由注册 ────────────────────────────────────────────
 
 def _register_routes(
@@ -832,7 +893,7 @@ def _register_routes(
 
     @app.get("/health")
     async def health() -> JSONResponse:
-        """存活检查（标准格式）
+        """存活检查（标准格式，兼容旧版）
 
         返回格式：
         {"code": 0, "message": "ok", "data": {"status": "healthy"}}
@@ -853,9 +914,128 @@ def _register_routes(
             "data": {"status": status},
         })
 
+    # ── [V12.0] 三级健康检查端点 ────────────────────────
+
+    @app.get("/health/liveness")
+    async def health_liveness() -> JSONResponse:
+        """存活检查：进程是否存活
+
+        轻量级，响应时间 < 10ms，不依赖任何外部资源。
+        对应 Kubernetes livenessProbe。
+        """
+        if health_monitor is None:
+            return JSONResponse(
+                content={"status": "up", "level": "liveness", "message": "no health monitor"},
+                status_code=200,
+            )
+        live = await health_monitor.liveness()
+        status_code = 200 if live.status == "up" else 503
+        return JSONResponse(content=live.to_dict(), status_code=status_code)
+
+    @app.get("/health/readiness")
+    async def health_readiness() -> JSONResponse:
+        """就绪检查：核心依赖是否可用
+
+        中量级，响应时间 < 500ms，检查数据库、消息总线等核心依赖。
+        对应 Kubernetes readinessProbe。
+        返回聚合状态及各组件详情。
+        """
+        if health_monitor is None:
+            return JSONResponse(
+                content={"status": "up", "level": "readiness", "message": "no health monitor"},
+                status_code=200,
+            )
+        overall = await health_monitor.overall_status()
+        status_code = 200 if overall["status"] in ("up", "degraded") else 503
+        return JSONResponse(content=overall, status_code=status_code)
+
+    @app.get("/health/deep")
+    async def health_deep(
+        request: Request,
+        force: bool = False,
+    ) -> JSONResponse:
+        """深度健康诊断：完整检查所有依赖
+
+        重量级，响应时间 1-5 秒，包含数据库完整性检查、磁盘/内存/熔断器等。
+        需管理员权限，默认使用 60s 缓存。
+
+        Args:
+            force: 是否强制刷新缓存（跳过缓存）
+        """
+        if health_monitor is None:
+            return JSONResponse(
+                content={"status": "unknown", "level": "deep", "message": "no health monitor"},
+                status_code=503,
+            )
+
+        # 管理员权限校验（可选）
+        if not _check_admin_auth(request):
+            raise HTTPException(status_code=403, detail="Admin access required for deep health check")
+
+        use_cache = not force
+        results = await health_monitor.deep_check(use_cache=use_cache)
+
+        # 计算聚合状态
+        all_up = all(r.status == "up" for r in results.values())
+        any_down = any(r.status == "down" for r in results.values())
+        any_degraded = any(r.status == "degraded" for r in results.values())
+
+        if any_down:
+            overall = "down"
+        elif any_degraded:
+            overall = "degraded"
+        elif all_up:
+            overall = "up"
+        else:
+            overall = "unknown"
+
+        status_code = 200 if overall in ("up", "degraded") else 503
+
+        return JSONResponse(
+            content={
+                "status": overall,
+                "level": "deep",
+                "timestamp": time.time(),
+                "total": len(results),
+                "components": {name: s.to_dict() for name, s in results.items()},
+            },
+            status_code=status_code,
+        )
+
+    @app.get("/health/components")
+    async def health_components() -> JSONResponse:
+        """各组件详细健康状态
+
+        返回所有已注册检查项的完整状态信息，包括组件类型、级别、延迟等。
+        """
+        if health_monitor is None:
+            return JSONResponse(
+                content={"total": 0, "components": {}, "summary": {"up": 0, "down": 0, "degraded": 0}},
+                status_code=200,
+            )
+        result = await health_monitor.component_statuses()
+        return JSONResponse(content=result)
+
+    @app.get("/health/metrics")
+    async def health_metrics() -> StreamingResponse:
+        """Prometheus 格式健康指标
+
+        与 /metrics 端点功能一致，作为 /health 命名空间下的别名。
+        """
+        if health_monitor:
+            prom = await health_monitor.to_prometheus()
+            return StreamingResponse(
+                iter([prom]),
+                media_type="text/plain; charset=utf-8",
+            )
+        return StreamingResponse(
+            iter(["# no metrics\n"]),
+            media_type="text/plain; charset=utf-8",
+        )
+
     @app.get("/ready")
     async def ready() -> JSONResponse:
-        """就绪检查"""
+        """就绪检查（兼容旧版，映射到 readiness）"""
         if health_monitor:
             status = await health_monitor.overall_status()
             code = 200 if status["status"] in ("up", "degraded") else 503
@@ -864,7 +1044,7 @@ def _register_routes(
 
     @app.get("/metrics")
     async def metrics() -> StreamingResponse:
-        """Prometheus 指标"""
+        """Prometheus 指标（兼容旧版）"""
         if health_monitor:
             prom = await health_monitor.to_prometheus()
             return StreamingResponse(

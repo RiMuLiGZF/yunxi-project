@@ -38,17 +38,31 @@ class AgentRegistry:
     async def register(self, agent: IAgentPlugin) -> None:
         """注册 Agent
 
+        [V11.2] 支持幂等注册：相同 agent_id 重复注册时执行更新而非报错，
+        包括更新 Agent 实例引用和能力反向索引。
+
         Args:
             agent: 实现了 IAgentPlugin 接口的 Agent 实例
 
         Raises:
-            RegistryError: 如果 agent_id 已存在或注册过程出错
+            RegistryError: 如果注册过程出错
         """
+        is_update = False
+        old_agent: IAgentPlugin | None = None
+
         async with self._lock:
             if agent.agent_id in self._agents:
-                raise RegistryError(
-                    f"Agent '{agent.agent_id}' 已存在，无法重复注册"
-                )
+                # [V11.2] 幂等注册：已存在则执行更新
+                is_update = True
+                old_agent = self._agents[agent.agent_id]
+                # 清理旧的能力索引
+                if hasattr(old_agent, "capabilities") and old_agent.capabilities:
+                    for cap in old_agent.capabilities:
+                        cap_set = self._capability_index.get(cap)
+                        if cap_set:
+                            cap_set.discard(agent.agent_id)
+                            if not cap_set:
+                                del self._capability_index[cap]
             self._agents[agent.agent_id] = agent
             # [V9.6] 更新能力反向索引
             if hasattr(agent, "capabilities") and agent.capabilities:
@@ -60,17 +74,42 @@ class AgentRegistry:
         except Exception as exc:
             # 注册失败回滚
             async with self._lock:
-                self._agents.pop(agent.agent_id, None)
+                if is_update and old_agent is not None:
+                    # 恢复旧的 Agent 实例
+                    self._agents[agent.agent_id] = old_agent
+                    # 恢复旧的能力索引
+                    if hasattr(old_agent, "capabilities") and old_agent.capabilities:
+                        for cap in old_agent.capabilities:
+                            self._capability_index.setdefault(cap, set()).add(agent.agent_id)
+                    # 清理新的能力索引
+                    if hasattr(agent, "capabilities") and agent.capabilities:
+                        for cap in agent.capabilities:
+                            cap_set = self._capability_index.get(cap)
+                            if cap_set:
+                                cap_set.discard(agent.agent_id)
+                                if not cap_set:
+                                    del self._capability_index[cap]
+                else:
+                    self._agents.pop(agent.agent_id, None)
             raise RegistryError(
                 f"Agent '{agent.agent_id}' on_mount 失败: {exc}"
             ) from exc
 
-        self._logger.info(
-            "agent_registered",
-            agent_id=agent.agent_id,
-            version=agent.version,
-            capabilities=agent.capabilities,
-        )
+        if is_update:
+            self._logger.info(
+                "agent_registered_idempotent",
+                agent_id=agent.agent_id,
+                version=agent.version,
+                capabilities=agent.capabilities,
+                previous_version=getattr(old_agent, "version", "unknown"),
+            )
+        else:
+            self._logger.info(
+                "agent_registered",
+                agent_id=agent.agent_id,
+                version=agent.version,
+                capabilities=agent.capabilities,
+            )
 
     async def unregister(self, agent_id: str) -> None:
         """注销 Agent
