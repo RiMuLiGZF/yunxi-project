@@ -20,6 +20,8 @@ import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+import structlog
+
 from ..core.models import (
     ClassificationLevel,
     EmotionState,
@@ -27,6 +29,7 @@ from ..core.models import (
     MemoryItem,
     MemoryLayer,
 )
+from ..db import DatabaseMigrator, Migration
 
 
 class BaseSQLLayer:
@@ -107,6 +110,9 @@ class BaseSQLLayer:
         self._conn: Optional[sqlite3.Connection] = None
         self._conn_lock = threading.Lock()
 
+        # 迁移系统开关（默认启用，可通过配置关闭以使用旧的自动检测模式）
+        self._use_migration = config.get("use_migration", True)
+
         self._ensure_db()
 
     # ============================================================
@@ -120,6 +126,141 @@ class BaseSQLLayer:
         例如 L2 层返回 quality_score 索引。
         """
         return []
+
+    def _get_layer_migration_name(self) -> str:
+        """
+        返回当前层的迁移标识名（用于日志）
+
+        子类可覆盖，默认返回类名。
+        """
+        return self.__class__.__name__
+
+    # ============================================================
+    # 迁移系统
+    # ============================================================
+
+    def _get_migrator(self) -> DatabaseMigrator:
+        """
+        获取当前层数据库的迁移器
+
+        注册 L1/L2 层通用的迁移：
+        - v1: 初始表结构 + 基础索引（不含 original_encrypted）
+        - v2: 添加 original_encrypted 列（P2-任务1）
+
+        Returns:
+            DatabaseMigrator 实例
+        """
+        migrator = DatabaseMigrator(self._db_path)
+
+        # v1: 初始 schema（不含 original_encrypted 列）
+        migrator.register(
+            version=1,
+            name="initial_schema",
+            up_sql=[
+                """
+        CREATE TABLE IF NOT EXISTS memories (
+            memory_id TEXT PRIMARY KEY,
+            content_hash TEXT,
+            layer TEXT,
+            domain TEXT,
+            owner_agent TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            last_accessed_at TEXT,
+            access_count INTEGER DEFAULT 0,
+            quality_score REAL DEFAULT 50,
+            quality_level TEXT DEFAULT 'normal',
+            retention_days INTEGER DEFAULT -1,
+            tags TEXT DEFAULT '[]',
+            metadata TEXT DEFAULT '{}',
+            sync_version INTEGER DEFAULT 0,
+            emotion_valence REAL DEFAULT 0,
+            emotion_arousal REAL DEFAULT 0,
+            emotion_ei REAL DEFAULT 0,
+            emotion_label TEXT DEFAULT 'neutral',
+            classification TEXT DEFAULT 'TOP_SECRET'
+        )
+                """,
+            ] + self._BASE_INDEXES + self._get_extra_indexes(),
+        )
+
+        # v2: 添加 original_encrypted 列（P2-任务1）
+        migrator.register(
+            version=2,
+            name="add_original_encrypted_column",
+            up_sql=[
+                "ALTER TABLE memories ADD COLUMN original_encrypted TEXT",
+            ],
+        )
+
+        return migrator
+
+    def _bootstrap_migration(self) -> bool:
+        """
+        引导迁移系统：检测现有数据库状态，初始化版本号
+
+        当数据库已存在（通过旧方式创建）但迁移系统未初始化时，
+        检测当前 schema 状态并设置对应的版本号。
+
+        Returns:
+            是否成功引导
+        """
+        log = structlog.get_logger(__name__)
+        try:
+            conn = sqlite3.connect(self._db_path)
+            try:
+                # 检查 memories 表是否存在
+                cursor = conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='memories'"
+                )
+                if not cursor.fetchone():
+                    # 表不存在，无需引导，全新数据库
+                    return False
+
+                # 检测列，判断当前版本
+                cursor = conn.execute("PRAGMA table_info(memories)")
+                columns = [row[1] for row in cursor.fetchall()]
+
+                # 确定版本：有 original_encrypted 则为 v2，否则为 v1
+                if "original_encrypted" in columns:
+                    detected_version = 2
+                else:
+                    detected_version = 1
+
+                # 初始化版本表和日志表
+                migrator = self._get_migrator()
+                migrator._ensure_version_table(conn)
+                migrator._ensure_migration_log_table(conn)
+
+                # 设置版本号
+                migrator._set_version(conn, detected_version)
+
+                # 记录已应用的迁移日志（从 v1 到 detected_version）
+                import time
+                for v in range(1, detected_version + 1):
+                    if v in migrator._migrations:
+                        m = migrator._migrations[v]
+                        migrator._log_migration(conn, v, m.name, 0.0)
+
+                conn.commit()
+
+                log.info(
+                    "migration.bootstrapped",
+                    layer=self._get_layer_migration_name(),
+                    db_path=self._db_path,
+                    detected_version=detected_version,
+                )
+                return True
+            finally:
+                conn.close()
+        except Exception as e:
+            log.warning(
+                "migration.bootstrap_failed",
+                layer=self._get_layer_migration_name(),
+                error=str(e),
+            )
+            return False
 
     def _get_search_columns(self) -> List[str]:
         """
@@ -172,6 +313,11 @@ class BaseSQLLayer:
 
         P2-任务3: 启用 WAL 模式 + 长连接 + 性能优化 PRAGMA
         P2-任务1: 自动迁移添加 original_encrypted 列
+
+        使用版本化迁移系统管理 schema：
+        - 如果启用了迁移系统且数据库已初始化，使用 DatabaseMigrator
+        - 如果迁移系统未初始化（旧数据库），先引导再迁移
+        - 如果禁用迁移系统，回退到原有的自动检测模式（向后兼容）
         """
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
 
@@ -190,19 +336,72 @@ class BaseSQLLayer:
             self._conn.execute("PRAGMA temp_store=MEMORY;")
             self._conn.execute("PRAGMA mmap_size=268435456;")  # 256MB 内存映射
 
-            # 创建表
-            self._conn.execute(self._TABLE_SQL)
+            if self._use_migration:
+                self._ensure_db_with_migration()
+            else:
+                # 向后兼容：使用旧的自动检测模式
+                self._ensure_db_legacy()
 
-            # P2-任务1: 迁移 - 如果没有 original_encrypted 列则添加
-            self._migrate_add_column("original_encrypted", "TEXT")
+    def _ensure_db_with_migration(self) -> None:
+        """
+        使用版本化迁移系统初始化数据库
 
-            # 创建基础索引
-            for idx_sql in self._BASE_INDEXES:
-                self._conn.execute(idx_sql)
-            # 创建子类额外索引
-            for idx_sql in self._get_extra_indexes():
-                self._conn.execute(idx_sql)
-            self._conn.commit()
+        1. 如果迁移系统未初始化，先引导（检测现有 schema 状态）
+        2. 执行迁移到最新版本
+        """
+        log = structlog.get_logger(__name__)
+        migrator = self._get_migrator()
+
+        # 检查迁移系统是否已初始化
+        if not migrator.is_initialized():
+            # 尝试引导（从旧数据库状态迁移到版本化管理）
+            bootstrapped = self._bootstrap_migration()
+            if not bootstrapped:
+                log.debug(
+                    "migration.new_database",
+                    layer=self._get_layer_migration_name(),
+                    db_path=self._db_path,
+                )
+
+        # 执行迁移到最新版本
+        try:
+            result = migrator.migrate()
+            if result["status"] == "success" and result["applied"]:
+                log.info(
+                    "migration.layer_applied",
+                    layer=self._get_layer_migration_name(),
+                    from_version=result["from_version"],
+                    to_version=result["to_version"],
+                    applied_count=len(result["applied"]),
+                )
+        except Exception as e:
+            log.error(
+                "migration.layer_failed",
+                layer=self._get_layer_migration_name(),
+                error=str(e),
+            )
+            # 迁移失败时回退到旧模式，保证可用性
+            self._ensure_db_legacy()
+
+    def _ensure_db_legacy(self) -> None:
+        """
+        旧模式：直接创建表和索引（向后兼容）
+
+        当迁移系统禁用或失败时使用。
+        """
+        # 创建表
+        self._conn.execute(self._TABLE_SQL)
+
+        # P2-任务1: 迁移 - 如果没有 original_encrypted 列则添加
+        self._migrate_add_column("original_encrypted", "TEXT")
+
+        # 创建基础索引
+        for idx_sql in self._BASE_INDEXES:
+            self._conn.execute(idx_sql)
+        # 创建子类额外索引
+        for idx_sql in self._get_extra_indexes():
+            self._conn.execute(idx_sql)
+        self._conn.commit()
 
     def _migrate_add_column(self, column_name: str, column_type: str) -> None:
         """
@@ -219,11 +418,11 @@ class BaseSQLLayer:
                 self._conn.execute(
                     f"ALTER TABLE memories ADD COLUMN {column_name} {column_type}"
                 )
-                logger = __import__("logging").getLogger(__name__)
-                logger.info(f"迁移: 添加列 {column_name} {column_type}")
+                logger = structlog.get_logger(__name__)
+                logger.info("迁移: 添加列", column_name=column_name, column_type=column_type)
         except Exception as e:
-            logger = __import__("logging").getLogger(__name__)
-            logger.warning(f"迁移列 {column_name} 失败: {e}")
+            logger = structlog.get_logger(__name__)
+            logger.warning("迁移列失败", column_name=column_name, error_type=type(e).__name__, exc_info=True)
 
     # ============================================================
     # 连接管理（P2-任务3: 长连接模式）

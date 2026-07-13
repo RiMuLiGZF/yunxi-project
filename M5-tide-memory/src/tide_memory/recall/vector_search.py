@@ -23,7 +23,6 @@ P2-任务2: HNSW 索引升级
 
 from __future__ import annotations
 
-import logging
 import os
 import pickle
 import re
@@ -31,8 +30,9 @@ from collections import Counter
 from typing import Dict, List, Optional
 
 import numpy as np
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 

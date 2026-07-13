@@ -12,13 +12,14 @@ P2-任务4: 实现 L0→L1 沉降机制和 L1→L0 预加载机制，
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+import structlog
+
 from ..core.models import MemoryItem
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class CacheCoordinator:

@@ -64,6 +64,17 @@ __version__ = _load_version()
 
 from .core.config import TideConfig
 from .core.models import MemoryItem, MemoryLayer, MemoryDomain, ClassificationLevel
+from .errors import (
+    ErrorCode,
+    TideMemoryError,
+    MemoryNotFoundError,
+    DomainPermissionError,
+    InvalidMemoryError,
+    ConsolidationError,
+    VectorSearchError,
+    error_response,
+    success_response,
+)
 
 __all__ = [
     "TideConfig",
@@ -71,6 +82,15 @@ __all__ = [
     "MemoryLayer",
     "MemoryDomain",
     "ClassificationLevel",
+    "ErrorCode",
+    "TideMemoryError",
+    "MemoryNotFoundError",
+    "DomainPermissionError",
+    "InvalidMemoryError",
+    "ConsolidationError",
+    "VectorSearchError",
+    "error_response",
+    "success_response",
     "__version__",
 ]
 # vim: set et ts=4 sw=4:

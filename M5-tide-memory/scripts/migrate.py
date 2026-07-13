@@ -1,259 +1,481 @@
 """
-数据迁移脚本
+数据库迁移脚本（版本化迁移）
 
-支持从 v2.0 / v2.1 / v2.2 / v2.3 迁移到 v2.4
-⚠️ 迁移前请务必备份数据
+使用版本化迁移系统管理 M5 潮汐记忆的所有数据库：
+- L1 浅水层 (l1_shallow.db)
+- L2 深水层 (l2_deep.db)
+- L3 深海层索引 (l3_abyss/index.db)
+- 成长系统 (growth.db)
 
-运行: python scripts/migrate.py --from 2.3.0 --to 2.4.0
+运行示例：
+
+    # 迁移所有数据库到最新版本
+    python scripts/migrate.py
+
+    # 迁移指定数据库
+    python scripts/migrate.py --db l1
+    python scripts/migrate.py --db l1,l2,growth
+
+    # 迁移到指定版本
+    python scripts/migrate.py --db l1 --version 1
+
+    # 检查迁移状态
+    python scripts/migrate.py --status
+
+    # 查看迁移历史
+    python scripts/migrate.py --history --db l1
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-import shutil
-import sqlite3
 import sys
-from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+import structlog
 
-class MemoryMigrator:
-    """记忆数据迁移器"""
+logger = structlog.get_logger(__name__)
 
-    SUPPORTED_VERSIONS = ["2.0.0", "2.1.0", "2.2.0", "2.3.0", "2.4.0"]
 
-    def __init__(self, data_dir: str):
-        self._data_dir = data_dir
-        self._backup_dir = None
+# ============================================================
+# 数据库配置
+# ============================================================
 
-    def backup(self) -> str:
-        """创建数据备份"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_dir = f"{self._data_dir}_backup_{timestamp}"
-        
-        if os.path.exists(self._data_dir):
-            shutil.copytree(self._data_dir, backup_dir)
-        
-        self._backup_dir = backup_dir
-        return backup_dir
+DB_CONFIGS = {
+    "l1": {
+        "name": "L1 浅水层",
+        "db_path": "./data/memory/l1_shallow.db",
+        "migrator_factory": "l1",
+    },
+    "l2": {
+        "name": "L2 深水层",
+        "db_path": "./data/memory/l2_deep.db",
+        "migrator_factory": "l2",
+    },
+    "l3": {
+        "name": "L3 深海层索引",
+        "db_path": "./data/memory/l3_abyss/index.db",
+        "migrator_factory": "l3",
+    },
+    "growth": {
+        "name": "成长系统",
+        "db_path": "./data/growth/growth.db",
+        "migrator_factory": "growth",
+    },
+}
 
-    def get_current_version(self) -> Optional[str]:
-        """获取当前数据版本"""
-        version_file = os.path.join(self._data_dir, "VERSION")
-        if os.path.exists(version_file):
-            with open(version_file, "r") as f:
-                return f.read().strip()
-        return None
 
-    def migrate(self, from_version: str, to_version: str) -> Dict:
-        """
-        执行数据迁移
-        
-        Args:
-            from_version: 源版本
-            to_version: 目标版本
-        
-        Returns:
-            迁移结果
-        """
-        if from_version not in self.SUPPORTED_VERSIONS:
-            return {"success": False, "error": f"不支持的源版本: {from_version}"}
-        
-        if to_version not in self.SUPPORTED_VERSIONS:
-            return {"success": False, "error": f"不支持的目标版本: {to_version}"}
+# ============================================================
+# 迁移器工厂
+# ============================================================
 
-        # 按版本顺序逐步迁移
-        start_idx = self.SUPPORTED_VERSIONS.index(from_version)
-        end_idx = self.SUPPORTED_VERSIONS.index(to_version)
-        
-        if start_idx >= end_idx:
-            return {"success": True, "message": "已是最新版本，无需迁移"}
+def get_layer_migrator(layer_type: str, db_path: str):
+    """
+    获取指定层的迁移器（带注册的迁移）
 
-        migrated_count = 0
-        for i in range(start_idx, end_idx):
-            v_from = self.SUPPORTED_VERSIONS[i]
-            v_to = self.SUPPORTED_VERSIONS[i + 1]
-            result = self._migrate_step(v_from, v_to)
-            if not result["success"]:
-                return result
-            migrated_count += result.get("migrated", 0)
+    Args:
+        layer_type: 层类型 ("l1", "l2", "l3")
+        db_path: 数据库路径
 
-        # 更新版本文件
-        self._write_version(to_version)
+    Returns:
+        DatabaseMigrator 实例
+    """
+    from tide_memory.db import DatabaseMigrator
 
-        return {
-            "success": True,
-            "from_version": from_version,
-            "to_version": to_version,
-            "migrated_count": migrated_count,
-        }
+    migrator = DatabaseMigrator(db_path)
 
-    def _migrate_step(self, from_ver: str, to_ver: str) -> Dict:
-        """单步迁移"""
-        # 简化实现：各版本迁移逻辑
-        migrations = {
-            ("2.0.0", "2.1.0"): self._migrate_20_21,
-            ("2.1.0", "2.2.0"): self._migrate_21_22,
-            ("2.2.0", "2.3.0"): self._migrate_22_23,
-            ("2.3.0", "2.4.0"): self._migrate_23_24,
-        }
-        
-        key = (from_ver, to_ver)
-        if key in migrations:
-            return migrations[key]()
-        
-        return {"success": True, "migrated": 0}
+    if layer_type in ("l1", "l2"):
+        # L1/L2 共享相同的基础 schema
+        from tide_memory.layers.base import BaseSQLLayer
 
-    def _migrate_20_21(self) -> Dict:
-        """v2.0 → v2.1：增加情绪字段"""
-        db_path = os.path.join(self._data_dir, "l1_shallow.db")
-        if not os.path.exists(db_path):
-            return {"success": True, "migrated": 0}
-        
-        conn = sqlite3.connect(db_path)
+        # 构建索引列表
+        base_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)",
+            "CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_last_accessed ON memories(last_accessed_at)",
+            "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
+        ]
+
+        extra_indexes = []
+        if layer_type == "l2":
+            # L2 有额外的 quality_score 索引（实际与 base 重复，但保留以保持一致）
+            extra_indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
+            ]
+
+        # v1: 初始 schema（不含 original_encrypted，v2 添加
+        migrator.register(
+            version=1,
+            name="initial_schema",
+            up_sql=[
+                """
+                CREATE TABLE IF NOT EXISTS memories (
+                    memory_id TEXT PRIMARY KEY,
+                    content_hash TEXT,
+                    layer TEXT,
+                    domain TEXT,
+                    owner_agent TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    last_accessed_at TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    quality_score REAL DEFAULT 50,
+                    quality_level TEXT DEFAULT 'normal',
+                    retention_days INTEGER DEFAULT -1,
+                    tags TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    sync_version INTEGER DEFAULT 0,
+                    emotion_valence REAL DEFAULT 0,
+                    emotion_arousal REAL DEFAULT 0,
+                    emotion_ei REAL DEFAULT 0,
+                    emotion_label TEXT DEFAULT 'neutral',
+                    classification TEXT DEFAULT 'TOP_SECRET'
+                )
+                """,
+            ] + base_indexes + extra_indexes,
+        )
+
+        # v2: 添加 original_encrypted 列
+        migrator.register(
+            version=2,
+            name="add_original_encrypted_column",
+            up_sql=[
+                "ALTER TABLE memories ADD COLUMN original_encrypted TEXT",
+            ],
+        )
+
+    elif layer_type == "l3":
+        # L3 索引库
+        migrator.register(
+            version=1,
+            name="initial_schema",
+            up_sql=[
+                """
+                CREATE TABLE IF NOT EXISTS memories (
+                    memory_id TEXT PRIMARY KEY,
+                    content_hash TEXT,
+                    file_name TEXT,
+                    layer TEXT,
+                    domain TEXT,
+                    owner_agent TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    last_accessed_at TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    quality_score REAL DEFAULT 50,
+                    quality_level TEXT DEFAULT 'normal',
+                    retention_days INTEGER DEFAULT -1,
+                    tags TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    sync_version INTEGER DEFAULT 0,
+                    emotion_valence REAL DEFAULT 0,
+                    emotion_arousal REAL DEFAULT 0,
+                    emotion_ei REAL DEFAULT 0,
+                    emotion_label TEXT DEFAULT 'neutral',
+                    classification TEXT DEFAULT 'TOP_SECRET',
+                    encryption_salt TEXT
+                )
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)",
+                "CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)",
+                "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
+                "CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash)",
+            ],
+        )
+
+    return migrator
+
+
+def get_growth_migrator(db_path: str):
+    """
+    获取成长系统的迁移器（带注册的迁移）
+
+    Args:
+        db_path: 数据库路径
+
+    Returns:
+        DatabaseMigrator 实例
+    """
+    from tide_memory.db import DatabaseMigrator
+    from tide_memory.growth.database import GrowthDatabase
+
+    migrator = DatabaseMigrator(db_path)
+
+    # 使用 GrowthDatabase 的 SQL 定义
+    growth_db = GrowthDatabase.__new__(GrowthDatabase)
+    growth_db._db_path = db_path
+
+    def _init_seed_data(conn):
+        """初始化预置数据"""
+        growth_db._init_achievements(conn)
+        growth_db._init_talents(conn)
+        growth_db._init_points(conn)
+        growth_db._init_seasons(conn)
+
+    migrator.register(
+        version=1,
+        name="initial_schema",
+        up_sql=growth_db._get_all_create_table_sql(),
+        up_func=_init_seed_data,
+    )
+
+    return migrator
+
+
+def get_migrator_for_db(db_key: str, db_path: str):
+    """
+    根据数据库 key 获取对应的迁移器
+
+    Args:
+        db_key: 数据库 key (l1, l2, l3, growth)
+        db_path: 数据库路径
+
+    Returns:
+        DatabaseMigrator 实例
+    """
+    if db_key in ("l1", "l2", "l3"):
+        return get_layer_migrator(db_key, db_path)
+    elif db_key == "growth":
+        return get_growth_migrator(db_path)
+    else:
+        raise ValueError(f"Unknown database: {db_key}")
+
+
+# ============================================================
+# 迁移操作
+# ============================================================
+
+def migrate_database(
+    db_key: str,
+    db_path: str,
+    target_version: Optional[int] = None,
+) -> Dict:
+    """
+    迁移单个数据库
+
+    Args:
+        db_key: 数据库 key
+        db_path: 数据库路径
+        target_version: 目标版本，None 表示最新
+
+    Returns:
+        迁移结果
+    """
+    config = DB_CONFIGS[db_key]
+    migrator = get_migrator_for_db(db_key, db_path)
+
+    result = migrator.migrate(target_version)
+    result["db_key"] = db_key
+    result["db_name"] = config["name"]
+    result["db_path"] = db_path
+
+    return result
+
+
+def migrate_all(
+    db_keys: List[str],
+    data_dir: str = "./data",
+    target_version: Optional[int] = None,
+) -> List[Dict]:
+    """
+    迁移指定的所有数据库
+
+    Args:
+        db_keys: 数据库 key 列表
+        data_dir: 数据根目录
+        target_version: 目标版本
+
+    Returns:
+        迁移结果列表
+    """
+    results = []
+    for db_key in db_keys:
+        config = DB_CONFIGS[db_key]
+        db_path = os.path.join(data_dir, os.path.relpath(config["db_path"], "./data"))
+        # 修正路径计算
+        db_path = config["db_path"]
+
+        print(f"\n迁移: {config['name']} ({db_key})")
+        print(f"  路径: {db_path}")
+
         try:
-            # 检查字段是否存在
-            cursor = conn.execute("PRAGMA table_info(memories)")
-            columns = [row[1] for row in cursor.fetchall()]
-            
-            if "emotion_valence" not in columns:
-                conn.execute("ALTER TABLE memories ADD COLUMN emotion_valence REAL DEFAULT 0")
-                conn.execute("ALTER TABLE memories ADD COLUMN emotion_arousal REAL DEFAULT 0")
-                conn.execute("ALTER TABLE memories ADD COLUMN emotion_ei REAL DEFAULT 0")
-                conn.execute("ALTER TABLE memories ADD COLUMN emotion_label TEXT DEFAULT 'neutral'")
-            
-            conn.commit()
-            return {"success": True, "migrated": 0}
-        finally:
-            conn.close()
+            result = migrate_database(db_key, db_path, target_version)
+            results.append(result)
 
-    def _migrate_21_22(self) -> Dict:
-        """v2.1 → v2.2：增加密级字段"""
-        db_path = os.path.join(self._data_dir, "l1_shallow.db")
-        if not os.path.exists(db_path):
-            return {"success": True, "migrated": 0}
-        
-        conn = sqlite3.connect(db_path)
-        try:
-            cursor = conn.execute("PRAGMA table_info(memories)")
-            columns = [row[1] for row in cursor.fetchall()]
-            
-            if "classification" not in columns:
-                conn.execute("ALTER TABLE memories ADD COLUMN classification TEXT DEFAULT 'TOP_SECRET'")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_classification ON memories(classification)")
-            
-            conn.commit()
-            return {"success": True, "migrated": 0}
-        finally:
-            conn.close()
+            if result["status"] == "already_at_target":
+                print(f"  状态: 已是最新版本 (v{result['to_version']})")
+            elif result["status"] == "success":
+                print(f"  状态: 迁移成功")
+                print(f"  版本: v{result['from_version']} → v{result['to_version']}")
+                for m in result["applied"]:
+                    print(f"    - v{m['version']}: {m['name']} ({m['duration_ms']:.2f}ms)")
+        except Exception as e:
+            print(f"  状态: 失败 - {e}")
+            results.append({
+                "db_key": db_key,
+                "db_name": config["name"],
+                "status": "failed",
+                "error": str(e),
+            })
 
-    def _migrate_22_23(self) -> Dict:
-        """v2.2 → v2.3：增加质量评估字段"""
-        db_path = os.path.join(self._data_dir, "l1_shallow.db")
-        if not os.path.exists(db_path):
-            return {"success": True, "migrated": 0}
-        
-        conn = sqlite3.connect(db_path)
-        try:
-            cursor = conn.execute("PRAGMA table_info(memories)")
-            columns = [row[1] for row in cursor.fetchall()]
-            
-            if "quality_score" not in columns:
-                conn.execute("ALTER TABLE memories ADD COLUMN quality_score REAL DEFAULT 50")
-                conn.execute("ALTER TABLE memories ADD COLUMN quality_level TEXT DEFAULT 'normal'")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)")
-            
-            conn.commit()
-            return {"success": True, "migrated": 0}
-        finally:
-            conn.close()
+    return results
 
-    def _migrate_23_24(self) -> Dict:
-        """v2.3 → v2.4：增加同步字段"""
-        db_path = os.path.join(self._data_dir, "l1_shallow.db")
-        if not os.path.exists(db_path):
-            return {"success": True, "migrated": 0}
-        
-        conn = sqlite3.connect(db_path)
-        try:
-            cursor = conn.execute("PRAGMA table_info(memories)")
-            columns = [row[1] for row in cursor.fetchall()]
-            
-            if "sync_version" not in columns:
-                conn.execute("ALTER TABLE memories ADD COLUMN sync_version INTEGER DEFAULT 0")
-                conn.execute("ALTER TABLE memories ADD COLUMN is_dirty INTEGER DEFAULT 0")
-                conn.execute("ALTER TABLE memories ADD COLUMN content_hash TEXT DEFAULT ''")
-            
-            conn.commit()
-            return {"success": True, "migrated": 0}
-        finally:
-            conn.close()
 
-    def _write_version(self, version: str) -> None:
-        """写入版本文件"""
-        os.makedirs(self._data_dir, exist_ok=True)
-        version_file = os.path.join(self._data_dir, "VERSION")
-        with open(version_file, "w") as f:
-            f.write(version)
+def show_status(db_keys: List[str], data_dir: str = "./data") -> None:
+    """
+    显示数据库迁移状态
 
-    def rollback(self, backup_dir: str) -> bool:
-        """从备份回滚"""
-        if not os.path.exists(backup_dir):
-            return False
-        
-        if os.path.exists(self._data_dir):
-            shutil.rmtree(self._data_dir)
-        
-        shutil.copytree(backup_dir, self._data_dir)
-        return True
+    Args:
+        db_keys: 数据库 key 列表
+        data_dir: 数据根目录
+    """
+    print("\n=== 数据库迁移状态 ===")
+    for db_key in db_keys:
+        config = DB_CONFIGS[db_key]
+        db_path = config["db_path"]
 
+        migrator = get_migrator_for_db(db_key, db_path)
+        status = migrator.validate()
+
+        status_icon = "✓" if status["is_up_to_date"] else "✗"
+        print(f"\n{status_icon} {config['name']} ({db_key})")
+        print(f"  路径: {status['db_path']}")
+        print(f"  当前版本: v{status['current_version']}")
+        print(f"  最新版本: v{status['latest_registered_version']}")
+        print(f"  状态: {'最新' if status['is_up_to_date'] else '需要迁移'}")
+        print(f"  迁移历史: {status['migration_history_count']} 条")
+
+
+def show_history(db_keys: List[str], data_dir: str = "./data") -> None:
+    """
+    显示迁移历史
+
+    Args:
+        db_keys: 数据库 key 列表
+        data_dir: 数据根目录
+    """
+    from datetime import datetime
+
+    print("\n=== 迁移历史 ===")
+    for db_key in db_keys:
+        config = DB_CONFIGS[db_key]
+        db_path = config["db_path"]
+
+        migrator = get_migrator_for_db(db_key, db_path)
+        history = migrator.get_migration_history()
+
+        print(f"\n{config['name']} ({db_key})")
+        if not history:
+            print("  无迁移记录")
+            continue
+
+        for record in history:
+            applied_at = datetime.fromtimestamp(record["applied_at"]).strftime("%Y-%m-%d %H:%M:%S")
+            print(f"  v{record['version']}: {record['name']}")
+            print(f"    执行时间: {applied_at}")
+            print(f"    耗时: {record['duration_ms']:.2f}ms")
+
+
+# ============================================================
+# 主函数
+# ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="M5 潮汐记忆系统数据迁移工具")
-    parser.add_argument("--data-dir", default="./data/memory", help="数据目录")
-    parser.add_argument("--from", dest="from_ver", help="源版本")
-    parser.add_argument("--to", dest="to_ver", default="2.4.0", help="目标版本")
-    parser.add_argument("--backup", action="store_true", help="迁移前备份")
-    parser.add_argument("--rollback", help="从指定备份目录回滚")
-    parser.add_argument("--check", action="store_true", help="检查当前版本")
-    
+    parser = argparse.ArgumentParser(
+        description="M5 潮汐记忆系统 - 数据库版本化迁移工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  # 迁移所有数据库到最新版本
+  python scripts/migrate.py
+
+  # 迁移指定数据库
+  python scripts/migrate.py --db l1
+  python scripts/migrate.py --db l1,l2,growth
+
+  # 迁移到指定版本
+  python scripts/migrate.py --db l1 --version 1
+
+  # 检查迁移状态
+  python scripts/migrate.py --status
+
+  # 查看迁移历史
+  python scripts/migrate.py --history --db l1
+        """,
+    )
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="指定数据库，逗号分隔（l1, l2, l3, growth）。默认全部",
+    )
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=None,
+        dest="target_version",
+        help="目标版本号（默认最新版本）",
+    )
+    parser.add_argument(
+        "--data-dir",
+        default="./data",
+        help="数据根目录（默认 ./data）",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="查看迁移状态",
+    )
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="查看迁移历史",
+    )
+
     args = parser.parse_args()
-    
-    migrator = MemoryMigrator(args.data_dir)
-    
-    if args.check:
-        version = migrator.get_current_version()
-        print(f"当前数据版本: {version or '未检测到'}")
-        return
-    
-    if args.rollback:
-        print(f"正在从备份回滚: {args.rollback}")
-        if migrator.rollback(args.rollback):
-            print("✓ 回滚成功")
-        else:
-            print("✗ 回滚失败")
-        return
-    
-    # 迁移
-    from_ver = args.from_ver or migrator.get_current_version() or "2.0.0"
-    
-    if args.backup:
-        print("创建数据备份...")
-        backup = migrator.backup()
-        print(f"✓ 备份已创建: {backup}")
-    
-    print(f"迁移: {from_ver} → {args.to_ver}")
-    result = migrator.migrate(from_ver, args.to_ver)
-    
-    if result["success"]:
-        print("✓ 迁移成功")
-        if "migrated_count" in result:
-            print(f"  迁移步数: {result['migrated_count']}")
+
+    # 确定要操作的数据库
+    if args.db:
+        db_keys = [k.strip() for k in args.db.split(",") if k.strip()]
+        invalid = [k for k in db_keys if k not in DB_CONFIGS]
+        if invalid:
+            print(f"错误: 未知的数据库: {', '.join(invalid)}")
+            print(f"可用数据库: {', '.join(DB_CONFIGS.keys())}")
+            sys.exit(1)
     else:
-        print(f"✗ 迁移失败: {result.get('error')}")
+        db_keys = list(DB_CONFIGS.keys())
+
+    # 状态查询
+    if args.status:
+        show_status(db_keys, args.data_dir)
+        return
+
+    # 历史查询
+    if args.history:
+        show_history(db_keys, args.data_dir)
+        return
+
+    # 执行迁移
+    print(f"目标数据库: {', '.join(db_keys)}")
+    if args.target_version:
+        print(f"目标版本: v{args.target_version}")
+    else:
+        print("目标版本: 最新")
+
+    results = migrate_all(db_keys, args.data_dir, args.target_version)
+
+    # 汇总
+    success_count = sum(1 for r in results if r["status"] in ("success", "already_at_target"))
+    failed_count = sum(1 for r in results if r["status"] == "failed")
+
+    print(f"\n=== 迁移汇总 ===")
+    print(f"总计: {len(results)} 个数据库")
+    print(f"成功: {success_count}")
+    print(f"失败: {failed_count}")
+
+    if failed_count > 0:
         sys.exit(1)
 
 

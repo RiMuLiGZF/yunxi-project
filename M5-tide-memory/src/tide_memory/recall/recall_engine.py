@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class RecallEngine:

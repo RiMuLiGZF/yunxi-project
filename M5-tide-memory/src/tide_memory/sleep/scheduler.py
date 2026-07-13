@@ -10,13 +10,14 @@
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 # 全局调度器实例
 _scheduler_instance: Optional["ConsolidationScheduler"] = None

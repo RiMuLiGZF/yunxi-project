@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import os
 import sqlite3
 from datetime import datetime
 from typing import Dict, List, Optional
+
+import structlog
 
 from ..core.models import (
     ClassificationLevel,
@@ -17,8 +18,9 @@ from ..core.models import (
     MemoryItem,
     MemoryLayer,
 )
+from ..db import DatabaseMigrator
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class AbyssLayer:
@@ -53,6 +55,9 @@ class AbyssLayer:
 
         # 加密后端标记
         self._use_cryptography: bool = False
+
+        # 迁移系统开关（默认启用）
+        self._use_migration = config.get("use_migration", True)
 
         # 初始化存储目录
         os.makedirs(self._storage_path, exist_ok=True)
@@ -183,8 +188,146 @@ class AbyssLayer:
     # SQLite 索引
     # ============================================================
 
+    def _get_migrator(self) -> DatabaseMigrator:
+        """
+        获取 L3 索引数据库的迁移器
+
+        注册 L3 层的迁移：
+        - v1: 初始表结构 + 索引
+
+        Returns:
+            DatabaseMigrator 实例
+        """
+        migrator = DatabaseMigrator(self._db_path)
+
+        # v1: 初始 schema（memories 表 + 索引）
+        migrator.register(
+            version=1,
+            name="initial_schema",
+            up_sql=[
+                """
+                CREATE TABLE IF NOT EXISTS memories (
+                    memory_id TEXT PRIMARY KEY,
+                    content_hash TEXT,
+                    file_name TEXT,
+                    layer TEXT,
+                    domain TEXT,
+                    owner_agent TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    last_accessed_at TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    quality_score REAL DEFAULT 50,
+                    quality_level TEXT DEFAULT 'normal',
+                    retention_days INTEGER DEFAULT -1,
+                    tags TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    sync_version INTEGER DEFAULT 0,
+                    emotion_valence REAL DEFAULT 0,
+                    emotion_arousal REAL DEFAULT 0,
+                    emotion_ei REAL DEFAULT 0,
+                    emotion_label TEXT DEFAULT 'neutral',
+                    classification TEXT DEFAULT 'TOP_SECRET',
+                    encryption_salt TEXT
+                )
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)",
+                "CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)",
+                "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
+                "CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash)",
+            ],
+        )
+
+        return migrator
+
+    def _bootstrap_migration(self) -> bool:
+        """
+        引导 L3 迁移系统：检测现有数据库状态，初始化版本号
+
+        Returns:
+            是否成功引导
+        """
+        try:
+            conn = sqlite3.connect(self._db_path)
+            try:
+                # 检查 memories 表是否存在
+                cursor = conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='memories'"
+                )
+                if not cursor.fetchone():
+                    return False
+
+                # L3 目前只有 v1，检测到表存在则为 v1
+                detected_version = 1
+
+                # 初始化版本表和日志表
+                migrator = self._get_migrator()
+                migrator._ensure_version_table(conn)
+                migrator._ensure_migration_log_table(conn)
+                migrator._set_version(conn, detected_version)
+
+                # 记录迁移日志
+                import time
+                for v in range(1, detected_version + 1):
+                    if v in migrator._migrations:
+                        m = migrator._migrations[v]
+                        migrator._log_migration(conn, v, m.name, 0.0)
+
+                conn.commit()
+                logger.info(
+                    "migration.bootstrapped",
+                    layer="L3_ABYSS",
+                    db_path=self._db_path,
+                    detected_version=detected_version,
+                )
+                return True
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.warning("migration.bootstrap_failed", layer="L3_ABYSS", error=str(e))
+            return False
+
     def _ensure_db(self) -> None:
-        """确保 SQLite 索引表存在"""
+        """确保 SQLite 索引表存在
+
+        使用版本化迁移系统管理 schema，
+        向后兼容：禁用迁移系统时回退到旧模式。
+        """
+        if self._use_migration:
+            self._ensure_db_with_migration()
+        else:
+            self._ensure_db_legacy()
+
+    def _ensure_db_with_migration(self) -> None:
+        """使用版本化迁移系统初始化数据库"""
+        migrator = self._get_migrator()
+
+        # 检查迁移系统是否已初始化
+        if not migrator.is_initialized():
+            # 尝试引导
+            bootstrapped = self._bootstrap_migration()
+            if not bootstrapped:
+                logger.debug("migration.new_database", layer="L3_ABYSS", db_path=self._db_path)
+
+        # 执行迁移到最新版本
+        try:
+            result = migrator.migrate()
+            if result["status"] == "success" and result["applied"]:
+                logger.info(
+                    "migration.layer_applied",
+                    layer="L3_ABYSS",
+                    from_version=result["from_version"],
+                    to_version=result["to_version"],
+                    applied_count=len(result["applied"]),
+                )
+        except Exception as e:
+            logger.error("migration.layer_failed", layer="L3_ABYSS", error=str(e))
+            # 迁移失败时回退到旧模式
+            self._ensure_db_legacy()
+
+    def _ensure_db_legacy(self) -> None:
+        """旧模式：直接创建表和索引（向后兼容）"""
         conn = sqlite3.connect(self._db_path)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS memories (

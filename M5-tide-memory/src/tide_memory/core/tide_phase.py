@@ -14,14 +14,15 @@ Phase 2 实现：基于时间的相位切换（白天Flood/Rising，夜晚Slack/
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Callable, Dict, Optional
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class TidePhase(str, Enum):

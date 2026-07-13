@@ -13,6 +13,13 @@ SRC_DIR = BASE_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+import structlog
+from tide_memory.utils.logging_setup import setup_logging
+
+# 初始化结构化日志系统（尽早初始化）
+setup_logging()
+logger = structlog.get_logger(__name__)
+
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,6 +33,11 @@ from tide_memory.api.m8_interface import M8Interface
 
 # 导入成长系统
 from tide_memory.growth.router import GrowthAPIRouter
+
+# 导入全局异常处理器和认证中间件
+from tide_memory.middleware.exception_handler import register_exception_handlers
+from tide_memory.middleware.auth import FastAPIAuthMiddleware
+from tide_memory.middleware.idempotency import IdempotencyMiddleware
 
 # 导入版本号
 from tide_memory import __version__ as M5_VERSION
@@ -73,15 +85,15 @@ def create_fastapi_app() -> FastAPI:
     """创建 FastAPI 应用并挂载 M5 路由"""
 
     # 初始化 M5 应用上下文
-    print("初始化 M5 潮汐记忆系统...")
+    logger.info("初始化 M5 潮汐记忆系统...")
     app_ctx = create_app()
     api_router = MemoryAPIRouter(app_ctx)
     m8_interface = M8Interface(app_ctx)
 
     # 初始化成长系统
-    print("初始化成长系统（成就/天赋/历法/编年史/记忆回响/赛季征程）...")
+    logger.info("初始化成长系统（成就/天赋/历法/编年史/记忆回响/赛季征程）...")
     growth_router = GrowthAPIRouter(app_ctx)
-    print("✅ 成长系统初始化完成")
+    logger.info("成长系统初始化完成")
 
     # 创建 FastAPI 应用
     app = FastAPI(
@@ -98,6 +110,23 @@ def create_fastapi_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 认证中间件（通过 M5_AUTH_ENABLED 环境变量控制，默认关闭）
+    app.add_middleware(FastAPIAuthMiddleware)
+    logger.info(
+        "auth_middleware_registered",
+        auth_enabled=os.environ.get("M5_AUTH_ENABLED", "false").lower() in ("true", "1", "yes", "on"),
+    )
+
+    # 幂等性中间件（通过 M5_IDEMPOTENCY_ENABLED 环境变量控制，默认开启）
+    app.add_middleware(IdempotencyMiddleware)
+    logger.info(
+        "idempotency_middleware_registered",
+        idempotency_enabled=os.environ.get("M5_IDEMPOTENCY_ENABLED", "true").lower() in ("true", "1", "yes", "on"),
+    )
+
+    # 注册全局异常处理器
+    register_exception_handlers(app)
 
     # ============ V1 API 路由 ============
 
@@ -521,7 +550,7 @@ def create_fastapi_app() -> FastAPI:
         """M8标准记忆统计接口"""
         return m8_interface.m8_get_stats()
 
-    print("✅ M5 潮汐记忆系统 FastAPI 服务已就绪")
+    logger.info("M5 潮汐记忆系统 FastAPI 服务已就绪")
     return app
 
 
@@ -531,15 +560,16 @@ def main():
     port = int(os.environ.get("M5_PORT", "8005"))
     app = create_fastapi_app()
 
-    print("\n" + "=" * 60)
-    print("  M5 潮汐记忆系统 - 启动完成")
-    print("=" * 60)
-    print(f"  服务地址: http://0.0.0.0:{port}")
-    print(f"  健康检查: http://0.0.0.0:{port}/health")
-    print(f"  API 文档: http://0.0.0.0:{port}/docs")
-    print(f"  版本: v{M5_VERSION}")
-    print(f"  密级: 高涉密 - 数据仅本地加密存储")
-    print("=" * 60 + "\n")
+    auth_enabled = os.environ.get("M5_AUTH_ENABLED", "false").lower() in ("true", "1", "yes", "on")
+    logger.info(
+        "M5 潮汐记忆系统 - 启动完成",
+        service_url=f"http://0.0.0.0:{port}",
+        health_check=f"http://0.0.0.0:{port}/health",
+        api_docs=f"http://0.0.0.0:{port}/docs",
+        version=f"v{M5_VERSION}",
+        auth_enabled=auth_enabled,
+        classification="高涉密 - 数据仅本地加密存储",
+    )
 
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 

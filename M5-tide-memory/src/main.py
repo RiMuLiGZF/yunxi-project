@@ -14,6 +14,13 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+import structlog
+from tide_memory.utils.logging_setup import setup_logging
+
+# 初始化结构化日志系统（尽早初始化，确保所有模块使用统一日志）
+setup_logging()
+logger = structlog.get_logger(__name__)
+
 from tide_memory.core.config import TideConfig
 from tide_memory.core.skill_interface import TideSkillInterface
 from tide_memory.security.secret_marker import SecretMarker, ClassificationLevel
@@ -109,19 +116,24 @@ def main():
     app = create_app(args.config)
     
     if args.check:
-        print("✅ M5潮汐记忆系统环境检查通过")
-        print(f"   版本: {SYSTEM_VERSION}")
-        print(f"   四层存储: L0沙滩 / L1浅水 / L2深水 / L3深海")
-        print(f"   密级: 高涉密 - 数据仅本地存储")
+        logger.info(
+            "M5潮汐记忆系统环境检查通过",
+            version=SYSTEM_VERSION,
+            layers="L0沙滩 / L1浅水 / L2深水 / L3深海",
+            classification="高涉密 - 数据仅本地存储",
+        )
         return 0
     
     if args.consolidate:
         app["consolidation"].run_consolidation()
-        print("✅ 记忆巩固完成")
+        logger.info("记忆巩固完成")
         return 0
     
-    print(f"M5潮汐记忆系统 {SYSTEM_VERSION}")
-    print("高涉密模块 - 数据仅本地加密存储")
+    logger.info(
+        "M5潮汐记忆系统启动",
+        version=SYSTEM_VERSION,
+        classification="高涉密 - 数据仅本地加密存储",
+    )
     return 0
 
 

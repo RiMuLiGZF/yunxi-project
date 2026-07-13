@@ -14,6 +14,8 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..db import DatabaseMigrator
+
 
 class GrowthDatabase:
     """
@@ -26,12 +28,13 @@ class GrowthDatabase:
     _instance: Optional["GrowthDatabase"] = None
     _lock = threading.Lock()
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str = None, use_migration: bool = True):
         """
         初始化数据库连接
 
         Args:
             db_path: 数据库文件路径，默认使用 data/growth/growth.db
+            use_migration: 是否使用版本化迁移系统
         """
         if db_path is None:
             # 默认路径：模块根目录下的 data/growth/growth.db
@@ -41,6 +44,7 @@ class GrowthDatabase:
         self._db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
         self._thread_lock = threading.Lock()
+        self._use_migration = use_migration
 
         # 确保目录存在
         os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
@@ -65,7 +69,304 @@ class GrowthDatabase:
         return conn
 
     def _init_database(self) -> None:
-        """初始化数据库：建表 + 插入预置数据"""
+        """初始化数据库：建表 + 插入预置数据
+
+        使用版本化迁移系统管理 schema，
+        向后兼容：禁用迁移系统时回退到旧模式。
+        """
+        if self._use_migration:
+            self._init_database_with_migration()
+        else:
+            self._init_database_legacy()
+
+    def _get_migrator(self) -> DatabaseMigrator:
+        """
+        获取成长系统数据库的迁移器
+
+        注册的迁移：
+        - v1: 初始表结构 + 索引 + 预置数据
+
+        Returns:
+            DatabaseMigrator 实例
+        """
+        import structlog
+        log = structlog.get_logger(__name__)
+        migrator = DatabaseMigrator(self._db_path)
+
+        def _init_seed_data(conn: sqlite3.Connection) -> None:
+            """初始化预置数据（成就、天赋、点数、赛季）"""
+            # 设置 row_factory 以兼容 GrowthDatabase 中的方法
+            old_row_factory = conn.row_factory
+            conn.row_factory = sqlite3.Row
+            try:
+                self._init_achievements(conn)
+                self._init_talents(conn)
+                self._init_points(conn)
+                self._init_seasons(conn)
+            finally:
+                conn.row_factory = old_row_factory
+
+        # v1: 初始 schema（所有表 + 索引 + 预置数据）
+        migrator.register(
+            version=1,
+            name="initial_schema",
+            up_sql=self._get_all_create_table_sql(),
+            up_func=_init_seed_data,
+        )
+
+        return migrator
+
+    def _get_all_create_table_sql(self) -> List[str]:
+        """获取所有建表和建索引的 SQL 语句列表"""
+        return [
+            # 成就定义表
+            """
+            CREATE TABLE IF NOT EXISTS growth_achievements (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                rarity TEXT NOT NULL,
+                rarity_text TEXT NOT NULL,
+                condition TEXT NOT NULL,
+                description TEXT NOT NULL,
+                point_reward INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """,
+            # 用户成就表
+            """
+            CREATE TABLE IF NOT EXISTS growth_user_achievements (
+                achievement_id TEXT PRIMARY KEY,
+                unlocked INTEGER DEFAULT 0,
+                unlock_date TEXT DEFAULT '',
+                unlocked_at TEXT DEFAULT '',
+                FOREIGN KEY (achievement_id) REFERENCES growth_achievements(id)
+            )
+            """,
+            # 天赋定义表
+            """
+            CREATE TABLE IF NOT EXISTS growth_talents (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                branch TEXT NOT NULL,
+                tree TEXT NOT NULL,
+                description TEXT NOT NULL,
+                max_level INTEGER DEFAULT 1,
+                parent_id TEXT DEFAULT '',
+                children_ids TEXT DEFAULT '[]',
+                point_cost INTEGER DEFAULT 1,
+                layer INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """,
+            # 用户天赋状态表
+            """
+            CREATE TABLE IF NOT EXISTS growth_user_talents (
+                talent_id TEXT PRIMARY KEY,
+                level INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'locked',
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (talent_id) REFERENCES growth_talents(id)
+            )
+            """,
+            # 天赋点数表
+            """
+            CREATE TABLE IF NOT EXISTS growth_points (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                amount INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                source_id TEXT DEFAULT '',
+                reason TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """,
+            # 日历打卡表
+            """
+            CREATE TABLE IF NOT EXISTS growth_calendar (
+                date TEXT PRIMARY KEY,
+                mood INTEGER DEFAULT 0,
+                energy INTEGER DEFAULT 0,
+                checked_in INTEGER DEFAULT 0,
+                summary TEXT DEFAULT '',
+                tags TEXT DEFAULT '[]',
+                tide_phase TEXT DEFAULT '小潮',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            )
+            """,
+            # 索引
+            "CREATE INDEX IF NOT EXISTS idx_ach_category ON growth_achievements(category)",
+            "CREATE INDEX IF NOT EXISTS idx_ach_rarity ON growth_achievements(rarity)",
+            "CREATE INDEX IF NOT EXISTS idx_user_ach_unlocked ON growth_user_achievements(unlocked)",
+            "CREATE INDEX IF NOT EXISTS idx_talent_branch ON growth_talents(branch)",
+            "CREATE INDEX IF NOT EXISTS idx_talent_tree ON growth_talents(tree)",
+            "CREATE INDEX IF NOT EXISTS idx_calendar_checked ON growth_calendar(checked_in)",
+            "CREATE INDEX IF NOT EXISTS idx_calendar_date ON growth_calendar(date)",
+            # 编年史表
+            """
+            CREATE TABLE IF NOT EXISTS growth_chronicle (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'main-quest',
+                category_text TEXT NOT NULL DEFAULT '主线任务',
+                difficulty TEXT NOT NULL DEFAULT '普通',
+                content TEXT NOT NULL DEFAULT '',
+                tags TEXT NOT NULL DEFAULT '[]',
+                has_git INTEGER NOT NULL DEFAULT 0,
+                git_commits TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_chronicle_date ON growth_chronicle(date)",
+            "CREATE INDEX IF NOT EXISTS idx_chronicle_category ON growth_chronicle(category)",
+            # 记忆回响表
+            """
+            CREATE TABLE IF NOT EXISTS growth_memory_echoes (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'growth',
+                category_text TEXT NOT NULL DEFAULT '成长',
+                before_json TEXT NOT NULL DEFAULT '{}',
+                after_json TEXT NOT NULL DEFAULT '{}',
+                growth TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_echo_category ON growth_memory_echoes(category)",
+            "CREATE INDEX IF NOT EXISTS idx_echo_created_at ON growth_memory_echoes(created_at)",
+            # 赛季表
+            """
+            CREATE TABLE IF NOT EXISTS growth_seasons (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                period TEXT NOT NULL DEFAULT '',
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'locked',
+                created_at TEXT NOT NULL
+            )
+            """,
+            # 赛季阶段表
+            """
+            CREATE TABLE IF NOT EXISTS growth_season_phases (
+                id TEXT PRIMARY KEY,
+                season_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                phase_index INTEGER NOT NULL DEFAULT 0,
+                reward TEXT NOT NULL DEFAULT '',
+                reward_points INTEGER NOT NULL DEFAULT 0,
+                reward_claimed INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_phase_season ON growth_season_phases(season_id)",
+            # 赛季任务表
+            """
+            CREATE TABLE IF NOT EXISTS growth_season_tasks (
+                id TEXT PRIMARY KEY,
+                season_id TEXT NOT NULL,
+                phase_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT 'seasonal',
+                status TEXT NOT NULL DEFAULT 'pending',
+                points INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT,
+                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE,
+                FOREIGN KEY (phase_id) REFERENCES growth_season_phases(id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_task_season ON growth_season_tasks(season_id)",
+            "CREATE INDEX IF NOT EXISTS idx_task_phase ON growth_season_tasks(phase_id)",
+            "CREATE INDEX IF NOT EXISTS idx_task_type ON growth_season_tasks(type)",
+            "CREATE INDEX IF NOT EXISTS idx_task_status ON growth_season_tasks(status)",
+        ]
+
+    def _bootstrap_growth_migration(self) -> bool:
+        """
+        引导成长系统迁移系统：检测现有数据库状态，初始化版本号
+
+        Returns:
+            是否成功引导
+        """
+        import structlog
+        import time
+        log = structlog.get_logger(__name__)
+        try:
+            conn = sqlite3.connect(self._db_path)
+            try:
+                # 检查核心表是否存在
+                cursor = conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='growth_achievements'"
+                )
+                if not cursor.fetchone():
+                    return False
+
+                # 检测到已有数据，版本为 v1
+                detected_version = 1
+
+                # 初始化版本表和日志表
+                migrator = self._get_migrator()
+                migrator._ensure_version_table(conn)
+                migrator._ensure_migration_log_table(conn)
+                migrator._set_version(conn, detected_version)
+
+                # 记录迁移日志
+                for v in range(1, detected_version + 1):
+                    if v in migrator._migrations:
+                        m = migrator._migrations[v]
+                        migrator._log_migration(conn, v, m.name, 0.0)
+
+                conn.commit()
+                log.info(
+                    "migration.bootstrapped",
+                    db="growth",
+                    db_path=self._db_path,
+                    detected_version=detected_version,
+                )
+                return True
+            finally:
+                conn.close()
+        except Exception as e:
+            log.warning("migration.bootstrap_failed", db="growth", error=str(e))
+            return False
+
+    def _init_database_with_migration(self) -> None:
+        """使用版本化迁移系统初始化数据库"""
+        import structlog
+        log = structlog.get_logger(__name__)
+        migrator = self._get_migrator()
+
+        # 检查迁移系统是否已初始化
+        if not migrator.is_initialized():
+            # 尝试引导
+            bootstrapped = self._bootstrap_growth_migration()
+            if not bootstrapped:
+                log.debug("migration.new_database", db="growth", db_path=self._db_path)
+
+        # 执行迁移到最新版本
+        try:
+            result = migrator.migrate()
+            if result["status"] == "success" and result["applied"]:
+                log.info(
+                    "migration.growth_applied",
+                    from_version=result["from_version"],
+                    to_version=result["to_version"],
+                    applied_count=len(result["applied"]),
+                )
+        except Exception as e:
+            log.error("migration.growth_failed", error=str(e))
+            # 迁移失败时回退到旧模式
+            self._init_database_legacy()
+
+    def _init_database_legacy(self) -> None:
+        """旧模式：直接建表 + 插入预置数据（向后兼容）"""
         conn = self._get_connection()
         try:
             self._create_tables(conn)
