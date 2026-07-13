@@ -19,11 +19,11 @@ from typing import Any, Callable
 
 import aiosqlite
 import structlog
-from pydantic import BaseModel, Field
 
 from edge_cloud_kernel.models.exceptions import SyncError
-from edge_cloud_kernel.sync.sync_api import (
-    SyncAPI,
+from edge_cloud_kernel.models.sync import (
+    OfflineReplayDetail,
+    OfflineReplayResult,
     SyncPullResponse,
     SyncPushRequest,
     SyncPushResponse,
@@ -32,6 +32,7 @@ from edge_cloud_kernel.sync.sync_api import (
     SyncSessionRequest,
     SyncSessionResponse,
 )
+from edge_cloud_kernel.sync.sync_api import SyncAPI
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +47,7 @@ _MAX_BATCH_PUSH_SIZE: int = 50  # 单次批量推送最大条目数
 
 
 # ---------------------------------------------------------------------------
-# 枚举 & 数据模型
+# 枚举
 # ---------------------------------------------------------------------------
 
 
@@ -62,42 +63,6 @@ class ConnectionState(str, Enum):
     ONLINE = "online"
     OFFLINE = "offline"
     RECONNECTING = "reconnecting"
-
-
-class OfflineReplayDetail(BaseModel):
-    """单条回放结果详情.
-
-    Attributes:
-        queue_id: 队列记录 ID.
-        operation: 操作类型.
-        session_id: 关联会话 ID.
-        success: 是否成功.
-        error: 失败时的错误信息.
-    """
-
-    queue_id: int = Field(..., description="队列记录 ID")
-    operation: str = Field(..., description="操作类型")
-    session_id: str = Field(default="", description="关联会话 ID")
-    success: bool = Field(default=True, description="是否成功")
-    error: str = Field(default="", description="失败错误信息")
-
-
-class OfflineReplayResult(BaseModel):
-    """批量回放结果汇总.
-
-    Attributes:
-        success_count: 成功回放的操作数.
-        failed_count: 回放失败的操作数.
-        skipped_count: 跳过的操作数（如过期会话）.
-        details: 每条操作的详细结果列表.
-    """
-
-    success_count: int = Field(default=0, description="成功数")
-    failed_count: int = Field(default=0, description="失败数")
-    skipped_count: int = Field(default=0, description="跳过数")
-    details: list[OfflineReplayDetail] = Field(
-        default_factory=list, description="详细结果列表"
-    )
 
 
 # ---------------------------------------------------------------------------

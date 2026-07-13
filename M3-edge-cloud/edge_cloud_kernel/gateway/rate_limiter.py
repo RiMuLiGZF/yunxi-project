@@ -30,7 +30,8 @@ from collections import defaultdict
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
+
+from edge_cloud_kernel.models.gateway import RateLimiterStats
 
 logger = structlog.get_logger(__name__)
 
@@ -105,33 +106,6 @@ class _TokenBucket:
         async with self._lock:
             self._refill()
             return self.tokens
-
-
-# ---------------------------------------------------------------------------
-# 限流器统计快照
-# ---------------------------------------------------------------------------
-
-class RateLimiterStats(BaseModel):
-    """限流器统计快照.
-
-    用于 Prometheus 指标暴露和运维监控面板。
-
-    Attributes:
-        global_tokens: 全局桶当前可用令牌数.
-        global_max_tokens: 全局桶最大容量.
-        global_refill_rate: 全局桶每秒补充速率.
-        global_rejection_count: 全局桶累计拒绝次数.
-        agent_count: 已注册的 agent 桶数量.
-        agent_buckets: 各 agent 桶的详细状态.
-    """
-    global_tokens: float = Field(description="全局桶当前可用令牌数")
-    global_max_tokens: float = Field(description="全局桶最大容量")
-    global_refill_rate: float = Field(description="全局桶每秒补充速率")
-    global_rejection_count: int = Field(description="全局桶累计拒绝次数")
-    agent_count: int = Field(description="已注册的 agent 桶数量")
-    agent_buckets: dict[str, dict[str, Any]] = Field(
-        default_factory=dict, description="各 agent 桶详细状态"
-    )
 
 
 # ---------------------------------------------------------------------------

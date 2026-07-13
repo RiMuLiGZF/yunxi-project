@@ -14,24 +14,14 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
 from edge_cloud_kernel.core.kernel_manager import KernelManager
+from edge_cloud_kernel.models.common import ConfigUpdateRequest
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Config"])
-
-
-# ---------------------------------------------------------------------------
-# 请求模型
-# ---------------------------------------------------------------------------
-
-class ConfigUpdateRequest(BaseModel):
-    """配置更新请求体."""
-
-    updates: dict[str, Any] = Field(..., description="点路径的更新字典")
 
 
 # ---------------------------------------------------------------------------

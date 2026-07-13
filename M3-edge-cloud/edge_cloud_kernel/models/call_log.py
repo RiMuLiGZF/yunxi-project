@@ -8,10 +8,12 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from edge_cloud_kernel.models.base import EdgeCloudBaseModel
 
 
-class CallLogRecord(BaseModel):
+class CallLogRecord(EdgeCloudBaseModel):
     """推理调用日志记录.
 
     每次推理调用生成一条日志，异步回写到本地存储。

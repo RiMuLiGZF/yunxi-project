@@ -17,29 +17,14 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel, Field
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
 from edge_cloud_kernel.core.kernel_manager import KernelManager
+from edge_cloud_kernel.models.common import SyncTriggerRequest
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Sync"])
-
-
-# ---------------------------------------------------------------------------
-# 请求模型
-# ---------------------------------------------------------------------------
-
-class SyncTriggerRequest(BaseModel):
-    """同步触发请求体."""
-
-    scope: list[str] | None = Field(
-        None, description="同步范围，如 ['conversation', 'memory']"
-    )
-    conflict_strategy: str = Field(
-        "newest_wins", description="冲突解决策略"
-    )
 
 
 # ---------------------------------------------------------------------------

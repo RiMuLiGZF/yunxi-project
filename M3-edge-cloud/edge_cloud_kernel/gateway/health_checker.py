@@ -15,7 +15,8 @@ from urllib.parse import urljoin
 
 import aiohttp
 import structlog
-from pydantic import BaseModel
+
+from edge_cloud_kernel.models.gateway import HealthCheckerStats
 
 logger = structlog.get_logger(__name__)
 
@@ -62,28 +63,6 @@ class EndpointEntry:
     priority: int = 0
     last_status: HealthStatus | None = None
     last_check_time: float | None = None
-
-
-class HealthCheckerStats(BaseModel):
-    """健康探测统计快照.
-
-    Attributes:
-        current_status: 当前聚合健康状态.
-        last_check_time: 最近一次探测完成的时间戳.
-        consecutive_failures: 当前连续失败次数.
-        total_checks: 累计探测总次数.
-        healthy_checks: 健康探测次数.
-        uptime_ratio: 健康比率 (healthy_checks / total_checks).
-        endpoint_count: 已注册端点数量.
-    """
-
-    current_status: HealthStatus
-    last_check_time: float | None = None
-    consecutive_failures: int = 0
-    total_checks: int = 0
-    healthy_checks: int = 0
-    uptime_ratio: float = 0.0
-    endpoint_count: int = 0
 
 
 # ---------------------------------------------------------------------------

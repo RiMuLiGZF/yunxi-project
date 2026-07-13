@@ -16,14 +16,21 @@ import uuid
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
 
 from edge_cloud_kernel.models.exceptions import SyncError
-from edge_cloud_kernel.models.sync_models import (
+from edge_cloud_kernel.models.sync import (
     SessionState,
+    SyncDelta,
     SyncItem,
     SyncOperation,
+    SyncPullResponse,
+    SyncPushRequest,
+    SyncPushResponse,
+    SyncResolveRequest,
+    SyncResolveResponse,
     SyncResult,
+    SyncSessionRequest,
+    SyncSessionResponse,
     SyncStatus,
 )
 
@@ -35,126 +42,6 @@ logger = structlog.get_logger(__name__)
 
 SERVER_VERSION: str = "2.1.0"
 DEFAULT_SYNC_SCOPES: list[str] = ["conversation", "memory", "config"]
-
-
-# ---------------------------------------------------------------------------
-# Pydantic 请求/响应模型
-# ---------------------------------------------------------------------------
-
-class SyncSessionRequest(BaseModel):
-    """创建同步会话请求.
-
-    Attributes:
-        device_id: 设备唯一标识.
-        scopes: 需要同步的数据范围列表.
-    """
-
-    device_id: str = Field(..., description="设备唯一标识")
-    scopes: list[str] = Field(default_factory=list, description="同步数据范围")
-
-
-class SyncSessionResponse(BaseModel):
-    """创建同步会话响应.
-
-    Attributes:
-        session_id: 会话唯一标识（UUID）.
-        server_version: 服务端版本号.
-    """
-
-    session_id: str = Field(..., description="会话 UUID")
-    server_version: str = Field(default=SERVER_VERSION, description="服务端版本")
-
-
-class SyncDelta(BaseModel):
-    """同步增量数据单元.
-
-    表示一条待同步或已同步的数据变更记录。
-
-    Attributes:
-        item_id: 条目唯一标识.
-        item_type: 数据类型（conversation/memory/config）.
-        content_hash: 内容 SHA-256 哈希（用于去重和一致性校验）.
-        content: 原始内容字节（pull 时可选填充）.
-        metadata: 附加元数据字典.
-        timestamp: 变更时间戳（Unix 秒）.
-        version: 数据版本号（单调递增）.
-    """
-
-    item_id: str = Field(..., description="条目唯一标识")
-    item_type: str = Field(..., description="数据类型")
-    content_hash: str = Field(..., description="内容 SHA-256 哈希")
-    content: bytes | None = Field(default=None, description="原始内容字节")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="附加元数据")
-    timestamp: float = Field(..., description="变更时间戳")
-    version: int = Field(default=1, ge=1, description="数据版本号")
-
-
-class SyncPushRequest(BaseModel):
-    """推送变更请求.
-
-    Attributes:
-        changes: 本地变更增量列表.
-        version_vector: 各数据类型的本地版本向量.
-    """
-
-    changes: list[SyncDelta] = Field(..., description="本地变更增量列表")
-    version_vector: dict[str, int] = Field(
-        default_factory=dict, description="本地版本向量"
-    )
-
-
-class SyncPushResponse(BaseModel):
-    """推送变更响应.
-
-    Attributes:
-        accepted: 已被服务端接受的 item_id 列表.
-        rejected: 被服务端拒绝的 item_id 列表.
-        conflicts: 检测到冲突的详细信息列表.
-    """
-
-    accepted: list[str] = Field(default_factory=list, description="已接受条目 ID")
-    rejected: list[str] = Field(default_factory=list, description="被拒绝条目 ID")
-    conflicts: list[dict[str, Any]] = Field(
-        default_factory=list, description="冲突详情列表"
-    )
-
-
-class SyncPullResponse(BaseModel):
-    """拉取变更响应.
-
-    Attributes:
-        changes: 服务端变更增量列表.
-        server_version: 服务端当前版本号.
-    """
-
-    changes: list[SyncDelta] = Field(
-        default_factory=list, description="服务端变更增量列表"
-    )
-    server_version: str = Field(default=SERVER_VERSION, description="服务端版本")
-
-
-class SyncResolveRequest(BaseModel):
-    """冲突解决请求.
-
-    Attributes:
-        conflict_ids: 待解决的冲突条目 ID 列表.
-        resolution: 解决策略（local / remote / merge）.
-    """
-
-    conflict_ids: list[str] = Field(..., description="冲突条目 ID 列表")
-    resolution: str = Field(..., description="解决策略: local|remote|merge")
-
-
-class SyncResolveResponse(BaseModel):
-    """冲突解决响应.
-
-    Attributes:
-        resolved: 成功解决的冲突 ID 列表.
-        failed: 解决失败的冲突 ID 列表.
-    """
-
-    resolved: list[str] = Field(default_factory=list, description="已解决冲突 ID")
-    failed: list[str] = Field(default_factory=list, description="解决失败冲突 ID")
 
 
 # ---------------------------------------------------------------------------
