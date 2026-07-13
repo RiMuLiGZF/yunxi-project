@@ -20,3 +20,9 @@ MODULE_FULL_NAME = "M10 系统卫士"
 
 # 沙盒模式标记（默认开启）
 SANDBOX_MODE = True
+
+# --- 子模块导出 ---
+from . import errors          # noqa: F401, E402
+from . import database        # noqa: F401, E402
+from . import db_models       # noqa: F401, E402
+from . import repositories    # noqa: F401, E402

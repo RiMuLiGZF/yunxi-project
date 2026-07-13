@@ -131,9 +131,20 @@ async def lifespan(app: FastAPI):
     sc = get_startup_checker()
     print(f"  启动检查: 已就绪")
 
+    # 初始化数据库
+    from m10_system_guard.database import init_db
+    try:
+        init_db()
+        db_ready = True
+    except Exception as e:
+        print(f"  数据库: 初始化失败 ({e})")
+        db_ready = False
+
     # 初始化审计日志
     al = get_audit_logger()
-    print(f"  审计日志: 已就绪")
+    if db_ready:
+        al.enable_db_persistence()
+    print(f"  审计日志: 已就绪 ({'数据库持久化' if db_ready else '仅内存存储'})")
 
     # 初始化报告生成器
     rg = get_report_generator()
@@ -155,6 +166,13 @@ async def lifespan(app: FastAPI):
     print("\n正在关闭 M10 系统卫士服务...")
     sm = get_system_monitor()
     sm.stop()
+    # 刷新审计日志
+    al = get_audit_logger()
+    al.stop()
+    if db_ready:
+        from m10_system_guard.database import SessionLocal
+        SessionLocal.close_all()
+    print("  审计日志: 已刷新")
     ss = get_sandbox_scheduler()
     ss.stop()
     print("M10 系统卫士服务已关闭\n")
@@ -166,9 +184,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="M10 系统卫士 API",
     description="云汐系统模块十：系统资源监控、进程管理、阈值防护、启动安全检查、审计日志、硬件保护报告、沙箱任务调度",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# 全局异常处理
+# ---------------------------------------------------------------------------
+from m10_system_guard.errors import register_exception_handlers
+register_exception_handlers(app)
 
 # ---------------------------------------------------------------------------
 # CORS 中间件

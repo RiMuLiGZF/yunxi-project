@@ -61,6 +61,9 @@ class GuardEngine:
         # 告警记录
         self._alerts: deque[GuardAlert] = deque(maxlen=500)
 
+        # 数据库持久化标记（延迟启用，避免循环依赖）
+        self._db_enabled = False
+
         # 当前状态
         self._current_levels: dict[MetricType, GuardLevel] = {
             MetricType.CPU: GuardLevel.INFO,
@@ -141,6 +144,22 @@ class GuardEngine:
             action_on_critical="暂停磁盘写入密集型任务",
             action_on_emergency="强制清理临时文件和缓存",
         )
+
+    def enable_db_persistence(self) -> None:
+        """启用告警数据库持久化（在数据库初始化完成后调用）.
+
+        启用后，每次产生告警时会同步写入数据库，
+        实现告警记录在服务重启后仍然可查。
+        """
+        if self._db_enabled:
+            return
+        # 延迟导入，避免模块初始化阶段的循环依赖
+        try:
+            from .repositories.alert_repository import AlertRepository
+            self._alert_repo = AlertRepository
+            self._db_enabled = True
+        except Exception:
+            self._db_enabled = False
 
     def check_all(self) -> dict[str, Any]:
         """检查所有防护策略.
@@ -311,6 +330,20 @@ class GuardEngine:
         )
 
         self._alerts.append(alert)
+
+        # 同时写入数据库持久化
+        if self._db_enabled:
+            try:
+                self._alert_repo.add_alert(
+                    alert_id=alert.alert_id,
+                    level=alert.level.value,
+                    metric_type=alert.metric_type.value,
+                    current_value=alert.metric_value,
+                    threshold_value=alert.threshold,
+                    message=alert.message,
+                )
+            except Exception:
+                pass  # 数据库写入失败不影响内存告警
 
         # 触发回调
         for callback in self._on_alert_callbacks:
@@ -495,6 +528,7 @@ class GuardEngine:
             "total_alerts": len(self._alerts),
             "unacknowledged_alerts": sum(1 for a in self._alerts if not a.acknowledged),
             "policies_count": len(self._policies),
+            "db_persistence": self._db_enabled,
         }
 
 
