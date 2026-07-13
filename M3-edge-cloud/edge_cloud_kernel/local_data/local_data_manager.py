@@ -16,6 +16,8 @@ from typing import Any
 import aiosqlite
 import structlog
 
+from edge_cloud_kernel.migrations import create_migrator
+
 logger = structlog.get_logger(__name__)
 
 # 默认数据目录
@@ -234,151 +236,24 @@ class LocalDataManager:
         return [f.name for f in dir_path.iterdir() if f.is_file()]
 
     async def initialize_db(self) -> None:
-        """初始化 SQLite 数据库及表结构.
+        """初始化 SQLite 数据库及表结构（版本化迁移）.
 
-        使用 aiosqlite 创建以下表：
-        - call_logs: 调用日志
-        - sync_items: 同步条目
-        - sessions: 会话状态
-        - audit_trail: 审计记录
-        - config_kv: 配置键值
-        - cache_items: 通用缓存
+        使用 DatabaseMigrator 进行版本化迁移管理，
+        替代原有的 CREATE TABLE IF NOT EXISTS 模式。
         """
         db_path = self._data_dir / "yunxi.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        conn = await aiosqlite.connect(str(db_path))
-        try:
-            conn.row_factory = aiosqlite.Row
+        # 使用版本化迁移管理器
+        migrator = create_migrator(str(db_path))
+        result = await migrator.migrate()
 
-            # ---- call_logs: 调用日志 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS call_logs (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_id        TEXT,
-                    model           TEXT,
-                    prompt_tokens   INTEGER DEFAULT 0,
-                    completion_tokens INTEGER DEFAULT 0,
-                    total_tokens    INTEGER DEFAULT 0,
-                    latency_ms      INTEGER DEFAULT 0,
-                    status          TEXT,
-                    error           TEXT,
-                    route           TEXT,
-                    created_at      REAL
-                )
-                """
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_call_logs_agent_id "
-                "ON call_logs(agent_id)"
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_call_logs_created_at "
-                "ON call_logs(created_at)"
-            )
-
-            # ---- sync_items: 同步条目 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sync_items (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    item_type       TEXT NOT NULL,
-                    item_id         TEXT NOT NULL,
-                    version         INTEGER DEFAULT 1,
-                    data_hash       TEXT,
-                    operation       TEXT,
-                    status          TEXT,
-                    created_at      REAL,
-                    updated_at      REAL
-                )
-                """
-            )
-            await conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_items_type_id "
-                "ON sync_items(item_type, item_id)"
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_sync_items_status "
-                "ON sync_items(status)"
-            )
-
-            # ---- sessions: 会话状态 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_id      TEXT PRIMARY KEY,
-                    agent_id        TEXT,
-                    data            TEXT,
-                    expires_at      REAL,
-                    created_at      REAL,
-                    updated_at      REAL
-                )
-                """
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at "
-                "ON sessions(expires_at)"
-            )
-
-            # ---- audit_trail: 审计记录 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS audit_trail (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_id        TEXT,
-                    action          TEXT NOT NULL,
-                    resource        TEXT,
-                    detail          TEXT,
-                    ip_address      TEXT,
-                    created_at      REAL
-                )
-                """
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_audit_agent_id "
-                "ON audit_trail(agent_id)"
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_audit_created_at "
-                "ON audit_trail(created_at)"
-            )
-
-            # ---- config_kv: 配置键值 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS config_kv (
-                    key             TEXT PRIMARY KEY,
-                    value           TEXT,
-                    updated_at      REAL
-                )
-                """
-            )
-
-            # ---- cache_items: 通用缓存 ----
-            await conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS cache_items (
-                    cache_key       TEXT PRIMARY KEY,
-                    value           TEXT,
-                    expires_at      REAL,
-                    created_at      REAL
-                )
-                """
-            )
-            await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_cache_expires_at "
-                "ON cache_items(expires_at)"
-            )
-
-            await conn.commit()
-            logger.info("local_data_manager.db_initialized", path=str(db_path))
-        except Exception:
-            await conn.rollback()
-            logger.exception("local_data_manager.db_init_failed", path=str(db_path))
-            raise
-        finally:
-            await conn.close()
+        logger.info(
+            "local_data_manager.db_initialized",
+            path=str(db_path),
+            version=result["to_version"],
+            applied_count=len(result["applied"]),
+        )
 
     async def _get_conn(self) -> aiosqlite.Connection:
         """获取数据库连接（便捷方法）.

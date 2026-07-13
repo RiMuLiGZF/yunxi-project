@@ -8,14 +8,15 @@
 
 from __future__ import annotations
 
-import time
-import uuid
-from typing import Any
-
 import structlog
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
+from edge_cloud_kernel.api.mock_responses import (
+    mock_device_list,
+    mock_device_remove_result,
+    mock_response,
+)
 from edge_cloud_kernel.core.kernel_manager import KernelManager
 from edge_cloud_kernel.models.api_requests import (
     DeviceStatus,
@@ -25,36 +26,6 @@ from edge_cloud_kernel.models.api_requests import (
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Devices"])
-
-
-# ---------------------------------------------------------------------------
-# Mock 响应辅助函数
-# ---------------------------------------------------------------------------
-
-def _mock_m8_response(
-    data: Any = None,
-    code: int = 0,
-    message: str = "Success",
-) -> dict[str, Any]:
-    """Mock M8 标准响应格式（带 mock 标识）.
-
-    Args:
-        data: 响应数据.
-        code: 错误码.
-        message: 消息.
-
-    Returns:
-        标准 M8 响应字典.
-    """
-    if isinstance(data, dict):
-        data = {"mode": "mock", **data}
-    return {
-        "code": code,
-        "message": message,
-        "data": data,
-        "trace_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -98,12 +69,10 @@ async def list_devices(
             logger.error("devices.list.failed", error=str(e), trace_id=trace_id)
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "total": 0,
-        "page": page,
-        "page_size": page_size,
-        "devices": [],
-    })
+    return mock_response(
+        data=mock_device_list(page=page, page_size=page_size, status=status.value if status else None),
+        trace_id=trace_id,
+    )
 
 
 @router.post("/api/v3/devices/{device_id}/remove", summary="移除设备")
@@ -140,11 +109,10 @@ async def remove_device(
             logger.error("devices.remove.failed", error=str(e), trace_id=trace_id)
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "device_id": device_id,
-        "removed": True,
-        "source": "mock",
-    })
+    return mock_response(
+        data=mock_device_remove_result(device_id),
+        trace_id=trace_id,
+    )
 
 
 # ---------------------------------------------------------------------------

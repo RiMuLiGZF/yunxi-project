@@ -11,14 +11,17 @@
 
 from __future__ import annotations
 
-import time
-import uuid
-from typing import Any
-
 import structlog
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
+from edge_cloud_kernel.api.mock_responses import (
+    mock_conflict_list,
+    mock_conflict_resolve_result,
+    mock_response,
+    mock_sync_status,
+    mock_sync_trigger_result,
+)
 from edge_cloud_kernel.core.kernel_manager import KernelManager
 from edge_cloud_kernel.models.api_requests import (
     SyncResolveRequest,
@@ -29,36 +32,6 @@ from edge_cloud_kernel.models.api_requests import (
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Sync"])
-
-
-# ---------------------------------------------------------------------------
-# Mock 响应辅助函数
-# ---------------------------------------------------------------------------
-
-def _mock_m8_response(
-    data: Any = None,
-    code: int = 0,
-    message: str = "Success",
-) -> dict[str, Any]:
-    """Mock M8 标准响应格式（带 mock 标识）.
-
-    Args:
-        data: 响应数据.
-        code: 错误码.
-        message: 消息.
-
-    Returns:
-        标准 M8 响应字典.
-    """
-    if isinstance(data, dict):
-        data = {"mode": "mock", **data}
-    return {
-        "code": code,
-        "message": message,
-        "data": data,
-        "trace_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -91,16 +64,7 @@ async def sync_status(
             logger.error("sync.status.failed", error=str(e), trace_id=trace_id)
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "status": "idle",
-        "last_sync_at": None,
-        "last_sync_result": None,
-        "pending_changes": 0,
-        "conflict_count": 0,
-        "queue_depth": 0,
-        "network_state": "unknown",
-        "health_endpoints": [],
-    })
+    return mock_response(data=mock_sync_status(), trace_id=trace_id)
 
 
 @router.post("/api/v3/sync/trigger", summary="触发同步")
@@ -138,13 +102,10 @@ async def sync_trigger(
             logger.error("sync.trigger.failed", error=str(e), trace_id=trace_id)
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "sync_id": uuid.uuid4().hex[:16],
-        "scope": scope or ["all"],
-        "conflict_strategy": conflict_strategy,
-        "status": "triggered",
-        "triggered_at": time.time(),
-    })
+    return mock_response(
+        data=mock_sync_trigger_result(scope=scope, conflict_strategy=conflict_strategy),
+        trace_id=trace_id,
+    )
 
 
 @router.get("/api/v3/sync/conflicts", summary="冲突列表")
@@ -181,12 +142,10 @@ async def sync_conflicts(
             logger.error("sync.conflicts.failed", error=str(e), trace_id=trace_id)
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "total": 0,
-        "page": page,
-        "page_size": page_size,
-        "conflicts": [],
-    })
+    return mock_response(
+        data=mock_conflict_list(page=page, page_size=page_size),
+        trace_id=trace_id,
+    )
 
 
 @router.post("/api/v3/sync/conflicts/{conflict_id}/resolve", summary="解决冲突")
@@ -230,12 +189,10 @@ async def resolve_conflict(
             )
 
     # Mock 模式
-    return _mock_m8_response(data={
-        "conflict_id": conflict_id,
-        "resolved": True,
-        "resolution": body.resolution,
-        "source": "mock",
-    })
+    return mock_response(
+        data=mock_conflict_resolve_result(conflict_id, body.resolution),
+        trace_id=trace_id,
+    )
 
 
 # ---------------------------------------------------------------------------

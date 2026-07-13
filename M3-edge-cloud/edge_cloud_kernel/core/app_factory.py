@@ -21,6 +21,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from edge_cloud_kernel.common.logging_setup import (
+    clear_context,
+    set_trace_id,
+    setup_logging,
+)
 from edge_cloud_kernel.core.kernel_manager import KernelManager
 from edge_cloud_kernel.models.exceptions import SyncKernelError
 from edge_cloud_kernel.m8_api.error_codes import (
@@ -239,20 +244,42 @@ def _register_middleware(app: FastAPI) -> None:
         allow_headers=["*"],
     )
 
-    # trace_id 注入 + 指标记录中间件
+    # 弹性中间件：限流 + 熔断（从环境变量读取开关）
+    rate_limit_enabled = os.environ.get("M3_RATE_LIMIT_ENABLED", "true").lower() == "true"
+    circuit_breaker_enabled = os.environ.get("M3_CIRCUIT_BREAKER_ENABLED", "true").lower() == "true"
+
+    if rate_limit_enabled or circuit_breaker_enabled:
+        from edge_cloud_kernel.api.middleware import (
+            CircuitBreakerMiddleware,
+            RateLimitMiddleware,
+        )
+
+        if rate_limit_enabled:
+            app.add_middleware(RateLimitMiddleware)
+
+        if circuit_breaker_enabled:
+            app.add_middleware(CircuitBreakerMiddleware)
+
+    # trace_id 注入 + 链路追踪 + 指标记录中间件
     @app.middleware("http")
     async def add_trace_id_and_metrics(request: Request, call_next):
-        """为每个请求注入 trace_id，并记录请求指标."""
+        """为每个请求注入 trace_id，设置上下文追踪，并记录请求指标."""
         start_time = time.time()
         trace_id = uuid.uuid4().hex[:16]
 
-        # 将 trace_id 存入 request state
+        # 将 trace_id 存入 request state（向后兼容）
         request.state.trace_id = trace_id
 
         # 将 kernel_manager 存入 request state
         request.state.kernel_manager = _kernel_manager
 
-        response = await call_next(request)
+        # 注入 contextvars 链路追踪
+        set_trace_id(trace_id)
+        try:
+            response = await call_next(request)
+        finally:
+            # 清理上下文，避免上下文泄漏
+            clear_context()
 
         # 记录响应时间到指标收集器
         elapsed_ms = (time.time() - start_time) * 1000
@@ -304,6 +331,51 @@ def _register_routers(app: FastAPI) -> None:
 
     # M8 标准接口路由（/m8/*）
     app.include_router(m8_router)
+
+
+# ---------------------------------------------------------------------------
+# 日志初始化
+# ---------------------------------------------------------------------------
+
+def _init_logging_from_config(kernel: KernelManager) -> None:
+    """从配置中读取日志设置并初始化结构化日志.
+
+    Args:
+        kernel: 内核管理器实例.
+    """
+    config_manager = kernel.get_component("config_manager")
+
+    # 默认设置
+    log_level = "info"
+    log_format = "console"
+    log_file = None
+    max_size_mb = 100
+    max_files = 10
+    sensitive_fields: list[str] = []
+
+    # 从配置中读取（如果可用）
+    if config_manager is not None and not kernel.is_mock("config_manager"):
+        try:
+            cfg = config_manager.get("logging", {})
+            log_level = cfg.get("level", log_level)
+            log_format = cfg.get("format", log_format)
+            log_file = cfg.get("file", None) or None
+            max_size = cfg.get("max_size", "100MB")
+            if isinstance(max_size, str):
+                max_size_mb = int(max_size.replace("MB", "").replace("mb", ""))
+            max_files = cfg.get("max_files", max_files)
+            sensitive_fields = cfg.get("sensitive_fields", []) or []
+        except Exception:
+            pass
+
+    setup_logging(
+        level=log_level,
+        format_type=log_format,
+        log_file=log_file,
+        max_size_mb=max_size_mb,
+        max_files=max_files,
+        sensitive_fields=sensitive_fields,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +452,9 @@ def create_app(
         config_path=config_path,
     )
     _kernel_manager.init_all()
+
+    # 初始化结构化日志系统
+    _init_logging_from_config(_kernel_manager)
 
     # 创建 FastAPI 应用
     app = FastAPI(
