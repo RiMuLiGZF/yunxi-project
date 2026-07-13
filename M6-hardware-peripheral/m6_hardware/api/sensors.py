@@ -7,10 +7,11 @@ import uuid
 import time
 from typing import Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 
-from ..services.data_collector import get_data_collector
-from ..services.device_manager import get_device_manager
+from .deps import get_device_manager, get_data_collector
+from ..services.data_collector import DataCollector
+from ..services.device_manager import DeviceManager
 
 router = APIRouter()
 
@@ -26,14 +27,16 @@ def _success(data=None, message: str = "ok"):
 
 
 @router.get("/{device_id}", summary="获取设备最新传感器数据")
-async def get_latest_sensor_data(device_id: str):
+async def get_latest_sensor_data(
+    device_id: str,
+    dm: DeviceManager = Depends(get_device_manager),
+    dc: DataCollector = Depends(get_data_collector),
+):
     """获取指定设备的最新传感器数据"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
 
-    dc = get_data_collector()
     data = dc.get_latest_sensor_data(device_id)
     return _success(data)
 
@@ -45,9 +48,10 @@ async def get_sensor_history(
     start_time: Optional[str] = Query(None, description="开始时间 ISO 格式"),
     end_time: Optional[str] = Query(None, description="结束时间 ISO 格式"),
     limit: int = Query(100, ge=1, le=5000, description="返回条数"),
+    dm: DeviceManager = Depends(get_device_manager),
+    dc: DataCollector = Depends(get_data_collector),
 ):
     """查询传感器历史数据，支持按时间范围和传感器类型筛选"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
@@ -68,7 +72,6 @@ async def get_sensor_history(
         end_dt = datetime.now()
         start_dt = end_dt - timedelta(hours=1)
 
-    dc = get_data_collector()
     history = dc.get_sensor_history(
         device_id=device_id,
         sensor_type=sensor_type,
@@ -93,9 +96,10 @@ async def get_specific_sensor(
     sensor_type: str,
     limit: int = Query(100, ge=1, le=1000, description="返回条数"),
     hours: int = Query(1, ge=1, le=168, description="查询最近几小时"),
+    dm: DeviceManager = Depends(get_device_manager),
+    dc: DataCollector = Depends(get_data_collector),
 ):
     """获取指定设备特定传感器的历史数据"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
@@ -103,7 +107,6 @@ async def get_specific_sensor(
     end_dt = datetime.now()
     start_dt = end_dt - timedelta(hours=hours)
 
-    dc = get_data_collector()
     history = dc.get_sensor_history(
         device_id=device_id,
         sensor_type=sensor_type,

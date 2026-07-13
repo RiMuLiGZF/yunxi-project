@@ -5,11 +5,15 @@ M6 硬件外设 - SSE 推送管理器
 
 import asyncio
 import json
+import logging
 import time
+import traceback
 from datetime import datetime
 from typing import Dict, Any, Optional, Set
 from fastapi import Request
 from sse_starlette.sse import EventSourceResponse
+
+logger = logging.getLogger(__name__)
 
 from ..services.device_manager import get_device_manager
 from ..services.notification import get_notification_service
@@ -23,25 +27,23 @@ class SSEManager:
     - sensor_data: 传感器数据更新
     - alert: 告警通知
     - notification: 设备通知
+
+    P0-4 改造：移除 __new__ 单例模式，改为由 FastAPI lifespan 统一创建管理。
+    模块级 get_sse_manager() 作为向后兼容层保留（标记 deprecated）。
     """
 
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self):
-        if hasattr(self, "_initialized") and self._initialized:
-            return
-        self._device_manager = get_device_manager()
-        self._notification_service = get_notification_service()
+    def __init__(self, device_manager=None, notification_service=None):
+        """
+        Args:
+            device_manager: 设备管理器实例，为 None 时从兼容层获取（向后兼容）
+            notification_service: 通知服务实例，为 None 时从兼容层获取（向后兼容）
+        """
+        self._device_manager = device_manager if device_manager is not None else get_device_manager()
+        self._notification_service = notification_service if notification_service is not None else get_notification_service()
         self._clients: Set[asyncio.Queue] = set()
         self._push_task: Optional[asyncio.Task] = None
         self._running = False
         self._last_sensor_push = {}
-        self._initialized = True
         # P2-改进: 统计指标
         self._drop_count = 0  # 队列满丢弃消息数
         self._consecutive_errors = 0  # 推送循环连续异常数
@@ -77,7 +79,11 @@ class SSEManager:
             except Exception as e:
                 self._consecutive_errors += 1
                 _wait = min(5 * self._consecutive_errors, 60)
-                print(f"[SSEManager] 推送异常(连续{self._consecutive_errors}次): {e}, 等待{_wait}s")
+                logger.error(
+                    "SSE 推送循环异常(连续%d次): %s, 等待%ds\n%s",
+                    self._consecutive_errors, e, _wait,
+                    traceback.format_exc(),
+                )
                 await asyncio.sleep(_wait)
                 continue
             else:
@@ -141,8 +147,8 @@ class SSEManager:
                     ts = datetime.fromisoformat(alert["timestamp"])
                     if now - ts.timestamp() < 10:
                         new_alerts.append(alert)
-                except Exception:
-                    pass
+                except (ValueError, KeyError) as e:
+                    logger.warning("告警时间解析失败，跳过该告警: %s, alert=%s", e, alert)
             if new_alerts:
                 await self._broadcast("alerts", {
                     "alerts": new_alerts,
@@ -151,6 +157,10 @@ class SSEManager:
 
     async def _broadcast(self, event: str, data: Dict[str, Any]):
         """向所有客户端广播消息
+
+        按异常类型分级处理：
+        - QueueFull: warning 级别 + 清理队列头部（客户端消费太慢）
+        - 其他异常: error 级别 + 堆栈 + 移除死连接
 
         Args:
             event: 事件类型
@@ -161,21 +171,50 @@ class SSEManager:
             "data": data,
         }
         disconnected = set()
+        drop_count = 0
 
         for queue in self._clients:
             try:
                 queue.put_nowait(message)
             except asyncio.QueueFull:
-                # P2-改进: 队列满，计数并丢弃（客户端消费太慢）
+                # 客户端消费太慢：丢弃队列头部消息，腾出空间
+                drop_count += 1
                 self._drop_count += 1
-                if self._drop_count % 100 == 0:
-                    print(f"[SSEManager] 警告: 队列满已丢弃 {self._drop_count} 条消息，客户端数={len(self._clients)}")
-            except Exception:
+                try:
+                    queue.get_nowait()
+                    queue.put_nowait(message)
+                except asyncio.QueueFull:
+                    # 再次满，直接丢弃本条消息
+                    pass
+                except Exception as e:
+                    logger.warning(
+                        "SSE 队列清理失败，移除该连接: event=%s, error=%s",
+                        event, e,
+                    )
+                    disconnected.add(queue)
+            except Exception as e:
+                # 其他异常（连接断开、队列失效等）：记 error + 堆栈，移除死连接
+                logger.error(
+                    "SSE 推送异常，移除死连接: event=%s, error=%s\n%s",
+                    event, e, traceback.format_exc(),
+                )
                 disconnected.add(queue)
 
+        # 周期打印队列满丢弃统计
+        if drop_count > 0 and self._drop_count % 100 < drop_count:
+            logger.warning(
+                "SSE 队列满已累计丢弃 %d 条消息，当前客户端数=%d",
+                self._drop_count, len(self._clients),
+            )
+
         # 清理失效连接
-        for queue in disconnected:
-            self._clients.discard(queue)
+        if disconnected:
+            for queue in disconnected:
+                self._clients.discard(queue)
+            logger.info(
+                "SSE 清理失效连接 %d 个，剩余客户端数=%d",
+                len(disconnected), len(self._clients),
+            )
 
     async def connect(self, request: Request, event_types: Optional[str] = None) -> EventSourceResponse:
         """创建 SSE 连接
@@ -240,7 +279,7 @@ class SSEManager:
                 while not queue.empty():
                     try:
                         queue.get_nowait()
-                    except Exception:
+                    except asyncio.QueueEmpty:
                         break
 
         return EventSourceResponse(event_generator())
@@ -281,6 +320,17 @@ class SSEManager:
         await self._broadcast(event, data)
 
 
+_instance: SSEManager | None = None
+
+
 def get_sse_manager() -> SSEManager:
-    """获取 SSE 管理器单例"""
-    return SSEManager()
+    """获取 SSE 管理器单例
+
+    .. deprecated:: P0-4
+        推荐使用 FastAPI 依赖注入 ``Depends(get_sse_manager)`` 方式，
+        由 lifespan 统一管理实例生命周期。本函数作为向后兼容层保留。
+    """
+    global _instance
+    if _instance is None:
+        _instance = SSEManager()
+    return _instance

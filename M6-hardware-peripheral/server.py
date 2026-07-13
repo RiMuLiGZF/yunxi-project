@@ -37,49 +37,62 @@ if str(BASE_DIR) not in sys.path:
 # ---------------------------------------------------------------------------
 # 导入 M6 核心组件
 # ---------------------------------------------------------------------------
-from m6_hardware.config import get_config
+from m6_hardware.config import M6Config
 from m6_hardware.api import api_router
 from m6_hardware.api.m8_auth_middleware import M8AuthMiddleware
-from m6_hardware.services.device_manager import get_device_manager
-from m6_hardware.services.data_collector import get_data_collector
-from m6_hardware.services.notification import get_notification_service
-from m6_hardware.realtime.sse_manager import get_sse_manager
-
-# ---------------------------------------------------------------------------
-# 加载配置
-# ---------------------------------------------------------------------------
-config = get_config()
+from m6_hardware.services.device_manager import DeviceManager
+from m6_hardware.services.data_collector import DataCollector
+from m6_hardware.services.notification import NotificationService
+from m6_hardware.realtime.sse_manager import SSEManager
 
 # ---------------------------------------------------------------------------
 # 生命周期管理
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时初始化
+    """应用生命周期管理
+
+    P0-4 改造：按顺序创建各服务实例并注入依赖，存入 app.state，
+    消除 __new__ 单例的竞态条件风险。
+
+    初始化顺序: config -> device_manager -> data_collector -> notification_service -> sse_manager
+    """
+    # ===== 启动时初始化 =====
     print("\n" + "=" * 60)
     print("  M6 硬件外设模拟服务 - 启动中...")
     print("=" * 60)
 
-    # 初始化设备管理器
-    dm = get_device_manager()
-    device_stats = dm.get_stats()
+    # 1. 加载配置
+    config = M6Config()
+    app.state.config = config
+    print(f"  配置: 已加载 (环境: {config.env})")
+
+    # 2. 初始化设备管理器
+    device_manager = DeviceManager()
+    app.state.device_manager = device_manager
+    device_stats = device_manager.get_stats()
     print(f"  设备管理器: 已加载 {device_stats['total']} 台设备")
     print(f"    - 在线: {device_stats['online']}  离线: {device_stats['offline']}  警告: {device_stats['warning']}")
 
-    # 初始化数据采集服务
-    dc = get_data_collector()
+    # 3. 初始化数据采集服务（注入 config 和 device_manager）
+    data_collector = DataCollector(config=config, device_manager=device_manager)
+    app.state.data_collector = data_collector
     print(f"  数据采集服务: 已就绪 (间隔 {config.collection_interval}s)")
-    await dc.start()
+    await data_collector.start()
 
-    # 初始化 SSE 推送服务
-    sse = get_sse_manager()
-    await sse.start()
-    print(f"  SSE 推送服务: 已启动")
-
-    # 通知服务
-    ns = get_notification_service()
+    # 4. 初始化通知服务（注入 device_manager）
+    notification_service = NotificationService(device_manager=device_manager)
+    app.state.notification_service = notification_service
     print(f"  通知推送服务: 已就绪")
+
+    # 5. 初始化 SSE 推送服务（注入 device_manager 和 notification_service）
+    sse_manager = SSEManager(
+        device_manager=device_manager,
+        notification_service=notification_service,
+    )
+    app.state.sse_manager = sse_manager
+    await sse_manager.start()
+    print(f"  SSE 推送服务: 已启动")
 
     print("-" * 60)
     print(f"  模拟模式: {'开启' if config.simulation_mode else '关闭'}")
@@ -88,12 +101,12 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # 关闭时清理
+    # ===== 关闭时清理 =====
     print("\n正在关闭 M6 硬件外设服务...")
-    dc = get_data_collector()
-    await dc.stop()
-    sse = get_sse_manager()
-    await sse.stop()
+    data_collector = app.state.data_collector
+    await data_collector.stop()
+    sse_manager = app.state.sse_manager
+    await sse_manager.stop()
     print("M6 硬件外设服务已关闭\n")
 
 
@@ -110,7 +123,9 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS 中间件
 # ---------------------------------------------------------------------------
-cors_origins = config.cors_origins
+from m6_hardware.config import get_config as _get_config_compat
+_cors_config = _get_config_compat()
+cors_origins = _cors_config.cors_origins
 if cors_origins == "*":
     allow_origins = ["*"]
 else:
@@ -150,10 +165,11 @@ async def add_request_id(request: Request, call_next):
 # 根路径 - 服务信息
 # ---------------------------------------------------------------------------
 @app.get("/", tags=["Info"], summary="服务信息")
-async def root():
+async def root(request: Request):
     """根路径：返回服务基本信息"""
-    dm = get_device_manager()
-    stats = dm.get_stats()
+    device_manager = request.app.state.device_manager
+    config = request.app.state.config
+    stats = device_manager.get_stats()
 
     return {
         "name": "M6 硬件外设模拟服务",
@@ -207,8 +223,12 @@ def _verify_m8_token(x_m8_token: str = "") -> bool:
     return hmac.compare_digest(x_m8_token, expected)
 
 
-def _get_m6_real_metrics():
-    """获取真实 M6 性能指标"""
+def _get_m6_real_metrics(request: Request | None = None):
+    """获取真实 M6 性能指标
+
+    P0-4 改造：优先从 request.app.state 获取服务实例；
+    若 request 为 None 则回退到兼容层。
+    """
     import os
     try:
         import psutil
@@ -221,8 +241,11 @@ def _get_m6_real_metrics():
     devices_online = 0
     sensors_total = 0
     try:
-        from m6_hardware.services.device_manager import get_device_manager
-        dm = get_device_manager()
+        if request is not None:
+            dm = request.app.state.device_manager
+        else:
+            from m6_hardware.services.device_manager import get_device_manager
+            dm = get_device_manager()
         devices = dm.list_devices()
         devices_online = sum(1 for d in devices if d.get("status") == "online")
         sensors_total = sum(len(d.get("sensors", [])) for d in devices)
@@ -231,9 +254,14 @@ def _get_m6_real_metrics():
     
     sse_connections = 0
     try:
-        from m6_hardware.realtime.sse_manager import get_sse_manager
-        sm = get_sse_manager()
-        if hasattr(sm, "get_connection_count"):
+        if request is not None:
+            sm = request.app.state.sse_manager
+        else:
+            from m6_hardware.realtime.sse_manager import get_sse_manager
+            sm = get_sse_manager()
+        if hasattr(sm, "client_count"):
+            sse_connections = sm.client_count
+        elif hasattr(sm, "get_connection_count"):
             sse_connections = sm.get_connection_count()
     except Exception:
         pass
@@ -264,13 +292,13 @@ async def m8_std_health(x_m8_token: str = Header(default="")):
     }
 
 @app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
-async def m8_std_metrics(x_m8_token: str = Header(default="")):
+async def m8_std_metrics(request: Request, x_m8_token: str = Header(default="")):
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
     return {
         "code": 0,
         "message": "ok",
-        "data": _get_m6_real_metrics()
+        "data": _get_m6_real_metrics(request)
     }
 
 @app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
@@ -315,8 +343,8 @@ async def sse_stream(request: Request):
     - notification: 设备通知
     - ping: 心跳
     """
-    sse = get_sse_manager()
-    return await sse.connect(request)
+    sse_manager = request.app.state.sse_manager
+    return await sse_manager.connect(request)
 
 
 # ---------------------------------------------------------------------------
@@ -324,17 +352,20 @@ async def sse_stream(request: Request):
 # ---------------------------------------------------------------------------
 def main() -> None:
     """启动 FastAPI 服务"""
-    port = config.port
-    host = config.host
+    # 启动阶段使用兼容层获取配置（单线程环境，无竞态风险）
+    from m6_hardware.config import get_config as _get_config_compat
+    _cfg = _get_config_compat()
+    port = _cfg.port
+    host = _cfg.host
 
     print("\n" + "=" * 60)
     print("  M6 硬件外设模拟服务")
     print("  M6 Hardware Peripheral Simulation Service")
     print("=" * 60)
     print(f"  版本:        1.0.0")
-    print(f"  模块名:      {config.module_name}")
+    print(f"  模块名:      {_cfg.module_name}")
     print(f"  监听地址:    {host}:{port}")
-    print(f"  模拟模式:    {'开启' if config.simulation_mode else '关闭'}")
+    print(f"  模拟模式:    {'开启' if _cfg.simulation_mode else '关闭'}")
     print(f"  文档地址:    http://localhost:{port}/docs")
     print(f"  健康检查:    http://localhost:{port}/health")
     print(f"  设备列表:    http://localhost:{port}/api/v1/devices")
@@ -346,7 +377,7 @@ def main() -> None:
         app,
         host=host,
         port=port,
-        log_level=config.log_level,
+        log_level=_cfg.log_level,
     )
 
 

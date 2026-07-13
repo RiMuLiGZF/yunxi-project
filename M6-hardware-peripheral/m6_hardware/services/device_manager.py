@@ -22,23 +22,16 @@ from ..devices import (
 
 
 class DeviceManager:
-    """设备管理器（单例模式）
+    """设备管理器
 
     管理所有已注册的设备模拟器，提供设备列表、详情、配对、扫描等功能。
+
+    P0-4 改造：移除 __new__ 单例模式，改为由 FastAPI lifespan 统一创建管理。
+    模块级 get_device_manager() 作为向后兼容层保留（标记 deprecated）。
     """
 
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        if hasattr(self, "_initialized") and self._initialized:
-            return
         self._devices: Dict[str, BaseDeviceSimulator] = {}
-        self._initialized = True
         self._init_default_devices()
 
     def _init_default_devices(self):
@@ -350,6 +343,17 @@ class DeviceManager:
             dev.tick()
 
 
+_instance: DeviceManager | None = None
+
+
 def get_device_manager() -> DeviceManager:
-    """获取设备管理器单例"""
-    return DeviceManager()
+    """获取设备管理器单例
+
+    .. deprecated:: P0-4
+        推荐使用 FastAPI 依赖注入 ``Depends(get_device_manager)`` 方式，
+        由 lifespan 统一管理实例生命周期。本函数作为向后兼容层保留。
+    """
+    global _instance
+    if _instance is None:
+        _instance = DeviceManager()
+    return _instance

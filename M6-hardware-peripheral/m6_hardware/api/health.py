@@ -5,12 +5,13 @@ M6 硬件外设 - 健康检查 API
 
 import uuid
 import time
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ..config import get_config
-from ..services.device_manager import get_device_manager
-from ..services.data_collector import get_data_collector
-from ..realtime.sse_manager import get_sse_manager
+from .deps import get_config, get_device_manager, get_data_collector, get_sse_manager
+from ..config import M6Config
+from ..services.device_manager import DeviceManager
+from ..services.data_collector import DataCollector
+from ..realtime.sse_manager import SSEManager
 
 router = APIRouter()
 
@@ -29,9 +30,8 @@ _start_time = time.time()
 
 
 @router.get("", summary="健康检查")
-async def health_check():
+async def health_check(config: M6Config = Depends(get_config)):
     """服务健康检查端点"""
-    config = get_config()
     return _success({
         "status": "healthy",
         "module": "m6-hardware",
@@ -42,13 +42,13 @@ async def health_check():
 
 
 @router.get("/stats", summary="服务统计")
-async def service_stats():
+async def service_stats(
+    dm: DeviceManager = Depends(get_device_manager),
+    dc: DataCollector = Depends(get_data_collector),
+    sse: SSEManager = Depends(get_sse_manager),
+    config: M6Config = Depends(get_config),
+):
     """获取服务运行统计信息"""
-    dm = get_device_manager()
-    dc = get_data_collector()
-    sse = get_sse_manager()
-    config = get_config()
-
     device_stats = dm.get_stats()
 
     return _success({
@@ -60,5 +60,5 @@ async def service_stats():
         "sse_clients": sse.client_count,
         "collection_interval": config.collection_interval,
         "database_path": config.database_path,
-        "history_retention_days": config.history_retention_days,
+        "data_retention_days": config.data_retention_days,
     })

@@ -6,10 +6,11 @@ M6 硬件外设 - 设备管理 API
 import uuid
 import time
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel, Field
 
-from ..services.device_manager import get_device_manager
+from .deps import get_device_manager
+from ..services.device_manager import DeviceManager
 from ..models.device import DeviceStatus, DeviceType
 
 router = APIRouter()
@@ -73,10 +74,9 @@ def _get_type_desc(type_key: str) -> str:
 async def list_devices(
     status: Optional[str] = Query(None, description="按状态过滤: online/offline/warning/charging"),
     device_type: Optional[str] = Query(None, description="按类型过滤: watch/ring/desktop/ar/drone/laptop"),
+    dm: DeviceManager = Depends(get_device_manager),
 ):
     """获取设备列表，支持按状态和类型筛选"""
-    dm = get_device_manager()
-
     status_enum = DeviceStatus(status) if status else None
     type_enum = DeviceType(device_type) if device_type else None
 
@@ -88,17 +88,15 @@ async def list_devices(
 
 
 @router.get("/stats", summary="获取设备统计")
-async def get_device_stats():
+async def get_device_stats(dm: DeviceManager = Depends(get_device_manager)):
     """获取设备统计数据"""
-    dm = get_device_manager()
     stats = dm.get_stats()
     return _success(stats)
 
 
 @router.get("/{device_id}", summary="获取设备详情")
-async def get_device(device_id: str):
+async def get_device(device_id: str, dm: DeviceManager = Depends(get_device_manager)):
     """获取单个设备的详细信息（含最新传感器数据）"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
@@ -106,9 +104,8 @@ async def get_device(device_id: str):
 
 
 @router.post("/{device_id}/pair", summary="配对设备")
-async def pair_device(device_id: str):
+async def pair_device(device_id: str, dm: DeviceManager = Depends(get_device_manager)):
     """配对指定设备"""
-    dm = get_device_manager()
     result = dm.pair_device(device_id)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
@@ -116,9 +113,8 @@ async def pair_device(device_id: str):
 
 
 @router.post("/{device_id}/unpair", summary="取消配对")
-async def unpair_device(device_id: str):
+async def unpair_device(device_id: str, dm: DeviceManager = Depends(get_device_manager)):
     """取消设备配对"""
-    dm = get_device_manager()
     result = dm.unpair_device(device_id)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
@@ -126,10 +122,8 @@ async def unpair_device(device_id: str):
 
 
 @router.put("/{device_id}/config", summary="更新设备配置")
-async def update_device_config(device_id: str, body: DeviceConfigUpdate):
+async def update_device_config(device_id: str, body: DeviceConfigUpdate, dm: DeviceManager = Depends(get_device_manager)):
     """更新设备配置（名称、位置等）"""
-    dm = get_device_manager()
-
     config_dict = body.model_dump(exclude_none=True)
     if not config_dict:
         raise HTTPException(status_code=400, detail="没有提供有效的配置项")
@@ -141,9 +135,8 @@ async def update_device_config(device_id: str, body: DeviceConfigUpdate):
 
 
 @router.post("/scan", summary="扫描附近设备")
-async def scan_devices():
+async def scan_devices(dm: DeviceManager = Depends(get_device_manager)):
     """扫描附近可发现的设备（模拟）"""
-    dm = get_device_manager()
     found = dm.scan_devices()
     return _success({
         "found_count": len(found),

@@ -6,11 +6,12 @@ M6 硬件外设 - 设备控制 API
 import uuid
 import time
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
-from ..services.device_manager import get_device_manager
-from ..services.notification import get_notification_service
+from .deps import get_device_manager, get_notification_service
+from ..services.device_manager import DeviceManager
+from ..services.notification import NotificationService
 
 router = APIRouter()
 
@@ -40,7 +41,11 @@ class NotifyRequest(BaseModel):
 
 
 @router.post("/{device_id}/action", summary="发送设备动作指令")
-async def send_device_action(device_id: str, body: DeviceActionRequest):
+async def send_device_action(
+    device_id: str,
+    body: DeviceActionRequest,
+    dm: DeviceManager = Depends(get_device_manager),
+):
     """向设备发送动作指令
 
     支持的动作因设备类型而异：
@@ -51,7 +56,6 @@ async def send_device_action(device_id: str, body: DeviceActionRequest):
     - 无人机: takeoff, return_home, take_photo, start_video, stop_video, deliver
     - 笔记本: start_work, focus_mode, sleep
     """
-    dm = get_device_manager()
     sim = dm.get_simulator(device_id)
     if not sim:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
@@ -65,14 +69,17 @@ async def send_device_action(device_id: str, body: DeviceActionRequest):
 
 
 @router.post("/{device_id}/notify", summary="向设备推送通知")
-async def push_notification(device_id: str, body: NotifyRequest):
+async def push_notification(
+    device_id: str,
+    body: NotifyRequest,
+    dm: DeviceManager = Depends(get_device_manager),
+    ns: NotificationService = Depends(get_notification_service),
+):
     """向指定设备推送通知消息"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
 
-    ns = get_notification_service()
     result = ns.push_to_device(
         device_id=device_id,
         title=body.title,
@@ -91,14 +98,14 @@ async def get_device_alerts(
     device_id: str,
     limit: int = 20,
     clear: bool = False,
+    dm: DeviceManager = Depends(get_device_manager),
+    ns: NotificationService = Depends(get_notification_service),
 ):
     """获取设备的告警列表"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
 
-    ns = get_notification_service()
     alerts = ns.get_recent_alerts(device_id=device_id, limit=limit, clear=clear)
 
     return _success({
@@ -112,14 +119,14 @@ async def get_device_alerts(
 async def get_device_notifications(
     device_id: str,
     limit: int = 50,
+    dm: DeviceManager = Depends(get_device_manager),
+    ns: NotificationService = Depends(get_notification_service),
 ):
     """获取设备的通知历史"""
-    dm = get_device_manager()
     device = dm.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
 
-    ns = get_notification_service()
     notifications = ns.get_recent_notifications(device_id=device_id, limit=limit)
 
     return _success({

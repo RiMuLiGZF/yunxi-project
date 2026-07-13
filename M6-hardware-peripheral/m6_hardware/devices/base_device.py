@@ -3,8 +3,10 @@ M6 硬件外设 - 设备模拟器基类
 所有设备模拟器继承此类，提供通用的模拟逻辑
 """
 
+import logging
 import random
 import time
+import traceback
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
@@ -12,6 +14,8 @@ from abc import ABC, abstractmethod
 from ..models.device import Device, DeviceStatus, DeviceType
 from ..models.sensor_data import SensorData, SensorReading
 from .device_factory import DeviceCapability
+
+logger = logging.getLogger(__name__)
 
 
 class BaseDeviceSimulator(ABC):
@@ -110,16 +114,47 @@ class BaseDeviceSimulator(ABC):
             params: 动作参数
 
         Returns:
-            执行结果
+            结构化执行结果，包含 success、message、error_code、device_id、action 等字段
         """
         params = params or {}
         handler = getattr(self, f"_action_{action}", None)
         if handler is None:
-            return {"success": False, "message": f"不支持的动作: {action}"}
+            logger.warning(
+                "设备不支持的动作请求: device_id=%s, action=%s",
+                self.device_id, action,
+            )
+            return {
+                "success": False,
+                "message": f"不支持的动作: {action}",
+                "error_code": "ACTION_NOT_SUPPORTED",
+                "device_id": self.device_id,
+                "action": action,
+            }
         try:
-            return handler(params)
+            result = handler(params)
+            # 确保返回结果包含结构化字段
+            if isinstance(result, dict):
+                result.setdefault("device_id", self.device_id)
+                result.setdefault("action", action)
+                result.setdefault("success", True)
+            return result
         except Exception as e:
-            return {"success": False, "message": f"动作执行失败: {str(e)}"}
+            # 异常时记录 error 日志（含设备ID、动作名、堆栈）
+            logger.error(
+                "设备动作执行失败: device_id=%s, action=%s, error=%s\n%s",
+                self.device_id, action, e,
+                traceback.format_exc(),
+            )
+            # 返回结构化错误信息
+            return {
+                "success": False,
+                "message": f"动作执行失败: {str(e)}",
+                "error_code": "ACTION_EXECUTION_ERROR",
+                "error_type": type(e).__name__,
+                "device_id": self.device_id,
+                "action": action,
+                "params": params,
+            }
 
     def push_notification(self, title: str, content: str, **kwargs) -> Dict[str, Any]:
         """向设备推送通知
