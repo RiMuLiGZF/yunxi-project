@@ -9,7 +9,7 @@ from typing import Any
 import structlog
 
 from skill_cluster.circuit_breaker import ErrorClassifier
-from skill_cluster.config import RateLimitConfig
+from skill_cluster.config import IdempotencyConfig, RateLimitConfig
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest, SkillInvokeResult
 from skill_cluster.middleware import MiddlewarePipeline
 from skill_cluster.permissions import SkillPermissionManager
@@ -48,6 +48,7 @@ class SkillRouter:
         permission_manager: SkillPermissionManager | None = None,
         middleware: MiddlewarePipeline | None = None,
         rate_limit_config: RateLimitConfig | None = None,
+        idempotency_config: IdempotencyConfig | None = None,
     ) -> None:
         if hasattr(self, "_initialized"):
             return
@@ -66,6 +67,30 @@ class SkillRouter:
                 global_rate=self._rate_limit_config.global_rate,
                 per_skill_rate=self._rate_limit_config.per_skill_rate,
                 per_ip_rate=self._rate_limit_config.per_ip_rate,
+            )
+        # 【幂等中间件】默认关闭，可通过配置启用
+        self._idempotency_config = idempotency_config or IdempotencyConfig()
+        self._idempotency_manager: "IdempotencyManager | None" = None
+        if self._idempotency_config.enabled:
+            from skill_cluster.idempotency import IdempotencyManager
+            from skill_cluster.middleware import idempotent_middleware
+            self._idempotency_manager = IdempotencyManager(
+                ttl=self._idempotency_config.ttl,
+                max_entries=self._idempotency_config.max_entries,
+            )
+            self.middleware.use(
+                idempotent_middleware(
+                    self._idempotency_manager,
+                    key_source=self._idempotency_config.key_source,
+                    header_name=self._idempotency_config.header_name,
+                )
+            )
+            logger.info(
+                "idempotency_middleware_enabled",
+                ttl=self._idempotency_config.ttl,
+                max_entries=self._idempotency_config.max_entries,
+                key_source=self._idempotency_config.key_source,
+                header_name=self._idempotency_config.header_name,
             )
         self._initialized = True
 
@@ -99,6 +124,15 @@ class SkillRouter:
         """
         self.middleware.use(middleware)
         return self
+
+    @property
+    def idempotency_manager(self) -> "IdempotencyManager | None":
+        """获取幂等性管理器实例.
+
+        Returns:
+            IdempotencyManager 实例，若未启用则返回 None.
+        """
+        return self._idempotency_manager
 
     def mount(self, skill: ISkill, trace_id: str = "") -> None:
         """挂载技能.

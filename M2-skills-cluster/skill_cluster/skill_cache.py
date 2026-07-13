@@ -3,6 +3,11 @@ from __future__ import annotations
 """Multi-tier Cache 多级缓存系统.
 
 实现 L1（内存 LRU）+ L2（磁盘持久化）两级缓存，支持 TTL、缓存标签、批量失效。
+
+【重构说明】
+L2 缓存新增 SQLite 后端（SQLiteL2Cache），性能优于原文件系统实现，
+原 L2DiskCache（文件系统）保留以确保完全向后兼容。
+SkillCache 默认仍使用文件系统 L2，可通过 use_sqlite_l2=True 切换。
 """
 
 import hashlib
@@ -113,7 +118,7 @@ class L1MemoryCache:
 
 
 class L2DiskCache:
-    """L2 磁盘缓存."""
+    """L2 磁盘缓存（文件系统实现 - 保留以向后兼容）."""
 
     def __init__(self, cache_dir: str | None = None) -> None:
         self._dir = cache_dir or os.path.expanduser("~/.yunxi/cache/skill_cache")
@@ -221,11 +226,83 @@ class L2DiskCache:
         }
 
 
+class SQLiteL2Cache:
+    """L2 磁盘缓存（SQLite 实现 - 高性能版本）.
+
+    【新增】基于 CacheRepository 的 SQLite 后端实现，相比文件系统实现：
+    - 按标签失效从 O(n) 降为 O(1)（SQL 查询）
+    - 统计查询更快
+    - 更好的并发安全性（WAL 模式）
+    - 支持自动重试与损坏恢复
+
+    实现与 L2DiskCache 完全相同的接口，可无缝替换。
+    """
+
+    def __init__(self, db_path: str | None = None) -> None:
+        from skill_cluster.db.cache_repository import CacheRepository
+        from skill_cluster.db.base import SQLiteDatabase
+
+        self._db_path = db_path or os.path.expanduser(
+            "~/.yunxi/cache/skill_cache.db"
+        )
+        os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
+        self._db = SQLiteDatabase(self._db_path)
+        self._repo = CacheRepository(self._db)
+
+    def get(self, key: str) -> Any | None:
+        """获取缓存值."""
+        return self._repo.get(key)
+
+    def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: float | None = None,
+        tags: set[str] | None = None,
+        cache_scope: str = "public",
+    ) -> None:
+        """设置缓存值."""
+        self._repo.set(key, value, ttl=ttl, tags=tags, cache_scope=cache_scope)
+
+    def delete(self, key: str) -> bool:
+        """删除缓存条目."""
+        return self._repo.delete(key)
+
+    def invalidate_by_tag(self, tag: str) -> int:
+        """按标签批量失效缓存（SQLite 实现高效得多）."""
+        return self._repo.invalidate_by_tag(tag)
+
+    def clear(self) -> None:
+        """清空所有缓存."""
+        self._repo.clear()
+
+    def stats(self) -> dict[str, Any]:
+        """获取缓存统计."""
+        return self._repo.stats()
+
+    def cleanup_expired(self) -> int:
+        """清理过期缓存."""
+        return self._repo.cleanup_expired()
+
+    def close(self) -> None:
+        """优雅关闭数据库连接."""
+        self._db.close()
+
+    def __enter__(self) -> "SQLiteL2Cache":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
+
+
 class SkillCache:
     """Skill 多级缓存.
 
     L1 -> L2 -> Miss 的读取顺序，Write-Through 写入策略。
     支持语义缓存模糊命中：基于参数相似度的近似匹配。
+
+    【重构说明】新增 use_sqlite_l2 参数，默认 False（使用文件系统 L2），
+    设置为 True 时使用 SQLite 后端 L2 缓存，性能更优。
     """
 
     def __init__(
@@ -234,11 +311,17 @@ class SkillCache:
         l2_dir: str | None = None,
         default_ttl: float | None = None,
         fuzzy_threshold: float = 0.85,
+        use_sqlite_l2: bool = False,
+        l2_db_path: str | None = None,
     ) -> None:
         self._l1 = L1MemoryCache(max_size=l1_max_size)
-        self._l2 = L2DiskCache(cache_dir=l2_dir)
+        if use_sqlite_l2:
+            self._l2: L2DiskCache | SQLiteL2Cache = SQLiteL2Cache(db_path=l2_db_path)
+        else:
+            self._l2 = L2DiskCache(cache_dir=l2_dir)
         self._default_ttl = default_ttl
         self._fuzzy_threshold = fuzzy_threshold
+        self._use_sqlite_l2 = use_sqlite_l2
 
     def _make_key(
         self, skill_id: str, action: str, params: dict[str, Any]
@@ -447,3 +530,28 @@ class SkillCache:
             "default_ttl": self._default_ttl,
             "fuzzy_threshold": self._fuzzy_threshold,
         }
+
+    # ------------------------------------------------------------------
+    # 新增：SQLite L2 专属方法
+    # ------------------------------------------------------------------
+
+    def cleanup_expired(self) -> int:
+        """清理 L2 中的过期缓存（仅 SQLite 后端有效）.
+
+        Returns:
+            清理的条目数，文件后端返回 0
+        """
+        if isinstance(self._l2, SQLiteL2Cache):
+            return self._l2.cleanup_expired()
+        return 0
+
+    def close(self) -> None:
+        """优雅关闭（仅 SQLite 后端需要）."""
+        if isinstance(self._l2, SQLiteL2Cache):
+            self._l2.close()
+
+    def __enter__(self) -> "SkillCache":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()

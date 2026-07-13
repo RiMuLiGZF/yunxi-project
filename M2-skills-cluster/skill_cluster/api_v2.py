@@ -84,7 +84,7 @@ class BatchInvokeRequest(BaseModel):
 class RecommendTestRequest(BaseModel):
     """推荐测试请求."""
     query: str = Field(..., description="用户输入查询")
-    scene_type: str = Field(default="default", description="场景类型")
+    scene_type: str = Field(default="DEFAULT", description="场景类型")
     top_k: int = Field(default=5, description="返回Top N")
     user_id: str = Field(default="", description="用户ID")
 
@@ -640,10 +640,12 @@ def create_v2_app(
         req: SkillInvokeRequest,
         request: Request,
         x_trace_id: str | None = Header(default=None),
+        x_idempotency_key: str | None = Header(default=None),
     ):
         """调用技能.
 
         标准接口：调用指定技能的指定动作，传入参数。
+        支持 X-Idempotency-Key 请求头实现幂等调用。
         """
         trace_id = _get_trace_id(x_trace_id)
 
@@ -657,21 +659,28 @@ def create_v2_app(
         try:
             # 从请求中提取客户端 IP，注入 metadata 供限流中间件使用
             client_ip = _get_client_ip(request)
-            params_with_ip = dict(req.params) if req.params else {}
-            # 将 IP 信息放入 metadata（通过 params 传递，router.invoke 内部会处理）
-            # 由于 router.invoke 接口限制，这里通过 params 中的特殊字段传递
-            # 实际项目中建议扩展 SkillInvokeRequest 的 metadata 字段
-            invoke_kwargs: dict[str, Any] = {
-                "skill_id": req.skill_id,
-                "action": req.action,
-                "params": req.params,
-                "agent_id": req.agent_id,
-                "timeout": req.timeout,
-                "trace_id": trace_id,
-                "device_type": req.device_type,
-            }
 
-            result = await router.invoke(**invoke_kwargs)
+            # 构建 metadata，注入幂等键（如果提供）
+            metadata: dict[str, Any] = dict(getattr(req, "metadata", {}) or {})
+            if x_idempotency_key:
+                metadata["idempotency_key"] = x_idempotency_key
+                metadata["x_idempotency_key"] = x_idempotency_key
+            # 注入客户端 IP 到 metadata 供限流中间件使用
+            metadata["client_ip"] = client_ip
+
+            # 构建 SkillInvokeRequest 并调用路由器
+            from skill_cluster.interfaces import SkillInvokeRequest as RouterInvokeRequest
+            invoke_req = RouterInvokeRequest(
+                skill_id=req.skill_id,
+                action=req.action,
+                params=req.params or {},
+                trace_id=trace_id,
+                timeout=req.timeout,
+                metadata=metadata,
+                device_type=req.device_type,
+            )
+
+            result = await router.invoke(invoke_req, req.agent_id)
 
             status = getattr(result, "status", "success")
             result_data = getattr(result, "data", None)
@@ -691,6 +700,12 @@ def create_v2_app(
                 "error": result_error,
                 "latency_ms": getattr(result, "latency_ms", 0),
             }
+
+            # 检测是否为幂等命中
+            is_idempotent_hit = bool(
+                getattr(result, "idempotent_hit", False)
+                or (isinstance(result_data, dict) and result_data.get("idempotent_hit"))
+            )
 
             if is_rate_limited:
                 # 限流响应：返回 RATE_LIMITED 错误码和标准响应头
@@ -712,7 +727,15 @@ def create_v2_app(
                 response.headers["Retry-After"] = str(int(retry_after))
                 return response
 
-            return make_success_response(data=data, trace_id=trace_id)
+            # 构建成功响应，添加幂等性响应头
+            response_body = make_success_response(data=data, trace_id=trace_id)
+            response = JSONResponse(content=response_body)
+            if x_idempotency_key:
+                response.headers["X-Idempotency-Key"] = x_idempotency_key
+                response.headers["X-Idempotency-Hit"] = (
+                    "true" if is_idempotent_hit else "false"
+                )
+            return response
 
         except Exception as e:
             logger.error("invoke_error", error=str(e), trace_id=trace_id, skill_id=req.skill_id)
@@ -740,18 +763,19 @@ def create_v2_app(
             )
 
         try:
+            from skill_cluster.interfaces import SkillInvokeRequest as RouterInvokeRequest
             results = []
             for sub_req in req.requests:
                 try:
-                    result = await router.invoke(
+                    sub_invoke_req = RouterInvokeRequest(
                         skill_id=sub_req.skill_id,
                         action=sub_req.action,
-                        params=sub_req.params,
-                        agent_id=sub_req.agent_id,
-                        timeout=sub_req.timeout,
+                        params=sub_req.params or {},
                         trace_id=trace_id,
+                        timeout=sub_req.timeout,
                         device_type=sub_req.device_type,
                     )
+                    result = await router.invoke(sub_invoke_req, sub_req.agent_id)
                     results.append({
                         "skill_id": sub_req.skill_id,
                         "status": getattr(result, "status", "success"),

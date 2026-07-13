@@ -4,83 +4,52 @@ from __future__ import annotations
 
 将 Pipeline 执行上下文持久化到 SQLite，支持执行历史查询、
 断点续执行、执行图可视化。
+
+【重构说明】
+本模块已迁移到 Repository 模式，内部委托给 PipelineRepository。
+保留原有 API 以确保完全向后兼容。
 """
 
 import json
 import os
-import sqlite3
-import time
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from skill_cluster.db.pipeline_repository import (
+    PipelineRepository,
+    PipelineRunRecord,
+)
+from skill_cluster.db.base import SQLiteDatabase
 from skill_cluster.skill_pipeline import PipelineContext
 
-
-class PipelineRunRecord(BaseModel):
-    """流水线执行记录."""
-
-    run_id: str = Field(..., description="运行 ID")
-    pipeline_id: str = Field(..., description="流水线 ID")
-    agent_id: str = Field(..., description="Agent 标识")
-    trace_id: str = Field(..., description="追踪 ID")
-    status: str = Field(..., description="状态")
-    started_at: float = Field(..., description="开始时间")
-    finished_at: float | None = Field(default=None, description="结束时间")
-    duration_ms: float = Field(default=0.0, description="耗时")
-    step_count: int = Field(default=0, description="步骤数")
-    step_results_json: str = Field(default="{}", description="步骤结果 JSON")
-    variables_json: str = Field(default="{}", description="变量 JSON")
+__all__ = ["PipelineRunRecord", "PipelineStateStore"]
 
 
 class PipelineStateStore:
-    """流水线状态存储."""
+    """流水线状态存储.
+
+    【重构后】内部委托给 PipelineRepository，提供完全相同的 API。
+
+    Args:
+        db_path: 数据库文件路径，默认 ~/.yunxi/data/pipeline_runs.db
+    """
 
     def __init__(self, db_path: str | None = None) -> None:
         self._db_path = db_path or os.path.expanduser(
             "~/.yunxi/data/pipeline_runs.db"
         )
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
-        self._init_db()
-
-    def _init_db(self) -> None:
-        with sqlite3.connect(self._db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS pipeline_runs (
-                    run_id TEXT PRIMARY KEY,
-                    pipeline_id TEXT,
-                    agent_id TEXT,
-                    trace_id TEXT,
-                    status TEXT,
-                    started_at REAL,
-                    finished_at REAL,
-                    duration_ms REAL,
-                    step_count INTEGER,
-                    step_results_json TEXT,
-                    variables_json TEXT
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_pipeline_id ON pipeline_runs(pipeline_id)
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_agent_id ON pipeline_runs(agent_id)
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_status ON pipeline_runs(status)
-                """
-            )
-            conn.commit()
+        # 使用统一的 SQLiteDatabase + PipelineRepository
+        self._db = SQLiteDatabase(self._db_path)
+        self._repo = PipelineRepository(self._db)
 
     def save(self, ctx: PipelineContext) -> None:
-        """保存执行上下文."""
+        """保存执行上下文.
+
+        Args:
+            ctx: Pipeline 执行上下文
+        """
         duration = (
             (ctx.finished_at - ctx.started_at) * 1000
             if ctx.finished_at else 0.0
@@ -109,42 +78,18 @@ class PipelineStateStore:
             ),
             variables_json=json.dumps(ctx.variables, ensure_ascii=False),
         )
-
-        with sqlite3.connect(self._db_path) as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO pipeline_runs
-                (run_id, pipeline_id, agent_id, trace_id, status,
-                 started_at, finished_at, duration_ms, step_count,
-                 step_results_json, variables_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.run_id,
-                    record.pipeline_id,
-                    record.agent_id,
-                    record.trace_id,
-                    record.status,
-                    record.started_at,
-                    record.finished_at,
-                    record.duration_ms,
-                    record.step_count,
-                    record.step_results_json,
-                    record.variables_json,
-                ),
-            )
-            conn.commit()
+        self._repo.save(record)
 
     def get(self, run_id: str) -> PipelineRunRecord | None:
-        """按 run_id 查询执行记录."""
-        with sqlite3.connect(self._db_path) as conn:
-            row = conn.execute(
-                "SELECT * FROM pipeline_runs WHERE run_id = ?",
-                (run_id,),
-            ).fetchone()
-        if row is None:
-            return None
-        return self._row_to_record(row)
+        """按 run_id 查询执行记录.
+
+        Args:
+            run_id: 运行 ID
+
+        Returns:
+            PipelineRunRecord 或 None
+        """
+        return self._repo.get(run_id)
 
     def list_runs(
         self,
@@ -154,79 +99,68 @@ class PipelineStateStore:
         limit: int = 100,
         offset: int = 0,
     ) -> list[PipelineRunRecord]:
-        """查询执行记录列表."""
-        conditions: list[str] = []
-        params: list[Any] = []
+        """查询执行记录列表.
 
-        if pipeline_id is not None:
-            conditions.append("pipeline_id = ?")
-            params.append(pipeline_id)
-        if agent_id is not None:
-            conditions.append("agent_id = ?")
-            params.append(agent_id)
-        if status is not None:
-            conditions.append("status = ?")
-            params.append(status)
+        Args:
+            pipeline_id: 按流水线 ID 筛选
+            agent_id: 按 Agent ID 筛选
+            status: 按状态筛选
+            limit: 返回数量限制
+            offset: 偏移量
 
-        where = "WHERE " + " AND ".join(conditions) if conditions else ""
-        sql = f"SELECT * FROM pipeline_runs {where} ORDER BY started_at DESC LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-
-        with sqlite3.connect(self._db_path) as conn:
-            rows = conn.execute(sql, params).fetchall()
-
-        return [self._row_to_record(r) for r in rows]
+        Returns:
+            PipelineRunRecord 列表
+        """
+        return self._repo.list_runs(
+            pipeline_id=pipeline_id,
+            agent_id=agent_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
 
     def get_stats(self, pipeline_id: str | None = None) -> dict[str, Any]:
-        """获取执行统计."""
-        where = "WHERE pipeline_id = ?" if pipeline_id else ""
-        params = [pipeline_id] if pipeline_id else []
+        """获取执行统计.
 
-        with sqlite3.connect(self._db_path) as conn:
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM pipeline_runs {where}", params
-            ).fetchone()[0]
-            success = conn.execute(
-                f"SELECT COUNT(*) FROM pipeline_runs {where} {'AND' if where else 'WHERE'} status = 'success'",
-                params,
-            ).fetchone()[0]
-            failure = conn.execute(
-                f"SELECT COUNT(*) FROM pipeline_runs {where} {'AND' if where else 'WHERE'} status = 'failure'",
-                params,
-            ).fetchone()[0]
-            avg_duration = conn.execute(
-                f"SELECT AVG(duration_ms) FROM pipeline_runs {where}", params
-            ).fetchone()[0]
+        Args:
+            pipeline_id: 按流水线 ID 筛选（None 表示全部）
 
-        return {
-            "total": total,
-            "success": success,
-            "failure": failure,
-            "success_rate": success / total if total > 0 else 0.0,
-            "avg_duration_ms": avg_duration or 0.0,
-        }
+        Returns:
+            统计信息字典
+        """
+        return self._repo.get_stats(pipeline_id=pipeline_id)
 
     def delete_old_runs(self, before_timestamp: float) -> int:
-        """删除旧记录."""
-        with sqlite3.connect(self._db_path) as conn:
-            cursor = conn.execute(
-                "DELETE FROM pipeline_runs WHERE started_at < ?",
-                (before_timestamp,),
-            )
-            conn.commit()
-            return cursor.rowcount
+        """删除旧记录.
 
-    def _row_to_record(self, row: sqlite3.Row) -> PipelineRunRecord:
-        return PipelineRunRecord(
-            run_id=row[0],
-            pipeline_id=row[1],
-            agent_id=row[2],
-            trace_id=row[3],
-            status=row[4],
-            started_at=row[5],
-            finished_at=row[6],
-            duration_ms=row[7],
-            step_count=row[8],
-            step_results_json=row[9],
-            variables_json=row[10],
-        )
+        Args:
+            before_timestamp: 删除此时间戳之前的记录
+
+        Returns:
+            删除的记录数
+        """
+        return self._repo.delete_old_runs(before_timestamp)
+
+    # ------------------------------------------------------------------
+    # 新增：底层 Repository 访问（供高级用户使用）
+    # ------------------------------------------------------------------
+
+    @property
+    def repository(self) -> PipelineRepository:
+        """获取底层 PipelineRepository 实例."""
+        return self._repo
+
+    @property
+    def database(self) -> SQLiteDatabase:
+        """获取底层 SQLiteDatabase 实例."""
+        return self._db
+
+    def close(self) -> None:
+        """优雅关闭数据库连接."""
+        self._db.close()
+
+    def __enter__(self) -> "PipelineStateStore":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()

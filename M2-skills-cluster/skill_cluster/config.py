@@ -128,6 +128,31 @@ class RateLimitConfig(BaseModel):
     cost_per_request: float = 1.0
 
 
+class IdempotencyConfig(BaseModel):
+    """幂等性配置.
+
+    为技能调用提供幂等性保障，防止重复请求导致的副作用。
+    默认关闭，需显式启用。
+
+    Attributes:
+        enabled: 是否启用幂等性，默认 False（向后兼容）.
+        ttl: 幂等键过期时间（秒），默认 3600 秒（1 小时）.
+        max_entries: 最大存储条目数，默认 10000.
+        key_source: 幂等键来源策略:
+            - ``"metadata"``: 从请求 metadata 中提取
+            - ``"request_id"``: 使用 trace_id 作为幂等键
+            - ``"params_hash"``: 基于参数哈希生成
+        header_name: 幂等键请求头名称，默认 ``X-Idempotency-Key``.
+        cache_errors: 是否缓存错误结果，默认 True.
+    """
+    enabled: bool = False
+    ttl: float = 3600.0
+    max_entries: int = 10000
+    key_source: str = "metadata"
+    header_name: str = "X-Idempotency-Key"
+    cache_errors: bool = True
+
+
 class SkillsConfig(BaseModel):
     """技能配置."""
     enabled: list[str] = Field(default_factory=list)
@@ -136,6 +161,7 @@ class SkillsConfig(BaseModel):
     hot_reload_interval: int = 60
     execution: SkillsExecutionConfig = Field(default_factory=SkillsExecutionConfig)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
+    idempotency: IdempotencyConfig = Field(default_factory=IdempotencyConfig)
 
 
 class VoicePolishConfig(BaseModel):

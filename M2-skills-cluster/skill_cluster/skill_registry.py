@@ -23,15 +23,59 @@ class _SkillWrapper:
 
     包装 ISkill 实例，增加 enabled 和 usage_count 属性，
     并暴露原始 manifest。
+
+    enabled 和 usage_count 状态持久化在底层 skill 对象上，
+    确保每次通过 registry.get() 获取的包装器都能看到一致的状态。
     """
 
     def __init__(self, skill: ISkill) -> None:
         self._skill = skill
         self.manifest = skill.manifest
-        self.enabled = True
-        self.usage_count = 0
-        self.created_at = 0.0
-        self.last_used_at = 0.0
+        # 状态持久化在底层 skill 对象上，确保跨 wrapper 实例一致
+        if not hasattr(skill, "_enabled"):
+            skill._enabled = True  # type: ignore[attr-defined]
+        if not hasattr(skill, "_usage_count"):
+            skill._usage_count = 0  # type: ignore[attr-defined]
+        if not hasattr(skill, "_created_at"):
+            skill._created_at = 0.0  # type: ignore[attr-defined]
+        if not hasattr(skill, "_last_used_at"):
+            skill._last_used_at = 0.0  # type: ignore[attr-defined]
+
+    @property
+    def enabled(self) -> bool:
+        """技能是否启用（状态持久化在底层 skill 上）."""
+        return self._skill._enabled  # type: ignore[attr-defined]
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._skill._enabled = value  # type: ignore[attr-defined]
+
+    @property
+    def usage_count(self) -> int:
+        """使用次数（状态持久化在底层 skill 上）."""
+        return self._skill._usage_count  # type: ignore[attr-defined]
+
+    @usage_count.setter
+    def usage_count(self, value: int) -> None:
+        self._skill._usage_count = value  # type: ignore[attr-defined]
+
+    @property
+    def created_at(self) -> float:
+        """创建时间（状态持久化在底层 skill 上）."""
+        return self._skill._created_at  # type: ignore[attr-defined]
+
+    @created_at.setter
+    def created_at(self, value: float) -> None:
+        self._skill._created_at = value  # type: ignore[attr-defined]
+
+    @property
+    def last_used_at(self) -> float:
+        """最后使用时间（状态持久化在底层 skill 上）."""
+        return self._skill._last_used_at  # type: ignore[attr-defined]
+
+    @last_used_at.setter
+    def last_used_at(self, value: float) -> None:
+        self._skill._last_used_at = value  # type: ignore[attr-defined]
 
 
 class SkillRegistryError(Exception):

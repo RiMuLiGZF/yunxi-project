@@ -227,5 +227,28 @@ def logging_middleware() -> Middleware:
     return _mw
 
 
+def idempotent_middleware(
+    manager: "IdempotencyManager",
+    key_source: str = "metadata",
+    header_name: str = "X-Idempotency-Key",
+) -> Middleware:
+    """幂等中间件（便捷入口，委托给 idempotency 模块）.
+
+    从请求中提取幂等键，命中缓存则直接返回结果，
+    未命中则执行调用并缓存结果。
+
+    Args:
+        manager: IdempotencyManager 实例.
+        key_source: 幂等键来源策略.
+        header_name: 幂等键请求头名称.
+
+    Returns:
+        符合 Middleware 签名的中间件函数.
+    """
+    from skill_cluster.idempotency import idempotent_middleware as _idempotent_mw
+    return _idempotent_mw(manager, key_source, header_name)
+
+
 # 延迟导入避免循环依赖
 from skill_cluster.metrics import MetricsCollector
+from skill_cluster.idempotency import IdempotencyManager  # noqa: F401

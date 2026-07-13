@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-"""待办事项管理技能."""
+"""待办事项管理技能.
+
+【重构说明】
+已迁移到 Repository 模式，数据库操作委托给 TodoRepository。
+原有 API 完全保留，仅内部实现变化。
+"""
 
 import os
 import sqlite3
@@ -10,6 +15,8 @@ from typing import Any
 
 import structlog
 
+from skill_cluster.db.base import SQLiteDatabase
+from skill_cluster.db.skill_repository_base import SkillBaseRepository
 from skill_cluster.interfaces import (
     ISkill,
     SkillInvokeRequest,
@@ -20,8 +27,332 @@ from skill_cluster.interfaces import (
 logger = structlog.get_logger()
 
 
+# ----------------------------------------------------------------------
+# Repository 层
+# ----------------------------------------------------------------------
+
+
+class TodoRepository(SkillBaseRepository):
+    """待办事项 Repository.
+
+    封装 todos 表的所有数据库操作。
+
+    Args:
+        db_path: 数据库文件路径
+    """
+
+    table_name = "todos"
+    primary_key = "todo_id"
+
+    def _create_tables(self) -> None:
+        """创建 todos 表."""
+        self._db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS todos (
+                todo_id TEXT PRIMARY KEY,
+                title TEXT,
+                description TEXT,
+                status TEXT,
+                priority INTEGER,
+                due_date TEXT,
+                tags TEXT,
+                created_at TEXT,
+                completed_at TEXT
+            )
+            """
+        )
+
+    def _create_indexes(self) -> None:
+        """创建索引."""
+        self._ensure_index("status")
+        self._ensure_index("priority")
+        self._ensure_index("due_date")
+        self._ensure_index("created_at")
+
+    # ------------------------------------------------------------------
+    # 增删改查
+    # ------------------------------------------------------------------
+
+    def create_todo(
+        self,
+        title: str,
+        description: str,
+        status: str,
+        priority: int,
+        due_date: str,
+        tags_str: str,
+        created_at: str,
+    ) -> str:
+        """创建待办事项.
+
+        Args:
+            title: 标题
+            description: 描述
+            status: 状态
+            priority: 优先级
+            due_date: 截止日期
+            tags_str: 标签（逗号分隔）
+            created_at: 创建时间
+
+        Returns:
+            新创建的 todo_id
+        """
+        todo_id = str(uuid.uuid4())
+        self._db.execute(
+            """
+            INSERT INTO todos (todo_id, title, description, status, priority,
+                               due_date, tags, created_at, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (todo_id, title, description, status, priority,
+             due_date, tags_str, created_at, ""),
+        )
+        return todo_id
+
+    def get_todo(self, todo_id: str) -> dict[str, Any] | None:
+        """获取单个待办事项.
+
+        Args:
+            todo_id: 待办 ID
+
+        Returns:
+            待办字典或 None
+        """
+        row = self.get_by_id(todo_id)
+        if row is None:
+            return None
+        return self._row_to_dict(row)
+
+    def list_todos(
+        self,
+        status: str | None = None,
+        priority: int | None = None,
+        tag: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """查询待办列表（支持筛选和分页.
+
+        Args:
+            status: 按状态筛选
+            priority: 按优先级筛选
+            tag: 按标签筛选（LIKE）
+            page: 页码
+            page_size: 每页数量
+
+        Returns:
+            (todos_list, total) 元组
+        """
+        conditions: list[str] = []
+        args: list[Any] = []
+
+        if status:
+            conditions.append("status = ?")
+            args.append(status)
+        if priority is not None:
+            conditions.append("priority = ?")
+            args.append(priority)
+        if tag:
+            conditions.append("tags LIKE ?")
+            args.append(f"%{tag}%")
+
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+        offset = (page - 1) * page_size
+
+        # 总数
+        total_row = self._db.fetchone(
+            f"SELECT COUNT(*) FROM todos{where_clause}", args
+        )
+        total = total_row[0] if total_row else 0
+
+        # 分页数据
+        rows = self._db.fetchall(
+            f"""
+            SELECT todo_id, title, description, status, priority,
+                   due_date, tags, created_at, completed_at
+            FROM todos{where_clause}
+            ORDER BY priority DESC, created_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            args + [page_size, offset],
+        )
+
+        todos = [self._row_to_dict(r) for r in rows]
+        return todos, total
+
+    def update_todo(self, todo_id: str, updates: dict[str, Any]) -> bool:
+        """更新待办事项（动态字段）.
+
+        Args:
+            todo_id: 待办 ID
+            updates: {字段名: 新值} 字典
+
+        Returns:
+            True 表示更新成功
+
+        Raises:
+            ValueError: 待办不存在
+        """
+        rowcount = self.update_fields(todo_id, updates)
+        if rowcount == 0:
+            raise ValueError(f"待办事项不存在: {todo_id}")
+        return True
+
+    def delete_todo(self, todo_id: str) -> bool:
+        """删除待办事项.
+
+        Args:
+            todo_id: 待办 ID
+
+        Returns:
+            True 表示删除成功
+
+        Raises:
+            ValueError: 待办不存在
+        """
+        rowcount = self.delete_by_id(todo_id)
+        if rowcount == 0:
+            raise ValueError(f"待办事项不存在: {todo_id}")
+        return True
+
+    def complete_todo(self, todo_id: str, completed_at: str) -> bool:
+        """标记待办为已完成.
+
+        Args:
+            todo_id: 待办 ID
+            completed_at: 完成时间
+
+        Returns:
+            True 表示成功
+
+        Raises:
+            ValueError: 待办不存在
+        """
+        cursor = self._db.execute(
+            "UPDATE todos SET status = ?, completed_at = ? WHERE todo_id = ?",
+            ("completed", completed_at, todo_id),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"待办事项不存在: {todo_id}")
+        return True
+
+    def get_stats(self) -> dict[str, Any]:
+        """获取统计信息.
+
+        Returns:
+            统计字典
+        """
+        now = datetime.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        # 本周开始（周一）
+        week_start = today_start - timedelta(days=today_start.weekday())
+        week_end = week_start + timedelta(days=7)
+
+        today_str = today_start.isoformat()
+        today_end_str = today_end.isoformat()
+        week_start_str = week_start.isoformat()
+        week_end_str = week_end.isoformat()
+        now_str = now.isoformat()
+
+        # 今日完成
+        today_completed_row = self._db.fetchone(
+            """
+            SELECT COUNT(*) FROM todos
+            WHERE status = 'completed' AND completed_at >= ? AND completed_at < ?
+            """,
+            (today_str, today_end_str),
+        )
+        today_completed = today_completed_row[0] if today_completed_row else 0
+
+        # 本周完成
+        week_completed_row = self._db.fetchone(
+            """
+            SELECT COUNT(*) FROM todos
+            WHERE status = 'completed' AND completed_at >= ? AND completed_at < ?
+            """,
+            (week_start_str, week_end_str),
+        )
+        week_completed = week_completed_row[0] if week_completed_row else 0
+
+        # 待处理总数
+        pending_row = self._db.fetchone(
+            "SELECT COUNT(*) FROM todos WHERE status != 'completed'"
+        )
+        pending = pending_row[0] if pending_row else 0
+
+        # 逾期
+        overdue_row = self._db.fetchone(
+            """
+            SELECT COUNT(*) FROM todos
+            WHERE status != 'completed'
+              AND due_date != ''
+              AND due_date < ?
+            """,
+            (now_str,),
+        )
+        overdue = overdue_row[0] if overdue_row else 0
+
+        # 各状态数量
+        status_rows = self._db.fetchall(
+            "SELECT status, COUNT(*) as cnt FROM todos GROUP BY status"
+        )
+        status_distribution = {r["status"]: r["cnt"] for r in status_rows}
+
+        # 各优先级数量
+        priority_rows = self._db.fetchall(
+            """
+            SELECT priority, COUNT(*) as cnt FROM todos
+            WHERE status != 'completed'
+            GROUP BY priority
+            ORDER BY priority DESC
+            """
+        )
+        priority_distribution = {r["priority"]: r["cnt"] for r in priority_rows}
+
+        return {
+            "today_completed": today_completed,
+            "week_completed": week_completed,
+            "pending": pending,
+            "overdue": overdue,
+            "status_distribution": status_distribution,
+            "priority_distribution": priority_distribution,
+            "today": today_str,
+            "week_start": week_start_str,
+        }
+
+    # ------------------------------------------------------------------
+    # 辅助方法
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """将行转为字典."""
+        return {
+            "todo_id": row["todo_id"],
+            "title": row["title"],
+            "description": row["description"],
+            "status": row["status"],
+            "priority": row["priority"],
+            "due_date": row["due_date"],
+            "tags": row["tags"].split(",") if row["tags"] else [],
+            "created_at": row["created_at"],
+            "completed_at": row["completed_at"],
+        }
+
+
+# ----------------------------------------------------------------------
+# Skill 层（保留原有 API，内部委托给 Repository）
+# ----------------------------------------------------------------------
+
+
 class TodoSkill(ISkill):
-    """待办事项管理技能，支持增删改查、完成标记和统计."""
+    """待办事项管理技能，支持增删改查、完成标记和统计.
+
+    【重构后】数据库操作全部委托给 TodoRepository，
+    外部 API 完全不变。
+    """
 
     def __init__(self) -> None:
         manifest = SkillManifest(
@@ -37,29 +368,8 @@ class TodoSkill(ISkill):
         )
         super().__init__(manifest)
         self._config: dict[str, Any] = {}
-        self._db_path = os.path.expanduser("~/.yunxi/data/todo.db")
-        os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """初始化数据库表结构."""
-        with sqlite3.connect(self._db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS todos (
-                    todo_id TEXT PRIMARY KEY,
-                    title TEXT,
-                    description TEXT,
-                    status TEXT,
-                    priority INTEGER,
-                    due_date TEXT,
-                    tags TEXT,
-                    created_at TEXT,
-                    completed_at TEXT
-                )
-                """
-            )
-            conn.commit()
+        db_path = os.path.expanduser("~/.yunxi/data/todo.db")
+        self._repo = TodoRepository(db_path=db_path)
 
     async def invoke(self, request: SkillInvokeRequest) -> SkillInvokeResult:
         """技能调用入口，根据 action 分发到对应处理方法."""
@@ -101,55 +411,14 @@ class TodoSkill(ISkill):
         tag = params.get("tag")
         page = int(params.get("page", 1))
         page_size = int(params.get("page_size", 20))
-        offset = (page - 1) * page_size
 
-        # 构建查询条件
-        conditions: list[str] = []
-        args: list[Any] = []
-
-        if status:
-            conditions.append("status = ?")
-            args.append(status)
-        if priority is not None:
-            conditions.append("priority = ?")
-            args.append(priority)
-        if tag:
-            conditions.append("tags LIKE ?")
-            args.append(f"%{tag}%")
-
-        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-
-        with sqlite3.connect(self._db_path) as conn:
-            # 查询总数
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM todos{where_clause}", args
-            ).fetchone()[0]
-
-            # 查询分页数据，按优先级降序、创建时间降序
-            rows = conn.execute(
-                f"""
-                SELECT todo_id, title, description, status, priority, due_date, tags, created_at, completed_at
-                FROM todos{where_clause}
-                ORDER BY priority DESC, created_at DESC
-                LIMIT ? OFFSET ?
-                """,
-                args + [page_size, offset],
-            ).fetchall()
-
-        todos = [
-            {
-                "todo_id": r[0],
-                "title": r[1],
-                "description": r[2],
-                "status": r[3],
-                "priority": r[4],
-                "due_date": r[5],
-                "tags": r[6].split(",") if r[6] else [],
-                "created_at": r[7],
-                "completed_at": r[8],
-            }
-            for r in rows
-        ]
+        todos, total = self._repo.list_todos(
+            status=status,
+            priority=priority,
+            tag=tag,
+            page=page,
+            page_size=page_size,
+        )
         return {
             "todos": todos,
             "total": total,
@@ -160,7 +429,6 @@ class TodoSkill(ISkill):
 
     def _create(self, params: dict[str, Any]) -> dict[str, Any]:
         """创建待办事项."""
-        todo_id = str(uuid.uuid4())
         title = params.get("title", "")
         description = params.get("description", "")
         status = params.get("status", "pending")
@@ -173,16 +441,15 @@ class TodoSkill(ISkill):
         if not title:
             raise ValueError("待办标题不能为空")
 
-        with sqlite3.connect(self._db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO todos (todo_id, title, description, status, priority, due_date, tags, created_at, completed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (todo_id, title, description, status, priority, due_date, tags_str, created_at, ""),
-            )
-            conn.commit()
-
+        todo_id = self._repo.create_todo(
+            title=title,
+            description=description,
+            status=status,
+            priority=priority,
+            due_date=due_date,
+            tags_str=tags_str,
+            created_at=created_at,
+        )
         return {"todo_id": todo_id, "created": True, "title": title}
 
     def _update(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -192,43 +459,26 @@ class TodoSkill(ISkill):
             raise ValueError("todo_id 不能为空")
 
         # 构建更新字段
-        updates: list[str] = []
-        args: list[Any] = []
+        updates: dict[str, Any] = {}
 
         if "title" in params:
-            updates.append("title = ?")
-            args.append(params["title"])
+            updates["title"] = params["title"]
         if "description" in params:
-            updates.append("description = ?")
-            args.append(params["description"])
+            updates["description"] = params["description"]
         if "status" in params:
-            updates.append("status = ?")
-            args.append(params["status"])
+            updates["status"] = params["status"]
         if "priority" in params:
-            updates.append("priority = ?")
-            args.append(int(params["priority"]))
+            updates["priority"] = int(params["priority"])
         if "due_date" in params:
-            updates.append("due_date = ?")
-            args.append(params["due_date"])
+            updates["due_date"] = params["due_date"]
         if "tags" in params:
             tags = params["tags"]
-            tags_str = ",".join(tags) if isinstance(tags, list) else tags
-            updates.append("tags = ?")
-            args.append(tags_str)
+            updates["tags"] = ",".join(tags) if isinstance(tags, list) else tags
 
         if not updates:
             raise ValueError("没有需要更新的字段")
 
-        args.append(todo_id)
-
-        with sqlite3.connect(self._db_path) as conn:
-            cursor = conn.execute(
-                f"UPDATE todos SET {', '.join(updates)} WHERE todo_id = ?", args
-            )
-            conn.commit()
-            if cursor.rowcount == 0:
-                raise ValueError(f"待办事项不存在: {todo_id}")
-
+        self._repo.update_todo(todo_id, updates)
         return {"todo_id": todo_id, "updated": True}
 
     def _delete(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -237,12 +487,7 @@ class TodoSkill(ISkill):
         if not todo_id:
             raise ValueError("todo_id 不能为空")
 
-        with sqlite3.connect(self._db_path) as conn:
-            cursor = conn.execute("DELETE FROM todos WHERE todo_id = ?", (todo_id,))
-            conn.commit()
-            if cursor.rowcount == 0:
-                raise ValueError(f"待办事项不存在: {todo_id}")
-
+        self._repo.delete_todo(todo_id)
         return {"deleted": True, "todo_id": todo_id}
 
     def _complete(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -252,86 +497,12 @@ class TodoSkill(ISkill):
             raise ValueError("todo_id 不能为空")
 
         completed_at = datetime.now().isoformat()
-
-        with sqlite3.connect(self._db_path) as conn:
-            cursor = conn.execute(
-                "UPDATE todos SET status = ?, completed_at = ? WHERE todo_id = ?",
-                ("completed", completed_at, todo_id),
-            )
-            conn.commit()
-            if cursor.rowcount == 0:
-                raise ValueError(f"待办事项不存在: {todo_id}")
-
+        self._repo.complete_todo(todo_id, completed_at)
         return {"todo_id": todo_id, "completed": True, "completed_at": completed_at}
 
     def _stats(self, params: dict[str, Any]) -> dict[str, Any]:
         """统计信息：今日完成、本周完成、待处理、逾期."""
-        now = datetime.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-
-        # 本周开始（周一）
-        week_start = today_start - timedelta(days=today_start.weekday())
-        week_end = week_start + timedelta(days=7)
-
-        today_str = today_start.isoformat()
-        today_end_str = today_end.isoformat()
-        week_start_str = week_start.isoformat()
-        week_end_str = week_end.isoformat()
-        now_str = now.isoformat()
-
-        with sqlite3.connect(self._db_path) as conn:
-            # 今日完成
-            today_completed = conn.execute(
-                "SELECT COUNT(*) FROM todos WHERE status = 'completed' AND completed_at >= ? AND completed_at < ?",
-                (today_str, today_end_str),
-            ).fetchone()[0]
-
-            # 本周完成
-            week_completed = conn.execute(
-                "SELECT COUNT(*) FROM todos WHERE status = 'completed' AND completed_at >= ? AND completed_at < ?",
-                (week_start_str, week_end_str),
-            ).fetchone()[0]
-
-            # 待处理总数
-            pending = conn.execute(
-                "SELECT COUNT(*) FROM todos WHERE status != 'completed'"
-            ).fetchone()[0]
-
-            # 逾期（有截止日期且已过截止日期且未完成）
-            overdue = conn.execute(
-                """
-                SELECT COUNT(*) FROM todos
-                WHERE status != 'completed'
-                  AND due_date != ''
-                  AND due_date < ?
-                """,
-                (now_str,),
-            ).fetchone()[0]
-
-            # 各状态数量
-            status_rows = conn.execute(
-                "SELECT status, COUNT(*) FROM todos GROUP BY status"
-            ).fetchall()
-
-            # 各优先级数量
-            priority_rows = conn.execute(
-                "SELECT priority, COUNT(*) FROM todos WHERE status != 'completed' GROUP BY priority ORDER BY priority DESC"
-            ).fetchall()
-
-        status_distribution = {r[0]: r[1] for r in status_rows}
-        priority_distribution = {r[0]: r[1] for r in priority_rows}
-
-        return {
-            "today_completed": today_completed,
-            "week_completed": week_completed,
-            "pending": pending,
-            "overdue": overdue,
-            "status_distribution": status_distribution,
-            "priority_distribution": priority_distribution,
-            "today": today_str,
-            "week_start": week_start_str,
-        }
+        return self._repo.get_stats()
 
     def _error(self, request: SkillInvokeRequest, error: str, start: float) -> SkillInvokeResult:
         """构造错误返回结果."""
@@ -348,8 +519,24 @@ class TodoSkill(ISkill):
 
     async def health(self) -> dict[str, Any]:
         """健康检查."""
-        return {"healthy": True, "skill_id": self.manifest.skill_id}
+        return {
+            "healthy": self._repo.is_healthy(),
+            "skill_id": self.manifest.skill_id,
+        }
 
     async def configure(self, config: dict[str, Any]) -> None:
         """配置更新."""
         self._config.update(config)
+
+    # ------------------------------------------------------------------
+    # 新增：Repository 访问属性
+    # ------------------------------------------------------------------
+
+    @property
+    def repository(self) -> TodoRepository:
+        """获取底层 TodoRepository 实例."""
+        return self._repo
+
+    def close(self) -> None:
+        """关闭数据库连接."""
+        self._repo.close()
