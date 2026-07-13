@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import ast
+import asyncio
 import os
 import time
 import uuid
@@ -14,6 +16,34 @@ from collections import deque
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import httpx
+
+# 安全工具
+try:
+    from ..utils.security import safe_audio_path, safe_output_path, validate_file_extension, ALLOWED_AUDIO_EXTENSIONS
+    _security_available = True
+except ImportError:
+    _security_available = False
+
+def _safe_audio_path(audio_path: str) -> str:
+    """安全的音频路径校验（降级兼容）."""
+    if _security_available:
+        return safe_audio_path(audio_path)
+    # 降级：做基本检查
+    if not audio_path or '..' in audio_path:
+        raise ValueError("无效的音频文件路径")
+    return audio_path
+
+def _safe_output_path(output_path: Optional[str], suffix: str = ".tmp") -> str:
+    """安全的输出路径生成（降级兼容）."""
+    if _security_available:
+        return safe_output_path(output_path, suffix)
+    # 降级：使用系统临时目录
+    import tempfile
+    if output_path and '..' not in output_path:
+        return output_path
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return path
 
 # 语音引擎（可选，shared/voice_engine.py）
 # 路径：yunxi-project/shared/voice_engine.py
@@ -271,41 +301,335 @@ BUILTIN_BLOCKS: Dict[str, Dict[str, Any]] = {
 }
 
 
+class _SafeExpressionEvaluator:
+    """基于 AST 的安全表达式求值器.
+
+    只允许白名单内的操作：
+    - 算术运算：+ - * / % ** //
+    - 比较运算：== != > < >= <=
+    - 逻辑运算：and or not
+    - 成员运算：in not in
+    - 一元运算：+ - ~
+    - 下标访问：obj[key]
+    - 属性访问：obj.attr（仅安全白名单类型）
+    - 函数调用：仅 len() 函数
+    - 字面量：字符串、数字、布尔值、None、列表、字典、元组
+
+    同时限制最大执行步数，防止 DoS 攻击。
+    """
+
+    # 允许的函数名 -> 实际函数
+    _ALLOWED_FUNCTIONS = {
+        "len": len,
+        "int": int,
+        "float": float,
+        "str": str,
+        "bool": bool,
+        "abs": abs,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "round": round,
+    }
+
+    # 允许属性访问的安全类型（不可变/无副作用）
+    _SAFE_ATTR_TYPES = (
+        str, int, float, bool, list, dict, tuple, set,
+    )
+
+    # 字符串方法白名单
+    _SAFE_STR_METHODS = {
+        "lower", "upper", "strip", "lstrip", "rstrip",
+        "startswith", "endswith", "find", "count",
+        "replace", "split", "join", "isdigit", "isalpha",
+        "isalnum", "isspace", "islower", "isupper",
+        "title", "capitalize", "format",
+    }
+
+    def __init__(self, max_steps: int = 1000):
+        self.max_steps = max_steps
+        self._step_count = 0
+
+    def _check_steps(self):
+        """检查执行步数，防止 DoS."""
+        self._step_count += 1
+        if self._step_count > self.max_steps:
+            raise ValueError(f"表达式执行步数超过上限 {self.max_steps}，可能存在无限循环")
+
+    def evaluate(self, expression: str, context: Dict[str, Any]) -> Any:
+        """求值表达式.
+
+        Args:
+            expression: 表达式字符串
+            context: 变量上下文
+
+        Returns:
+            表达式结果
+
+        Raises:
+            ValueError: 表达式不安全或执行超时
+        """
+        self._step_count = 0
+        try:
+            tree = ast.parse(expression, mode="eval")
+        except SyntaxError as e:
+            raise ValueError(f"表达式语法错误: {e}") from e
+
+        return self._eval_node(tree.body, context)
+
+    def _eval_node(self, node: ast.AST, context: Dict[str, Any]) -> Any:
+        """递归求值 AST 节点."""
+        self._check_steps()
+
+        # 常量（Python 3.8+ 的 Constant 节点）
+        if isinstance(node, ast.Constant):
+            return node.value
+
+        # 名称（变量或函数）
+        if isinstance(node, ast.Name):
+            name = node.id
+            # 先查上下文
+            if name in context:
+                return context[name]
+            # 再查允许的函数
+            if name in self._ALLOWED_FUNCTIONS:
+                return self._ALLOWED_FUNCTIONS[name]
+            # 布尔值和 None（兼容旧版 Python）
+            if name == "True":
+                return True
+            if name == "False":
+                return False
+            if name == "None":
+                return None
+            raise ValueError(f"未定义的变量或函数: {name}")
+
+        # 二元运算
+        if isinstance(node, ast.BinOp):
+            left = self._eval_node(node.left, context)
+            right = self._eval_node(node.right, context)
+            op = node.op
+            if isinstance(op, ast.Add):
+                return left + right
+            if isinstance(op, ast.Sub):
+                return left - right
+            if isinstance(op, ast.Mult):
+                return left * right
+            if isinstance(op, ast.Div):
+                return left / right
+            if isinstance(op, ast.FloorDiv):
+                return left // right
+            if isinstance(op, ast.Mod):
+                return left % right
+            if isinstance(op, ast.Pow):
+                # 限制指数大小，防止计算爆炸
+                if isinstance(right, (int, float)) and abs(right) > 100:
+                    raise ValueError("指数过大，可能导致计算溢出")
+                return left ** right
+            raise ValueError(f"不支持的二元运算符: {type(op).__name__}")
+
+        # 一元运算
+        if isinstance(node, ast.UnaryOp):
+            operand = self._eval_node(node.operand, context)
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.Not):
+                return not operand
+            if isinstance(node.op, ast.Invert):
+                return ~operand
+            raise ValueError(f"不支持的一元运算符: {type(node.op).__name__}")
+
+        # 布尔运算（and/or）
+        if isinstance(node, ast.BoolOp):
+            values = [self._eval_node(v, context) for v in node.values]
+            if isinstance(node.op, ast.And):
+                result = True
+                for v in values:
+                    result = result and v
+                    if not result:
+                        return False
+                return result
+            if isinstance(node.op, ast.Or):
+                result = False
+                for v in values:
+                    result = result or v
+                    if result:
+                        return True
+                return result
+            raise ValueError(f"不支持的布尔运算符: {type(node.op).__name__}")
+
+        # 比较运算
+        if isinstance(node, ast.Compare):
+            left = self._eval_node(node.left, context)
+            result = True
+            current = left
+            for op, comparator in zip(node.ops, node.comparators):
+                right = self._eval_node(comparator, context)
+                if isinstance(op, ast.Eq):
+                    result = result and (current == right)
+                elif isinstance(op, ast.NotEq):
+                    result = result and (current != right)
+                elif isinstance(op, ast.Lt):
+                    result = result and (current < right)
+                elif isinstance(op, ast.LtE):
+                    result = result and (current <= right)
+                elif isinstance(op, ast.Gt):
+                    result = result and (current > right)
+                elif isinstance(op, ast.GtE):
+                    result = result and (current >= right)
+                elif isinstance(op, ast.In):
+                    result = result and (current in right)
+                elif isinstance(op, ast.NotIn):
+                    result = result and (current not in right)
+                else:
+                    raise ValueError(f"不支持的比较运算符: {type(op).__name__}")
+                if not result:
+                    return False
+                current = right
+            return result
+
+        # 下标访问（list/dict[str]）
+        if isinstance(node, ast.Subscript):
+            obj = self._eval_node(node.value, context)
+            key = self._eval_node(node.slice, context) if hasattr(node.slice, 'value') else self._eval_slice(node.slice, context)
+            return obj[key]
+
+        # 列表/字典/元组字面量
+        if isinstance(node, ast.List):
+            return [self._eval_node(el, context) for el in node.elts]
+
+        if isinstance(node, ast.Dict):
+            return {
+                self._eval_node(k, context): self._eval_node(v, context)
+                for k, v in zip(node.keys, node.values)
+            }
+
+        if isinstance(node, ast.Tuple):
+            return tuple(self._eval_node(el, context) for el in node.elts)
+
+        # 函数调用（仅白名单函数 + 白名单方法）
+        if isinstance(node, ast.Call):
+            func = self._eval_node(node.func, context)
+
+            # 情况1: 直接的内置函数调用（如 len(x)）
+            if isinstance(node.func, ast.Name) and node.func.id in self._ALLOWED_FUNCTIONS:
+                pass  # 允许
+            # 情况2: 方法调用（如 str.startswith()）
+            elif isinstance(node.func, ast.Attribute):
+                obj = self._eval_node(node.func.value, context)
+                method_name = node.func.attr
+                # 检查方法是否在对应类型的白名单内
+                if isinstance(obj, str) and method_name in self._SAFE_STR_METHODS:
+                    pass  # 允许
+                elif isinstance(obj, list) and method_name in {"count", "index", "copy"}:
+                    pass  # 允许
+                elif isinstance(obj, dict) and method_name in {"keys", "values", "items", "get", "copy"}:
+                    pass  # 允许
+                else:
+                    raise ValueError(f"不允许调用方法: {type(obj).__name__}.{method_name}")
+            # 情况3: 其他内置函数（通过值判断）
+            elif func in self._ALLOWED_FUNCTIONS.values():
+                pass  # 允许
+            else:
+                raise ValueError("不允许调用自定义函数")
+
+            args = [self._eval_node(a, context) for a in node.args]
+            kwargs = {
+                kw.arg: self._eval_node(kw.value, context)
+                for kw in node.keywords
+                if kw.arg is not None
+            }
+            return func(*args, **kwargs)
+
+        # 属性访问（仅安全类型的白名单方法）
+        if isinstance(node, ast.Attribute):
+            obj = self._eval_node(node.value, context)
+            attr = node.attr
+
+            # 只允许安全类型的属性访问
+            if not isinstance(obj, self._SAFE_ATTR_TYPES):
+                raise ValueError(f"不允许访问 {type(obj).__name__} 类型的属性")
+
+            # 字符串方法白名单
+            if isinstance(obj, str) and attr in self._SAFE_STR_METHODS:
+                return getattr(obj, attr)
+
+            # 列表方法白名单
+            if isinstance(obj, list) and attr in {"count", "index", "copy", "__len__"}:
+                return getattr(obj, attr)
+
+            # 字典方法白名单
+            if isinstance(obj, dict) and attr in {"keys", "values", "items", "get", "copy", "__len__"}:
+                return getattr(obj, attr)
+
+            # 基础属性：长度等
+            if attr == "__len__":
+                return len(obj)
+
+            raise ValueError(f"不允许访问属性: {type(obj).__name__}.{attr}")
+
+        # If 表达式（三元运算）
+        if isinstance(node, ast.IfExp):
+            test = self._eval_node(node.test, context)
+            if test:
+                return self._eval_node(node.body, context)
+            else:
+                return self._eval_node(node.orelse, context)
+
+        raise ValueError(f"不支持的表达式类型: {type(node).__name__}")
+
+    def _eval_slice(self, node: ast.slice, context: Dict[str, Any]) -> Any:
+        """求值切片节点."""
+        if isinstance(node, ast.Index):
+            return self._eval_node(node.value, context)
+        if isinstance(node, ast.Slice):
+            lower = self._eval_node(node.lower, context) if node.lower else None
+            upper = self._eval_node(node.upper, context) if node.upper else None
+            step = self._eval_node(node.step, context) if node.step else None
+            return slice(lower, upper, step)
+        return self._eval_node(node, context)
+
+
+# 全局单例求值器
+_safe_eval = _SafeExpressionEvaluator(max_steps=1000)
+
+
 def _evaluate_condition(
     expression: str,
     context: Dict[str, Any],
 ) -> bool:
-    """安全计算条件表达式（P2-15: 条件分支积木）.
+    """安全计算条件表达式（基于 AST 解析，无 eval 注入风险）.
 
-    支持的运算符: == != > < >= <= and or not in
-    只允许简单的比较和逻辑运算，不允许调用函数或访问属性。
+    支持的运算符:
+    - 算术: + - * / % ** //
+    - 比较: == != > < >= <=
+    - 逻辑: and or not
+    - 成员: in not in
+    - 下标: obj[key]
+    - 内置函数: len int float str bool abs min max sum round
+    - 字符串方法: lower upper strip startswith endswith find 等
+    - 三元运算: a if b else c
+    - 字面量: 字符串/数字/布尔/None/列表/字典/元组
+
+    安全特性:
+    - 纯 AST 解析，不使用 eval/exec
+    - 执行步数限制（默认1000步），防 DoS
+    - 操作/函数/属性全部白名单机制
+    - 指数大小限制，防计算爆炸
 
     Args:
         expression: 条件表达式，如 "value > 10" 或 "status == 'active'"
         context: 变量上下文
 
     Returns:
-        True/False
+        True/False，表达式出错时默认走 false 分支
     """
     if not expression or not isinstance(expression, str):
         return False
 
-    # 安全沙箱：只允许白名单变量
-    # 使用 Python 的 eval，但限制 globals 和 locals
-    # 只允许基本类型和比较运算符
-    safe_builtins = {
-        "True": True,
-        "False": False,
-        "None": None,
-        "bool": bool,
-        "int": int,
-        "float": float,
-        "str": str,
-        "len": len,
-    }
-
     try:
-        result = eval(expression, {"__builtins__": safe_builtins}, context)
+        result = _safe_eval.evaluate(expression, context)
         return bool(result)
     except Exception:
         # 表达式出错时默认走 false 分支
@@ -422,6 +746,16 @@ async def execute_builtin_block(
                 "error": "缺少 audio_path 参数",
             }
 
+        # 路径安全校验
+        try:
+            audio_path = _safe_audio_path(str(audio_path))
+        except ValueError as e:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": f"音频路径不安全: {e}",
+            }
+
         if asr_engine:
             try:
                 lang_param = language if language and language != "auto" else None
@@ -495,6 +829,17 @@ async def execute_builtin_block(
                 "success": False,
                 "data": result_data,
                 "error": "缺少 text 参数",
+            }
+
+        # 输出路径安全处理
+        try:
+            if output_path:
+                output_path = _safe_output_path(str(output_path), suffix=".wav")
+        except ValueError as e:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": f"输出路径不安全: {e}",
             }
 
         if tts_engine:
@@ -658,11 +1003,18 @@ async def execute_builtin_block(
             sample_rate = 16000
         output_path = params.get("output_path")
 
-        if not output_path:
-            import tempfile as _tempfile
-            tmp_file = _tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-            output_path = tmp_file.name
-            tmp_file.close()
+        # 输出路径安全处理
+        try:
+            output_path = _safe_output_path(
+                str(output_path) if output_path else None,
+                suffix=".wav"
+            )
+        except ValueError as e:
+            return {
+                "success": False,
+                "data": result_data,
+                "error": f"输出路径不安全: {e}",
+            }
 
         record_success = False
         actual_duration = 0.0
@@ -908,18 +1260,30 @@ class WorkflowEngine:
         self,
         m2_client: Optional[M2SkillClient] = None,
         use_builtin_fallback: bool = True,
+        workflow_timeout: Optional[float] = None,
+        block_timeout: Optional[float] = None,
     ) -> None:
         """初始化执行引擎.
 
         Args:
             m2_client: M2 技能客户端
             use_builtin_fallback: 是否使用内置积木降级
+            workflow_timeout: 工作流整体超时时间（秒），默认 300 秒
+            block_timeout: 单个积木执行超时时间（秒），默认 60 秒
         """
         self.m2_client = m2_client or M2SkillClient()
         self.use_builtin_fallback = use_builtin_fallback
         self._m2_available: Optional[bool] = None
         self._m2_check_time: float = 0
         self._m2_cache_ttl: float = 60.0  # M2 可用性缓存 60 秒
+
+        # 超时配置（从环境变量读取，默认值兜底）
+        self.workflow_timeout = workflow_timeout or float(
+            os.environ.get("M7_WORKFLOW_TIMEOUT", "300")
+        )
+        self.block_timeout = block_timeout or float(
+            os.environ.get("M7_BLOCK_TIMEOUT", "60")
+        )
 
     async def _check_m2_available(self, force: bool = False) -> bool:
         """检查 M2 是否可用（带缓存）."""
@@ -1047,16 +1411,36 @@ class WorkflowEngine:
         }
 
         try:
-            if m2_available:
-                # 调用 M2 技能
-                response = await self.m2_client.invoke_skill(
-                    skill_id=skill_id,
-                    action=action,
-                    params=step_input,
-                )
+            # 节点级超时控制
+            async def _do_execute() -> Any:
+                if m2_available:
+                    # 调用 M2 技能
+                    response = await self.m2_client.invoke_skill(
+                        skill_id=skill_id,
+                        action=action,
+                        params=step_input,
+                    )
+                    return ("m2", response)
+                elif self.use_builtin_fallback and skill_id in BUILTIN_BLOCKS:
+                    # 使用内置降级实现
+                    builtin_result = await execute_builtin_block(
+                        skill_id=skill_id,
+                        action=action,
+                        params=step_input,
+                    )
+                    return ("builtin", builtin_result)
+                else:
+                    return ("no_impl", f"M2 不可用且无内置降级实现: {skill_id}")
+
+            exec_result = await asyncio.wait_for(
+                _do_execute(),
+                timeout=self.block_timeout,
+            )
+
+            if exec_result[0] == "m2":
+                response = exec_result[1]
                 resp_code = response.get("code", -1)
                 resp_data = response.get("data", {})
-
                 if resp_code == 20000 or response.get("success", False):
                     invoke_data = (
                         resp_data.get("data", resp_data)
@@ -1068,13 +1452,8 @@ class WorkflowEngine:
                 else:
                     result["status"] = "failed"
                     result["error"] = response.get("message", "技能执行失败")
-            elif self.use_builtin_fallback and skill_id in BUILTIN_BLOCKS:
-                # 使用内置降级实现
-                builtin_result = await execute_builtin_block(
-                    skill_id=skill_id,
-                    action=action,
-                    params=step_input,
-                )
+            elif exec_result[0] == "builtin":
+                builtin_result = exec_result[1]
                 if builtin_result.get("success"):
                     result["status"] = "success"
                     result["output"] = builtin_result.get("data")
@@ -1083,7 +1462,10 @@ class WorkflowEngine:
                     result["error"] = builtin_result.get("error", "内置积木执行失败")
             else:
                 result["status"] = "failed"
-                result["error"] = f"M2 不可用且无内置降级实现: {skill_id}"
+                result["error"] = exec_result[1]
+        except asyncio.TimeoutError:
+            result["status"] = "failed"
+            result["error"] = f"节点执行超时（{self.block_timeout}秒）"
         except Exception as e:
             result["status"] = "failed"
             result["error"] = str(e)
@@ -1182,11 +1564,19 @@ class WorkflowEngine:
         overall_status = "success"
         block_map = {b["id"]: b for b in blocks}
         skipped_count = 0
+        timeout_error: Optional[str] = None
 
         # P2-15: 条件分支跳过集合（条件积木 false 分支的节点会被加入）
         condition_skip: Set[str] = set()
 
         for block_id in execution_order:
+            # 检查工作流整体超时
+            elapsed = time.time() - run_start_time
+            if elapsed > self.workflow_timeout:
+                timeout_error = f"工作流执行超时（{self.workflow_timeout}秒）"
+                overall_status = "failed"
+                break
+
             block = block_map.get(block_id)
             if not block:
                 skipped_count += 1
@@ -1344,6 +1734,8 @@ class WorkflowEngine:
             "trigger_type": workflow.get("trigger", {}).get("type", "manual"),
             "input_data": input_data,
             "final_output": final_output if overall_status == "success" else None,
-            "error": None if overall_status == "success" else "工作流执行失败",
+            "error": timeout_error if timeout_error else (None if overall_status == "success" else "工作流执行失败"),
             "execution_mode": "dag" if not is_linear_workflow(blocks) else "linear",
+            "workflow_timeout": self.workflow_timeout,
+            "block_timeout": self.block_timeout,
         }

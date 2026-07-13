@@ -12,7 +12,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__, __module_name__
 from .m8_api.m8_auth_middleware import M8AuthMiddleware
@@ -134,6 +137,102 @@ def create_app() -> FastAPI:
         response.headers["X-Version"] = __version__
 
         return response
+
+    # ===== 全局异常处理器 =====
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        """HTTP 异常统一处理."""
+        request_id = _get_request_id(request)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "code": exc.status_code,
+                "message": exc.detail if isinstance(exc.detail, str) else "请求错误",
+                "data": None,
+                "request_id": request_id,
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """请求参数校验异常统一处理."""
+        request_id = _get_request_id(request)
+        errors = exc.errors()
+        # 格式化错误信息
+        error_msgs = []
+        for err in errors:
+            loc = " -> ".join(str(x) for x in err.get("loc", []))
+            msg = err.get("msg", "参数错误")
+            error_msgs.append(f"{loc}: {msg}" if loc else msg)
+
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": 422,
+                "message": "参数校验失败",
+                "data": {
+                    "errors": error_msgs,
+                },
+                "request_id": request_id,
+            },
+        )
+
+    @app.exception_handler(PermissionError)
+    async def permission_exception_handler(request: Request, exc: PermissionError):
+        """权限异常处理."""
+        request_id = _get_request_id(request)
+        return JSONResponse(
+            status_code=403,
+            content={
+                "code": 403,
+                "message": str(exc) or "无权限访问",
+                "data": None,
+                "request_id": request_id,
+            },
+        )
+
+    @app.exception_handler(ValueError)
+    async def value_error_handler(request: Request, exc: ValueError):
+        """值错误处理（业务参数错误）."""
+        request_id = _get_request_id(request)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "code": 400,
+                "message": str(exc) or "参数错误",
+                "data": None,
+                "request_id": request_id,
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """全局未捕获异常处理（兜底）."""
+        request_id = _get_request_id(request)
+        # 记录错误日志
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"[M7-ERROR][{request_id}] Unhandled exception: {exc}")
+        print(error_detail)
+
+        # 生产环境不返回详细错误信息
+        env = os.environ.get("M7_ENV", "development")
+        if env == "production":
+            message = "服务器内部错误"
+            data = None
+        else:
+            message = str(exc)
+            data = {"traceback": error_detail.splitlines()[-5:]}
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": message,
+                "data": data,
+                "request_id": request_id,
+            },
+        )
 
     # 注册健康检查路由（包含根路径 /health）
     # 注意：health_router 自己定义了 /health 和 /api/v1/health 等路径

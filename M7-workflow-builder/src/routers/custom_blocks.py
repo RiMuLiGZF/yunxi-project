@@ -25,6 +25,27 @@ def _make_block_id() -> str:
     return f"cb_{uuid.uuid4().hex[:12]}"
 
 
+def _check_block_ownership(block: CustomBlock, user_id: str) -> bool:
+    """校验自定义积木所有权.
+
+    Args:
+        block: 自定义积木对象
+        user_id: 当前用户ID
+
+    Returns:
+        bool: 是否有权限
+
+    Note:
+        管理员角色可访问所有积木
+    """
+    if not user_id:
+        return False
+    # 管理员可访问所有
+    if user_id == "admin":
+        return True
+    return block.user_id == user_id
+
+
 # ============================================================
 # 自定义积木 CRUD
 # ============================================================
@@ -127,6 +148,15 @@ async def get_custom_block(
             request_id=request.headers.get("X-Request-ID", ""),
         )
 
+    # 所有权校验
+    user_id = current_user.get("username", "")
+    if not _check_block_ownership(block, user_id):
+        return ApiResponse.error(
+            code=403,
+            message="无权限访问该自定义积木",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
+
     return ApiResponse.success(
         data=block.to_dict(),
         request_id=request.headers.get("X-Request-ID", ""),
@@ -147,6 +177,15 @@ async def update_custom_block(
         return ApiResponse.error(
             code=404,
             message=f"自定义积木 {block_id} 不存在",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
+
+    # 所有权校验
+    user_id = current_user.get("username", "")
+    if not _check_block_ownership(block, user_id):
+        return ApiResponse.error(
+            code=403,
+            message="无权限修改该自定义积木",
             request_id=request.headers.get("X-Request-ID", ""),
         )
 
@@ -187,6 +226,15 @@ async def delete_custom_block(
         return ApiResponse.error(
             code=404,
             message=f"自定义积木 {block_id} 不存在",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
+
+    # 所有权校验
+    user_id = current_user.get("username", "")
+    if not _check_block_ownership(block, user_id):
+        return ApiResponse.error(
+            code=403,
+            message="无权限删除该自定义积木",
             request_id=request.headers.get("X-Request-ID", ""),
         )
 
