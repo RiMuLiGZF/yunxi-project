@@ -28,6 +28,16 @@ M6 硬件外设 - 配置管理
 +---------------------------+---------------------------------+-----------------------------+----------+
 | sse_max_connections       | M6_SSE_MAX_CONNECTIONS        | 100                         | SSE最大连接数 |
 +---------------------------+---------------------------------+-----------------------------+----------+
+| sse_interval              | M6_SSE_INTERVAL               | 5                           | SSE推送间隔(秒) |
++---------------------------+---------------------------------+-----------------------------+----------+
+| sse_heartbeat_interval    | M6_SSE_HEARTBEAT_INTERVAL     | 30                          | SSE心跳间隔(秒) |
++---------------------------+---------------------------------+-----------------------------+----------+
+| battery_low_threshold     | M6_BATTERY_LOW_THRESHOLD      | 20                          | 低电量告警阈值(%) |
++---------------------------+---------------------------------+-----------------------------+----------+
+| battery_drain_base        | M6_BATTERY_DRAIN_BASE         | 0.1                         | 基础电量消耗速率 |
++---------------------------+---------------------------------+-----------------------------+----------+
+| default_devices_path      | M6_DEFAULT_DEVICES_PATH       | ""                          | 默认设备配置文件路径 |
++---------------------------+---------------------------------+-----------------------------+----------+
 | cors_origins              | CORS_ORIGINS                  | *                           | CORS允许来源 |
 +---------------------------+---------------------------------+-----------------------------+----------+
 | log_level                 | YUNXI_LOG_LEVEL               | info                        | 日志级别 |
@@ -91,6 +101,15 @@ class M6Config:
         # SSE 配置
         self.sse_token_ttl = int(os.getenv("M6_SSE_TOKEN_TTL", "300"))  # SSE令牌有效期(秒)
         self.sse_max_connections = int(os.getenv("M6_SSE_MAX_CONNECTIONS", "100"))  # 最大连接数
+        self.sse_interval = float(os.getenv("M6_SSE_INTERVAL", "5"))  # SSE推送间隔(秒)
+        self.sse_heartbeat_interval = float(os.getenv("M6_SSE_HEARTBEAT_INTERVAL", "30"))  # SSE心跳间隔(秒)
+
+        # 电量配置
+        self.battery_low_threshold = float(os.getenv("M6_BATTERY_LOW_THRESHOLD", "20"))  # 低电量告警阈值(%)
+        self.battery_drain_base = float(os.getenv("M6_BATTERY_DRAIN_BASE", "0.1"))  # 基础电量消耗速率
+
+        # 设备配置
+        self.default_devices_path = os.getenv("M6_DEFAULT_DEVICES_PATH", "")  # 默认设备配置文件路径
 
         # CORS 配置
         self.cors_origins = os.getenv("CORS_ORIGINS", "*")

@@ -15,6 +15,7 @@ from sse_starlette.sse import EventSourceResponse
 
 logger = logging.getLogger(__name__)
 
+from ..config import get_config
 from ..services.device_manager import get_device_manager
 from ..services.notification import get_notification_service
 
@@ -32,12 +33,14 @@ class SSEManager:
     模块级 get_sse_manager() 作为向后兼容层保留（标记 deprecated）。
     """
 
-    def __init__(self, device_manager=None, notification_service=None):
+    def __init__(self, device_manager=None, notification_service=None, config=None):
         """
         Args:
             device_manager: 设备管理器实例，为 None 时从兼容层获取（向后兼容）
             notification_service: 通知服务实例，为 None 时从兼容层获取（向后兼容）
+            config: 配置实例，为 None 时从兼容层获取（向后兼容）
         """
+        self._config = config if config is not None else get_config()
         self._device_manager = device_manager if device_manager is not None else get_device_manager()
         self._notification_service = notification_service if notification_service is not None else get_notification_service()
         self._clients: Set[asyncio.Queue] = set()
@@ -89,7 +92,7 @@ class SSEManager:
             else:
                 self._consecutive_errors = 0
 
-            await asyncio.sleep(5)  # 每 5 秒推送一次
+            await asyncio.sleep(self._config.sse_interval)
 
     async def _push_sensor_data(self):
         """推送所有设备的传感器数据"""
@@ -259,7 +262,7 @@ class SSEManager:
                         break
 
                     try:
-                        message = await asyncio.wait_for(queue.get(), timeout=30)
+                        message = await asyncio.wait_for(queue.get(), timeout=self._config.sse_heartbeat_interval)
                         yield {
                             "event": message["event"],
                             "data": json.dumps(message["data"], ensure_ascii=False),

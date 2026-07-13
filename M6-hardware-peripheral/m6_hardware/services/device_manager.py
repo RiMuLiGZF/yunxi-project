@@ -3,12 +3,14 @@ M6 硬件外设 - 设备管理器
 单例模式，管理所有设备的注册、查询、配对等操作
 """
 
+import logging
 import random
 import time
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+from ..config import get_config
 from ..models.device import Device, DeviceStatus, DeviceType
 from ..devices import (
     BaseDeviceSimulator,
@@ -20,6 +22,8 @@ from ..devices import (
     LaptopSimulator,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class DeviceManager:
     """设备管理器
@@ -30,12 +34,58 @@ class DeviceManager:
     模块级 get_device_manager() 作为向后兼容层保留（标记 deprecated）。
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
+        self._config = config if config is not None else get_config()
         self._devices: Dict[str, BaseDeviceSimulator] = {}
         self._init_default_devices()
 
+    def _create_simulator(self, device: Device) -> Optional[BaseDeviceSimulator]:
+        """根据设备类型创建对应的模拟器实例"""
+        mapping = {
+            DeviceType.WATCH: SmartWatchSimulator,
+            DeviceType.RING: SmartRingSimulator,
+            DeviceType.DESKTOP: DesktopScreenSimulator,
+            DeviceType.AR: ARGlassesSimulator,
+            DeviceType.DRONE: DroneSimulator,
+            DeviceType.LAPTOP: LaptopSimulator,
+        }
+        sim_class = mapping.get(device.device_type)
+        if sim_class is None:
+            logger.warning("未知的设备类型: %s", device.device_type)
+            return None
+        return sim_class(device)
+
     def _init_default_devices(self):
-        """初始化默认的 6 种设备"""
+        """初始化默认设备
+
+        P1-3 改造：优先从配置的 default_devices_path 加载 YAML 设备列表，
+        未配置或加载失败时回退到内置的 6 种默认设备。
+        """
+        if self._config.default_devices_path:
+            try:
+                import yaml
+                path = self._config.default_devices_path
+                with open(path, "r", encoding="utf-8") as f:
+                    devices_config = yaml.safe_load(f)
+                if isinstance(devices_config, list):
+                    for item in devices_config:
+                        device = Device(**item)
+                        simulator = self._create_simulator(device)
+                        if simulator:
+                            self._devices[device.device_id] = simulator
+                    if self._devices:
+                        logger.info("已从 %s 加载 %d 个默认设备", path, len(self._devices))
+                        return
+                    else:
+                        logger.warning("YAML 文件未解析出有效设备: %s", path)
+                else:
+                    logger.warning("YAML 文件格式错误，应为设备列表: %s", path)
+            except ImportError:
+                logger.warning("未安装 PyYAML，无法从 %s 加载设备，使用内置默认设备", self._config.default_devices_path)
+            except Exception as e:
+                logger.warning("从 %s 加载默认设备失败: %s，回退到内置默认设备", self._config.default_devices_path, e)
+
+        # 内置默认的 6 种设备
         # 智能手表
         watch = Device(
             device_id="dev-watch-001",
