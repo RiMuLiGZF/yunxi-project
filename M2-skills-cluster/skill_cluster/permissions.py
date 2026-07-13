@@ -1,6 +1,10 @@
 """Permission 技能权限系统.
 
 支持四级 ACL（none/read/write/admin）以及 action/params 级细粒度控制。
+
+【模型迁移说明】
+Pydantic 模型已迁移至 ``skill_cluster.models.security``，
+本文件保留 import 别名以保持向后兼容。
 """
 
 from __future__ import annotations
@@ -10,40 +14,33 @@ from typing import Any
 
 import structlog
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+
+# ---- 从 models.security 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.security import (
+    PermissionMatrix,
+    PermissionRule,
+)
 
 logger = structlog.get_logger()
 
 
-class PermissionRule(BaseModel):
-    """细粒度权限规则.
+# 补充 PermissionMatrix 的方法（原定义在 permissions.py 中，
+# 迁移到 models 后需在此处通过 monkey-patch 补充业务方法）
+# 注意：为保持代码清晰，我们在原文件中保留 PermissionMatrix 的业务方法，
+# 但模型定义（字段、ConfigDict）在 models/security.py 中。
+# 由于 PermissionMatrix 包含大量业务逻辑（set_base, check, load_yaml 等），
+# 这些方法不属于纯数据模型，应保留在原文件中。
+# 因此采用以下策略：
+# - 数据字段定义在 models/security.py 的 PermissionMatrix 中
+# - 业务方法通过子类扩展的方式在此处添加
 
-    支持 agent_id + skill_id + action + params_pattern 四元组控制。
+class _PermissionMatrixWithMethods(PermissionMatrix):
+    """带业务方法的权限矩阵.
+
+    数据模型定义在 :class:`skill_cluster.models.security.PermissionMatrix`，
+    业务方法（ACL 操作、规则匹配、持久化等）在此扩展。
     """
 
-    agent_id: str = Field(default="*", description="Agent ID，* 表示通配")
-    skill_id: str = Field(default="*", description="技能 ID，* 表示通配")
-    action: str = Field(default="*", description="动作标识，* 表示通配")
-    params_pattern: str | None = Field(
-        default=None,
-        description="参数模式（Python fnmatch 风格），None 表示不限制",
-    )
-    level: str = Field(default="none", description="权限级别")
-
-
-class PermissionMatrix(BaseModel):
-    """权限矩阵.
-
-    基础 ACL: agent_id -> skill_id -> level.
-    细粒度规则: 按 (agent_id, skill_id, action, params_pattern) 匹配。
-    规则匹配优先级：精确匹配 > 部分通配 > 全通配。
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    rules: list[PermissionRule] = Field(
-        default_factory=list, description="细粒度权限规则列表"
-    )
     _base_acl: dict[str, dict[str, str]] = {}  # agent_id -> skill_id -> level
     _rule_index: dict[str, list[PermissionRule]] = {}  # agent_id -> rules 二级索引
 
@@ -194,6 +191,10 @@ class PermissionMatrix(BaseModel):
                 allow_unicode=True,
                 default_flow_style=False,
             )
+
+
+# 向后兼容：将带方法的子类作为 PermissionMatrix 导出
+PermissionMatrix = _PermissionMatrixWithMethods  # type: ignore[assignment,misc]
 
 
 class SkillPermissionManager:

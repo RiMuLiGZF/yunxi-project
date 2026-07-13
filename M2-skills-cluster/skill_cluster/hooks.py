@@ -2,21 +2,9 @@
 
 【P0-3 修复】统一中间件、事件总线、插件系统三套机制的钩子注册 API。
 
-设计原则：
-  - 统一注册：所有扩展点通过 HookManager 统一管理
-  - 优先级支持：数字越小优先级越高
-  - 短路返回：钩子可以直接返回结果终止后续执行
-  - 与现有系统打通：中间件自动触发 before/after 钩子，事件总线可通过钩子订阅
-
-支持的钩子点：
-  - before_invoke     - 调用前
-  - after_invoke      - 调用后
-  - on_error          - 错误时
-  - before_register   - 技能注册前
-  - after_register    - 技能注册后
-  - before_unregister - 技能卸载前
-  - system_startup    - 系统启动
-  - system_shutdown   - 系统关闭
+【模型迁移说明】
+Pydantic 模型 ``HookRegistration`` 已迁移至 ``skill_cluster.models.extension``，
+本文件保留 import 别名以保持向后兼容。
 """
 
 from __future__ import annotations
@@ -25,24 +13,15 @@ import asyncio
 from typing import Any, Awaitable, Callable
 
 import structlog
-from pydantic import BaseModel, Field
+
+# ---- 从 models.extension 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.extension import HookRegistration
 
 logger = structlog.get_logger()
 
 # 钩子函数签名：(context) -> result | None
 # 返回非 None 值表示短路，终止后续钩子执行
 HookHandler = Callable[[dict[str, Any]], Awaitable[Any]]
-
-
-class HookRegistration(BaseModel):
-    """钩子注册信息."""
-
-    hook_name: str = Field(..., description="钩子点名称")
-    handler: Callable[[dict[str, Any]], Awaitable[Any]]
-    priority: int = Field(default=100, description="优先级，数字越小优先级越高")
-    description: str = Field(default="", description="钩子描述")
-
-    model_config = {"arbitrary_types_allowed": True}
 
 
 class HookManager:

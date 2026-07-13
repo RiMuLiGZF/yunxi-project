@@ -1,10 +1,14 @@
-from __future__ import annotations
-
 """Skill Sandbox 安全执行沙箱.
 
 为代码执行类技能提供进程级隔离环境，支持资源限制（超时/内存/CPU）、
 模块白名单/黑名单、以及文件系统访问控制。
+
+【模型迁移说明】
+Pydantic 模型 ``SandboxConfig`` 已迁移至 ``skill_cluster.models.security``，
+本文件保留 import 别名以保持向后兼容。
 """
+
+from __future__ import annotations
 
 import ast
 import json
@@ -17,38 +21,13 @@ import time
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
 
 from skill_cluster.interfaces import SkillInvokeRequest, SkillInvokeResult
 
+# ---- 从 models.security 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.security import SandboxConfig
+
 logger = structlog.get_logger()
-
-
-class SandboxConfig(BaseModel):
-    """沙箱执行配置."""
-
-    timeout_seconds: int = Field(default=30, description="执行超时（秒）")
-    max_memory_mb: int = Field(default=256, description="内存限制（MB）")
-    max_cpu_time_seconds: int = Field(default=10, description="CPU 时间限制（秒）")
-    allowed_modules: list[str] | None = Field(
-        default=None, description="允许导入的模块白名单（None 表示不限制）"
-    )
-    blocked_modules: list[str] = Field(
-        default_factory=lambda: [
-            "os",
-            "subprocess",
-            "sys",
-            "socket",
-            "urllib",
-            "http",
-            "ftplib",
-            "pathlib",
-        ],
-        description="禁止导入的模块黑名单",
-    )
-    allow_file_write: bool = Field(default=False, description="是否允许文件写入")
-    allow_network: bool = Field(default=False, description="是否允许网络访问")
-    working_dir: str | None = Field(default=None, description="工作目录")
 
 
 class SandboxPolicy:

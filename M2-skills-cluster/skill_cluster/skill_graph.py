@@ -5,44 +5,28 @@ from __future__ import annotations
 参考 2025-2026 Skill Composition 与 DAG 任务分解最新研究，
 实现技能间的语义依赖关系图，支持自动组合发现、环路检测、
 可达性分析和拓扑排序执行。
+
+【模型迁移说明】
+Pydantic 模型已迁移至 ``skill_cluster.models.extension``，
+本文件保留 import 别名以保持向后兼容。
+
+所有 ``from skill_cluster.skill_graph import Xxx`` 的导入方式继续有效。
 """
 
 import collections
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
 
 from skill_cluster.interfaces import SkillManifest
 
+# ---- 从 models.extension 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.extension import (
+    ComposableChain,
+    GraphEdge,
+)
+
 logger = structlog.get_logger()
-
-
-class GraphEdge(BaseModel):
-    """图谱边（依赖关系）."""
-
-    source: str = Field(..., description="源技能 ID")
-    target: str = Field(..., description="目标技能 ID")
-    edge_type: str = Field(
-        default="depends_on",
-        description="边类型: depends_on / composed_of / provides_to",
-    )
-    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
-
-
-class ComposableChain(BaseModel):
-    """可组合技能链.
-
-    由图谱自动发现的一条技能执行路径。
-    """
-
-    chain_id: str = Field(..., description="链唯一标识")
-    skills: list[str] = Field(..., description="技能 ID 序列（有序）")
-    total_steps: int = Field(..., description="总步骤数")
-    description: str = Field(default="", description="链描述")
-    confidence: float = Field(
-        default=1.0, description="组合置信度 (0-1)"
-    )
 
 
 class SkillGraph:

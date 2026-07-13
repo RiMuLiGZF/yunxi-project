@@ -19,6 +19,10 @@ M2 专属接口：
 - POST /api/v2/skills/{skill_id}/toggle  技能开关
 - POST /api/v2/recommend/test      推荐测试
 - GET  /api/v2/stats/accuracy      准确率报告
+
+【模型迁移说明】
+Pydantic 请求/响应模型已迁移至 ``skill_cluster.models.common``，
+本文件保留 import 别名以保持向后兼容。
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ import uuid
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # noqa: F401  向后兼容
 
 from skill_cluster.error_codes import ErrorCode, make_error_response, make_success_response
 from skill_cluster.rate_limiter import (
@@ -37,6 +41,21 @@ from skill_cluster.rate_limiter import (
     get_global_registry,
 )
 from skill_cluster.exceptions import M2BaseException
+
+# ---- 从 models.common 导入所有 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.common import (
+    AccuracyStats,
+    ApiResponse,
+    BatchInvokeRequest,
+    InvokeStats,
+    RecommendResultItem,
+    RecommendTestRequest,
+    SkillDetail,
+    SkillInvokeRequest,
+    SkillItem,
+    SkillToggleRequest,
+    SystemStats,
+)
 
 logger = structlog.get_logger()
 
@@ -50,113 +69,6 @@ try:
 except ImportError:
     FastAPI = None  # type: ignore[assignment, misc]
     HTTPException = None  # type: ignore[assignment, misc]
-
-
-# ---- 通用响应模型 ----
-
-class ApiResponse(BaseModel):
-    """标准API响应."""
-    code: int = Field(..., description="状态码，20000表示成功")
-    message: str = Field(..., description="消息")
-    data: Any = Field(default=None, description="数据")
-    trace_id: str = Field(default="", description="追踪ID")
-    success: bool = Field(default=True, description="是否成功")
-
-
-# ---- 请求模型 ----
-
-class SkillInvokeRequest(BaseModel):
-    """技能调用请求."""
-    skill_id: str = Field(..., description="技能ID")
-    action: str = Field(default="default", description="动作标识")
-    params: dict[str, Any] = Field(default_factory=dict, description="参数")
-    agent_id: str = Field(default="default_agent", description="Agent ID")
-    device_type: str = Field(default="default", description="设备类型")
-    timeout: int | None = Field(default=None, description="超时(秒)")
-
-
-class BatchInvokeRequest(BaseModel):
-    """批量调用请求."""
-    requests: list[SkillInvokeRequest] = Field(..., description="调用请求列表")
-    parallel: bool = Field(default=False, description="是否并行执行")
-
-
-class RecommendTestRequest(BaseModel):
-    """推荐测试请求."""
-    query: str = Field(..., description="用户输入查询")
-    scene_type: str = Field(default="DEFAULT", description="场景类型")
-    top_k: int = Field(default=5, description="返回Top N")
-    user_id: str = Field(default="", description="用户ID")
-
-
-class SkillToggleRequest(BaseModel):
-    """技能开关请求."""
-    enabled: bool = Field(..., description="是否启用")
-
-
-# ---- 响应数据模型 ----
-
-class SkillItem(BaseModel):
-    """技能列表项."""
-    skill_id: str
-    name: str
-    description: str
-    category: str
-    tags: list[str] = Field(default_factory=list)
-    version: str = ""
-    enabled: bool = True
-    usage_count: int = 0
-
-
-class SkillDetail(SkillItem):
-    """技能详情."""
-    actions: list[str] = Field(default_factory=list)
-    permissions: list[str] = Field(default_factory=list)
-    author: str = ""
-    complexity_score: float = 1.0
-    created_at: float = 0.0
-    last_used_at: float = 0.0
-
-
-class RecommendResultItem(BaseModel):
-    """推荐结果项."""
-    skill_id: str
-    skill_name: str
-    description: str
-    category: str
-    confidence: str
-    score: float
-    match_reason: str
-
-
-class AccuracyStats(BaseModel):
-    """准确率统计."""
-    top1_accuracy: float = 0.0
-    top3_accuracy: float = 0.0
-    top5_accuracy: float = 0.0
-    total_tests: int = 0
-    correct_top1: int = 0
-    correct_top3: int = 0
-    correct_top5: int = 0
-
-
-class InvokeStats(BaseModel):
-    """调用统计."""
-    total_calls: int = 0
-    success_count: int = 0
-    failed_count: int = 0
-    avg_latency_ms: float = 0.0
-    today_calls: int = 0
-    top_skills: list[dict[str, Any]] = Field(default_factory=list)
-
-
-class SystemStats(BaseModel):
-    """系统统计."""
-    total_skills: int = 0
-    enabled_skills: int = 0
-    categories: list[dict[str, Any]] = Field(default_factory=list)
-    active_sessions: int = 0
-    uptime_seconds: float = 0.0
 
 
 # ---- 全局异常处理 ----

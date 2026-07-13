@@ -5,35 +5,26 @@ from collections import deque
 
 为 Agent 调用设置 Token 消耗上限，支持上下文优先级裁剪、
 模型分级路由、实时预算追踪和超限拦截。
+
+【模型迁移说明】
+Pydantic 模型已迁移至 ``skill_cluster.models.extension``，
+本文件保留 import 别名以保持向后兼容。
+
+所有 ``from skill_cluster.token_budget import Xxx`` 的导入方式继续有效。
 """
 
 import time
 from typing import Any
 
 import structlog
-from pydantic import BaseModel, Field
+
+# ---- 从 models.extension 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.extension import (
+    BudgetAlert,
+    BudgetEntry,
+)
 
 logger = structlog.get_logger()
-
-
-class BudgetEntry(BaseModel):
-    """预算条目."""
-
-    category: str = Field(..., description="消耗类别: input/output/tool/think")
-    tokens: int = Field(..., description="Token 数量")
-    timestamp: float = Field(default_factory=time.time, description="时间")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
-
-
-class BudgetAlert(BaseModel):
-    """预算告警."""
-
-    alert_type: str = Field(..., description="告警类型: warning/exceeded/exhausted")
-    message: str = Field(..., description="告警消息")
-    total_tokens: int = Field(..., description="当前总消耗")
-    budget_limit: int = Field(..., description="预算上限")
-    remaining: int = Field(..., description="剩余 Token")
-    timestamp: float = Field(default_factory=time.time, description="时间")
 
 
 class TokenBudget:

@@ -4,86 +4,27 @@ from __future__ import annotations
 
 自动从 Skill 的 action 描述和 Python 类型注解生成符合 OpenAI / Anthropic
 function calling 规范的 JSON Schema，使大模型能够自动发现与调用 Skill。
+
+【模型迁移说明】
+Pydantic 模型已迁移至 ``skill_cluster.models.extension``，
+本文件保留 import 别名以保持向后兼容。
+
+所有 ``from skill_cluster.function_schema import Xxx`` 的导入方式继续有效。
 """
 
 import inspect
 from typing import Any, get_type_hints
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import create_model  # noqa: F401  向后兼容
 
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest
 
-
-class FunctionParameter(BaseModel):
-    """函数参数定义."""
-
-    name: str = Field(..., description="参数名")
-    type: str = Field(..., description="JSON Schema 类型")
-    description: str = Field(default="", description="参数描述")
-    required: bool = Field(default=True, description="是否必填")
-    default: Any = Field(default=None, description="默认值")
-    enum: list[Any] | None = Field(default=None, description="枚举值")
-
-
-class FunctionSchema(BaseModel):
-    """符合 OpenAI function calling 规范的函数模式."""
-
-    name: str = Field(..., description="函数名，格式: skill_id__action")
-    description: str = Field(..., description="函数描述")
-    parameters: dict[str, Any] = Field(
-        default_factory=dict, description="JSON Schema 参数定义"
-    )
-
-    def to_openai_format(
-        self, strict: bool = False, additional_properties: bool = True
-    ) -> dict[str, Any]:
-        """转换为 OpenAI tools 格式.
-
-        Args:
-            strict: 是否启用 OpenAI Structured Outputs 严格模式（2025+）.
-            additional_properties: parameters 中是否允许额外属性.
-
-        Returns:
-            OpenAI tools 格式字典.
-        """
-        parameters = dict(self.parameters)
-        if not additional_properties:
-            parameters["additionalProperties"] = False
-        if strict:
-            parameters.setdefault("additionalProperties", False)
-
-        result = {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": parameters,
-            },
-        }
-        if strict:
-            result["function"]["strict"] = True
-        return result
-
-    def to_anthropic_format(self) -> dict[str, Any]:
-        """转换为 Anthropic tool_use 格式."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "input_schema": self.parameters,
-        }
-
-
-class ActionSignature(BaseModel):
-    """Action 签名描述."""
-
-    action: str = Field(..., description="动作标识")
-    description: str = Field(..., description="动作描述")
-    parameters: list[FunctionParameter] = Field(
-        default_factory=list, description="参数列表"
-    )
-    returns: dict[str, Any] = Field(
-        default_factory=dict, description="返回值 JSON Schema"
-    )
+# ---- 从 models.extension 导入 Pydantic 模型（向后兼容） ----
+from skill_cluster.models.extension import (
+    ActionSignature,
+    FunctionParameter,
+    FunctionSchema,
+)
 
 
 class SkillSchemaRegistry:
