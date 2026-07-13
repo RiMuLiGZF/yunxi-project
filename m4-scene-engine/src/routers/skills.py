@@ -10,22 +10,13 @@ from typing import Any
 
 from fastapi import APIRouter, Path, Query, Request
 
-try:
-    from src.models import (
-        SCENE_DEFINITIONS,
-        SkillExecuteRequest,
-        SceneSkillsUpdateRequest,
-        make_response,
-    )
-    from src.services.skill_executor import get_skill_executor
-except ImportError:
-    from models import (  # type: ignore
-        SCENE_DEFINITIONS,
-        SkillExecuteRequest,
-        SceneSkillsUpdateRequest,
-        make_response,
-    )
-    from services.skill_executor import get_skill_executor  # type: ignore
+from src.models import (
+    SCENE_DEFINITIONS,
+    SkillExecuteRequest,
+    SceneSkillsUpdateRequest,
+    make_response,
+)
+from src.services.skill_executor import get_skill_executor
 
 
 router = APIRouter(prefix="/api/v1", tags=["技能管理"])

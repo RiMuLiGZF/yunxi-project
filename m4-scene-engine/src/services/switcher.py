@@ -12,31 +12,25 @@ from collections import deque
 from threading import Lock
 from typing import Any, Callable
 
-try:
-    from src.models import SCENE_DEFINITIONS, DEFAULT_SCENE, SceneSwitchRecord
-except ImportError:
-    from models import SCENE_DEFINITIONS, DEFAULT_SCENE, SceneSwitchRecord  # type: ignore
+import structlog
 
+from src.models import SCENE_DEFINITIONS, DEFAULT_SCENE, SceneSwitchRecord
+
+logger = structlog.get_logger(__name__)
+
+# MCP 客户端（可选依赖，httpx 未安装时不可用）
 try:
     from src.services.mcp_client import get_mcp_client
     _HAS_MCP_CLIENT = True
 except ImportError:
-    try:
-        from services.mcp_client import get_mcp_client  # type: ignore
-        _HAS_MCP_CLIENT = True
-    except ImportError:
-        _HAS_MCP_CLIENT = False
+    _HAS_MCP_CLIENT = False
 
-# 技能执行器（延迟导入）
+# 技能执行器（模块级可选导入，运行时通过懒加载使用）
 try:
     from src.services.skill_executor import get_skill_executor
     _HAS_SKILL_EXECUTOR = True
 except ImportError:
-    try:
-        from services.skill_executor import get_skill_executor  # type: ignore
-        _HAS_SKILL_EXECUTOR = True
-    except ImportError:
-        _HAS_SKILL_EXECUTOR = False
+    _HAS_SKILL_EXECUTOR = False
 
 
 # ---------------------------------------------------------------------------
@@ -106,13 +100,11 @@ class SceneSwitchManager:
         同时注册各场景的 MCP 工具调用钩子。
         """
         # work_dev 场景进入时启动 VS Code
+        # 懒加载：避免模块级循环依赖
         try:
             from src.services.vscode_launcher import get_vscode_launcher
         except ImportError:
-            try:
-                from services.vscode_launcher import get_vscode_launcher  # type: ignore
-            except ImportError:
-                return
+            return
 
         def _on_enter_work_dev(
             scene_id: str,
@@ -238,7 +230,9 @@ class SceneSwitchManager:
 
         try:
             mcp_client = get_mcp_client()
-        except Exception:
+        except Exception as e:
+            logger.warning("switcher.mcp_client_init_failed", trigger=trigger,
+                           error_type=type(e).__name__, error=str(e))
             return {
                 "action": "mcp_tools",
                 "trigger": trigger,
@@ -442,15 +436,13 @@ class SceneSwitchManager:
         if not actions:
             return []
 
-        # 获取 VS Code 启动器（延迟导入避免循环依赖）
+        # 获取 VS Code 启动器（懒加载，避免模块级循环依赖）
         launcher = None
         try:
-            try:
-                from src.services.vscode_launcher import get_vscode_launcher
-            except ImportError:
-                from services.vscode_launcher import get_vscode_launcher  # type: ignore
+            from src.services.vscode_launcher import get_vscode_launcher
             launcher = get_vscode_launcher()
-        except Exception:
+        except Exception as e:
+            logger.warning("switcher.vscode_launcher_init_failed", error_type=type(e).__name__, error=str(e))
             pass
 
         results: list[dict[str, Any]] = []
@@ -758,7 +750,9 @@ class SceneSwitchManager:
         # 获取技能执行器
         try:
             skill_executor = get_skill_executor()
-        except Exception:
+        except Exception as e:
+            logger.warning("switcher.skill_executor_init_failed", scene_id=scene_id, trigger=trigger,
+                           error_type=type(e).__name__, error=str(e))
             return []
 
         # 构建执行上下文

@@ -10,10 +10,11 @@ import os
 import subprocess
 from typing import Any
 
-try:
-    from src.services.skills.base import BaseSkill
-except ImportError:
-    from services.skills.base import BaseSkill  # type: ignore
+import structlog
+
+from src.services.skills.base import BaseSkill
+
+logger = structlog.get_logger(__name__)
 
 
 class GitToolSkill(BaseSkill):
@@ -631,5 +632,6 @@ class GitToolSkill(BaseSkill):
                 timeout=5,
             )
             return result.returncode == 0
-        except Exception:
+        except Exception as e:
+            logger.warning("git_skill.health_check_failed", error_type=type(e).__name__, error=str(e))
             return False

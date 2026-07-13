@@ -9,20 +9,12 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Query
 
-try:
-    from src.models import (
-        SCENE_DEFINITIONS,
-        SceneSwitchRequest,
-        SceneRecognizeRequest,
-        make_response,
-    )
-except ImportError:
-    from models import (  # type: ignore
-        SCENE_DEFINITIONS,
-        SceneSwitchRequest,
-        SceneRecognizeRequest,
-        make_response,
-    )
+from src.models import (
+    SCENE_DEFINITIONS,
+    SceneSwitchRequest,
+    SceneRecognizeRequest,
+    make_response,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["场景管理"])
 

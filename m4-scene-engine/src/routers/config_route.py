@@ -10,14 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-try:
-    from src.models import SCENE_DEFINITIONS, SceneConfigUpdateRequest, make_response
-except ImportError:
-    from models import (  # type: ignore
-        SCENE_DEFINITIONS,
-        SceneConfigUpdateRequest,
-        make_response,
-    )
+from src.models import SCENE_DEFINITIONS, SceneConfigUpdateRequest, make_response
 
 router = APIRouter(prefix="/api/v1/scene", tags=["场景配置"])
 

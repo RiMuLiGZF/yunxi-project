@@ -11,20 +11,14 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-try:
-    from src.models import AdminConfigUpdateRequest, make_response
-except ImportError:
-    from models import AdminConfigUpdateRequest, make_response  # type: ignore
+from src.models import AdminConfigUpdateRequest, make_response
 
+# MCP 客户端（可选依赖，httpx 未安装时不可用）
 try:
     from src.services.mcp_client import get_mcp_client
     _HAS_MCP_CLIENT = True
 except ImportError:
-    try:
-        from services.mcp_client import get_mcp_client  # type: ignore
-        _HAS_MCP_CLIENT = True
-    except ImportError:
-        _HAS_MCP_CLIENT = False
+    _HAS_MCP_CLIENT = False
 
 router = APIRouter(prefix="/api/v1/admin", tags=["系统管理"])
 

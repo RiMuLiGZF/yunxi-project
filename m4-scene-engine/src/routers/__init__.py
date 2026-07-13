@@ -19,22 +19,15 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # 导入各模块路由
 # ---------------------------------------------------------------------------
-try:
-    from src.routers.scene import router as scene_router
-    from src.routers.config_route import router as config_router
-    from src.routers.admin import router as admin_router
-    from src.routers.workspace import router as workspace_router
-    from src.routers.mcp_tools import router as mcp_tools_router
-    from src.routers.skills import router as skills_router
-    from src.routers.modes import router as modes_router
-except ImportError:
-    from routers.scene import router as scene_router  # type: ignore
-    from routers.config_route import router as config_router  # type: ignore
-    from routers.admin import router as admin_router  # type: ignore
-    from routers.workspace import router as workspace_router  # type: ignore
-    from routers.mcp_tools import router as mcp_tools_router  # type: ignore
-    from routers.skills import router as skills_router  # type: ignore
-    from routers.modes import router as modes_router  # type: ignore
+# 统一使用 src.xxx 绝对导入风格
+# 注：路由模块必须在导入时立即加载，因为 all_routers 需要实例化的 router 对象
+from src.routers.scene import router as scene_router
+from src.routers.config_route import router as config_router
+from src.routers.admin import router as admin_router
+from src.routers.workspace import router as workspace_router
+from src.routers.mcp_tools import router as mcp_tools_router
+from src.routers.skills import router as skills_router
+from src.routers.modes import router as modes_router
 
 
 # ---------------------------------------------------------------------------

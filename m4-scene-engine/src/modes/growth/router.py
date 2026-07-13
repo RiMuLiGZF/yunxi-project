@@ -13,24 +13,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-try:
-    from src.models import make_response
-    from src.modes.growth.models import (
-        CheckinRequest,
-        ChronicleCreateRequest,
-        ChronicleUpdateRequest,
-        EchoGenerateRequest,
-    )
-    from src.modes.growth.service import GrowthService
-except ImportError:
-    from models import make_response  # type: ignore
-    from modes.growth.models import (  # type: ignore
-        CheckinRequest,
-        ChronicleCreateRequest,
-        ChronicleUpdateRequest,
-        EchoGenerateRequest,
-    )
-    from modes.growth.service import GrowthService  # type: ignore
+from src.models import make_response
+from src.modes.growth.models import (
+    CheckinRequest,
+    ChronicleCreateRequest,
+    ChronicleUpdateRequest,
+    EchoGenerateRequest,
+)
+from src.modes.growth.service import GrowthService
 
 router = APIRouter(
     prefix="/api/v1/growth",

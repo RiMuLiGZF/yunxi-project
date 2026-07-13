@@ -13,9 +13,10 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any
+
+import structlog
 
 # ---------------------------------------------------------------------------
 # 可选依赖：httpx
@@ -27,7 +28,7 @@ except ImportError:
     _HAS_HTTPX = False
 
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -437,8 +438,8 @@ class McpClient:
         if changed and self._client is not None:
             try:
                 self._client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("mcp_client.reconfigure_close_failed", error_type=type(e).__name__, error=str(e))
             self._client = None
             # 重置可用状态
             self._service_available = True
@@ -448,8 +449,8 @@ class McpClient:
         if self._client is not None:
             try:
                 self._client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("mcp_client.close_failed", error_type=type(e).__name__, error=str(e))
             self._client = None
 
 

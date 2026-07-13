@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+import structlog
+
 # ---------------------------------------------------------------------------
 # 配置常量
 # ---------------------------------------------------------------------------
@@ -469,6 +471,8 @@ class M5GrowthClient:
     M5 不可用时自动返回 fallback mock 数据。
     """
 
+    _logger = structlog.get_logger(__name__)
+
     def __init__(
         self,
         base_url: str = M5_BASE_URL,
@@ -543,8 +547,10 @@ class M5GrowthClient:
             if self.fallback_enabled and fallback_data is not None:
                 return fallback_data
             return {}
-        except Exception:
+        except Exception as e:
             # 连接失败等异常，fallback
+            self._logger.warning("m5_client.request_failed", endpoint=endpoint,
+                                 error_type=type(e).__name__, error=str(e))
             if self.fallback_enabled and fallback_data is not None:
                 return fallback_data
             return {}
@@ -554,7 +560,8 @@ class M5GrowthClient:
         if self._client is not None:
             try:
                 await self._client.aclose()
-            except Exception:
+            except Exception as e:
+                self._logger.warning("m5_client.close_failed", error_type=type(e).__name__, error=str(e))
                 pass
             self._client = None
 

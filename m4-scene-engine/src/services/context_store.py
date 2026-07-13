@@ -13,10 +13,11 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-try:
-    from src.models import SCENE_DEFINITIONS, SceneContext
-except ImportError:
-    from models import SCENE_DEFINITIONS, SceneContext  # type: ignore
+import structlog
+
+from src.models import SCENE_DEFINITIONS, SceneContext
+
+logger = structlog.get_logger(__name__)
 
 
 class ContextStore:
@@ -265,7 +266,9 @@ class ContextStore:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.error("context_store.save_failed", path=self._persist_path,
+                         error_type=type(e).__name__, error=str(e))
             return False
 
     def _load_from_disk(self) -> bool:
@@ -292,7 +295,9 @@ class ContextStore:
                     self._contexts[user_id] = contexts
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.error("context_store.load_failed", path=self._persist_path,
+                         error_type=type(e).__name__, error=str(e))
             return False
 
     @property

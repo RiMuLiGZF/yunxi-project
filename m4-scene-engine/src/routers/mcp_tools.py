@@ -10,22 +10,13 @@ from typing import Any
 
 from fastapi import APIRouter, Path, Query, Request
 
-try:
-    from src.models import (
-        SCENE_DEFINITIONS,
-        McpToolCallRequest,
-        SceneMcpToolsUpdateRequest,
-        make_response,
-    )
-    from src.services.mcp_client import get_mcp_client
-except ImportError:
-    from models import (  # type: ignore
-        SCENE_DEFINITIONS,
-        McpToolCallRequest,
-        SceneMcpToolsUpdateRequest,
-        make_response,
-    )
-    from services.mcp_client import get_mcp_client  # type: ignore
+from src.models import (
+    SCENE_DEFINITIONS,
+    McpToolCallRequest,
+    SceneMcpToolsUpdateRequest,
+    make_response,
+)
+from src.services.mcp_client import get_mcp_client
 
 
 router = APIRouter(prefix="/api/v1", tags=["MCP 工具"])

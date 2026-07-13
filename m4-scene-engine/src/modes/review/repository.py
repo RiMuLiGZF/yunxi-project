@@ -12,6 +12,7 @@ from typing import Any, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     ReviewBiasDB,
     ReviewDecisionDB,
@@ -252,27 +253,27 @@ def seed_review_data(db: Session, user_id: str = "default") -> bool:
     if review_count > 0:
         return False
 
-    # 插入默认复盘记录
-    for review in _get_default_reviews(user_id):
-        db.add(review)
+    with transactional_scope(db):
+        # 插入默认复盘记录
+        for review in _get_default_reviews(user_id):
+            db.add(review)
 
-    # 插入默认日记
-    for diary in _get_default_diaries(user_id):
-        db.add(diary)
+        # 插入默认日记
+        for diary in _get_default_diaries(user_id):
+            db.add(diary)
 
-    # 插入默认决策记录
-    for decision in _get_default_decisions(user_id):
-        db.add(decision)
+        # 插入默认决策记录
+        for decision in _get_default_decisions(user_id):
+            db.add(decision)
 
-    # 插入默认情绪记录
-    for emotion in _get_default_emotions(user_id):
-        db.add(emotion)
+        # 插入默认情绪记录
+        for emotion in _get_default_emotions(user_id):
+            db.add(emotion)
 
-    # 插入默认认知偏差
-    for bias in _get_default_biases(user_id):
-        db.add(bias)
+        # 插入默认认知偏差
+        for bias in _get_default_biases(user_id):
+            db.add(bias)
 
-    db.commit()
     print(f"[Seed] 复盘总结模式默认数据初始化完成 (user_id={user_id})")
     return True
 
@@ -394,8 +395,8 @@ class ReviewRepository:
             updated_at=now,
             user_id=self.user_id,
         )
-        self.db.add(review)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(review)
         self.db.refresh(review)
         return review
 
@@ -411,8 +412,8 @@ class ReviewRepository:
         review = self.get_review(review_id)
         if not review:
             return False
-        self.db.delete(review)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(review)
         return True
 
     def count_reviews(self) -> int:
@@ -522,8 +523,8 @@ class ReviewRepository:
             updated_at=now,
             user_id=self.user_id,
         )
-        self.db.add(diary)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(diary)
         self.db.refresh(diary)
         return diary
 
@@ -539,8 +540,8 @@ class ReviewRepository:
         diary = self.get_diary(diary_id)
         if not diary:
             return False
-        self.db.delete(diary)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(diary)
         return True
 
     def count_diaries(self) -> int:
@@ -641,8 +642,8 @@ class ReviewRepository:
             updated_at=now,
             user_id=self.user_id,
         )
-        self.db.add(decision)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(decision)
         self.db.refresh(decision)
         return decision
 
@@ -679,22 +680,22 @@ class ReviewRepository:
             "options": "alternatives",
         }
 
-        # 特殊处理：设置 final_choice 自动标记状态
-        if "final_choice" in kwargs and kwargs["final_choice"] and "status" not in kwargs:
-            decision.status = "completed"
+        with transactional_scope(self.db):
+            # 特殊处理：设置 final_choice 自动标记状态
+            if "final_choice" in kwargs and kwargs["final_choice"] and "status" not in kwargs:
+                decision.status = "completed"
 
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            attr = field_map.get(key)
-            if attr and hasattr(decision, attr):
-                setattr(decision, attr, value)
-                # 同步更新 outcome
-                if key == "result":
-                    decision.outcome = value
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                attr = field_map.get(key)
+                if attr and hasattr(decision, attr):
+                    setattr(decision, attr, value)
+                    # 同步更新 outcome
+                    if key == "result":
+                        decision.outcome = value
 
-        decision.updated_at = datetime.utcnow()
-        self.db.commit()
+            decision.updated_at = datetime.utcnow()
         self.db.refresh(decision)
         return decision
 
@@ -710,8 +711,8 @@ class ReviewRepository:
         decision = self.get_decision(decision_id)
         if not decision:
             return False
-        self.db.delete(decision)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(decision)
         return True
 
     def count_decisions(self) -> int:
@@ -776,8 +777,8 @@ class ReviewRepository:
             created_at=now,
             user_id=self.user_id,
         )
-        self.db.add(emotion_obj)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(emotion_obj)
         self.db.refresh(emotion_obj)
         return emotion_obj
 
@@ -880,11 +881,16 @@ class ReviewRepository:
             .first()
         )
         if bias:
-            bias.detected_count = (bias.detected_count or 0) + 1
-            bias.last_detected = datetime.utcnow()
+            with transactional_scope(self.db):
+                bias.detected_count = (bias.detected_count or 0) + 1
+                bias.last_detected = datetime.utcnow()
 
     def commit(self) -> None:
-        """提交当前会话的更改."""
+        """提交当前会话的更改（兼容旧代码）.
+
+        注意：各写操作方法已使用 transactional_scope 自动管理事务，
+        通常不需要手动调用此方法。保留此方法以保持向后兼容。
+        """
         self.db.commit()
 
     # -----------------------------------------------------------------------

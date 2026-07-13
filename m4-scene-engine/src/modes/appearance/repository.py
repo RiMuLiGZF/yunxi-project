@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     AppearanceConfigDB,
     MoodHistoryDB,
@@ -113,19 +114,19 @@ class AppearanceRepository:
         # 初始化性格标签库
         tag_count = self.db.query(PersonalityTagDB).count()
         if tag_count == 0:
-            for tag_data in _DEFAULT_PERSONALITY_TAGS:
-                tag = PersonalityTagDB(**tag_data)
-                self.db.add(tag)
-            self.db.commit()
+            with transactional_scope(self.db):
+                for tag_data in _DEFAULT_PERSONALITY_TAGS:
+                    tag = PersonalityTagDB(**tag_data)
+                    self.db.add(tag)
             print("[Appearance] 性格标签库初始化完成")
 
         # 初始化声音选项库
         voice_count = self.db.query(VoiceOptionDB).count()
         if voice_count == 0:
-            for voice_data in _DEFAULT_VOICE_OPTIONS:
-                voice = VoiceOptionDB(**voice_data)
-                self.db.add(voice)
-            self.db.commit()
+            with transactional_scope(self.db):
+                for voice_data in _DEFAULT_VOICE_OPTIONS:
+                    voice = VoiceOptionDB(**voice_data)
+                    self.db.add(voice)
             print("[Appearance] 声音选项库初始化完成")
 
     # ------------------------------------------------------------------
@@ -145,22 +146,22 @@ class AppearanceRepository:
             AppearanceConfigDB.user_id == user_id
         ).first()
         if not config:
-            config = _seed_default_config(user_id)
-            self.db.add(config)
-            # 同时初始化默认快照
-            for i, snap_data in enumerate(_DEFAULT_SNAPSHOTS, 1):
-                snapshot = AppearanceSnapshotDB(
-                    user_id=user_id,
-                    name=snap_data["name"],
-                    theme=snap_data["theme"],
-                    mood=snap_data["mood"],
-                    snapshot_data={},
-                    created_at=datetime(2026, 6, 1) if i == 1 else
-                               datetime(2026, 6, 15) if i == 2 else
-                               datetime(2026, 7, 1),
-                )
-                self.db.add(snapshot)
-            self.db.commit()
+            with transactional_scope(self.db):
+                config = _seed_default_config(user_id)
+                self.db.add(config)
+                # 同时初始化默认快照（配置+快照在同一事务中）
+                for i, snap_data in enumerate(_DEFAULT_SNAPSHOTS, 1):
+                    snapshot = AppearanceSnapshotDB(
+                        user_id=user_id,
+                        name=snap_data["name"],
+                        theme=snap_data["theme"],
+                        mood=snap_data["mood"],
+                        snapshot_data={},
+                        created_at=datetime(2026, 6, 1) if i == 1 else
+                                   datetime(2026, 6, 15) if i == 2 else
+                                   datetime(2026, 7, 1),
+                    )
+                    self.db.add(snapshot)
             self.db.refresh(config)
         return config
 
@@ -182,11 +183,10 @@ class AppearanceRepository:
         if not config:
             return None
 
-        for key, value in kwargs.items():
-            if hasattr(config, key) and value is not None:
-                setattr(config, key, value)
-
-        self.db.commit()
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if hasattr(config, key) and value is not None:
+                    setattr(config, key, value)
         self.db.refresh(config)
         return config
 
@@ -215,8 +215,8 @@ class AppearanceRepository:
             mood_type=mood_type,
             reason=reason,
         )
-        self.db.add(record)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(record)
         self.db.refresh(record)
         return record
 
@@ -303,8 +303,8 @@ class AppearanceRepository:
             mood=mood,
             snapshot_data=snapshot_data or {},
         )
-        self.db.add(snapshot)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(snapshot)
         self.db.refresh(snapshot)
         return snapshot
 
@@ -325,8 +325,8 @@ class AppearanceRepository:
         snapshot = self.get_snapshot(snapshot_id, user_id)
         if not snapshot:
             return False
-        self.db.delete(snapshot)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(snapshot)
         return True
 
     # ------------------------------------------------------------------
@@ -368,8 +368,8 @@ class AppearanceRepository:
             更新后的标签列表
         """
         config = self.get_config(user_id)
-        config.personality_tags = tags
-        self.db.commit()
+        with transactional_scope(self.db):
+            config.personality_tags = tags
         self.db.refresh(config)
         return config.personality_tags or []
 

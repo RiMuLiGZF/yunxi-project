@@ -15,10 +15,7 @@ import uuid
 from threading import Thread
 from typing import Any
 
-try:
-    from src.services.skills.base import BaseSkill
-except ImportError:
-    from services.skills.base import BaseSkill  # type: ignore
+from src.services.skills.base import BaseSkill
 
 
 class TerminalCommandSkill(BaseSkill):

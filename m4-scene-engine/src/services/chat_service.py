@@ -11,9 +11,12 @@ import time
 from typing import Any, Optional
 from datetime import datetime
 
+import structlog
 from sqlalchemy.orm import Session
 
 from src.database import ChatConversationDB, ChatMessageDB
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +504,10 @@ class ChatService:
                 self.user_id,
                 tags=["conversation", mode],
             )
-        except Exception:
+        except Exception as e:
             # 记忆归档失败不影响主流程
-            pass
+            logger.warning("chat.memory_archive_failed", user_id=self.user_id, mode=mode,
+                           error_type=type(e).__name__, error=str(e))
 
         # 8. 返回结果
         return {

@@ -16,8 +16,11 @@ import sys
 from pathlib import Path
 from functools import lru_cache
 
+import structlog
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -71,8 +74,8 @@ def _load_dotenv(filepath: str, override: bool = False) -> None:
                 value = value.strip().strip('"').strip("\'")
                 if key and (override or key not in os.environ):
                     os.environ[key] = value
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("config.load_dotenv_failed", filepath=filepath, error_type=type(e).__name__, error=str(e))
 
 
 # 启动时加载环境变量
@@ -178,7 +181,8 @@ def _load_system_version() -> str:
             current = current.parent
         from shared.version import SYSTEM_VERSION
         return SYSTEM_VERSION
-    except Exception:
+    except Exception as e:
+        logger.warning("config.load_system_version_failed", error_type=type(e).__name__, error=str(e))
         return "v1.0.0"
 
 

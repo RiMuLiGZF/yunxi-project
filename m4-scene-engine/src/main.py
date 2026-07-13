@@ -12,14 +12,21 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.errors import ErrorCode, M4Error, error_response
+
+logger = structlog.get_logger(__name__)
 from src.common.logging_setup import clear_context, set_trace_id, setup_logging
-from src.common.middleware import CircuitBreakerMiddleware, RateLimitMiddleware
+from src.common.middleware import (
+    CircuitBreakerMiddleware,
+    IdempotencyMiddleware,
+    RateLimitMiddleware,
+)
 
 # ---------------------------------------------------------------------------
 # 应用创建
@@ -49,14 +56,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 弹性中间件：限流 + 熔断（环境变量控制开关）
+# 弹性中间件：限流 + 熔断 + 幂等（环境变量控制开关）
 _rate_limit_enabled = os.environ.get("M4_RATE_LIMIT_ENABLED", "true").lower() == "true"
 _circuit_breaker_enabled = os.environ.get("M4_CIRCUIT_BREAKER_ENABLED", "true").lower() == "true"
+_idempotency_enabled = os.environ.get("M4_IDEMPOTENCY_ENABLED", "true").lower() == "true"
 
 if _rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware)
 if _circuit_breaker_enabled:
     app.add_middleware(CircuitBreakerMiddleware)
+if _idempotency_enabled:
+    app.add_middleware(IdempotencyMiddleware)
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +350,8 @@ def _get_m4_real_metrics():
         import psutil
         cpu_usage = psutil.cpu_percent(interval=0.1)
         memory_mb = int(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
-    except Exception:
+    except Exception as e:
+        logger.warning("metrics.psutil_failed", error_type=type(e).__name__, error=str(e))
         cpu_usage = 0.0
         memory_mb = 0
     try:
@@ -350,7 +361,8 @@ def _get_m4_real_metrics():
         scenes_total = len(scenes)
         current = recognizer.get_current_scene()
         active_scene = current.scene_id if current else "unknown"
-    except Exception:
+    except Exception as e:
+        logger.warning("metrics.recognizer_failed", error_type=type(e).__name__, error=str(e))
         scenes_total = 6
         active_scene = "unknown"
     return {
@@ -501,9 +513,9 @@ try:
         async def frontend_index():
             """前端入口页面."""
             return FileResponse(str(_frontend_dir / "index.html"))
-except Exception:
+except Exception as e:
     # 静态文件服务是可选的，失败不影响核心功能
-    pass
+    logger.warning("frontend.static_files_failed", error_type=type(e).__name__, error=str(e))
 
 
 # ---------------------------------------------------------------------------

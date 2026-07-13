@@ -13,6 +13,7 @@ from typing import Any, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     WorkCodeSnippetDB,
     WorkCodeUsageDB,
@@ -287,24 +288,24 @@ def seed_work_dev_data(db: Session, user_id: str = "default") -> bool:
     if project_count > 0:
         return False
 
-    # 插入默认项目
-    for project in _get_default_projects(user_id):
-        db.add(project)
-    db.flush()
+    with transactional_scope(db):
+        # 插入默认项目
+        for project in _get_default_projects(user_id):
+            db.add(project)
+        db.flush()
 
-    # 插入默认任务
-    for task in _get_default_tasks(user_id):
-        db.add(task)
+        # 插入默认任务
+        for task in _get_default_tasks(user_id):
+            db.add(task)
 
-    # 插入默认提交
-    for commit in _get_default_commits(user_id):
-        db.add(commit)
+        # 插入默认提交
+        for commit in _get_default_commits(user_id):
+            db.add(commit)
 
-    # 插入默认代码片段
-    for snippet in _get_default_snippets(user_id):
-        db.add(snippet)
+        # 插入默认代码片段
+        for snippet in _get_default_snippets(user_id):
+            db.add(snippet)
 
-    db.commit()
     print(f"[Seed] 工作开发模式默认数据初始化完成 (user_id={user_id})")
     return True
 
@@ -428,8 +429,8 @@ class WorkDevRepository:
             created_at=now,
             updated_at=now,
         )
-        self.db.add(project)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(project)
         self.db.refresh(project)
         return project
 
@@ -456,14 +457,14 @@ class WorkDevRepository:
             "language", "category", "repo_url",
             "file_count", "line_count", "commit_count",
         ]
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            if key in valid_fields and hasattr(project, key):
-                setattr(project, key, value)
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                if key in valid_fields and hasattr(project, key):
+                    setattr(project, key, value)
 
-        project.updated_at = datetime.utcnow()
-        self.db.commit()
+            project.updated_at = datetime.utcnow()
         self.db.refresh(project)
         return project
 
@@ -480,26 +481,27 @@ class WorkDevRepository:
         if not project:
             return False
 
-        # 删除关联任务
-        self.db.query(WorkTaskDB).filter(
-            WorkTaskDB.user_id == self.user_id,
-            WorkTaskDB.project_id == project_id,
-        ).delete(synchronize_session=False)
+        with transactional_scope(self.db):
+            # 删除关联任务
+            self.db.query(WorkTaskDB).filter(
+                WorkTaskDB.user_id == self.user_id,
+                WorkTaskDB.project_id == project_id,
+            ).delete(synchronize_session=False)
 
-        # 删除关联提交
-        self.db.query(WorkCommitDB).filter(
-            WorkCommitDB.user_id == self.user_id,
-            WorkCommitDB.project_id == project_id,
-        ).delete(synchronize_session=False)
+            # 删除关联提交
+            self.db.query(WorkCommitDB).filter(
+                WorkCommitDB.user_id == self.user_id,
+                WorkCommitDB.project_id == project_id,
+            ).delete(synchronize_session=False)
 
-        # 删除关联代码片段
-        self.db.query(WorkCodeSnippetDB).filter(
-            WorkCodeSnippetDB.user_id == self.user_id,
-            WorkCodeSnippetDB.project_id == project_id,
-        ).delete(synchronize_session=False)
+            # 删除关联代码片段
+            self.db.query(WorkCodeSnippetDB).filter(
+                WorkCodeSnippetDB.user_id == self.user_id,
+                WorkCodeSnippetDB.project_id == project_id,
+            ).delete(synchronize_session=False)
 
-        self.db.delete(project)
-        self.db.commit()
+            self.db.delete(project)
+
         return True
 
     def count_projects(self, status: Optional[str] = None) -> int:
@@ -632,15 +634,15 @@ class WorkDevRepository:
             created_at=now,
             updated_at=now,
         )
-        self.db.add(task)
+        with transactional_scope(self.db):
+            self.db.add(task)
 
-        # 更新项目更新时间
-        if project_id:
-            project = self.get_project(project_id)
-            if project:
-                project.updated_at = now
+            # 更新项目更新时间
+            if project_id:
+                project = self.get_project(project_id)
+                if project:
+                    project.updated_at = now
 
-        self.db.commit()
         self.db.refresh(task)
         return task
 
@@ -667,21 +669,20 @@ class WorkDevRepository:
             "project_id", "assignee", "due_date", "tags",
             "estimate_hours", "spent_hours",
         ]
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            if key in valid_fields and hasattr(task, key):
-                setattr(task, key, value)
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                if key in valid_fields and hasattr(task, key):
+                    setattr(task, key, value)
 
-        task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.utcnow()
 
-        # 更新项目更新时间
-        if task.project_id:
-            project = self.get_project(task.project_id)
-            if project:
-                project.updated_at = task.updated_at
-
-        self.db.commit()
+            # 更新项目更新时间
+            if task.project_id:
+                project = self.get_project(task.project_id)
+                if project:
+                    project.updated_at = task.updated_at
         self.db.refresh(task)
         return task
 
@@ -712,8 +713,8 @@ class WorkDevRepository:
         task = self.get_task(task_id)
         if not task:
             return False
-        self.db.delete(task)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(task)
         return True
 
     def count_tasks(self, status: Optional[str] = None) -> int:
@@ -824,16 +825,16 @@ class WorkDevRepository:
             committed_at=now,
             user_id=self.user_id,
         )
-        self.db.add(commit)
+        with transactional_scope(self.db):
+            self.db.add(commit)
 
-        # 更新项目统计
-        project = self.get_project(project_id)
-        if project:
-            project.commit_count = (project.commit_count or 0) + 1
-            project.line_count = (project.line_count or 0) + additions - deletions
-            project.updated_at = now
+            # 更新项目统计（提交记录+统计更新在同一事务中）
+            project = self.get_project(project_id)
+            if project:
+                project.commit_count = (project.commit_count or 0) + 1
+                project.line_count = (project.line_count or 0) + additions - deletions
+                project.updated_at = now
 
-        self.db.commit()
         self.db.refresh(commit)
         return commit
 
@@ -1002,8 +1003,8 @@ class WorkDevRepository:
             created_at=now,
             updated_at=now,
         )
-        self.db.add(snippet)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(snippet)
         self.db.refresh(snippet)
         return snippet
 
@@ -1029,14 +1030,14 @@ class WorkDevRepository:
             "title", "language", "code", "description",
             "tags", "is_favorite", "project_id",
         ]
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            if key in valid_fields and hasattr(snippet, key):
-                setattr(snippet, key, value)
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                if key in valid_fields and hasattr(snippet, key):
+                    setattr(snippet, key, value)
 
-        snippet.updated_at = datetime.utcnow()
-        self.db.commit()
+            snippet.updated_at = datetime.utcnow()
         self.db.refresh(snippet)
         return snippet
 
@@ -1052,8 +1053,8 @@ class WorkDevRepository:
         snippet = self.get_snippet(snippet_id)
         if not snippet:
             return False
-        self.db.delete(snippet)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(snippet)
         return True
 
     # -----------------------------------------------------------------------
@@ -1139,8 +1140,8 @@ class WorkDevRepository:
             created_at=now,
             updated_at=now,
         )
-        self.db.add(session)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(session)
         self.db.refresh(session)
         return session
 
@@ -1164,21 +1165,20 @@ class WorkDevRepository:
         if not session:
             return None
 
-        messages = session.messages_json or []
-        messages.append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
-        session.messages_json = messages
-        session.message_count = len(messages)
-        session.updated_at = datetime.utcnow()
+        with transactional_scope(self.db):
+            messages = session.messages_json or []
+            messages.append({
+                "role": role,
+                "content": content,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            session.messages_json = messages
+            session.message_count = len(messages)
+            session.updated_at = datetime.utcnow()
 
-        # 更新标题（取第一条用户消息）
-        if session.title == "新对话" and role == "user":
-            session.title = content[:30] + ("..." if len(content) > 30 else "")
-
-        self.db.commit()
+            # 更新标题（取第一条用户消息）
+            if session.title == "新对话" and role == "user":
+                session.title = content[:30] + ("..." if len(content) > 30 else "")
         self.db.refresh(session)
         return session
 
@@ -1194,8 +1194,8 @@ class WorkDevRepository:
         session = self.get_session(session_id)
         if not session:
             return False
-        self.db.delete(session)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(session)
         return True
 
     # -----------------------------------------------------------------------
@@ -1230,6 +1230,7 @@ class WorkDevRepository:
             .scalar()
         ) or 0
 
+        now = datetime.utcnow()
         usage = WorkCodeUsageDB(
             usage_id=max_id + 1,
             action_type=action_type,
@@ -1239,10 +1240,10 @@ class WorkDevRepository:
             project_id=project_id,
             is_fallback=is_fallback,
             user_id=self.user_id,
-            created_at=datetime.utcnow(),
+            created_at=now,
         )
-        self.db.add(usage)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(usage)
         self.db.refresh(usage)
         return usage
 

@@ -13,6 +13,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 VERSION = "1.0.0"
 MODULE_NAME = "m4"
 
@@ -158,7 +162,8 @@ class HealthMetricsService:
                 os.unlink(test_file)
                 return "healthy"
             return "healthy"  # 内存模式
-        except Exception:
+        except Exception as e:
+            logger.warning("health.storage_check_failed", error_type=type(e).__name__, error=str(e))
             return "unhealthy"
 
     def _check_context_store(self) -> str:
@@ -170,7 +175,8 @@ class HealthMetricsService:
                 if isinstance(status, dict):
                     return "healthy"
             return "healthy"
-        except Exception:
+        except Exception as e:
+            logger.warning("health.context_store_check_failed", error_type=type(e).__name__, error=str(e))
             return "unhealthy"
 
     def _check_scene_engine(self) -> str:
@@ -181,7 +187,8 @@ class HealthMetricsService:
                 if isinstance(result, dict):
                     return "healthy"
             return "healthy"
-        except Exception:
+        except Exception as e:
+            logger.warning("health.scene_engine_check_failed", error_type=type(e).__name__, error=str(e))
             return "unhealthy"
 
     def _compute_overall_status(self, checks: dict[str, str]) -> str:
@@ -239,7 +246,8 @@ class HealthMetricsService:
             return cpu, memory_mb
         except ImportError:
             return 0.0, 0.0
-        except Exception:
+        except Exception as e:
+            logger.warning("health.system_resources_failed", error_type=type(e).__name__, error=str(e))
             return 0.0, 0.0
 
     def _get_disk_usage_mb(self) -> float:
@@ -257,7 +265,8 @@ class HealthMetricsService:
                     except OSError:
                         pass
             return round(total_size / (1024 * 1024), 1)
-        except Exception:
+        except Exception as e:
+            logger.warning("health.disk_usage_failed", error_type=type(e).__name__, error=str(e))
             return 0.0
 
     def _get_scene_stats(self) -> dict[str, Any]:
@@ -276,14 +285,16 @@ class HealthMetricsService:
                     sid = info.get("scene_id", "unknown")
                     distribution[sid] = distribution.get(sid, 0) + 1
                 stats["current_scene_distribution"] = distribution
-        except Exception:
+        except Exception as e:
+            logger.warning("health.scene_stats_failed", error_type=type(e).__name__, error=str(e))
             pass
 
         try:
             if self._context_store is not None:
                 ctx_status = self._context_store.get_all_status()
                 stats["context_users"] = ctx_status.get("total_users", 0)
-        except Exception:
+        except Exception as e:
+            logger.warning("health.context_stats_failed", error_type=type(e).__name__, error=str(e))
             pass
 
         return stats

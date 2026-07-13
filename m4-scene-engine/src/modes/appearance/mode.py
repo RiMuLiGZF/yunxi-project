@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from src.modes.base_mode import BaseMode
+
+logger = structlog.get_logger(__name__)
 
 
 class AppearanceMode(BaseMode):
@@ -57,7 +61,9 @@ class AppearanceMode(BaseMode):
             config = service.get_config()
             relationship = service.get_relationship()
             db.close()
-        except Exception:
+        except Exception as e:
+            logger.warning("appearance_mode.load_config_failed", user_id=user_id,
+                           error_type=type(e).__name__, error=str(e))
             config = {}
             relationship = {}
 

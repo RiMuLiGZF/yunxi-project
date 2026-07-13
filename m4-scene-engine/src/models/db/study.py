@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+import structlog
 from sqlalchemy import (
     Boolean,
     Column,
@@ -21,6 +22,8 @@ from sqlalchemy import (
 )
 
 from .base import Base
+
+logger = structlog.get_logger(__name__)
 
 
 class StudyGoalDB(Base):
@@ -218,7 +221,9 @@ class StudyExamDB(Base):
         try:
             exam_dt = datetime.strptime(self.exam_date, "%Y-%m-%d %H:%M")
             return max(0, (exam_dt - datetime.now()).days)
-        except Exception:
+        except Exception as e:
+            logger.debug("study.exam_days_left_failed", exam_date=self.exam_date,
+                         error_type=type(e).__name__, error=str(e))
             return 0
 
     def to_dict(self) -> dict[str, Any]:

@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    from src.services.skills.base import BaseSkill
-except ImportError:
-    from services.skills.base import BaseSkill  # type: ignore
+import structlog
+
+from src.services.skills.base import BaseSkill
+
+logger = structlog.get_logger(__name__)
 
 
 class VSCodeControlSkill(BaseSkill):
@@ -77,16 +78,12 @@ class VSCodeControlSkill(BaseSkill):
     def _get_launcher(self) -> Any:
         """获取 VS Code 启动器实例.
 
+        使用懒加载（函数内导入），避免模块级循环依赖。
+
         Returns:
             VSCodeLauncher 实例
-
-        Raises:
-            ImportError: 无法导入 VS Code 启动器
         """
-        try:
-            from src.services.vscode_launcher import get_vscode_launcher
-        except ImportError:
-            from services.vscode_launcher import get_vscode_launcher  # type: ignore
+        from src.services.vscode_launcher import get_vscode_launcher
         return get_vscode_launcher()
 
     def execute(
@@ -281,5 +278,6 @@ class VSCodeControlSkill(BaseSkill):
             launcher = self._get_launcher()
             detect_result = launcher.detect_vscode()
             return detect_result.get("installed", False)
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode_skill.health_check_failed", error_type=type(e).__name__, error=str(e))
             return False

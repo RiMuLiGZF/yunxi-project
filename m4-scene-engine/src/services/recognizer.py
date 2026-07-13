@@ -12,10 +12,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
-try:
-    from src.models import SCENE_DEFINITIONS
-except ImportError:
-    from models import SCENE_DEFINITIONS  # type: ignore
+import structlog
+
+from src.models import SCENE_DEFINITIONS
+
+logger = structlog.get_logger(__name__)
 
 
 class SceneRecognizer:
@@ -121,7 +122,8 @@ class SceneRecognizer:
                         llm_result["all_scores"] = {k: round(v, 4) for k, v in scores.items()}
                         llm_result["scores"] = {k: round(v, 4) for k, v in scores.items()}
                     return llm_result
-            except Exception:
+            except Exception as e:
+                logger.warning("recognizer.llm_failed", error_type=type(e).__name__, error=str(e))
                 pass  # LLM 失败时降级到关键词结果
 
         # 4. 返回 unknown
@@ -248,7 +250,8 @@ class SceneRecognizer:
                             "method": "llm",
                             "reason": parsed.get("reason", ""),
                         }
-        except Exception:
+        except Exception as e:
+            logger.warning("recognizer.llm_recognize_failed", error_type=type(e).__name__, error=str(e))
             pass
 
         return {

@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     EmotionRecordDB,
     RelaxContentDB,
@@ -241,30 +242,30 @@ class EmotionRepository:
         # 放松内容
         relax_count = self.db.query(RelaxContentDB).count()
         if relax_count == 0:
-            for item in _DEFAULT_RELAX_CONTENTS:
-                self.db.add(RelaxContentDB(**item))
-            self.db.commit()
+            with transactional_scope(self.db):
+                for item in _DEFAULT_RELAX_CONTENTS:
+                    self.db.add(RelaxContentDB(**item))
             print(f"[EmotionRepo] 初始化放松内容: {len(_DEFAULT_RELAX_CONTENTS)} 条")
 
         # 助眠内容
         sleep_count = self.db.query(SleepContentDB).count()
         if sleep_count == 0:
-            for item in _DEFAULT_SLEEP_CONTENTS:
-                self.db.add(SleepContentDB(**item))
-            self.db.commit()
+            with transactional_scope(self.db):
+                for item in _DEFAULT_SLEEP_CONTENTS:
+                    self.db.add(SleepContentDB(**item))
             print(f"[EmotionRepo] 初始化助眠内容: {len(_DEFAULT_SLEEP_CONTENTS)} 条")
 
         # 心理测评
         assess_count = self.db.query(PsychAssessmentDB).count()
         if assess_count == 0:
-            for item in _DEFAULT_ASSESSMENTS:
-                questions = item.pop("questions")
-                self.db.add(PsychAssessmentDB(
-                    questions_json=questions,
-                    questions_count=len(questions),
-                    **item,
-                ))
-            self.db.commit()
+            with transactional_scope(self.db):
+                for item in _DEFAULT_ASSESSMENTS:
+                    questions = item.pop("questions")
+                    self.db.add(PsychAssessmentDB(
+                        questions_json=questions,
+                        questions_count=len(questions),
+                        **item,
+                    ))
             print(f"[EmotionRepo] 初始化心理测评: {len(_DEFAULT_ASSESSMENTS)} 条")
 
         # 示例情绪记录（仅当完全没有记录时）
@@ -287,19 +288,19 @@ class EmotionRepository:
         weights = [3, 3, 2, 1, 1, 0.5]
         triggers = ["工作压力", "人际关系", "健康状况", "天气", "睡眠", "运动", "阅读", "美食"]
 
-        for i in range(30):
-            d = datetime.now() - timedelta(days=29 - i)
-            emo = random.choices(emotions, weights=weights, k=1)[0]
-            self.db.add(EmotionRecordDB(
-                emotion_type=emo,
-                intensity=random.randint(3, 9),
-                trigger=random.choice(triggers),
-                note="",
-                date=d.strftime("%Y-%m-%d"),
-                user_id=self.user_id,
-                created_at=d,
-            ))
-        self.db.commit()
+        with transactional_scope(self.db):
+            for i in range(30):
+                d = datetime.now() - timedelta(days=29 - i)
+                emo = random.choices(emotions, weights=weights, k=1)[0]
+                self.db.add(EmotionRecordDB(
+                    emotion_type=emo,
+                    intensity=random.randint(3, 9),
+                    trigger=random.choice(triggers),
+                    note="",
+                    date=d.strftime("%Y-%m-%d"),
+                    user_id=self.user_id,
+                    created_at=d,
+                ))
         print(f"[EmotionRepo] 初始化示例情绪记录: 30 条")
 
     def _seed_sample_mood_diary(self) -> None:
@@ -311,17 +312,17 @@ class EmotionRepository:
             {"emotion": "sad", "content": "和好朋友吵架了，心里很难受。不知道该不该主动联系。", "tags": ["人际关系", "难过"]},
             {"emotion": "happy", "content": "运动后心情特别好，全身都舒畅了。", "tags": ["运动", "开心"]},
         ]
-        for i, s in enumerate(samples):
-            d = datetime.now() - timedelta(days=4 - i)
-            self.db.add(MoodDiaryDB(
-                mood=s["emotion"],
-                content=s["content"],
-                tags=s["tags"],
-                date=d.strftime("%Y-%m-%d"),
-                user_id=self.user_id,
-                created_at=d,
-            ))
-        self.db.commit()
+        with transactional_scope(self.db):
+            for i, s in enumerate(samples):
+                d = datetime.now() - timedelta(days=4 - i)
+                self.db.add(MoodDiaryDB(
+                    mood=s["emotion"],
+                    content=s["content"],
+                    tags=s["tags"],
+                    date=d.strftime("%Y-%m-%d"),
+                    user_id=self.user_id,
+                    created_at=d,
+                ))
         print(f"[EmotionRepo] 初始化示例心情日记: {len(samples)} 条")
 
     # ------------------------------------------------------------------
@@ -462,11 +463,11 @@ class EmotionRepository:
         )
 
         if existing:
-            existing.emotion_type = emotion
-            existing.intensity = level
-            existing.trigger = trigger
-            existing.note = note
-            self.db.commit()
+            with transactional_scope(self.db):
+                existing.emotion_type = emotion
+                existing.intensity = level
+                existing.trigger = trigger
+                existing.note = note
             self.db.refresh(existing)
             return existing
 
@@ -478,8 +479,8 @@ class EmotionRepository:
             date=today,
             user_id=self.user_id,
         )
-        self.db.add(record)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(record)
         self.db.refresh(record)
         return record
 
@@ -656,8 +657,8 @@ class EmotionRepository:
             user_id=self.user_id,
             date=datetime.now().strftime("%Y-%m-%d"),
         )
-        self.db.add(result)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(result)
         self.db.refresh(result)
         return result
 
@@ -702,7 +703,7 @@ class EmotionRepository:
             date=datetime.now().strftime("%Y-%m-%d"),
             user_id=self.user_id,
         )
-        self.db.add(entry)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(entry)
         self.db.refresh(entry)
         return entry

@@ -7,16 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Request, Query, HTTPException
 
-try:
-    from src.models import make_response
-    from src.modes import mode_registry
-    from src.schemas import ModeEnterRequest, ModeLeaveRequest
-except ImportError:
-    from models import make_response  # type: ignore
-    from modes import mode_registry  # type: ignore
-    from schemas import ModeEnterRequest, ModeLeaveRequest  # type: ignore
+from src.models import make_response
+from src.modes import mode_registry
+from src.schemas import ModeEnterRequest, ModeLeaveRequest
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/modes", tags=["业务模式"])
 
@@ -87,7 +85,9 @@ async def get_mode(
     try:
         config = await mode.get_config()
         mode_info["config"] = config
-    except Exception:
+    except Exception as e:
+        logger.warning("modes.get_config_failed", mode_id=mode_id,
+                       error_type=type(e).__name__, error=str(e))
         mode_info["config"] = {}
 
     return make_response(data=mode_info)

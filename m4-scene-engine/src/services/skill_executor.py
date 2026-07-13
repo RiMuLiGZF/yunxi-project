@@ -11,10 +11,7 @@ import time
 from threading import Lock
 from typing import Any
 
-try:
-    from src.services.skills.base import BaseSkill
-except ImportError:
-    from services.skills.base import BaseSkill  # type: ignore
+from src.services.skills.base import BaseSkill
 
 
 # ---------------------------------------------------------------------------
@@ -66,43 +63,32 @@ class SkillExecutor:
     def _register_builtin_skills(self) -> None:
         """注册所有内置技能.
 
-        使用延迟导入，避免循环依赖。
+        使用懒加载（函数内导入），避免模块级循环依赖。
+        每个技能独立 try/except，单个技能加载失败不影响其他技能。
         """
         builtin_skills = []
 
         # 尝试导入并注册内置技能
         try:
-            try:
-                from src.services.skills.vscode_control_skill import VSCodeControlSkill
-            except ImportError:
-                from services.skills.vscode_control_skill import VSCodeControlSkill  # type: ignore
+            from src.services.skills.vscode_control_skill import VSCodeControlSkill
             builtin_skills.append(VSCodeControlSkill())
         except Exception as e:
             logger.warning(f"注册 VSCodeControlSkill 失败: {e}")
 
         try:
-            try:
-                from src.services.skills.file_operation_skill import FileOperationSkill
-            except ImportError:
-                from services.skills.file_operation_skill import FileOperationSkill  # type: ignore
+            from src.services.skills.file_operation_skill import FileOperationSkill
             builtin_skills.append(FileOperationSkill())
         except Exception as e:
             logger.warning(f"注册 FileOperationSkill 失败: {e}")
 
         try:
-            try:
-                from src.services.skills.terminal_command_skill import TerminalCommandSkill
-            except ImportError:
-                from services.skills.terminal_command_skill import TerminalCommandSkill  # type: ignore
+            from src.services.skills.terminal_command_skill import TerminalCommandSkill
             builtin_skills.append(TerminalCommandSkill())
         except Exception as e:
             logger.warning(f"注册 TerminalCommandSkill 失败: {e}")
 
         try:
-            try:
-                from src.services.skills.git_tool_skill import GitToolSkill
-            except ImportError:
-                from services.skills.git_tool_skill import GitToolSkill  # type: ignore
+            from src.services.skills.git_tool_skill import GitToolSkill
             builtin_skills.append(GitToolSkill())
         except Exception as e:
             logger.warning(f"注册 GitToolSkill 失败: {e}")

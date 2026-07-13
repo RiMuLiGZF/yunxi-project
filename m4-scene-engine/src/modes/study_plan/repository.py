@@ -13,6 +13,7 @@ from typing import Any, Optional
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     StudyExamDB,
     StudyGoalDB,
@@ -317,35 +318,35 @@ def seed_study_data(db: Session, user_id: str = "default") -> bool:
     if goal_count > 0:
         return False
 
-    # 插入学习目标
-    for g in _get_default_goals(user_id):
-        db.add(g)
+    with transactional_scope(db):
+        # 插入学习目标
+        for g in _get_default_goals(user_id):
+            db.add(g)
 
-    # 插入学习计划
-    for p in _get_default_plans(user_id):
-        db.add(p)
+        # 插入学习计划
+        for p in _get_default_plans(user_id):
+            db.add(p)
 
-    # 插入学习笔记
-    for n in _get_default_notes(user_id):
-        db.add(n)
+        # 插入学习笔记
+        for n in _get_default_notes(user_id):
+            db.add(n)
 
-    # 插入知识分类
-    for c in _get_default_knowledge_categories(user_id):
-        db.add(c)
+        # 插入知识分类
+        for c in _get_default_knowledge_categories(user_id):
+            db.add(c)
 
-    # 插入科目进度
-    for p in _get_default_progress(user_id):
-        db.add(p)
+        # 插入科目进度
+        for p in _get_default_progress(user_id):
+            db.add(p)
 
-    # 插入考试计划
-    for e in _get_default_exams(user_id):
-        db.add(e)
+        # 插入考试计划
+        for e in _get_default_exams(user_id):
+            db.add(e)
 
-    # 插入元数据
-    for m in _get_default_meta_entries(user_id):
-        db.add(m)
+        # 插入元数据
+        for m in _get_default_meta_entries(user_id):
+            db.add(m)
 
-    db.commit()
     print(f"[Seed] 学业规划模式默认数据初始化完成 (user_id={user_id})")
     return True
 
@@ -475,8 +476,8 @@ class StudyRepository:
             order_index=order_index,
             user_id=self.user_id,
         )
-        self.db.add(goal)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(goal)
         self.db.refresh(goal)
         return goal
 
@@ -510,22 +511,21 @@ class StudyRepository:
             "deadline": "deadline",
         }
 
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            attr = field_map.get(key)
-            if attr and hasattr(goal, attr):
-                setattr(goal, attr, value)
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                attr = field_map.get(key)
+                if attr and hasattr(goal, attr):
+                    setattr(goal, attr, value)
 
-        # 根据进度自动更新状态
-        if "progress" in kwargs and kwargs["progress"] is not None:
-            if goal.progress >= 100:
-                goal.status = "complete"
-            elif goal.progress > 0:
-                if goal.status == "not-started":
-                    goal.status = "in-progress"
-
-        self.db.commit()
+            # 根据进度自动更新状态
+            if "progress" in kwargs and kwargs["progress"] is not None:
+                if goal.progress >= 100:
+                    goal.status = "complete"
+                elif goal.progress > 0:
+                    if goal.status == "not-started":
+                        goal.status = "in-progress"
         self.db.refresh(goal)
         return goal
 
@@ -560,12 +560,12 @@ class StudyRepository:
 
         all_ids = [goal_id] + get_children_ids(goal_id)
 
-        # 批量删除
-        self.db.query(StudyGoalDB).filter(
-            StudyGoalDB.goal_id.in_(all_ids),
-            StudyGoalDB.user_id == self.user_id,
-        ).delete(synchronize_session=False)
-        self.db.commit()
+        # 批量删除（原子操作）
+        with transactional_scope(self.db):
+            self.db.query(StudyGoalDB).filter(
+                StudyGoalDB.goal_id.in_(all_ids),
+                StudyGoalDB.user_id == self.user_id,
+            ).delete(synchronize_session=False)
 
         return True
 
@@ -663,8 +663,8 @@ class StudyRepository:
             date=date or datetime.now().strftime("%Y-%m-%d"),
             user_id=self.user_id,
         )
-        self.db.add(plan)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(plan)
         self.db.refresh(plan)
         return plan
 
@@ -681,8 +681,8 @@ class StudyRepository:
         if not plan:
             return None
 
-        plan.completed = not plan.completed
-        self.db.commit()
+        with transactional_scope(self.db):
+            plan.completed = not plan.completed
         self.db.refresh(plan)
         return plan
 
@@ -698,8 +698,8 @@ class StudyRepository:
         plan = self.get_plan(plan_id)
         if not plan:
             return False
-        self.db.delete(plan)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(plan)
         return True
 
     def count_plans(self, date: Optional[str] = None) -> int:
@@ -791,8 +791,8 @@ class StudyRepository:
             content=content,
             user_id=self.user_id,
         )
-        self.db.add(note)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(note)
         self.db.refresh(note)
         return note
 
@@ -823,17 +823,16 @@ class StudyRepository:
             "tags": "tags",
         }
 
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            attr = field_map.get(key)
-            if attr and hasattr(note, attr):
-                setattr(note, attr, value)
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                attr = field_map.get(key)
+                if attr and hasattr(note, attr):
+                    setattr(note, attr, value)
 
-        note.date_label = "刚刚"
-        note.updated_at = datetime.utcnow()
-
-        self.db.commit()
+            note.date_label = "刚刚"
+            note.updated_at = datetime.utcnow()
         self.db.refresh(note)
         return note
 
@@ -849,8 +848,8 @@ class StudyRepository:
         note = self.get_note(note_id)
         if not note:
             return False
-        self.db.delete(note)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(note)
         return True
 
     def count_notes(self) -> int:
@@ -967,8 +966,8 @@ class StudyRepository:
             color_theme="blue",
             user_id=self.user_id,
         )
-        self.db.add(exam)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(exam)
         self.db.refresh(exam)
         return exam
 
@@ -984,8 +983,8 @@ class StudyRepository:
         exam = self.get_exam(exam_id)
         if not exam:
             return False
-        self.db.delete(exam)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(exam)
         return True
 
     def count_exams(self) -> int:
@@ -1041,16 +1040,16 @@ class StudyRepository:
             )
             .first()
         )
-        if meta:
-            meta.meta_value = value
-        else:
-            meta = StudyMetaDB(
-                meta_key=key,
-                meta_value=value,
-                user_id=self.user_id,
-            )
-            self.db.add(meta)
-        self.db.commit()
+        with transactional_scope(self.db):
+            if meta:
+                meta.meta_value = value
+            else:
+                meta = StudyMetaDB(
+                    meta_key=key,
+                    meta_value=value,
+                    user_id=self.user_id,
+                )
+                self.db.add(meta)
         self.db.refresh(meta)
         return meta
 

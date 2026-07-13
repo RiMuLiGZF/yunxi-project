@@ -10,7 +10,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
+import structlog
+
 from src.modes.growth.m5_client import M5GrowthClient, get_m5_client
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +79,9 @@ class GrowthService:
         try:
             today_data = await self.client.get_day_data(today)
             today_checked_in = today_data.get("checked_in", False)
-        except Exception:
+        except Exception as e:
+            logger.warning("growth_service.today_data_failed", user_id=self.user_id,
+                           error_type=type(e).__name__, error=str(e))
             pass
 
         # 快捷操作列表

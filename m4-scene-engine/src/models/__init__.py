@@ -16,6 +16,74 @@ from pydantic import BaseModel, Field
 from . import db  # noqa: F401
 
 # ---------------------------------------------------------------------------
+# API 请求模型（从 api_requests 集中导入，保持向后兼容）
+# ---------------------------------------------------------------------------
+
+from .api_requests import (  # noqa: F401
+    # 场景管理类
+    SceneSwitchRequest,
+    SceneRecognizeRequest,
+    SceneConfigUpdateRequest,
+    # 上下文类
+    ContextSaveRequest,
+    # 管理员类
+    AdminConfigUpdateRequest,
+    AdminSceneConfigRequest,
+    AdminMcpConfigUpdateRequest,
+    # MCP 工具类
+    McpToolConfig,
+    McpToolCallRequest,
+    SceneMcpToolsUpdateRequest,
+    # 技能类
+    SkillBindingConfig,
+    SkillExecuteRequest,
+    SceneSkillsUpdateRequest,
+    # 业务模式类
+    ModeEnterRequest,
+    ModeLeaveRequest,
+    # 聊天类
+    ChatSendRequest,
+    ChatConversationCreateRequest,
+    ChatNewConversationRequest,
+    # 语音类
+    VoiceSynthesizeRequest,
+    VoiceConfigUpdateRequest,
+    VoiceWakeWordConfigUpdateRequest,
+    VoiceWakeWordAddRequest,
+    VoiceWakeWordRemoveRequest,
+    VoiceAsrTranscribeRequest,
+    VoiceVadDetectRequest,
+    # 手表类
+    WatchDeviceRegisterRequest,
+    WatchDeviceBindRequest,
+    WatchDeviceUpdateRequest,
+    WatchHealthDataSubmitRequest,
+    WatchHealthSyncRequest,
+    WatchNotificationSendRequest,
+    WatchSettingsUpdateRequest,
+    # 工作空间类
+    WorkspaceVSCodeLaunchRequest,
+    WorkspaceVSCodeOpenRequest,
+    WorkspaceVSCodeExtensionRequest,
+    WorkspaceVSCodeOpenFileRequest,
+    WorkspaceVSCodeRunCommandRequest,
+    # 兼容别名
+    BindDeviceRequest,
+    DeviceUpdateRequest,
+    HealthSyncRequest,
+    SendNotificationRequest,
+    WatchSettingsUpdate,
+    TTSRequest,
+    VoiceConfigUpdate,
+    WakeWordConfigUpdate,
+    VSCodeLaunchRequest,
+    VSCodeOpenRequest,
+    VSCodeExtensionRequest,
+    VSCodeOpenFileRequest,
+    VSCodeRunCommandRequest,
+)
+
+# ---------------------------------------------------------------------------
 # 场景定义
 # ---------------------------------------------------------------------------
 
@@ -315,89 +383,6 @@ class SceneContext:
     context_data: dict[str, Any] = field(default_factory=dict)
     last_updated: float = 0.0
     update_count: int = 0
-
-
-# ---------------------------------------------------------------------------
-# Pydantic 请求模型
-# ---------------------------------------------------------------------------
-
-class SceneSwitchRequest(BaseModel):
-    """场景切换请求体."""
-    to_scene: str = Field(..., description="目标场景ID")
-    from_scene: str = Field("", description="源场景ID（可选）")
-    trigger_type: str = Field("manual", description="触发类型 manual/auto/recognize")
-    user_id: str = Field("default", description="用户ID")
-    reason: str = Field("", description="切换原因")
-
-
-class SceneRecognizeRequest(BaseModel):
-    """场景识别请求体."""
-    text: str = Field(..., description="用户输入文本")
-    context: dict[str, Any] = Field(default_factory=dict, description="上下文信息")
-    user_id: str = Field("default", description="用户ID")
-    include_all_scores: bool = Field(True, description="是否返回所有场景得分")
-
-
-class SceneConfigUpdateRequest(BaseModel):
-    """场景配置更新请求体."""
-    config: dict[str, Any] = Field(..., description="配置更新字典")
-
-
-class AdminConfigUpdateRequest(BaseModel):
-    """全局配置更新请求体."""
-    config: dict[str, Any] = Field(..., description="配置更新字典")
-
-
-class McpToolConfig(BaseModel):
-    """MCP 工具配置项."""
-    name: str = Field(..., description="MCP 工具名称")
-    params: dict[str, Any] = Field(default_factory=dict, description="默认参数")
-    trigger: str = Field("manual", description="触发时机: on_enter / on_leave / manual")
-    required: bool = Field(False, description="是否必填（失败是否阻塞场景切换）")
-
-
-class McpToolCallRequest(BaseModel):
-    """MCP 工具调用请求体."""
-    arguments: dict[str, Any] = Field(default_factory=dict, description="工具调用参数")
-
-
-class SceneMcpToolsUpdateRequest(BaseModel):
-    """场景 MCP 工具绑定更新请求体."""
-    mcp_tools: list[McpToolConfig] = Field(..., description="MCP 工具配置列表")
-
-
-# ---------------------------------------------------------------------------
-# 技能绑定模型
-# ---------------------------------------------------------------------------
-
-class SkillBindingConfig(BaseModel):
-    """场景技能绑定配置项."""
-    name: str = Field(..., description="技能名称")
-    auto_trigger: list[str] = Field(
-        default_factory=list,
-        description="自动触发时机: on_enter / on_leave，空列表表示手动触发",
-    )
-    default_params: dict[str, Any] = Field(
-        default_factory=dict,
-        description="技能默认参数",
-    )
-    required: bool = Field(False, description="是否必填（失败是否阻塞场景切换）")
-
-
-class SceneSkillsUpdateRequest(BaseModel):
-    """场景技能绑定更新请求体."""
-    skills: list[SkillBindingConfig] = Field(..., description="技能绑定配置列表")
-
-
-class SkillExecuteRequest(BaseModel):
-    """技能执行请求体."""
-    params: dict[str, Any] = Field(default_factory=dict, description="技能执行参数")
-    context: dict[str, Any] = Field(default_factory=dict, description="执行上下文")
-
-
-class ContextSaveRequest(BaseModel):
-    """上下文保存请求体."""
-    context_json: dict[str, Any] = Field(default_factory=dict, description="上下文数据字典")
 
 
 # ---------------------------------------------------------------------------

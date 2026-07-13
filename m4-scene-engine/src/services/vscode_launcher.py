@@ -15,6 +15,10 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 尝试导入 psutil（可选依赖）
@@ -51,10 +55,17 @@ class VSCodeLauncher:
     _PROCESS_NAMES = ["Code.exe", "code", "code-oss", "vscode"]
 
     def __init__(self) -> None:
-        """初始化 VS Code 启动器."""
+        """初始化 VS Code 启动器.
+
+        注意：受环境变量 M4_VSCODE_ENABLED 控制，默认为 false（完全禁用），
+        防止测试/开发环境意外弹出 VS Code 窗口或触发子进程调用。
+        需要启用时设置 M4_VSCODE_ENABLED=true。
+        """
         self._lock = Lock()
         self._cached_path: str | None = None
         self._launch_result: dict[str, Any] | None = None
+        # 全局开关：默认禁用，避免任何 VS Code 相关的子进程调用
+        self._enabled = os.environ.get("M4_VSCODE_ENABLED", "false").lower() == "true"
 
     # -----------------------------------------------------------------------
     # 检测 VS Code
@@ -62,6 +73,9 @@ class VSCodeLauncher:
 
     def detect_vscode(self) -> dict[str, Any]:
         """检测 VS Code 安装信息.
+
+        注意：当 M4_VSCODE_ENABLED=false（默认）时，直接返回未安装，
+        不进行任何子进程调用，避免意外弹出 VS Code 窗口。
 
         按优先级检测：
         1. 缓存路径
@@ -78,16 +92,25 @@ class VSCodeLauncher:
                 "source": "default_path",    # 检测来源
             }
         """
-        # 1. 使用缓存
+        # 全局禁用时直接返回未安装
+        if not self._enabled:
+            return {
+                "installed": False,
+                "path": "",
+                "version": "",
+                "source": "disabled",
+            }
+
+        # 1. 使用缓存（禁用版本检测，避免启动进程）
         if self._cached_path and os.path.exists(self._cached_path):
             return {
                 "installed": True,
                 "path": self._cached_path,
-                "version": self._get_version(self._cached_path),
+                "version": "unknown",  # 不调用 --version，避免启动进程
                 "source": "cached",
             }
 
-        # 2. Windows 默认安装路径
+        # 2. Windows 默认安装路径（禁用版本检测）
         if sys.platform == "win32":
             for path in self._WINDOWS_DEFAULT_PATHS:
                 if os.path.exists(path):
@@ -95,11 +118,11 @@ class VSCodeLauncher:
                     return {
                         "installed": True,
                         "path": path,
-                        "version": self._get_version(path),
+                        "version": "unknown",
                         "source": "default_path",
                     }
 
-        # 3. 通过 PATH 环境变量查找 code 命令
+        # 3. 通过 PATH 环境变量查找 code 命令（禁用版本检测）
         code_cmd = shutil.which("code")
         if code_cmd:
             # code 命令通常是一个脚本/批处理，需要找到真正的可执行文件
@@ -108,7 +131,7 @@ class VSCodeLauncher:
             return {
                 "installed": True,
                 "path": real_path,
-                "version": self._get_version(real_path),
+                "version": "unknown",  # 不调用 --version，避免启动进程
                 "source": "path_env",
             }
 
@@ -145,7 +168,9 @@ class VSCodeLauncher:
             for p in possible_paths:
                 if p.exists():
                     return str(p)
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode.resolve_exe_path_failed", code_cmd=code_cmd,
+                           error_type=type(e).__name__, error=str(e))
             pass
 
         return code_cmd
@@ -170,7 +195,9 @@ class VSCodeLauncher:
                     info = ver_parser.GetFileVersion(exe_path)
                     if info:
                         return str(info).strip()
-                except Exception:
+                except Exception as e:
+                    logger.debug("vscode.win32_version_failed", exe_path=exe_path,
+                                 error_type=type(e).__name__, error=str(e))
                     pass
 
             # 回退方案：使用子进程，但增加 CREATE_NO_WINDOW 标志
@@ -189,7 +216,9 @@ class VSCodeLauncher:
                 lines = result.stdout.strip().splitlines()
                 if lines:
                     return lines[0].strip()
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode.version_check_failed", exe_path=exe_path,
+                           error_type=type(e).__name__, error=str(e))
             pass
         return ""
 
@@ -298,11 +327,16 @@ class VSCodeLauncher:
     def is_running(self) -> bool:
         """检查 VS Code 是否正在运行.
 
+        注意：VS Code 禁用时直接返回 False，避免任何子进程调用。
+
         优先使用 psutil，回退到 tasklist（Windows）。
 
         Returns:
             True 表示正在运行，False 表示未运行
         """
+        if not self._enabled:
+            return False
+
         if _HAS_PSUTIL:
             return self._check_with_psutil()
 
@@ -322,7 +356,8 @@ class VSCodeLauncher:
                         return True
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode.psutil_check_failed", error_type=type(e).__name__, error=str(e))
             pass
         return False
 
@@ -337,7 +372,8 @@ class VSCodeLauncher:
             )
             # 如果输出中包含 Code.exe 说明进程存在
             return "Code.exe" in result.stdout
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode.tasklist_check_failed", error_type=type(e).__name__, error=str(e))
             return False
 
     def _check_with_ps(self) -> bool:
@@ -353,7 +389,8 @@ class VSCodeLauncher:
             for name in self._PROCESS_NAMES:
                 if name.lower() in output:
                     return True
-        except Exception:
+        except Exception as e:
+            logger.warning("vscode.ps_check_failed", error_type=type(e).__name__, error=str(e))
             pass
         return False
 
@@ -363,6 +400,8 @@ class VSCodeLauncher:
 
     def open_file(self, file_path: str, line: int | None = None) -> dict[str, Any]:
         """使用 VS Code 打开指定文件，可跳转到指定行号.
+
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
 
         Args:
             file_path: 要打开的文件路径
@@ -376,6 +415,13 @@ class VSCodeLauncher:
                 "data": {"file_path": "...", "line": 行号},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"file_path": file_path, "line": line},
+            }
+
         # 检测安装
         detect_result = self.detect_vscode()
         if not detect_result["installed"]:
@@ -430,6 +476,8 @@ class VSCodeLauncher:
     def install_extension(self, extension_id: str) -> dict[str, Any]:
         """安装 VS Code 扩展.
 
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
+
         Args:
             extension_id: 扩展ID（如 ms-python.python）
 
@@ -441,6 +489,13 @@ class VSCodeLauncher:
                 "data": {"extension_id": "..."},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"extension_id": extension_id},
+            }
+
         detect_result = self.detect_vscode()
         if not detect_result["installed"]:
             return {
@@ -488,6 +543,8 @@ class VSCodeLauncher:
     def uninstall_extension(self, extension_id: str) -> dict[str, Any]:
         """卸载 VS Code 扩展.
 
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
+
         Args:
             extension_id: 扩展ID（如 ms-python.python）
 
@@ -499,6 +556,13 @@ class VSCodeLauncher:
                 "data": {"extension_id": "..."},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"extension_id": extension_id},
+            }
+
         detect_result = self.detect_vscode()
         if not detect_result["installed"]:
             return {
@@ -546,6 +610,8 @@ class VSCodeLauncher:
     def list_extensions(self) -> dict[str, Any]:
         """列出已安装的 VS Code 扩展.
 
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
+
         Returns:
             结果字典:
             {
@@ -554,6 +620,13 @@ class VSCodeLauncher:
                 "data": {"extensions": [...], "count": 数量},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"extensions": [], "count": 0},
+            }
+
         detect_result = self.detect_vscode()
         if not detect_result["installed"]:
             return {
@@ -617,6 +690,8 @@ class VSCodeLauncher:
     def run_command(self, command: str, cwd: str | None = None) -> dict[str, Any]:
         """在 VS Code 集成终端中执行命令.
 
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
+
         实际通过独立终端进程执行命令（VS Code 无直接执行终端命令的 CLI 参数）。
         命令结果通过标准输出捕获返回。
 
@@ -632,6 +707,13 @@ class VSCodeLauncher:
                 "data": {"command": "...", "stdout": "...", "stderr": "...", "returncode": 0},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"command": command, "stdout": "", "stderr": "", "returncode": -1},
+            }
+
         if not command.strip():
             return {
                 "success": False,
@@ -683,6 +765,8 @@ class VSCodeLauncher:
     def open_terminal(self, project_path: str | None = None) -> dict[str, Any]:
         """打开 VS Code 终端.
 
+        注意：VS Code 禁用时直接返回失败，避免任何子进程调用。
+
         通过启动 VS Code 并在指定目录打开的方式，间接打开集成终端。
         Windows 平台额外尝试直接打开系统终端到目标目录。
 
@@ -697,6 +781,13 @@ class VSCodeLauncher:
                 "data": {"project_path": "..."},
             }
         """
+        if not self._enabled:
+            return {
+                "success": False,
+                "message": "VS Code 功能已禁用（M4_VSCODE_ENABLED=false）",
+                "data": {"project_path": project_path or ""},
+            }
+
         try:
             # 优先使用 VS Code 打开项目目录（会自动显示集成终端区域）
             detect_result = self.detect_vscode()
@@ -825,11 +916,16 @@ class VSCodeLauncher:
     def close_vscode(self) -> bool:
         """关闭 VS Code.
 
+        注意：VS Code 禁用时直接返回 False，避免任何子进程调用。
+
         优先使用优雅关闭（taskkill /IM），失败则强制终止。
 
         Returns:
             True 表示关闭成功，False 表示失败或进程不存在
         """
+        if not self._enabled:
+            return False
+
         with self._lock:
             if not self.is_running():
                 return False
@@ -869,7 +965,8 @@ class VSCodeLauncher:
 
                 return not self.is_running()
 
-            except Exception:
+            except Exception as e:
+                logger.error("vscode.close_failed", error_type=type(e).__name__, error=str(e))
                 return False
 
 

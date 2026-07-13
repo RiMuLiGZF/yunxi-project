@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from src.modes.base_mode import BaseMode
+
+logger = structlog.get_logger(__name__)
 
 
 class EmotionComfortMode(BaseMode):
@@ -56,7 +60,9 @@ class EmotionComfortMode(BaseMode):
             service = EmotionService(db, user_id=user_id)
             overview = service.get_overview()
             db.close()
-        except Exception:
+        except Exception as e:
+            logger.warning("emotion_mode.overview_load_failed", user_id=user_id,
+                           error_type=type(e).__name__, error=str(e))
             overview = {"stats": {}, "current_mood": None}
 
         return {

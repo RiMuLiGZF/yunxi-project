@@ -9,13 +9,13 @@ import os
 from pathlib import Path
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-try:
-    from src.models import make_response
-except ImportError:
-    from models import make_response  # type: ignore
+from src.models import make_response
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["工作空间"])
 
@@ -61,13 +61,11 @@ def _get_vscode_launcher(request: Request) -> Any:
     """从 request state 获取 VS Code 启动器实例.
 
     如果 state 中没有，则创建单例。
+    使用懒加载（函数内导入），避免模块级循环依赖。
     """
     launcher = getattr(request.app.state, "vscode_launcher", None)
     if launcher is None:
-        try:
-            from src.services.vscode_launcher import get_vscode_launcher
-        except ImportError:
-            from services.vscode_launcher import get_vscode_launcher  # type: ignore
+        from src.services.vscode_launcher import get_vscode_launcher
         launcher = get_vscode_launcher()
         request.app.state.vscode_launcher = launcher
     return launcher
@@ -154,7 +152,9 @@ def _get_common_projects() -> list[dict[str, Any]]:
                             first_line = f.readline().strip()
                             if first_line.startswith("#"):
                                 desc = first_line.lstrip("# ").strip()
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("workspace.readme_read_failed", path=str(readme),
+                                     error_type=type(e).__name__, error=str(e))
                         pass
 
                 projects.append({

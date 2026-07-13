@@ -9,9 +9,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
+import structlog
 from sqlalchemy.orm import Session
 
 from src.modes.study_plan.repository import StudyRepository
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +36,9 @@ def _calc_duration(start: str, end: str) -> float:
         sh, sm = map(int, start.split(":"))
         eh, em = map(int, end.split(":"))
         return round((eh * 60 + em - sh * 60 - sm) / 60, 1)
-    except Exception:
+    except Exception as e:
+        logger.debug("study_plan.duration_calc_failed", start=start, end=end,
+                     error_type=type(e).__name__, error=str(e))
         return 1.0
 
 

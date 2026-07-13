@@ -12,6 +12,7 @@ from typing import Any, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     SocialContactDB,
     SocialEqLessonDB,
@@ -188,43 +189,43 @@ def seed_social_data(db: Session, user_id: str = "default") -> bool:
     if contact_count > 0:
         return False
 
-    # 插入默认联系人
-    for contact in _get_default_contacts(user_id):
-        db.add(contact)
-    db.flush()  # 获取生成的 ID
+    with transactional_scope(db):
+        # 插入默认联系人
+        for contact in _get_default_contacts(user_id):
+            db.add(contact)
+        db.flush()  # 获取生成的 ID
 
-    # 重新获取联系人以建立姓名到 ID 的映射
-    contacts = (
-        db.query(SocialContactDB)
-        .filter(SocialContactDB.user_id == user_id)
-        .all()
-    )
-    name_to_id = {c.name: c.id for c in contacts}
+        # 重新获取联系人以建立姓名到 ID 的映射
+        contacts = (
+            db.query(SocialContactDB)
+            .filter(SocialContactDB.user_id == user_id)
+            .all()
+        )
+        name_to_id = {c.name: c.id for c in contacts}
 
-    # 插入默认交往记录（根据姓名更新 contact_id）
-    for interaction in _get_default_interactions(user_id):
-        if interaction.contact_id and interaction.contact_name in name_to_id:
-            interaction.contact_id = name_to_id[interaction.contact_name]
-        db.add(interaction)
+        # 插入默认交往记录（根据姓名更新 contact_id）
+        for interaction in _get_default_interactions(user_id):
+            if interaction.contact_id and interaction.contact_name in name_to_id:
+                interaction.contact_id = name_to_id[interaction.contact_name]
+            db.add(interaction)
 
-    # 插入默认提醒（根据索引映射到实际联系人 ID）
-    reminder_defaults = _get_default_reminders(user_id)
-    contact_names = [
-        "张小明", "李雨晴", "王大伟", "陈思琪",
-        "刘子豪", "赵雅婷", "孙浩然", "周雨萱",
-    ]
-    for reminder in reminder_defaults:
-        if reminder.contact_id:
-            idx = reminder.contact_id - 1
-            if idx < len(contact_names) and contact_names[idx] in name_to_id:
-                reminder.contact_id = name_to_id[contact_names[idx]]
-        db.add(reminder)
+        # 插入默认提醒（根据索引映射到实际联系人 ID）
+        reminder_defaults = _get_default_reminders(user_id)
+        contact_names = [
+            "张小明", "李雨晴", "王大伟", "陈思琪",
+            "刘子豪", "赵雅婷", "孙浩然", "周雨萱",
+        ]
+        for reminder in reminder_defaults:
+            if reminder.contact_id:
+                idx = reminder.contact_id - 1
+                if idx < len(contact_names) and contact_names[idx] in name_to_id:
+                    reminder.contact_id = name_to_id[contact_names[idx]]
+            db.add(reminder)
 
-    # 插入默认情商课程
-    for lesson in _get_default_eq_lessons(user_id):
-        db.add(lesson)
+        # 插入默认情商课程
+        for lesson in _get_default_eq_lessons(user_id):
+            db.add(lesson)
 
-    db.commit()
     print(f"[Seed] 人际关系模式默认数据初始化完成 (user_id={user_id})")
     return True
 
@@ -334,8 +335,8 @@ class SocialRepository:
             last_contact_at=None,
             user_id=self.user_id,
         )
-        self.db.add(contact)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(contact)
         self.db.refresh(contact)
         return contact
 
@@ -375,14 +376,13 @@ class SocialRepository:
             "note": "note",
         }
 
-        for key, value in kwargs.items():
-            if value is None:
-                continue
-            attr = field_map.get(key)
-            if attr and hasattr(contact, attr):
-                setattr(contact, attr, value)
-
-        self.db.commit()
+        with transactional_scope(self.db):
+            for key, value in kwargs.items():
+                if value is None:
+                    continue
+                attr = field_map.get(key)
+                if attr and hasattr(contact, attr):
+                    setattr(contact, attr, value)
         self.db.refresh(contact)
         return contact
 
@@ -399,20 +399,21 @@ class SocialRepository:
         if not contact:
             return False
 
-        # 删除相关交往记录
-        self.db.query(SocialInteractionDB).filter(
-            SocialInteractionDB.user_id == self.user_id,
-            SocialInteractionDB.contact_id == contact_id,
-        ).delete(synchronize_session=False)
+        with transactional_scope(self.db):
+            # 删除相关交往记录
+            self.db.query(SocialInteractionDB).filter(
+                SocialInteractionDB.user_id == self.user_id,
+                SocialInteractionDB.contact_id == contact_id,
+            ).delete(synchronize_session=False)
 
-        # 删除相关提醒
-        self.db.query(SocialReminderDB).filter(
-            SocialReminderDB.user_id == self.user_id,
-            SocialReminderDB.contact_id == contact_id,
-        ).delete(synchronize_session=False)
+            # 删除相关提醒
+            self.db.query(SocialReminderDB).filter(
+                SocialReminderDB.user_id == self.user_id,
+                SocialReminderDB.contact_id == contact_id,
+            ).delete(synchronize_session=False)
 
-        self.db.delete(contact)
-        self.db.commit()
+            self.db.delete(contact)
+
         return True
 
     def update_contact_stats(self, contact_id: int) -> None:
@@ -425,9 +426,9 @@ class SocialRepository:
         """
         contact = self.get_contact(contact_id)
         if contact:
-            contact.last_contact_at = datetime.utcnow()
-            contact.contact_count += 1
-            self.db.commit()
+            with transactional_scope(self.db):
+                contact.last_contact_at = datetime.utcnow()
+                contact.contact_count += 1
 
     def count_contacts(self) -> int:
         """统计联系人总数.
@@ -518,8 +519,8 @@ class SocialRepository:
             location=location,
             user_id=self.user_id,
         )
-        self.db.add(interaction)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(interaction)
         self.db.refresh(interaction)
         return interaction
 
@@ -606,8 +607,8 @@ class SocialRepository:
             priority=priority,
             user_id=self.user_id,
         )
-        self.db.add(reminder)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(reminder)
         self.db.refresh(reminder)
         return reminder
 
@@ -648,8 +649,8 @@ class SocialRepository:
             return None
 
         if status in ("pending", "done", "cancelled"):
-            reminder.status = status
-            self.db.commit()
+            with transactional_scope(self.db):
+                reminder.status = status
             self.db.refresh(reminder)
         return reminder
 
@@ -664,8 +665,8 @@ class SocialRepository:
         """
         reminder = self.get_reminder(reminder_id)
         if reminder:
-            self.db.delete(reminder)
-            self.db.commit()
+            with transactional_scope(self.db):
+                self.db.delete(reminder)
             return True
         return False
 

@@ -16,9 +16,12 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+import structlog
 from sqlalchemy.orm import Session
 
 from src.modes.work_dev.repository import WorkDevRepository
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -884,7 +887,9 @@ class WorkDevService:
             if temp_file and os.path.exists(temp_file):
                 try:
                     os.unlink(temp_file)
-                except Exception:
+                except Exception as e:
+                    logger.warning("work_dev.sandbox_cleanup_failed", temp_file=temp_file,
+                                   error_type=type(e).__name__, error=str(e))
                     pass
 
     def _get_safe_environ(self) -> dict[str, str]:

@@ -9,9 +9,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+import structlog
 from sqlalchemy.orm import Session
 
 from src.modes.life_management.repository import LifeRepository
+
+logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +153,9 @@ class LifeService:
             if len(parts) == 2:
                 start_time = parts[0]
                 end_time = parts[1]
-        except Exception:
+        except Exception as e:
+            logger.debug("life_service.time_range_parse_failed", time_range=time_range,
+                         error_type=type(e).__name__, error=str(e))
             pass
 
         schedule = self.repo.create_schedule(

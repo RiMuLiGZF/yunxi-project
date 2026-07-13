@@ -13,6 +13,7 @@ from typing import Any, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from src.common.db_transaction import transactional_scope
 from src.database import (
     LifeFinanceCategoryDB,
     LifeFinanceRecordDB,
@@ -338,43 +339,43 @@ def seed_life_data(db: Session, user_id: str = "default") -> bool:
     if schedule_count > 0:
         return False
 
-    # 插入日程
-    for s in _get_default_schedules(user_id):
-        db.add(s)
+    with transactional_scope(db):
+        # 插入日程
+        for s in _get_default_schedules(user_id):
+            db.add(s)
 
-    # 插入待办
-    for t in _get_default_todos(user_id):
-        db.add(t)
+        # 插入待办
+        for t in _get_default_todos(user_id):
+            db.add(t)
 
-    # 插入习惯
-    for h in _get_default_habits(user_id):
-        db.add(h)
+        # 插入习惯
+        for h in _get_default_habits(user_id):
+            db.add(h)
 
-    # 插入习惯打卡记录
-    for hr in _get_default_habit_records(user_id):
-        db.add(hr)
+        # 插入习惯打卡记录
+        for hr in _get_default_habit_records(user_id):
+            db.add(hr)
 
-    # 插入场景
-    for s in _get_default_scenes(user_id):
-        db.add(s)
+        # 插入场景
+        for s in _get_default_scenes(user_id):
+            db.add(s)
 
-    # 插入规则
-    for r in _get_default_rules(user_id):
-        db.add(r)
+        # 插入规则
+        for r in _get_default_rules(user_id):
+            db.add(r)
 
-    # 插入财务分类
-    for fc in _get_default_finance_categories(user_id):
-        db.add(fc)
+        # 插入财务分类
+        for fc in _get_default_finance_categories(user_id):
+            db.add(fc)
 
-    # 插入财务记录
-    for fr in _get_default_finance_records(user_id):
-        db.add(fr)
+        # 插入财务记录
+        for fr in _get_default_finance_records(user_id):
+            db.add(fr)
 
-    # 插入元数据
-    for m in _get_default_meta_entries(user_id):
-        db.add(m)
+        # 插入元数据
+        for m in _get_default_meta_entries(user_id):
+            db.add(m)
 
-    db.commit()
     print(f"[Seed] 生活管理模式默认数据初始化完成 (user_id={user_id})")
     return True
 
@@ -501,8 +502,8 @@ class LifeRepository:
             status="active",
             user_id=self.user_id,
         )
-        self.db.add(schedule)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(schedule)
         self.db.refresh(schedule)
         return schedule
 
@@ -518,8 +519,8 @@ class LifeRepository:
         schedule = self.get_schedule(schedule_id)
         if not schedule:
             return False
-        self.db.delete(schedule)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(schedule)
         return True
 
     def count_schedules(self, date: Optional[str] = None) -> int:
@@ -625,8 +626,8 @@ class LifeRepository:
             due_date=due_date,
             user_id=self.user_id,
         )
-        self.db.add(todo)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(todo)
         self.db.refresh(todo)
         return todo
 
@@ -646,22 +647,22 @@ class LifeRepository:
         if not todo:
             return None
 
-        todo.status = status
-        if status == "done":
-            todo.progress = 100
-            todo.completed_at = datetime.utcnow()
-        elif status == "in-progress":
-            todo.progress = todo.progress if todo.progress and todo.progress > 0 else 50
-            todo.completed_at = None
-        else:
-            todo.progress = 0
-            todo.completed_at = None
+        with transactional_scope(self.db):
+            todo.status = status
+            if status == "done":
+                todo.progress = 100
+                todo.completed_at = datetime.utcnow()
+            elif status == "in-progress":
+                todo.progress = todo.progress if todo.progress and todo.progress > 0 else 50
+                todo.completed_at = None
+            else:
+                todo.progress = 0
+                todo.completed_at = None
 
-        # 更新 category
-        cat_map = {"todo": "今日待办", "in-progress": "进行中", "done": "已完成"}
-        todo.category = cat_map.get(status, todo.category)
+            # 更新 category
+            cat_map = {"todo": "今日待办", "in-progress": "进行中", "done": "已完成"}
+            todo.category = cat_map.get(status, todo.category)
 
-        self.db.commit()
         self.db.refresh(todo)
         return todo
 
@@ -677,8 +678,8 @@ class LifeRepository:
         todo = self.get_todo(todo_id)
         if not todo:
             return False
-        self.db.delete(todo)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(todo)
         return True
 
     def count_todos(self, status: Optional[str] = None) -> int:
@@ -775,8 +776,8 @@ class LifeRepository:
             status="active",
             user_id=self.user_id,
         )
-        self.db.add(habit)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(habit)
         self.db.refresh(habit)
         return habit
 
@@ -794,23 +795,23 @@ class LifeRepository:
             return None
 
         if not habit.done:
-            habit.done = True
-            habit.streak += 1
-            if habit.streak > habit.longest_streak:
-                habit.longest_streak = habit.streak
+            with transactional_scope(self.db):
+                habit.done = True
+                habit.streak += 1
+                if habit.streak > habit.longest_streak:
+                    habit.longest_streak = habit.streak
 
-            # 创建打卡记录
-            today_str = datetime.now().strftime("%Y-%m-%d")
-            record = LifeHabitRecordDB(
-                habit_id=habit_id,
-                date=today_str,
-                completed=True,
-                note="",
-                user_id=self.user_id,
-            )
-            self.db.add(record)
+                # 创建打卡记录（习惯更新+打卡记录在同一事务中）
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                record = LifeHabitRecordDB(
+                    habit_id=habit_id,
+                    date=today_str,
+                    completed=True,
+                    note="",
+                    user_id=self.user_id,
+                )
+                self.db.add(record)
 
-            self.db.commit()
             self.db.refresh(habit)
 
         return habit
@@ -828,14 +829,15 @@ class LifeRepository:
         if not habit:
             return False
 
-        # 删除相关打卡记录
-        self.db.query(LifeHabitRecordDB).filter(
-            LifeHabitRecordDB.user_id == self.user_id,
-            LifeHabitRecordDB.habit_id == habit_id,
-        ).delete(synchronize_session=False)
+        with transactional_scope(self.db):
+            # 删除相关打卡记录
+            self.db.query(LifeHabitRecordDB).filter(
+                LifeHabitRecordDB.user_id == self.user_id,
+                LifeHabitRecordDB.habit_id == habit_id,
+            ).delete(synchronize_session=False)
 
-        self.db.delete(habit)
-        self.db.commit()
+            self.db.delete(habit)
+
         return True
 
     def count_habits(self, done: Optional[bool] = None) -> int:
@@ -960,16 +962,15 @@ class LifeRepository:
             .all()
         )
         target = None
-        for s in scenes:
-            if s.scene_id == scene_key:
-                s.active = True
-                s.is_active = True
-                target = s
-            else:
-                s.active = False
-                s.is_active = False
-
-        self.db.commit()
+        with transactional_scope(self.db):
+            for s in scenes:
+                if s.scene_id == scene_key:
+                    s.active = True
+                    s.is_active = True
+                    target = s
+                else:
+                    s.active = False
+                    s.is_active = False
 
         if target:
             self.db.refresh(target)
@@ -1049,8 +1050,8 @@ class LifeRepository:
             enabled=True,
             user_id=self.user_id,
         )
-        self.db.add(rule)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(rule)
         self.db.refresh(rule)
         return rule
 
@@ -1067,8 +1068,8 @@ class LifeRepository:
         if not rule:
             return None
 
-        rule.enabled = not rule.enabled
-        self.db.commit()
+        with transactional_scope(self.db):
+            rule.enabled = not rule.enabled
         self.db.refresh(rule)
         return rule
 
@@ -1084,8 +1085,8 @@ class LifeRepository:
         rule = self.get_rule(rule_id)
         if not rule:
             return False
-        self.db.delete(rule)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.delete(rule)
         return True
 
     # -----------------------------------------------------------------------
@@ -1181,8 +1182,8 @@ class LifeRepository:
             transaction_date=transaction_date or datetime.now().strftime("%Y-%m-%d"),
             user_id=self.user_id,
         )
-        self.db.add(record)
-        self.db.commit()
+        with transactional_scope(self.db):
+            self.db.add(record)
         self.db.refresh(record)
         return record
 
@@ -1291,16 +1292,16 @@ class LifeRepository:
             )
             .first()
         )
-        if meta:
-            meta.meta_value = value
-        else:
-            meta = LifeMetaDB(
-                meta_key=key,
-                meta_value=value,
-                user_id=self.user_id,
-            )
-            self.db.add(meta)
-        self.db.commit()
+        with transactional_scope(self.db):
+            if meta:
+                meta.meta_value = value
+            else:
+                meta = LifeMetaDB(
+                    meta_key=key,
+                    meta_value=value,
+                    user_id=self.user_id,
+                )
+                self.db.add(meta)
         self.db.refresh(meta)
         return meta
 
