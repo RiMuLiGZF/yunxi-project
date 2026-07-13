@@ -3,37 +3,16 @@ M6 硬件外设 - 设备管理 API
 设备列表、详情、配对、扫描等
 """
 
-import uuid
-import time
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .deps import get_device_manager
+from .utils import success_response, get_device_or_404
 from ..services.device_manager import DeviceManager
 from ..models.device import DeviceStatus, DeviceType
 
 router = APIRouter()
-
-# 统一响应格式辅助函数
-def _success(data=None, message: str = "ok"):
-    return {
-        "code": 0,
-        "message": message,
-        "data": data,
-        "request_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
-
-
-def _error(code: int, message: str):
-    return {
-        "code": code,
-        "message": message,
-        "data": None,
-        "request_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
 
 
 # 请求模型
@@ -52,7 +31,7 @@ async def list_device_types():
         {"key": t.value, "name": t.value, "description": _get_type_desc(t.value)}
         for t in DeviceType
     ]
-    return _success({
+    return success_response({
         "total": len(types),
         "types": types,
     })
@@ -81,7 +60,7 @@ async def list_devices(
     type_enum = DeviceType(device_type) if device_type else None
 
     devices = dm.list_devices(status=status_enum, device_type=type_enum)
-    return _success({
+    return success_response({
         "total": len(devices),
         "devices": devices,
     })
@@ -91,16 +70,14 @@ async def list_devices(
 async def get_device_stats(dm: DeviceManager = Depends(get_device_manager)):
     """获取设备统计数据"""
     stats = dm.get_stats()
-    return _success(stats)
+    return success_response(stats)
 
 
 @router.get("/{device_id}", summary="获取设备详情")
 async def get_device(device_id: str, dm: DeviceManager = Depends(get_device_manager)):
     """获取单个设备的详细信息（含最新传感器数据）"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
-    return _success(device)
+    device = get_device_or_404(dm, device_id)
+    return success_response(device)
 
 
 @router.post("/{device_id}/pair", summary="配对设备")
@@ -109,7 +86,7 @@ async def pair_device(device_id: str, dm: DeviceManager = Depends(get_device_man
     result = dm.pair_device(device_id)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
-    return _success(result, "配对成功")
+    return success_response(result, "配对成功")
 
 
 @router.post("/{device_id}/unpair", summary="取消配对")
@@ -118,7 +95,7 @@ async def unpair_device(device_id: str, dm: DeviceManager = Depends(get_device_m
     result = dm.unpair_device(device_id)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
-    return _success(result, "已取消配对")
+    return success_response(result, "已取消配对")
 
 
 @router.put("/{device_id}/config", summary="更新设备配置")
@@ -131,14 +108,14 @@ async def update_device_config(device_id: str, body: DeviceConfigUpdate, dm: Dev
     result = dm.update_device_config(device_id, config_dict)
     if not result["success"]:
         raise HTTPException(status_code=404, detail=result["message"])
-    return _success(result, "配置已更新")
+    return success_response(result, "配置已更新")
 
 
 @router.post("/scan", summary="扫描附近设备")
 async def scan_devices(dm: DeviceManager = Depends(get_device_manager)):
     """扫描附近可发现的设备（模拟）"""
     found = dm.scan_devices()
-    return _success({
+    return success_response({
         "found_count": len(found),
         "devices": found,
     }, "扫描完成")

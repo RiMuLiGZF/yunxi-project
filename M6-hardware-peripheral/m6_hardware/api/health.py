@@ -3,11 +3,11 @@ M6 硬件外设 - 健康检查 API
 服务健康状态、统计信息
 """
 
-import uuid
 import time
 from fastapi import APIRouter, Depends
 
 from .deps import get_config, get_device_manager, get_data_collector, get_sse_manager
+from .utils import success_response
 from ..config import M6Config
 from ..services.device_manager import DeviceManager
 from ..services.data_collector import DataCollector
@@ -16,23 +16,13 @@ from ..realtime.sse_manager import SSEManager
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    return {
-        "code": 0,
-        "message": message,
-        "data": data,
-        "request_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
-
-
 _start_time = time.time()
 
 
 @router.get("", summary="健康检查")
 async def health_check(config: M6Config = Depends(get_config)):
     """服务健康检查端点"""
-    return _success({
+    return success_response({
         "status": "healthy",
         "module": "m6-hardware",
         "version": "1.0.0",
@@ -51,7 +41,7 @@ async def service_stats(
     """获取服务运行统计信息"""
     device_stats = dm.get_stats()
 
-    return _success({
+    return success_response({
         "module": "m6-hardware",
         "version": "1.0.0",
         "uptime_seconds": int(time.time() - _start_time),

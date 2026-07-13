@@ -3,27 +3,16 @@ M6 硬件外设 - 传感器数据 API
 实时数据、历史数据查询
 """
 
-import uuid
-import time
 from typing import Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, Depends
 
 from .deps import get_device_manager, get_data_collector
+from .utils import success_response, get_device_or_404
 from ..services.data_collector import DataCollector
 from ..services.device_manager import DeviceManager
 
 router = APIRouter()
-
-
-def _success(data=None, message: str = "ok"):
-    return {
-        "code": 0,
-        "message": message,
-        "data": data,
-        "request_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
 
 
 @router.get("/{device_id}", summary="获取设备最新传感器数据")
@@ -33,12 +22,10 @@ async def get_latest_sensor_data(
     dc: DataCollector = Depends(get_data_collector),
 ):
     """获取指定设备的最新传感器数据"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     data = dc.get_latest_sensor_data(device_id)
-    return _success(data)
+    return success_response(data)
 
 
 @router.get("/{device_id}/history", summary="获取传感器历史数据")
@@ -52,9 +39,7 @@ async def get_sensor_history(
     dc: DataCollector = Depends(get_data_collector),
 ):
     """查询传感器历史数据，支持按时间范围和传感器类型筛选"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     # 解析时间
     start_dt = None
@@ -80,7 +65,7 @@ async def get_sensor_history(
         limit=limit,
     )
 
-    return _success({
+    return success_response({
         "device_id": device_id,
         "sensor_type": sensor_type or "all",
         "total": len(history),
@@ -100,9 +85,7 @@ async def get_specific_sensor(
     dc: DataCollector = Depends(get_data_collector),
 ):
     """获取指定设备特定传感器的历史数据"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     end_dt = datetime.now()
     start_dt = end_dt - timedelta(hours=hours)
@@ -115,7 +98,7 @@ async def get_specific_sensor(
         limit=limit,
     )
 
-    return _success({
+    return success_response({
         "device_id": device_id,
         "sensor_type": sensor_type,
         "total": len(history),

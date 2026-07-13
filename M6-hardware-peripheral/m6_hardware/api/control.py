@@ -3,27 +3,16 @@ M6 硬件外设 - 设备控制 API
 设备动作指令、通知推送
 """
 
-import uuid
-import time
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from .deps import get_device_manager, get_notification_service
+from .utils import success_response, get_device_or_404
 from ..services.device_manager import DeviceManager
 from ..services.notification import NotificationService
 
 router = APIRouter()
-
-
-def _success(data=None, message: str = "ok"):
-    return {
-        "code": 0,
-        "message": message,
-        "data": data,
-        "request_id": uuid.uuid4().hex[:16],
-        "timestamp": time.time(),
-    }
 
 
 # 请求模型
@@ -65,7 +54,7 @@ async def send_device_action(
     if not result.get("success", False):
         raise HTTPException(status_code=400, detail=result.get("message", "动作执行失败"))
 
-    return _success(result, "指令已发送")
+    return success_response(result, "指令已发送")
 
 
 @router.post("/{device_id}/notify", summary="向设备推送通知")
@@ -76,9 +65,7 @@ async def push_notification(
     ns: NotificationService = Depends(get_notification_service),
 ):
     """向指定设备推送通知消息"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     result = ns.push_to_device(
         device_id=device_id,
@@ -90,7 +77,7 @@ async def push_notification(
     if not result.get("success", False):
         raise HTTPException(status_code=400, detail=result.get("message", "推送失败"))
 
-    return _success(result, "通知已推送")
+    return success_response(result, "通知已推送")
 
 
 @router.get("/{device_id}/alerts", summary="获取设备告警列表")
@@ -102,13 +89,11 @@ async def get_device_alerts(
     ns: NotificationService = Depends(get_notification_service),
 ):
     """获取设备的告警列表"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     alerts = ns.get_recent_alerts(device_id=device_id, limit=limit, clear=clear)
 
-    return _success({
+    return success_response({
         "device_id": device_id,
         "total": len(alerts),
         "alerts": alerts,
@@ -123,13 +108,11 @@ async def get_device_notifications(
     ns: NotificationService = Depends(get_notification_service),
 ):
     """获取设备的通知历史"""
-    device = dm.get_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
+    get_device_or_404(dm, device_id)
 
     notifications = ns.get_recent_notifications(device_id=device_id, limit=limit)
 
-    return _success({
+    return success_response({
         "device_id": device_id,
         "total": len(notifications),
         "notifications": notifications,

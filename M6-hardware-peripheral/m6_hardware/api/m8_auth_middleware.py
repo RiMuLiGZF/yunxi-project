@@ -8,10 +8,11 @@ M8 统一鉴权中间件
 
 import os
 import hmac
-import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from .utils import error_response
 
 
 # 白名单路径（无需鉴权即可访问）
@@ -111,27 +112,17 @@ class M8AuthMiddleware(BaseHTTPMiddleware):
         # 提取并验证 token
         token = _extract_token(request)
         if not token:
-            request_id = uuid.uuid4().hex[:16]
-            return JSONResponse(
+            return error_response(
+                message="未提供认证令牌",
+                code=40100,
                 status_code=401,
-                content={
-                    "code": 40100,
-                    "message": "未提供认证令牌",
-                    "data": None,
-                    "request_id": request_id,
-                },
             )
 
         if not _verify_token(token):
-            request_id = uuid.uuid4().hex[:16]
-            return JSONResponse(
+            return error_response(
+                message="认证令牌无效",
+                code=40101,
                 status_code=401,
-                content={
-                    "code": 40101,
-                    "message": "认证令牌无效",
-                    "data": None,
-                    "request_id": request_id,
-                },
             )
 
         # Token 验证通过，继续处理
