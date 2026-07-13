@@ -44,6 +44,7 @@ from m6_hardware.services.device_manager import DeviceManager
 from m6_hardware.services.data_collector import DataCollector
 from m6_hardware.services.notification import NotificationService
 from m6_hardware.realtime.sse_manager import SSEManager
+from m6_hardware.models.errors import M6Exception
 
 # ---------------------------------------------------------------------------
 # 生命周期管理
@@ -119,6 +120,14 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# P1-4: 统一异常处理器
+# ---------------------------------------------------------------------------
+@app.exception_handler(M6Exception)
+async def m6_exception_handler(request, exc: M6Exception):
+    """捕获 M6Exception 并返回标准化 JSONResponse"""
+    return exc.to_json_response()
 
 # ---------------------------------------------------------------------------
 # CORS 中间件

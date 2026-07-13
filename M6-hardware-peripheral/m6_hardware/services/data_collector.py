@@ -1,18 +1,19 @@
 """
 M6 硬件外设 - 数据采集服务
 后台定时任务，采集所有在线设备的传感器数据并存入 SQLite
+
+P1-5 改造：数据库操作委托给 Repository，连接管理委托给 DatabaseConnection，
+本层仅保留业务事务编排与采集调度逻辑。
 """
 
 import asyncio
 import logging
-import sqlite3
-import time
 import traceback
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from ..config import get_config
+from ..database import DatabaseConnection, get_db, SensorDataRepository, DeviceStatusRepository
 from .device_manager import get_device_manager
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ class DataCollector:
 
     P0-4 改造：移除 __new__ 单例模式，改为由 FastAPI lifespan 统一创建管理。
     模块级 get_data_collector() 作为向后兼容层保留（标记 deprecated）。
+
+    P1-5 改造：数据库 SQL 操作下沉至 Repository，连接管理下沉至 DatabaseConnection。
     """
 
     def __init__(self, config=None, device_manager=None):
@@ -39,60 +42,8 @@ class DataCollector:
         self._db_path = self._config.database_path
         self._running = False
         self._task: Optional[asyncio.Task] = None
-        self._init_database()
-
-    def _init_database(self):
-        """初始化数据库表结构"""
-        db_dir = Path(self._db_path).parent
-        db_dir.mkdir(parents=True, exist_ok=True)
-
-        conn = sqlite3.connect(self._db_path)
-        try:
-            cursor = conn.cursor()
-
-            # 传感器数据表
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS sensor_data (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    device_id TEXT NOT NULL,
-                    sensor_type TEXT NOT NULL,
-                    value REAL,
-                    value_text TEXT,
-                    unit TEXT,
-                    quality INTEGER,
-                    timestamp DATETIME NOT NULL
-                )
-            """)
-
-            # 设备状态历史表
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS device_status_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    device_id TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    battery REAL,
-                    signal_strength INTEGER,
-                    timestamp DATETIME NOT NULL
-                )
-            """)
-
-            # 索引
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_sensor_device_time
-                ON sensor_data(device_id, timestamp)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_sensor_type_time
-                ON sensor_data(sensor_type, timestamp)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_status_device_time
-                ON device_status_history(device_id, timestamp)
-            """)
-
-            conn.commit()
-        finally:
-            conn.close()
+        # P1-5: 自动建表（幂等）
+        get_db(self._db_path, auto_init=True)
 
     async def start(self):
         """启动数据采集服务"""
@@ -130,121 +81,88 @@ class DataCollector:
         # 驱动所有设备步进（设备 I/O 操作，独立于 DB 事务）
         self._device_manager.tick_all()
 
-        conn = sqlite3.connect(self._db_path)
-        failed_device_id = None
-        try:
-            cursor = conn.cursor()
-            now = datetime.now().isoformat()
+        with DatabaseConnection(self._db_path, isolation_level=None) as conn:
+            failed_device_id = None
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                devices = self._device_manager.list_devices()
 
-            # ---- 采集主事务：传感器数据 + 状态历史，原子写入 ----
-            cursor.execute("BEGIN IMMEDIATE")
+                for dev_data in devices:
+                    device_id = dev_data["device_id"]
+                    try:
+                        # 写入设备状态历史（纳入同一事务）
+                        DeviceStatusRepository.insert(
+                            device_id=device_id,
+                            status=dev_data["status"],
+                            battery=dev_data.get("battery"),
+                            signal=dev_data.get("signal_strength"),
+                            conn=conn,
+                        )
 
-            devices = self._device_manager.list_devices()
-            for dev_data in devices:
-                device_id = dev_data["device_id"]
-                try:
-                    # 写入设备状态历史（纳入同一事务）
-                    cursor.execute("""
-                        INSERT INTO device_status_history
-                        (device_id, status, battery, signal_strength, timestamp)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (
-                        device_id,
-                        dev_data["status"],
-                        dev_data.get("battery"),
-                        dev_data.get("signal_strength"),
-                        now,
-                    ))
-
-                    # 写入传感器数据
-                    sensors = dev_data.get("sensors", {})
-                    for sensor_type, reading in sensors.items():
-                        value = reading.get("value")
-                        value_text = None
-                        value_num = None
-
-                        if isinstance(value, (int, float)):
-                            value_num = float(value)
-                        elif isinstance(value, bool):
-                            value_num = 1.0 if value else 0.0
-                        else:
-                            value_text = str(value) if value is not None else None
-
-                        cursor.execute("""
-                            INSERT INTO sensor_data
-                            (device_id, sensor_type, value, value_text, unit, quality, timestamp)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (
+                        # 写入传感器数据
+                        sensors = dev_data.get("sensors", {})
+                        SensorDataRepository.insert_batch(
+                            device_id=device_id,
+                            readings=sensors,
+                            conn=conn,
+                        )
+                    except Exception as e:
+                        # 捕获单设备异常，记录设备上下文后抛出，触发整体回滚
+                        failed_device_id = device_id
+                        logger.error(
+                            "[DataCollector] 设备数据写入失败，事务将回滚 | "
+                            "device_id=%s, error_type=%s, error_msg=%s\n%s",
                             device_id,
-                            sensor_type,
-                            value_num,
-                            value_text,
-                            reading.get("unit", ""),
-                            reading.get("quality", 100),
-                            now,
-                        ))
+                            type(e).__name__,
+                            str(e),
+                            traceback.format_exc(),
+                        )
+                        raise
+
+                # 全部设备写入成功，提交事务
+                conn.commit()
+                logger.debug(
+                    "[DataCollector] 采集事务提交成功，设备数=%d",
+                    len(devices),
+                )
+
+                # ---- 过期数据清理（独立事务，失败不影响采集结果）----
+                try:
+                    SensorDataRepository.cleanup_old(
+                        self._config.data_retention_days, conn
+                    )
+                    DeviceStatusRepository.cleanup_old(
+                        self._config.data_retention_days, conn
+                    )
+                    conn.commit()
                 except Exception as e:
-                    # 捕获单设备异常，记录设备上下文后抛出，触发整体回滚
-                    failed_device_id = device_id
+                    conn.rollback()
+                    logger.warning(
+                        "[DataCollector] 过期数据清理失败（不影响采集）: %s: %s",
+                        type(e).__name__,
+                        e,
+                    )
+
+            except Exception as e:
+                # 主事务回滚
+                conn.rollback()
+                if failed_device_id:
                     logger.error(
-                        "[DataCollector] 设备数据写入失败，事务将回滚 | "
-                        "device_id=%s, error_type=%s, error_msg=%s\n%s",
-                        device_id,
+                        "[DataCollector] 采集事务已回滚 | 失败设备=%s, "
+                        "error_type=%s, error_msg=%s",
+                        failed_device_id,
+                        type(e).__name__,
+                        str(e),
+                    )
+                else:
+                    logger.error(
+                        "[DataCollector] 采集事务已回滚 | error_type=%s, "
+                        "error_msg=%s\n%s",
                         type(e).__name__,
                         str(e),
                         traceback.format_exc(),
                     )
-                    raise
-
-            # 全部设备写入成功，提交事务
-            conn.commit()
-            logger.debug(
-                "[DataCollector] 采集事务提交成功，设备数=%d",
-                len(devices),
-            )
-
-            # ---- 过期数据清理（独立事务，失败不影响采集结果）----
-            try:
-                self._cleanup_old_data(cursor)
-                conn.commit()
-            except Exception as e:
-                conn.rollback()
-                logger.warning(
-                    "[DataCollector] 过期数据清理失败（不影响采集）: %s: %s",
-                    type(e).__name__,
-                    e,
-                )
-
-        except Exception as e:
-            # 主事务回滚
-            conn.rollback()
-            if failed_device_id:
-                logger.error(
-                    "[DataCollector] 采集事务已回滚 | 失败设备=%s, "
-                    "error_type=%s, error_msg=%s",
-                    failed_device_id,
-                    type(e).__name__,
-                    str(e),
-                )
-            else:
-                logger.error(
-                    "[DataCollector] 采集事务已回滚 | error_type=%s, "
-                    "error_msg=%s\n%s",
-                    type(e).__name__,
-                    str(e),
-                    traceback.format_exc(),
-                )
-            raise  # 继续向上抛出，保持与原有调用方的行为一致
-        finally:
-            conn.close()
-
-    def _cleanup_old_data(self, cursor):
-        """清理过期历史数据"""
-        retention_days = self._config.data_retention_days
-        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
-
-        cursor.execute("DELETE FROM sensor_data WHERE timestamp < ?", (cutoff,))
-        cursor.execute("DELETE FROM device_status_history WHERE timestamp < ?", (cutoff,))
+                raise  # 继续向上抛出，保持与原有调用方的行为一致
 
     def get_sensor_history(
         self,
@@ -266,45 +184,15 @@ class DataCollector:
         Returns:
             历史数据列表
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
-            cursor = conn.cursor()
-
-            query = "SELECT device_id, sensor_type, value, value_text, unit, quality, timestamp FROM sensor_data WHERE device_id = ?"
-            params: List[Any] = [device_id]
-
-            if sensor_type:
-                query += " AND sensor_type = ?"
-                params.append(sensor_type)
-
-            if start_time:
-                query += " AND timestamp >= ?"
-                params.append(start_time.isoformat())
-
-            if end_time:
-                query += " AND timestamp <= ?"
-                params.append(end_time.isoformat())
-
-            query += " ORDER BY timestamp DESC LIMIT ?"
-            params.append(limit)
-
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-            result = []
-            for row in rows:
-                result.append({
-                    "device_id": row[0],
-                    "sensor_type": row[1],
-                    "value": row[2] if row[2] is not None else row[3],
-                    "unit": row[4],
-                    "quality": row[5],
-                    "timestamp": row[6],
-                })
-
-            return result
-        finally:
-            conn.close()
+        with DatabaseConnection(self._db_path) as conn:
+            return SensorDataRepository.query_history(
+                device_id=device_id,
+                start=start_time,
+                end=end_time,
+                sensor_type=sensor_type,
+                limit=limit,
+                conn=conn,
+            )
 
     def get_latest_sensor_data(self, device_id: str) -> Optional[Dict[str, Any]]:
         """获取设备最新传感器数据
@@ -343,40 +231,14 @@ class DataCollector:
         Returns:
             状态历史列表
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
-            cursor = conn.cursor()
-
-            query = "SELECT device_id, status, battery, signal_strength, timestamp FROM device_status_history WHERE device_id = ?"
-            params: List[Any] = [device_id]
-
-            if start_time:
-                query += " AND timestamp >= ?"
-                params.append(start_time.isoformat())
-
-            if end_time:
-                query += " AND timestamp <= ?"
-                params.append(end_time.isoformat())
-
-            query += " ORDER BY timestamp DESC LIMIT ?"
-            params.append(limit)
-
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-            result = []
-            for row in rows:
-                result.append({
-                    "device_id": row[0],
-                    "status": row[1],
-                    "battery": row[2],
-                    "signal_strength": row[3],
-                    "timestamp": row[4],
-                })
-
-            return result
-        finally:
-            conn.close()
+        with DatabaseConnection(self._db_path) as conn:
+            return DeviceStatusRepository.query_history(
+                device_id=device_id,
+                start=start_time,
+                end=end_time,
+                limit=limit,
+                conn=conn,
+            )
 
 
 _instance: DataCollector | None = None

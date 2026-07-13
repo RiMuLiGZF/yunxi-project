@@ -11,8 +11,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
 
+from ..config import get_config
 from ..models.device import Device, DeviceStatus, DeviceType
 from ..models.sensor_data import SensorData, SensorReading
+from ..models.errors import ErrorCode, M6Exception
 from .device_factory import DeviceCapability
 
 logger = logging.getLogger(__name__)
@@ -30,12 +32,14 @@ class BaseDeviceSimulator(ABC):
     # 子类可覆盖的能力声明
     capability: DeviceCapability = DeviceCapability(description="基础设备")
 
-    def __init__(self, device: Device):
+    def __init__(self, device: Device, config=None):
         """初始化设备模拟器
 
         Args:
             device: 设备基础信息模型
+            config: 配置实例，为 None 时自动获取（向后兼容）
         """
+        self._config = config if config is not None else get_config()
         self.device = device
         self._last_tick_time = time.time()
         self._sensor_data = SensorData(device_id=device.device_id)
@@ -199,12 +203,12 @@ class BaseDeviceSimulator(ABC):
     # 通用工具方法
     # ------------------------------------------------------------------
 
-    def _consume_battery(self, elapsed: float, rate_per_hour: float = 5.0) -> None:
+    def _consume_battery(self, elapsed: float, rate_per_hour: Optional[float] = None) -> None:
         """消耗电量
 
         Args:
             elapsed: 经过的秒数
-            rate_per_hour: 每小时消耗百分比（默认 5%/小时）
+            rate_per_hour: 每小时消耗百分比，None 时使用配置值
         """
         if self.device.battery is None:
             return  # 有线供电，不消耗
@@ -224,6 +228,8 @@ class BaseDeviceSimulator(ABC):
             return  # 离线不消耗
 
         # 正常消耗
+        if rate_per_hour is None:
+            rate_per_hour = self._config.battery_drain_base
         self.device.battery = max(
             0.0,
             self.device.battery - (rate_per_hour * elapsed / 3600)
@@ -233,7 +239,7 @@ class BaseDeviceSimulator(ABC):
         """检查告警条件"""
         # 低电量告警
         if (self.device.battery is not None
-                and self.device.battery < 20
+                and self.device.battery < self._config.battery_low_threshold
                 and self.device.status != DeviceStatus.CHARGING):
             self._add_alert("low_battery", f"电量低: {self.device.battery:.1f}%")
 
