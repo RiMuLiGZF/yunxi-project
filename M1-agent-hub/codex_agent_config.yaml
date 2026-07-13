@@ -1,0 +1,109 @@
+# =============================================================================
+# Codex Agent 配置文件
+# =============================================================================
+# 代码专家智能体 — 支持双模式运行
+#
+# 模式一：本地模式 (local)
+#   - 使用 Ollama 本地 qwen2.5:7b 模型驱动
+#   - 零 API 成本，数据完全本地处理
+#   - 适合日常代码辅助、学习、简单开发任务
+#
+# 模式二：API 模式 (api)
+#   - 调用 OpenAI/Anthropic/DeepSeek 等云端 API
+#   - 更强代码能力，支持复杂架构设计
+#   - 按调用量计费，需配置 API 密钥
+# =============================================================================
+
+# ── Agent 基本信息 ──────────────────────────────────────────────────────
+agent:
+  agent_id: codex_agent_01
+  display_name: "Codex 代码专家"
+  provider: Codex
+  adapter_type: codex_agent
+  description: |
+    专业代码智能体，支持代码生成、审查、Bug 修复、重构建议。
+    双模式运行：本地 Ollama 7B 模型 / 云端 API。
+  capabilities:
+    - 代码生成
+    - 代码审查
+    - Bug修复
+    - 代码解释
+    - 重构建议
+    - 测试生成
+    - 架构设计
+    - 性能优化
+    - 多语言支持
+    - MCP工具调用
+
+# ── 运行模式 ────────────────────────────────────────────────────────────
+# mode: local | api
+mode: local
+
+# ── 本地模式配置（mode: local 时生效） ──────────────────────────────────
+local:
+  ollama_base_url: "http://localhost:11434"
+  model_name: "qwen2.5:7b"
+  # 代码任务温度偏低，保证输出稳定性
+  temperature: 0.2
+
+# ── API 模式配置（mode: api 时生效） ────────────────────────────────────
+api:
+  # 支持的服务商: openai | anthropic | deepseek | moonshot | qwen | custom
+  provider: "openai"
+  # API 基础 URL（不填用默认值）
+  base_url: ""
+  # 模型名称（不填用默认值）
+  model_name: ""
+  # API 密钥（建议通过密钥管理工具存储，不要明文写在这里）
+  # 推荐使用: python codex_register.py --keys add --provider openai
+  api_key: ""
+  # 计费配置（用于成本估算）
+  cost:
+    input_per_1k: 0.005    # 美元 / 1k input tokens
+    output_per_1k: 0.015   # 美元 / 1k output tokens
+    currency: "USD"
+
+# ── MCP 工具配置 ───────────────────────────────────────────────────────
+mcp:
+  server_url: "http://localhost:8002/mcp/v1"
+  enable_tools: true
+  # M8 管理令牌（调用 M2 技能需要）
+  m8_token: ""
+
+# ── 性能参数 ────────────────────────────────────────────────────────────
+performance:
+  max_iterations: 5        # 最大工具调用迭代次数
+  timeout: 120             # 单次调用超时（秒）
+  max_retries: 1           # 失败重试次数
+  max_tokens: 2048         # 单次最大输出 token 数
+
+# ── 日志与调试 ──────────────────────────────────────────────────────────
+logging:
+  verbose: false
+  log_tool_calls: true
+  log_reasoning_trace: false
+
+# =============================================================================
+# 使用示例
+# =============================================================================
+#
+# 1. 本地模式快速测试：
+#    python codex_register.py --test --mode local
+#
+# 2. 本地模式注册到联邦系统：
+#    python codex_register.py --register --mode local
+#
+# 3. API 模式（先配置密钥）：
+#    python codex_register.py --keys add --provider openai
+#    python codex_register.py --register --mode api --provider openai
+#    python codex_register.py --test --mode api --provider openai
+#
+# 4. 查看所有 Codex Agent：
+#    python codex_register.py --list
+#
+# 5. 管理 API 密钥：
+#    python codex_register.py --keys list
+#    python codex_register.py --keys add --provider anthropic
+#    python codex_register.py --keys remove --provider openai
+#
+# =============================================================================
