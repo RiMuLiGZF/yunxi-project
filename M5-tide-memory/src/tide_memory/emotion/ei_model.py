@@ -9,6 +9,33 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
+from ..common.constants import (
+    VALENCE_DEFAULT,
+    AROUSAL_DEFAULT,
+    DEFAULT_EMOTION_CONFIDENCE,
+    NO_MODEL_CONFIDENCE,
+    EMOTION_HISTORY_MAX_SIZE,
+    EMOTION_TREND_WINDOW,
+    EMOTION_TREND_RISE_FACTOR,
+    EMOTION_TREND_DECLINE_FACTOR,
+    EMOTION_HISTORY_LIMIT,
+    EMOTION_NEUTRAL,
+    EMOTION_EXCITED,
+    EMOTION_ANXIOUS,
+    EMOTION_ALERT,
+    EMOTION_CALM,
+    EMOTION_SAD,
+    EMOTION_RELAXED,
+    EMOTION_POSITIVE,
+    EMOTION_NEGATIVE,
+    AROUSAL_HIGH_THRESHOLD,
+    AROUSAL_LOW_THRESHOLD,
+    VALENCE_POSITIVE_HIGH,
+    VALENCE_NEGATIVE_HIGH,
+    VALENCE_POSITIVE_MID,
+    VALENCE_NEGATIVE_MID,
+)
+
 
 class EIEngine:
     """
@@ -32,7 +59,7 @@ class EIEngine:
             va = self._va_model.infer(text)
         else:
             # 无模型时返回中性默认值
-            va = {"valence": 0.0, "arousal": 0.2, "confidence": 0.3}
+            va = {"valence": VALENCE_DEFAULT, "arousal": AROUSAL_DEFAULT, "confidence": NO_MODEL_CONFIDENCE}
 
         ei = self._calculate_ei(va["valence"], va["arousal"])
         dominant = self._label_emotion(va["valence"], va["arousal"])
@@ -42,13 +69,13 @@ class EIEngine:
             "arousal": va["arousal"],
             "ei_score": round(ei, 4),
             "dominant_emotion": dominant,
-            "confidence": va.get("confidence", 0.5),
+            "confidence": va.get("confidence", DEFAULT_EMOTION_CONFIDENCE),
         }
 
         # 记录历史（内存中，用于趋势计算）
         self._history.append(result)
-        if len(self._history) > 1000:
-            self._history = self._history[-1000:]
+        if len(self._history) > EMOTION_HISTORY_MAX_SIZE:
+            self._history = self._history[-EMOTION_HISTORY_MAX_SIZE:]
 
         return result
 
@@ -67,29 +94,29 @@ class EIEngine:
 
     def _label_emotion(self, valence: float, arousal: float) -> str:
         """给情绪打标签（Russell情绪环模型）"""
-        if arousal > 0.6:
-            if valence > 0.3:
-                return "excited"      # 兴奋
-            elif valence < -0.3:
-                return "anxious"      # 焦虑
+        if arousal > AROUSAL_HIGH_THRESHOLD:
+            if valence > VALENCE_POSITIVE_HIGH:
+                return EMOTION_EXCITED      # 兴奋
+            elif valence < VALENCE_NEGATIVE_HIGH:
+                return EMOTION_ANXIOUS      # 焦虑
             else:
-                return "alert"        # 警觉
-        elif arousal < 0.3:
-            if valence > 0.3:
-                return "calm"         # 平静
-            elif valence < -0.3:
-                return "sad"          # 悲伤
+                return EMOTION_ALERT        # 警觉
+        elif arousal < AROUSAL_LOW_THRESHOLD:
+            if valence > VALENCE_POSITIVE_HIGH:
+                return EMOTION_CALM         # 平静
+            elif valence < VALENCE_NEGATIVE_HIGH:
+                return EMOTION_SAD          # 悲伤
             else:
-                return "relaxed"      # 放松
+                return EMOTION_RELAXED      # 放松
         else:
-            if valence > 0.2:
-                return "positive"     # 积极
-            elif valence < -0.2:
-                return "negative"     # 消极
+            if valence > VALENCE_POSITIVE_MID:
+                return EMOTION_POSITIVE     # 积极
+            elif valence < VALENCE_NEGATIVE_MID:
+                return EMOTION_NEGATIVE     # 消极
             else:
-                return "neutral"      # 中性
+                return EMOTION_NEUTRAL      # 中性
 
-    def get_trend(self, window: int = 10) -> Dict:
+    def get_trend(self, window: int = EMOTION_TREND_WINDOW) -> Dict:
         """获取情绪趋势"""
         if len(self._history) < 2:
             return {"trend": "insufficient_data", "avg_ei": 0}
@@ -99,9 +126,9 @@ class EIEngine:
         first_half = sum(r["ei_score"] for r in recent[:window//2]) / (window//2)
         second_half = sum(r["ei_score"] for r in recent[window//2:]) / (window - window//2)
 
-        if second_half > first_half * 1.1:
+        if second_half > first_half * EMOTION_TREND_RISE_FACTOR:
             trend = "rising"
-        elif second_half < first_half * 0.9:
+        elif second_half < first_half * EMOTION_TREND_DECLINE_FACTOR:
             trend = "declining"
         else:
             trend = "stable"
@@ -112,7 +139,7 @@ class EIEngine:
             "samples": len(recent),
         }
 
-    def get_history(self, limit: int = 100) -> list:
+    def get_history(self, limit: int = EMOTION_HISTORY_LIMIT) -> list:
         """获取情绪历史（不包含原始文本）"""
         return self._history[-limit:]
 # vim: set et ts=4 sw=4:

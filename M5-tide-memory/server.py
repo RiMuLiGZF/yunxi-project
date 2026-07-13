@@ -37,6 +37,8 @@ from tide_memory.growth.router import GrowthAPIRouter
 # 导入全局异常处理器和认证中间件
 from tide_memory.middleware.exception_handler import register_exception_handlers
 from tide_memory.middleware.auth import FastAPIAuthMiddleware
+from tide_memory.middleware.rate_limit import RateLimitMiddleware
+from tide_memory.middleware.circuit_breaker import CircuitBreakerMiddleware
 from tide_memory.middleware.idempotency import IdempotencyMiddleware
 
 # 导入版本号
@@ -111,18 +113,38 @@ def create_fastapi_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 幂等性中间件（通过 M5_IDEMPOTENCY_ENABLED 环境变量控制，默认开启）
+    # 注意：FastAPI/Starlette 中间件为栈式结构，先注册的在外层（请求时先经过）
+    # 此处按逆序注册，确保请求执行顺序为：认证 → 限流 → 熔断 → 幂等性
+    app.add_middleware(IdempotencyMiddleware)
+    logger.info(
+        "idempotency_middleware_registered",
+        idempotency_enabled=os.environ.get("M5_IDEMPOTENCY_ENABLED", "true").lower() in ("true", "1", "yes", "on"),
+    )
+
+    # 熔断中间件（监控全局错误率，通过 M5_CIRCUIT_BREAKER_ENABLED 控制，默认开启）
+    app.add_middleware(CircuitBreakerMiddleware)
+    circuit_breaker_enabled = os.environ.get("M5_CIRCUIT_BREAKER_ENABLED", "true").lower() in ("true", "1", "yes", "on")
+    logger.info(
+        "circuit_breaker_middleware_registered",
+        circuit_breaker_enabled=circuit_breaker_enabled,
+    )
+
+    # 限流中间件（认证之后，幂等性之前；通过 M5_RATE_LIMIT_ENABLED 控制，默认开启）
+    app.add_middleware(RateLimitMiddleware)
+    rate_limit_enabled = os.environ.get("M5_RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes", "on")
+    rate_limit_per_minute = int(os.environ.get("M5_RATE_LIMIT_PER_MINUTE", "100"))
+    logger.info(
+        "rate_limit_middleware_registered",
+        rate_limit_enabled=rate_limit_enabled,
+        rate_limit_per_minute=rate_limit_per_minute,
+    )
+
     # 认证中间件（通过 M5_AUTH_ENABLED 环境变量控制，默认关闭）
     app.add_middleware(FastAPIAuthMiddleware)
     logger.info(
         "auth_middleware_registered",
         auth_enabled=os.environ.get("M5_AUTH_ENABLED", "false").lower() in ("true", "1", "yes", "on"),
-    )
-
-    # 幂等性中间件（通过 M5_IDEMPOTENCY_ENABLED 环境变量控制，默认开启）
-    app.add_middleware(IdempotencyMiddleware)
-    logger.info(
-        "idempotency_middleware_registered",
-        idempotency_enabled=os.environ.get("M5_IDEMPOTENCY_ENABLED", "true").lower() in ("true", "1", "yes", "on"),
     )
 
     # 注册全局异常处理器
@@ -561,6 +583,8 @@ def main():
     app = create_fastapi_app()
 
     auth_enabled = os.environ.get("M5_AUTH_ENABLED", "false").lower() in ("true", "1", "yes", "on")
+    rate_limit_enabled = os.environ.get("M5_RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes", "on")
+    circuit_breaker_enabled = os.environ.get("M5_CIRCUIT_BREAKER_ENABLED", "true").lower() in ("true", "1", "yes", "on")
     logger.info(
         "M5 潮汐记忆系统 - 启动完成",
         service_url=f"http://0.0.0.0:{port}",
@@ -568,6 +592,9 @@ def main():
         api_docs=f"http://0.0.0.0:{port}/docs",
         version=f"v{M5_VERSION}",
         auth_enabled=auth_enabled,
+        rate_limit_enabled=rate_limit_enabled,
+        rate_limit_per_minute=int(os.environ.get("M5_RATE_LIMIT_PER_MINUTE", "100")),
+        circuit_breaker_enabled=circuit_breaker_enabled,
         classification="高涉密 - 数据仅本地加密存储",
     )
 

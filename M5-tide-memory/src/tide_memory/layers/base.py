@@ -30,6 +30,29 @@ from ..core.models import (
     MemoryLayer,
 )
 from ..db import DatabaseMigrator, Migration
+from ..common.constants import (
+    L1_MAX_ITEMS,
+    L1_RETENTION_DAYS,
+    L1_ACCESS_PRIORITY,
+    DEFAULT_LAYER_DB_PATH,
+    QUALITY_SCORE_MAX,
+    QUALITY_SCORE_DIVISOR,
+    QUALITY_SCORE_DEFAULT,
+    QUALITY_LEVEL_NORMAL,
+    RETENTION_FOREVER,
+    CONTENT_SANITIZED,
+    DEFAULT_TOP_K,
+    FILTER_EXPAND_MULTIPLIER,
+    DEFAULT_PAGE_SIZE,
+    SQLITE_TIMEOUT,
+    SQLITE_CACHE_SIZE_KB,
+    SQLITE_MMAP_SIZE,
+    CLASSIFICATION_DEFAULT,
+    EMOTION_NEUTRAL,
+    VALENCE_DEFAULT,
+    AROUSAL_DEFAULT,
+    EI_DEFAULT_VALUE,
+)
 
 
 class BaseSQLLayer:
@@ -96,10 +119,10 @@ class BaseSQLLayer:
                     store_original / original_encryption / encryption_key
         """
         config = config or {}
-        self.max_items = config.get("max_items", 1000)
-        self.retention_days = config.get("retention_days", 1)
-        self.access_priority = config.get("access_priority", 7)
-        self._db_path = config.get("db_path", "./data/memory/layer.db")
+        self.max_items = config.get("max_items", L1_MAX_ITEMS)
+        self.retention_days = config.get("retention_days", L1_RETENTION_DAYS)
+        self.access_priority = config.get("access_priority", L1_ACCESS_PRIORITY)
+        self._db_path = config.get("db_path", DEFAULT_LAYER_DB_PATH)
 
         # P2-任务1: 原文存储配置
         self._store_original = config.get("store_original", False)
@@ -287,10 +310,10 @@ class BaseSQLLayer:
         """
         return {
             "memory_id": row[0],
-            "content_preview": "[SANITIZED]",
+            "content_preview": CONTENT_SANITIZED,
             "layer": row[1],
             "domain": row[2],
-            "similarity": min(1.0, (score + row[5] / 100) / 6),
+            "similarity": min(1.0, (score + row[5] / QUALITY_SCORE_MAX) / QUALITY_SCORE_DIVISOR),
             "created_at": row[3],
             "emotion_tags": [row[7]] if row[7] else [],
         }
@@ -326,15 +349,15 @@ class BaseSQLLayer:
             self._conn = sqlite3.connect(
                 self._db_path,
                 check_same_thread=False,
-                timeout=30.0,
+                timeout=SQLITE_TIMEOUT,
             )
 
             # P2-任务3: WAL 模式 + 性能优化
             self._conn.execute("PRAGMA journal_mode=WAL;")
             self._conn.execute("PRAGMA synchronous=NORMAL;")
-            self._conn.execute("PRAGMA cache_size=-20000;")  # 20MB 页缓存
+            self._conn.execute(f"PRAGMA cache_size={-SQLITE_CACHE_SIZE_KB};")  # 页缓存
             self._conn.execute("PRAGMA temp_store=MEMORY;")
-            self._conn.execute("PRAGMA mmap_size=268435456;")  # 256MB 内存映射
+            self._conn.execute(f"PRAGMA mmap_size={SQLITE_MMAP_SIZE};")  # 内存映射
 
             if self._use_migration:
                 self._ensure_db_with_migration()
@@ -665,7 +688,7 @@ class BaseSQLLayer:
     # 搜索
     # ============================================================
 
-    def search(self, query: str, domain: str = None, top_k: int = 10) -> List[Dict]:
+    def search(self, query: str, domain: str = None, top_k: int = DEFAULT_TOP_K) -> List[Dict]:
         """
         关键词搜索（基础版，基于标签匹配 + 质量分排序）
 
@@ -691,7 +714,7 @@ class BaseSQLLayer:
                 FROM memories WHERE 1=1 {query_cond}
                 ORDER BY quality_score DESC
                 LIMIT ?
-            """, params + [top_k * 10]).fetchall()  # 多取一些做标签匹配
+            """, params + [top_k * FILTER_EXPAND_MULTIPLIER]).fetchall()  # 多取一些做标签匹配
 
         results = []
         for row in rows:
@@ -798,7 +821,7 @@ class BaseSQLLayer:
 
     def list_items(
         self,
-        page_size: int = 20,
+        page_size: int = DEFAULT_PAGE_SIZE,
         cursor: Optional[str] = None,
         domain: Optional[str] = None,
         sort_by: str = "created_at",

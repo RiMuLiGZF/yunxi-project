@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from ..core.models import MemoryLayer
+from ..common.constants import (
+    L1_MAX_ITEMS,
+    L1_RETENTION_DAYS,
+    L1_ACCESS_PRIORITY,
+    DEFAULT_L1_DB_PATH,
+)
 from .base import BaseSQLLayer
 
 
@@ -19,9 +25,9 @@ class ShallowLayer(BaseSQLLayer):
     def __init__(self, config: dict = None):
         config = config or {}
         # L1 默认配置
-        config.setdefault("max_items", 1000)
-        config.setdefault("retention_days", 1)
-        config.setdefault("access_priority", 7)
-        config.setdefault("db_path", "./data/memory/l1_shallow.db")
+        config.setdefault("max_items", L1_MAX_ITEMS)
+        config.setdefault("retention_days", L1_RETENTION_DAYS)
+        config.setdefault("access_priority", L1_ACCESS_PRIORITY)
+        config.setdefault("db_path", DEFAULT_L1_DB_PATH)
         super().__init__(config)
 # vim: set et ts=4 sw=4:

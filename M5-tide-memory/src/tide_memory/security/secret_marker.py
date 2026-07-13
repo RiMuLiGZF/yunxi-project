@@ -13,6 +13,13 @@ from __future__ import annotations
 from enum import Enum
 from typing import Dict, Optional
 
+from ..common.constants import (
+    RETENTION_TOP_SECRET_DAYS,
+    RETENTION_CONFIDENTIAL_DAYS,
+    RETENTION_INTERNAL_DAYS,
+    RETENTION_FOREVER,
+)
+
 
 class ClassificationLevel(str, Enum):
     PUBLIC = "PUBLIC"                    # 公开级
@@ -43,10 +50,10 @@ class SecretMarker:
 
     # 各密级保留天数（超过后自动降级）
     _RETENTION_DAYS = {
-        ClassificationLevel.TOP_SECRET: 365,
-        ClassificationLevel.CONFIDENTIAL: 180,
-        ClassificationLevel.INTERNAL: 90,
-        ClassificationLevel.PUBLIC: -1,  # 永久
+        ClassificationLevel.TOP_SECRET: RETENTION_TOP_SECRET_DAYS,
+        ClassificationLevel.CONFIDENTIAL: RETENTION_CONFIDENTIAL_DAYS,
+        ClassificationLevel.INTERNAL: RETENTION_INTERNAL_DAYS,
+        ClassificationLevel.PUBLIC: RETENTION_FOREVER,  # 永久
     }
 
     # 各密级的访问角色

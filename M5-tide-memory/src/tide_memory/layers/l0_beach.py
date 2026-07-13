@@ -6,6 +6,13 @@ from collections import OrderedDict
 from typing import Dict, List, Optional
 
 from ..core.models import MemoryItem, MemoryLayer
+from ..common.constants import (
+    L0_MAX_ITEMS,
+    L0_RETENTION_HOURS,
+    L0_ACCESS_PRIORITY,
+    LAYER_L0_BEACH,
+    DEFAULT_TOP_K,
+)
 
 
 class BeachLayer:
@@ -18,9 +25,9 @@ class BeachLayer:
 
     def __init__(self, config: dict = None):
         config = config or {}
-        self.max_items = config.get("max_items", 100)
-        self.retention_hours = config.get("retention_hours", 1)
-        self.access_priority = config.get("access_priority", 10)
+        self.max_items = config.get("max_items", L0_MAX_ITEMS)
+        self.retention_hours = config.get("retention_hours", L0_RETENTION_HOURS)
+        self.access_priority = config.get("access_priority", L0_ACCESS_PRIORITY)
         self._items: "OrderedDict[str, MemoryItem]" = OrderedDict()
 
     def add(self, item: MemoryItem) -> bool:
@@ -41,7 +48,7 @@ class BeachLayer:
             return item
         return None
 
-    def search(self, query: str, top_k: int = 10) -> List[Dict]:
+    def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> List[Dict]:
         """简单关键词搜索"""
         results = []
         for item in self._items.values():
@@ -50,7 +57,7 @@ class BeachLayer:
             if score > 0:
                 results.append({
                     "memory_id": item.memory_id,
-                    "layer": "l0_beach",
+                    "layer": LAYER_L0_BEACH,
                     "score": score,
                     "tags": item.tags,
                     "created_at": item.created_at.isoformat(),

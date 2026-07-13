@@ -10,7 +10,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============================================================
@@ -298,6 +298,190 @@ class SeasonTask(BaseModel):
     status: str = Field(default="pending", description="状态：pending/completed/claimed")
     points: int = Field(default=0, description="奖励天赋点数")
     completed_at: Optional[str] = Field(default=None, description="完成时间")
+
+
+# ============================================================
+# 通用枚举
+# ============================================================
+
+class AchievementStatus(str, Enum):
+    """成就状态"""
+    UNLOCKED = "unlocked"
+    LOCKED = "locked"
+
+
+class SeasonTaskType(str, Enum):
+    """赛季任务类型"""
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    SEASONAL = "seasonal"
+
+
+class SeasonTaskStatus(str, Enum):
+    """赛季任务状态"""
+    PENDING = "pending"
+    COMPLETED = "completed"
+    CLAIMED = "claimed"
+
+
+class ChronicleCategory(str, Enum):
+    """纪事分类"""
+    MAIN_QUEST = "main-quest"
+    SIDE_QUEST = "side-quest"
+    ACHIEVEMENT = "achievement"
+    CRITICAL_DECISION = "critical-decision"
+
+
+class ChronicleDifficulty(str, Enum):
+    """纪事难度"""
+    BEGINNER = "入门"
+    NORMAL = "普通"
+    HARD = "困难"
+    EPIC = "史诗"
+
+
+class EchoCategory(str, Enum):
+    """记忆回响分类"""
+    EMOTION = "emotion"
+    DECISION = "decision"
+    SOCIAL = "social"
+    GROWTH = "growth"
+    WORK = "work"
+    LIFE = "life"
+
+
+# ============================================================
+# 请求模型 - 成就
+# ============================================================
+
+class AchievementListRequest(BaseModel):
+    """成就列表查询请求"""
+    category: Optional[AchievementCategory] = Field(
+        default=None, description="按分类过滤"
+    )
+    status: Optional[AchievementStatus] = Field(
+        default=None, description="按状态过滤"
+    )
+
+
+# ============================================================
+# 请求模型 - 天赋
+# ============================================================
+
+class TalentTreeRequest(BaseModel):
+    """天赋树查询请求"""
+    tree: Optional[TalentBranch] = Field(
+        default=None, description="指定分支（mind/emotion/creativity/experience）"
+    )
+
+
+class TalentUpgradeRequest(BaseModel):
+    """天赋升级请求"""
+    node_id: str = Field(..., min_length=1, max_length=128, description="节点ID")
+
+
+class TalentResetRequest(BaseModel):
+    """天赋重置请求"""
+    confirm: bool = Field(default=False, description="确认重置")
+
+
+# ============================================================
+# 请求模型 - 日历
+# ============================================================
+
+class CalendarMonthRequest(BaseModel):
+    """月历查询请求"""
+    year: int = Field(..., ge=1970, le=2100, description="年份")
+    month: int = Field(..., ge=1, le=12, description="月份")
+
+
+class DayDataRequest(BaseModel):
+    """单日数据查询请求"""
+    date: str = Field(..., min_length=10, max_length=10, description="日期（YYYY-MM-DD）")
+
+    @field_validator("date")
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        import re
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+            raise ValueError("date must be in YYYY-MM-DD format")
+        return v
+
+
+# ============================================================
+# 请求模型 - 编年史
+# ============================================================
+
+class ChronicleListRequest(BaseModel):
+    """纪事列表查询请求"""
+    page: int = Field(default=1, ge=1, description="页码，从 1 开始")
+    size: int = Field(default=20, ge=1, le=100, description="每页数量，范围 1-100")
+    category: Optional[ChronicleCategory] = Field(
+        default=None, description="按分类筛选"
+    )
+    year: Optional[int] = Field(
+        default=None, ge=1970, le=2100, description="按年份筛选"
+    )
+
+
+# ============================================================
+# 请求模型 - 记忆回响
+# ============================================================
+
+class EchoListRequest(BaseModel):
+    """记忆回响列表查询请求"""
+    page: int = Field(default=1, ge=1, description="页码，从 1 开始")
+    size: int = Field(default=20, ge=1, le=100, description="每页数量，范围 1-100")
+    category: Optional[EchoCategory] = Field(
+        default=None, description="按分类筛选"
+    )
+    keyword: Optional[str] = Field(
+        default=None, min_length=1, max_length=200, description="关键词搜索"
+    )
+
+
+# ============================================================
+# 请求模型 - 赛季征程
+# ============================================================
+
+class SeasonTaskListRequest(BaseModel):
+    """赛季任务列表查询请求"""
+    type: Optional[SeasonTaskType] = Field(
+        default=None, description="按任务类型筛选"
+    )
+    phase_id: Optional[str] = Field(
+        default=None, min_length=1, max_length=128, description="按阶段ID筛选"
+    )
+    season_id: Optional[str] = Field(
+        default=None, min_length=1, max_length=128, description="按赛季ID筛选"
+    )
+    status: Optional[SeasonTaskStatus] = Field(
+        default=None, description="按任务状态筛选"
+    )
+
+
+class SeasonTaskCompleteRequest(BaseModel):
+    """赛季任务完成请求"""
+    task_id: str = Field(..., min_length=1, max_length=128, description="任务ID")
+
+
+class SeasonRewardClaimRequest(BaseModel):
+    """赛季奖励领取请求"""
+    task_id_or_phase_id: str = Field(
+        ..., min_length=1, max_length=128, description="任务ID或阶段ID"
+    )
+
+
+# ============================================================
+# 通用响应模型
+# ============================================================
+
+class PaginatedResponse(BaseModel):
+    """分页通用响应"""
+    items: List[Any] = Field(default_factory=list, description="条目列表")
+    total: int = Field(default=0, ge=0, description="总条目数")
+    page: int = Field(default=1, ge=1, description="当前页码")
+    size: int = Field(default=20, ge=1, description="每页数量")
 
 
 # vim: set et ts=4 sw=4:

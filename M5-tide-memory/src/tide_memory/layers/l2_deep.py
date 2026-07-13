@@ -6,6 +6,17 @@ import sqlite3
 from typing import Dict, List, Tuple
 
 from ..core.models import MemoryLayer
+from ..common.constants import (
+    L2_MAX_ITEMS,
+    L2_RETENTION_DAYS,
+    L2_ACCESS_PRIORITY,
+    DEFAULT_L2_DB_PATH,
+    QUALITY_SCORE_MAX,
+    QUALITY_SCORE_DIVISOR,
+    LOW_QUALITY_THRESHOLD,
+    QUALITY_LEVEL_COMPRESSED,
+    CONTENT_SANITIZED,
+)
 from .base import BaseSQLLayer
 
 
@@ -23,10 +34,10 @@ class DeepLayer(BaseSQLLayer):
     def __init__(self, config: dict = None):
         config = config or {}
         # L2 默认配置
-        config.setdefault("max_items", 10000)
-        config.setdefault("retention_days", 30)
-        config.setdefault("access_priority", 4)
-        config.setdefault("db_path", "./data/memory/l2_deep.db")
+        config.setdefault("max_items", L2_MAX_ITEMS)
+        config.setdefault("retention_days", L2_RETENTION_DAYS)
+        config.setdefault("access_priority", L2_ACCESS_PRIORITY)
+        config.setdefault("db_path", DEFAULT_L2_DB_PATH)
         super().__init__(config)
 
     # ============================================================
@@ -50,10 +61,10 @@ class DeepLayer(BaseSQLLayer):
         """L2 搜索结果额外包含 quality_score 字段"""
         return {
             "memory_id": row[0],
-            "content_preview": "[SANITIZED]",
+            "content_preview": CONTENT_SANITIZED,
             "layer": row[1],
             "domain": row[2],
-            "similarity": min(1.0, (score + row[5] / 100) / 6),
+            "similarity": min(1.0, (score + row[5] / QUALITY_SCORE_MAX) / QUALITY_SCORE_DIVISOR),
             "created_at": row[3],
             "emotion_tags": [row[7]] if row[7] else [],
             "quality_score": row[5],
@@ -78,13 +89,14 @@ class DeepLayer(BaseSQLLayer):
         conn = sqlite3.connect(self._db_path)
         try:
             low_quality_rows = conn.execute(
-                "SELECT memory_id FROM memories WHERE quality_score < 30"
+                "SELECT memory_id FROM memories WHERE quality_score < ?",
+                (LOW_QUALITY_THRESHOLD,),
             ).fetchall()
             compressed = len(low_quality_rows)
             for row in low_quality_rows:
                 conn.execute(
-                    "UPDATE memories SET quality_level = 'compressed' WHERE memory_id = ?",
-                    (row[0],)
+                    "UPDATE memories SET quality_level = ? WHERE memory_id = ?",
+                    (QUALITY_LEVEL_COMPRESSED, row[0]),
                 )
             conn.commit()
             total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]

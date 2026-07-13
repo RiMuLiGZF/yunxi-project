@@ -10,6 +10,29 @@ from typing import Dict, List, Optional
 
 import structlog
 
+from ..common.constants import (
+    RRF_K,
+    RECALL_EXPAND_MULTIPLIER,
+    FUSION_RESULT_MULTIPLIER,
+    DEFAULT_TOP_K,
+    DEFAULT_SEARCH_LAYERS,
+    ALL_LAYERS,
+    EMOTION_MATCH_BONUS,
+    DEFAULT_SETTLE_THRESHOLD_ACCESS,
+    DEFAULT_PRELOAD_TOP_K,
+    DEFAULT_EMOTION_CONFIDENCE,
+    DEFAULT_DOMINANT_EMOTION,
+    MEMORY_ID_PREFIX,
+    MEMORY_ID_LENGTH,
+    LAYER_L1_SHALLOW,
+    CONTENT_SANITIZED,
+    QUALITY_LEVEL_LOW,
+    VALENCE_DEFAULT,
+    AROUSAL_DEFAULT,
+    EI_DEFAULT_VALUE,
+    DEFAULT_PAGE_SIZE,
+)
+
 logger = structlog.get_logger(__name__)
 
 
@@ -24,8 +47,8 @@ class RecallEngine:
     - 情绪加权排序
     """
 
-    # RRF 融合参数
-    RRF_K = 60  # Reciprocal Rank Fusion 的 k 值
+    # RRF 融合参数（从 constants 导入，保留为类属性以兼容旧引用）
+    RRF_K = RRF_K  # Reciprocal Rank Fusion 的 k 值
 
     def __init__(
         self,
@@ -75,8 +98,8 @@ class RecallEngine:
                 self._cache_coord = CacheCoordinator(
                     l0_layer=l0,
                     l1_layer=l1,
-                    settle_threshold_access=2,
-                    preload_top_k=3,
+                    settle_threshold_access=DEFAULT_SETTLE_THRESHOLD_ACCESS,
+                    preload_top_k=DEFAULT_PRELOAD_TOP_K,
                 )
             except Exception as e:
                 logger.warning(f"缓存协调器初始化失败: {e}")
@@ -87,55 +110,137 @@ class RecallEngine:
         # 启动时从L1/L2加载已有记忆到索引
         self._rebuild_index()
 
-    def search(
+    # ============================================================
+    # 检索主流程（拆分后的子函数）
+    # ============================================================
+
+    def _build_search_plan(
         self,
         query: str,
         layers: List[str] = None,
         emotion_context: Dict = None,
         top_k: int = 10,
         domain: str = "private",
-    ) -> List[Dict]:
-        """
-        执行多层混合检索
+    ) -> Dict:
+        """构建搜索计划：解析并规范化所有检索参数。
 
-        检索策略：
-        1. 关键词倒排索引快速召回（tags + metadata keys + emotion label）
-        2. 向量语义检索召回
-        3. RRF 融合两路结果
-        4. 从各层获取详细信息，做域过滤和层级过滤
-        5. 情绪加权重排序
-        6. 返回 top_k 结果
+        将 layers 默认值、域信息（domain_type / domain_owner）、
+        top_k 等参数整理为结构化的搜索计划字典，供后续各步骤使用。
 
         Args:
             query: 查询文本
-            layers: 搜索层级，默认 L1+L2
-            emotion_context: 情绪上下文，用于加权排序
+            layers: 搜索层级列表
+            emotion_context: 情绪上下文
             top_k: 返回数量
             domain: 记忆域（支持 "private" 或 "private:agent_id" 格式）
+
+        Returns:
+            搜索计划字典，包含 query、layers、domain_type、domain_owner、
+            top_k、emotion_context 等字段
         """
         if layers is None:
-            layers = ["l1_shallow", "l2_deep"]
+            layers = list(DEFAULT_SEARCH_LAYERS)
 
-        # 解析域信息
         domain_parts = domain.split(":") if domain else []
         domain_type = domain_parts[0] if domain_parts else "private"
         domain_owner = domain_parts[1] if len(domain_parts) > 1 else None
 
-        # 第一步：关键词检索（倒排索引，速度快，召回候选）
-        kw_results = self._keyword.search(query, top_k=top_k * 5)
+        return {
+            "query": query,
+            "layers": layers,
+            "domain_type": domain_type,
+            "domain_owner": domain_owner,
+            "top_k": top_k,
+            "emotion_context": emotion_context,
+        }
 
-        # 第二步：向量检索（语义相似度，稍慢）
-        vec_results = []
-        if self._vector is not None:
-            try:
-                vec_results = self._vector.search(query, top_k=top_k * 5)
-            except Exception as e:
-                logger.warning(f"向量检索失败，仅使用关键词结果: {e}")
+    def _do_keyword_search(self, query: str, plan: Dict) -> List[Dict]:
+        """执行关键词检索，返回候选结果列表。
 
-        # 第三步：RRF 融合两路结果
-        fused_scores = self._rrf_fusion(kw_results, vec_results)
+        使用倒排索引快速召回，召回量为 top_k * RECALL_EXPAND_MULTIPLIER。
 
-        # 第四步：从各层获取详细信息 + 域/层级过滤
+        Args:
+            query: 查询文本
+            plan: 搜索计划字典
+
+        Returns:
+            关键词检索结果列表 [{memory_id, score, matched_terms, ...}]
+        """
+        top_k = plan["top_k"]
+        return self._keyword.search(query, top_k=top_k * RECALL_EXPAND_MULTIPLIER)
+
+    def _do_vector_search(self, query: str, plan: Dict) -> List[Dict]:
+        """执行向量检索，返回候选结果列表。
+
+        向量检索不可用时返回空列表，并记录警告日志。
+
+        Args:
+            query: 查询文本
+            plan: 搜索计划字典
+
+        Returns:
+            向量检索结果列表 [{memory_id, score, similarity, ...}]
+        """
+        if self._vector is None:
+            return []
+        top_k = plan["top_k"]
+        try:
+            return self._vector.search(query, top_k=top_k * RECALL_EXPAND_MULTIPLIER)
+        except Exception as e:
+            logger.warning(f"向量检索失败，仅使用关键词结果: {e}")
+            return []
+
+    def _fuse_results(
+        self,
+        keyword_results: List[Dict],
+        vector_results: List[Dict],
+        plan: Dict,
+    ) -> Dict[str, float]:
+        """对关键词和向量两路结果进行 RRF 融合。
+
+        调用 ``_rrf_fusion`` 实现 Reciprocal Rank Fusion 算法，
+        返回 {memory_id: fused_score} 的映射。
+
+        Args:
+            keyword_results: 关键词检索结果列表
+            vector_results: 向量检索结果列表
+            plan: 搜索计划字典
+
+        Returns:
+            {memory_id: fused_score} 融合分数字典
+        """
+        return self._rrf_fusion(keyword_results, vector_results)
+
+    def _rank_and_filter(
+        self,
+        fused_scores: Dict[str, float],
+        keyword_results: List[Dict],
+        vector_results: List[Dict],
+        plan: Dict,
+    ) -> List[Dict]:
+        """对融合结果进行层级查找、过滤、排序和补充。
+
+        包括以下步骤：
+        1. 按融合分数排序，从各层获取详细信息
+        2. 域过滤、层级过滤、owner 过滤
+        3. 标记匹配来源（关键词 / 向量）
+        4. 融合结果不足时，补充层级原生搜索结果
+
+        Args:
+            fused_scores: {memory_id: fused_score} 融合分数字典
+            keyword_results: 关键词检索结果（用于标记匹配来源）
+            vector_results: 向量检索结果（用于标记匹配来源）
+            plan: 搜索计划字典
+
+        Returns:
+            过滤并补充后的结果列表，按融合分数降序排列
+        """
+        layers = plan["layers"]
+        domain_type = plan["domain_type"]
+        domain_owner = plan["domain_owner"]
+        top_k = plan["top_k"]
+        query = plan["query"]
+
         all_results = []
         seen_ids = set()
 
@@ -162,13 +267,13 @@ class RecallEngine:
             item_info["fused_score"] = fused_score
 
             # 标记匹配来源
-            in_kw = any(r["memory_id"] == mid for r in kw_results)
-            in_vec = any(r["memory_id"] == mid for r in vec_results)
+            in_kw = any(r["memory_id"] == mid for r in keyword_results)
+            in_vec = any(r["memory_id"] == mid for r in vector_results)
             item_info["keyword_matched"] = in_kw
             item_info["vector_matched"] = in_vec
 
             if in_kw:
-                kw_r = next((r for r in kw_results if r["memory_id"] == mid), {})
+                kw_r = next((r for r in keyword_results if r["memory_id"] == mid), {})
                 item_info["matched_terms"] = kw_r.get("matched_terms", [])
                 item_info["matched_tags"] = kw_r.get("matched_tags", [])
             else:
@@ -178,10 +283,10 @@ class RecallEngine:
             all_results.append(item_info)
             seen_ids.add(mid)
 
-            if len(all_results) >= top_k * 2:
+            if len(all_results) >= top_k * FUSION_RESULT_MULTIPLIER:
                 break
 
-        # 第五步：补充层级搜索结果（如果融合结果不够）
+        # 补充层级搜索结果（如果融合结果不够）
         if len(all_results) < top_k:
             for layer_name in layers:
                 layer = self._layer_map.get(layer_name)
@@ -195,7 +300,7 @@ class RecallEngine:
                     mid = r.get("memory_id", "")
                     if mid in seen_ids:
                         continue
-                    # owner过滤
+                    # owner 过滤
                     if domain_type == "private" and domain_owner:
                         if not self._check_owner(mid, domain_owner, layers):
                             continue
@@ -205,16 +310,81 @@ class RecallEngine:
                     r["fused_score"] = r.get("similarity", 0.0)
                     all_results.append(r)
                     seen_ids.add(mid)
-                    if len(all_results) >= top_k * 2:
+                    if len(all_results) >= top_k * FUSION_RESULT_MULTIPLIER:
                         break
-                if len(all_results) >= top_k * 2:
+                if len(all_results) >= top_k * FUSION_RESULT_MULTIPLIER:
                     break
 
-        # 第六步：情绪加权排序
+        return all_results
+
+    def _apply_emotion_weighting(
+        self,
+        results: List[Dict],
+        emotion_context: Dict,
+    ) -> List[Dict]:
+        """对搜索结果应用情绪加权重排序。
+
+        当情绪引擎可用且提供了情绪上下文时，调用 ``_emotion_rerank``
+        进行情绪一致加权排序。否则按 similarity 降序排列。
+
+        Args:
+            results: 候选结果列表
+            emotion_context: 情绪上下文字典
+
+        Returns:
+            重排序后的结果列表
+        """
         if emotion_context and self._ei:
-            all_results = self._emotion_rerank(all_results, emotion_context)
-        else:
-            all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+            return self._emotion_rerank(results, emotion_context)
+        results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+        return results
+
+    def search(
+        self,
+        query: str,
+        layers: List[str] = None,
+        emotion_context: Dict = None,
+        top_k: int = 10,
+        domain: str = "private",
+    ) -> List[Dict]:
+        """
+        执行多层混合检索
+
+        检索策略：
+        1. 关键词倒排索引快速召回（tags + metadata keys + emotion label）
+        2. 向量语义检索召回
+        3. RRF 融合两路结果
+        4. 从各层获取详细信息，做域过滤和层级过滤
+        5. 情绪加权重排序
+        6. 返回 top_k 结果
+
+        Args:
+            query: 查询文本
+            layers: 搜索层级，默认 L1+L2
+            emotion_context: 情绪上下文，用于加权排序
+            top_k: 返回数量
+            domain: 记忆域（支持 "private" 或 "private:agent_id" 格式）
+
+        Returns:
+            [{memory_id, similarity, layer, ...}] 按分数降序排列
+        """
+        # 第一步：构建搜索计划
+        plan = self._build_search_plan(query, layers, emotion_context, top_k, domain)
+
+        # 第二步：关键词检索（倒排索引，速度快，召回候选）
+        kw_results = self._do_keyword_search(query, plan)
+
+        # 第三步：向量检索（语义相似度，稍慢）
+        vec_results = self._do_vector_search(query, plan)
+
+        # 第四步：RRF 融合两路结果
+        fused_scores = self._fuse_results(kw_results, vec_results, plan)
+
+        # 第五步：层级查找、过滤、排序、补充
+        all_results = self._rank_and_filter(fused_scores, kw_results, vec_results, plan)
+
+        # 第六步：情绪加权排序
+        all_results = self._apply_emotion_weighting(all_results, emotion_context)
 
         # P2-任务4: L1→L0 预加载 - 将 top 结果预加载到 L0 缓存
         if self._cache_coord is not None and all_results:
@@ -270,7 +440,7 @@ class RecallEngine:
             # 情绪一致性加分
             emotion_bonus = 0.0
             if target_label in emotion_tags:
-                emotion_bonus = 0.15
+                emotion_bonus = EMOTION_MATCH_BONUS
 
             r["_final_score"] = base_score + emotion_bonus
 
@@ -314,7 +484,7 @@ class RecallEngine:
         import uuid
         from ..core.models import MemoryItem, MemoryDomain, MemoryLayer
 
-        memory_id = f"mem_{uuid.uuid4().hex[:16]}"
+        memory_id = f"{MEMORY_ID_PREFIX}{uuid.uuid4().hex[:MEMORY_ID_LENGTH]}"
 
         item = MemoryItem(
             memory_id=memory_id,
@@ -334,11 +504,11 @@ class RecallEngine:
         if self._ei and emotion_context:
             from ..core.models import EmotionState
             item.emotion = EmotionState(
-                valence=emotion_context.get("valence", 0),
-                arousal=emotion_context.get("arousal", 0.2),
-                ei_score=emotion_context.get("ei_score", 0),
-                dominant_emotion=emotion_context.get("dominant_emotion", "neutral"),
-                confidence=emotion_context.get("confidence", 0.5),
+                valence=emotion_context.get("valence", VALENCE_DEFAULT),
+                arousal=emotion_context.get("arousal", AROUSAL_DEFAULT),
+                ei_score=emotion_context.get("ei_score", EI_DEFAULT_VALUE),
+                dominant_emotion=emotion_context.get("dominant_emotion", DEFAULT_DOMINANT_EMOTION),
+                confidence=emotion_context.get("confidence", DEFAULT_EMOTION_CONFIDENCE),
             )
 
         # 写入L1
@@ -458,7 +628,7 @@ class RecallEngine:
 
     def list_memories(
         self,
-        page_size: int = 20,
+        page_size: int = DEFAULT_PAGE_SIZE,
         cursor: str = None,
         domain: str = None,
         sort_by: str = "created_at",
@@ -483,7 +653,7 @@ class RecallEngine:
             {"items": [...], "next_cursor": "...", "has_more": true/false, "total": n}
         """
         if layers is None:
-            layers = ["l1_shallow", "l2_deep"]
+            layers = list(DEFAULT_SEARCH_LAYERS)
 
         # 解析域类型（用于数据库查询）
         domain_type = None
@@ -603,7 +773,7 @@ class RecallEngine:
         domain_owner = domain_parts[1] if len(domain_parts) > 1 else None
 
         # 按 L0 -> L1 -> L2 -> L3 顺序查找
-        layers = ["l0_beach", "l1_shallow", "l2_deep", "l3_abyss"]
+        layers = list(ALL_LAYERS)
         for layer_name in layers:
             layer = self._layer_map.get(layer_name)
             if not layer or not hasattr(layer, "get"):
@@ -656,7 +826,7 @@ class RecallEngine:
         domain_owner = domain_parts[1] if len(domain_parts) > 1 else None
 
         deleted = False
-        layers = ["l0_beach", "l1_shallow", "l2_deep", "l3_abyss"]
+        layers = list(ALL_LAYERS)
         for layer_name in layers:
             layer = self._layer_map.get(layer_name)
             if not layer or not hasattr(layer, "remove"):
@@ -713,7 +883,7 @@ class RecallEngine:
         """从L1/L2层重建关键词索引和向量索引（启动时调用）."""
         indexed_kw = 0
         indexed_vec = 0
-        for layer_name in ["l1_shallow", "l2_deep"]:
+        for layer_name in [LAYER_L1_SHALLOW, LAYER_L2_DEEP]:
             layer = self._layer_map.get(layer_name)
             if not layer or not hasattr(layer, "items"):
                 continue
@@ -822,7 +992,7 @@ class RecallEngine:
                     return None
                 return {
                     "memory_id": item.memory_id,
-                    "content_preview": "[SANITIZED]",
+                    "content_preview": CONTENT_SANITIZED,
                     "layer": layer_name,
                     "domain": item.domain.value,
                     "similarity": 0.0,

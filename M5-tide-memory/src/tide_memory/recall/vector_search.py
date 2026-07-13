@@ -27,10 +27,48 @@ import os
 import pickle
 import re
 from collections import Counter
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import numpy as np
 import structlog
+
+from ..common.constants import (
+    DEFAULT_EMBEDDING_PROVIDER,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EMBEDDING_DIM,
+    DEFAULT_INDEX_PATH,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    DEFAULT_OLLAMA_BASE_URL,
+    OLLAMA_TIMEOUT_CONNECT,
+    OLLAMA_TIMEOUT_REQUEST,
+    DEFAULT_USE_GPU,
+    DEFAULT_GPU_DEVICE_ID,
+    DEFAULT_GPU_MEMORY_RATIO,
+    DEFAULT_ENABLE_MMR,
+    DEFAULT_MMR_LAMBDA,
+    DEFAULT_ENABLE_HYBRID,
+    DEFAULT_HYBRID_ALPHA,
+    DEFAULT_ENABLE_QUERY_EXPANSION,
+    MIN_SCORE_VARIANCE,
+    DEFAULT_VECTOR_INDEX_TYPE,
+    HNSW_DEFAULT_M,
+    HNSW_DEFAULT_EF_CONSTRUCTION,
+    HNSW_DEFAULT_EF_SEARCH,
+    HNSW_MIN_EF_SEARCH,
+    HNSW_MAX_EF_SEARCH,
+    FILTER_EXPAND_MULTIPLIER,
+    KEYWORD_MATCH_MAX_TF_FACTOR,
+    DYNAMIC_THRESHOLD_STD_FACTOR,
+    DYNAMIC_THRESHOLD_MIN_RATIO,
+    DYNAMIC_THRESHOLD_MAX,
+    TFIDF_SIMILARITY_THRESHOLD,
+    QUERY_EXPANSION_MAX_VARIANTS,
+    DEFAULT_TOP_K,
+    INDEX_META_SUFFIX,
+    INDEX_VECTORS_SUFFIX,
+    VECTOR_INDEX_TYPE_HNSW,
+    VECTOR_INDEX_TYPE_FLAT,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -66,33 +104,33 @@ class VectorSearch:
 
     def __init__(self, config: dict = None):
         config = config or {}
-        self._embedding_provider = config.get("embedding_provider", "auto")
-        self._embedding_model = config.get("embedding_model", "all-MiniLM-L6-v2")
-        self._embedding_dim = config.get("embedding_dim", 384)
-        self._index_path = config.get("index_path", "./data/vector/faiss.index")
-        self._similarity_threshold = config.get("similarity_threshold", 0.7)
-        self._ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
+        self._embedding_provider = config.get("embedding_provider", DEFAULT_EMBEDDING_PROVIDER)
+        self._embedding_model = config.get("embedding_model", DEFAULT_EMBEDDING_MODEL)
+        self._embedding_dim = config.get("embedding_dim", DEFAULT_EMBEDDING_DIM)
+        self._index_path = config.get("index_path", DEFAULT_INDEX_PATH)
+        self._similarity_threshold = config.get("similarity_threshold", DEFAULT_SIMILARITY_THRESHOLD)
+        self._ollama_base_url = config.get("ollama_base_url", DEFAULT_OLLAMA_BASE_URL)
 
         # GPU 加速配置
-        self._use_gpu = config.get("use_gpu", False)
-        self._gpu_device_id = config.get("gpu_device_id", 0)
-        self._gpu_memory_ratio = config.get("gpu_memory_ratio", 0.7)
+        self._use_gpu = config.get("use_gpu", DEFAULT_USE_GPU)
+        self._gpu_device_id = config.get("gpu_device_id", DEFAULT_GPU_DEVICE_ID)
+        self._gpu_memory_ratio = config.get("gpu_memory_ratio", DEFAULT_GPU_MEMORY_RATIO)
         self._gpu_resources = None  # faiss GpuResources 实例
         self._gpu_available: bool = False  # 实际是否运行在 GPU 模式
 
         # P2-12: 检索质量增强配置
-        self._enable_mmr = config.get("enable_mmr", True)
-        self._mmr_lambda = config.get("mmr_lambda", 0.7)
-        self._enable_hybrid = config.get("enable_hybrid", True)
-        self._hybrid_alpha = config.get("hybrid_alpha", 0.7)
-        self._enable_query_expansion = config.get("enable_query_expansion", True)
-        self._min_score_variance = config.get("min_score_variance", 0.05)
+        self._enable_mmr = config.get("enable_mmr", DEFAULT_ENABLE_MMR)
+        self._mmr_lambda = config.get("mmr_lambda", DEFAULT_MMR_LAMBDA)
+        self._enable_hybrid = config.get("enable_hybrid", DEFAULT_ENABLE_HYBRID)
+        self._hybrid_alpha = config.get("hybrid_alpha", DEFAULT_HYBRID_ALPHA)
+        self._enable_query_expansion = config.get("enable_query_expansion", DEFAULT_ENABLE_QUERY_EXPANSION)
+        self._min_score_variance = config.get("min_score_variance", MIN_SCORE_VARIANCE)
 
         # P2-任务2: HNSW 索引配置
-        self._index_type = config.get("vector_index_type", "HNSW")  # HNSW / Flat
-        self._hnsw_m = config.get("hnsw_m", 32)                      # 每层最大连接数
-        self._hnsw_ef_construction = config.get("hnsw_ef_construction", 200)  # 构建时搜索邻居数
-        self._hnsw_ef_search = config.get("hnsw_ef_search", 128)     # 搜索时搜索邻居数
+        self._index_type = config.get("vector_index_type", DEFAULT_VECTOR_INDEX_TYPE)  # HNSW / Flat
+        self._hnsw_m = config.get("hnsw_m", HNSW_DEFAULT_M)                      # 每层最大连接数
+        self._hnsw_ef_construction = config.get("hnsw_ef_construction", HNSW_DEFAULT_EF_CONSTRUCTION)  # 构建时搜索邻居数
+        self._hnsw_ef_search = config.get("hnsw_ef_search", HNSW_DEFAULT_EF_SEARCH)     # 搜索时搜索邻居数
         self._actual_index_type: str = "unknown"  # 实际使用的索引类型
 
         # Embedding 后端实例
@@ -106,6 +144,12 @@ class VectorSearch:
         self._vectors: np.ndarray | None = None  # shape: (n, dim)
         self._id_list: List[str] = []  # 与向量一一对应的 memory_id 列表
         self._id_to_idx: Dict[str, int] = {}  # memory_id -> 向量矩阵中的索引
+
+        # P2-任务3: 标记删除 + 惰性重建
+        self._deleted_ids: Set[str] = set()  # 已标记删除的 memory_id 集合
+        self._deleted_indices: Set[int] = set()  # 已标记删除的索引集合（内部过滤用）
+        self._rebuild_ratio: float = 0.2  # 重建阈值比例（删除数达到总数的百分比）
+        self._rebuild_abs_threshold: int = 100  # 重建绝对阈值（删除数达到固定条数）
 
         # metadata 存储
         self._metadata_store: Dict[str, dict] = {}
@@ -150,7 +194,7 @@ class VectorSearch:
         logger.info(f"Embedding 后端: TF-IDF + SVD (维度={self._embedding_dim})")
         # TF-IDF 模式下相似度普遍偏低，降低阈值
         if self._similarity_threshold > 0.5:
-            self._similarity_threshold = 0.2
+            self._similarity_threshold = TFIDF_SIMILARITY_THRESHOLD
 
     def _try_init_sentence_transformers(self) -> bool:
         """尝试初始化 sentence-transformers 模型"""
@@ -185,7 +229,7 @@ class VectorSearch:
             req = urllib.request.Request(url, data=payload, method="POST")
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_CONNECT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 if "embedding" in data:
                     self._embedding_dim = len(data["embedding"])
@@ -245,7 +289,7 @@ class VectorSearch:
         req = urllib.request.Request(url, data=payload, method="POST")
         req.add_header("Content-Type", "application/json")
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_REQUEST) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return np.array(data["embedding"], dtype=np.float32)
 
@@ -483,7 +527,7 @@ class VectorSearch:
 
         P2-任务2: 支持加载 HNSW 和 Flat 两种索引类型，根据元数据自动识别。
         """
-        meta_path = self._index_path + ".meta.pkl"
+        meta_path = self._index_path + INDEX_META_SUFFIX
 
         if not os.path.exists(meta_path):
             return False
@@ -496,8 +540,12 @@ class VectorSearch:
             self._id_to_idx = {mid: i for i, mid in enumerate(self._id_list)}
             self._metadata_store = meta.get("metadata", {})
 
+            # P2-任务3: 加载标记删除状态
+            self._deleted_ids = set(meta.get("deleted_ids", []))
+            self._deleted_indices = set(meta.get("deleted_indices", []))
+
             # P2-任务2: 读取索引类型元数据
-            saved_index_type = meta.get("index_type", "Flat")
+            saved_index_type = meta.get("index_type", VECTOR_INDEX_TYPE_FLAT)
             self._actual_index_type = saved_index_type
 
             # 加载 TF-IDF 状态（如果有）
@@ -507,7 +555,7 @@ class VectorSearch:
                 self._tfidf_doc_count = meta.get("tfidf_doc_count", 0)
 
             # 加载向量数据
-            vec_path = self._index_path + ".vectors.npy"
+            vec_path = self._index_path + INDEX_VECTORS_SUFFIX
             if os.path.exists(vec_path):
                 self._vectors = np.load(vec_path)
                 if self._vectors.shape[1] != self._embedding_dim:
@@ -572,6 +620,9 @@ class VectorSearch:
             "embedding_dim": self._embedding_dim,
             "embed_backend": self._embed_backend,
             "index_type": self._actual_index_type,  # P2-任务2: 索引类型
+            # P2-任务3: 标记删除状态
+            "deleted_ids": list(self._deleted_ids),
+            "deleted_indices": list(self._deleted_indices),
         }
 
         # TF-IDF 状态
@@ -580,7 +631,7 @@ class VectorSearch:
             meta["tfidf_idf"] = self._tfidf_idf
             meta["tfidf_doc_count"] = self._tfidf_doc_count
 
-        meta_path = self._index_path + ".meta.pkl"
+        meta_path = self._index_path + INDEX_META_SUFFIX
         with open(meta_path, "wb") as f:
             pickle.dump(meta, f)
 
@@ -594,7 +645,7 @@ class VectorSearch:
 
         # 保存 numpy 向量（无论哪种模式都存，方便降级）
         if self._vectors is not None and self._vectors.shape[0] > 0:
-            vec_path = self._index_path + ".vectors.npy"
+            vec_path = self._index_path + INDEX_VECTORS_SUFFIX
             np.save(vec_path, self._vectors)
 
     # ============================================================
@@ -605,6 +656,9 @@ class VectorSearch:
         """
         添加一条记忆的向量
 
+        对于已存在的 memory_id，采用"标记旧的为过期 + 追加新的"策略，
+        旧条目会在下次惰性重建时被物理清理。
+
         Args:
             memory_id: 记忆 ID
             text: 记忆文本（用于生成 embedding）
@@ -614,9 +668,15 @@ class VectorSearch:
             是否成功
         """
         try:
-            # 如果已存在，先删除旧的
-            if memory_id in self._id_to_idx:
-                self.delete(memory_id)
+            # P2-任务3: 惰性删除模式下处理已有 ID
+            was_deleted = memory_id in self._deleted_ids
+            if memory_id in self._id_to_idx and not was_deleted:
+                # 活动条目被替换：旧索引标记为过期（不计入 deleted_ids）
+                old_idx = self._id_to_idx[memory_id]
+                self._deleted_indices.add(old_idx)
+            elif was_deleted:
+                # 重新添加已删除的 ID：从 deleted_ids 中移除
+                self._deleted_ids.discard(memory_id)
 
             # 更新 TF-IDF 词汇表
             if self._embed_backend == "tfidf":
@@ -641,15 +701,204 @@ class VectorSearch:
             if self._use_faiss and self._faiss_index is not None:
                 self._faiss_index.add(vec_arr)
 
+            # P2-任务3: 添加后检查是否需要惰性重建
+            if self._should_rebuild():
+                self._do_lazy_rebuild()
+
             return True
         except Exception as e:
             logger.error(f"添加向量失败 [{memory_id}]: {e}")
             return False
 
+    # ============================================================
+    # 核心 API：搜索（拆分后的子函数）
+    # ============================================================
+
+    def _prepare_query(self, query: str) -> np.ndarray:
+        """查询预处理：将文本转换为归一化向量。
+
+        调用当前 Embedding 后端生成向量，并转换为 shape (1, dim) 的
+        float32 numpy 数组，以便直接用于 FAISS 或 numpy 检索。
+
+        Args:
+            query: 查询文本
+
+        Returns:
+            shape 为 (1, embedding_dim) 的 float32 向量数组
+        """
+        return np.array([self._get_embedding(query)], dtype=np.float32)
+
+    def _do_faiss_search(
+        self,
+        query_vec: np.ndarray,
+        top_k: int,
+        filters: dict = None,
+    ) -> List[Dict]:
+        """执行 FAISS 向量搜索，返回候选结果列表。
+
+        使用内积（IP）度量，因向量已 L2 归一化，内积等价于余弦相似度。
+        搜索时多取 FILTER_EXPAND_MULTIPLIER 倍候选，经过相似度阈值过滤
+        和 metadata 过滤后返回。
+
+        Args:
+            query_vec: 查询向量，shape (1, dim)
+            top_k: 期望返回数量
+            filters: metadata 过滤条件字典
+
+        Returns:
+            候选结果列表 [{memory_id, score, similarity, metadata}]，
+            按分数降序排列，数量不超过 top_k * FILTER_EXPAND_MULTIPLIER
+        """
+        k = min(top_k * FILTER_EXPAND_MULTIPLIER, len(self._id_list))
+        scores, indices = self._faiss_index.search(query_vec, k)
+        results = []
+        for i in range(len(indices[0])):
+            idx = int(indices[0][i])
+            if idx < 0 or idx >= len(self._id_list):
+                continue
+            # P2-任务3: 过滤已标记删除的索引
+            if idx in self._deleted_indices:
+                continue
+            mid = self._id_list[idx]
+            score = float(scores[0][i])
+            if score < self._similarity_threshold:
+                continue
+            meta = self._metadata_store.get(mid, {})
+            if filters and not self._match_filters(meta, filters):
+                continue
+            results.append({
+                "memory_id": mid,
+                "score": round(score, 4),
+                "similarity": round(score, 4),
+                "metadata": meta,
+            })
+            if len(results) >= top_k * FILTER_EXPAND_MULTIPLIER:
+                break
+        return results
+
+    def _do_numpy_search(
+        self,
+        query_vec: np.ndarray,
+        top_k: int,
+    ) -> List[Dict]:
+        """执行纯 numpy 向量搜索，返回所有候选结果。
+
+        使用矩阵乘法计算余弦相似度（向量已归一化，内积即余弦相似度），
+        按分数降序构建全部结果列表。不做阈值过滤，交由后续
+        ``_apply_dynamic_threshold`` 处理。
+
+        Args:
+            query_vec: 查询向量，shape (1, dim)
+            top_k: 期望返回数量（当前实现中暂不用于截断，保留接口一致性）
+
+        Returns:
+            全部候选结果列表 [{memory_id, score, similarity, metadata}]，
+            按分数降序排列
+        """
+        similarities = (self._vectors @ query_vec.T).flatten()
+        sorted_indices = np.argsort(-similarities)
+        results = []
+        for idx in sorted_indices:
+            orig_idx = int(idx)
+            # P2-任务3: 过滤已标记删除的索引
+            if orig_idx in self._deleted_indices:
+                continue
+            mid = self._id_list[orig_idx]
+            results.append({
+                "memory_id": mid,
+                "score": round(float(similarities[orig_idx]), 4),
+                "similarity": round(float(similarities[orig_idx]), 4),
+                "metadata": self._metadata_store.get(mid, {}),
+            })
+        return results
+
+    def _apply_mmr(
+        self,
+        results: List[Dict],
+        query_vec: np.ndarray,
+        top_k: int,
+        lambda_param: float = None,
+    ) -> List[Dict]:
+        """对搜索结果应用 MMR 去重，平衡相关性与多样性。
+
+        当启用 MMR 且结果数量超过 top_k 时，调用 ``_mmr_rerank``
+        进行最大边缘相关重排序。否则直接返回原结果。
+
+        Args:
+            results: 候选结果列表
+            query_vec: 查询向量，shape (1, dim)
+            top_k: 期望返回数量
+            lambda_param: MMR lambda 参数，None 时使用配置值
+
+        Returns:
+            MMR 重排序后的结果列表
+        """
+        if not self._enable_mmr or len(results) <= top_k:
+            return results
+        lambda_param = lambda_param if lambda_param is not None else self._mmr_lambda
+        return self._mmr_rerank(query_vec[0], results, top_k, lambda_param)
+
+    def _apply_dynamic_threshold(
+        self,
+        results: List[Dict],
+        base_threshold: float = None,
+    ) -> List[Dict]:
+        """根据结果分数分布动态计算相似度阈值并过滤。
+
+        从结果列表中提取分数数组，调用 ``_dynamic_threshold`` 计算
+        自适应阈值，然后返回分数不低于该阈值的结果。
+
+        Args:
+            results: 候选结果列表，每项需包含 ``score`` 字段
+            base_threshold: 基础相似度阈值，None 时使用配置值
+
+        Returns:
+            过滤后的结果列表
+        """
+        if not results:
+            return results
+        scores = np.array([r["score"] for r in results], dtype=np.float32)
+        dynamic_thresh = self._dynamic_threshold(scores, base_threshold)
+        return [r for r in results if r["score"] >= dynamic_thresh]
+
+    def _apply_hybrid_enhancement(
+        self,
+        results: List[Dict],
+        query: str,
+    ) -> List[Dict]:
+        """对搜索结果应用混合检索增强（向量 + 关键词融合打分）。
+
+        计算每条结果的关键词匹配分数，按 hybrid_alpha 权重与向量
+        相似度融合，更新 ``score`` 字段并重新排序。
+
+        Args:
+            results: 候选结果列表
+            query: 查询文本（用于关键词匹配）
+
+        Returns:
+            融合打分后的结果列表，按混合分数降序排列
+        """
+        if not self._enable_hybrid or not results:
+            return results
+        for r in results:
+            meta = r.get("metadata", {})
+            text = meta.get("text", meta.get("content", ""))
+            if not text and "title" in meta:
+                text = meta["title"]
+            kw_score = self._keyword_score(query, text)
+            r["keyword_score"] = round(kw_score, 4)
+            vec_score = r["score"]
+            r["hybrid_score"] = round(
+                self._hybrid_alpha * vec_score + (1 - self._hybrid_alpha) * kw_score, 4
+            )
+            r["score"] = r["hybrid_score"]
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results
+
     def search(
         self,
         query: str,
-        top_k: int = 10,
+        top_k: int = DEFAULT_TOP_K,
         filters: dict = None,
     ) -> List[Dict]:
         """
@@ -668,116 +917,43 @@ class VectorSearch:
         Returns:
             [{memory_id, score, metadata}] 按相似度降序排列
         """
-        if len(self._id_list) == 0:
+        if len(self._id_list) == 0 or len(self._id_list) == len(self._deleted_indices):
             return []
 
         try:
-            query_vec = np.array([self._get_embedding(query)], dtype=np.float32)
+            # P2-任务3: 搜索前检查是否需要惰性重建
+            if self._should_rebuild():
+                self._do_lazy_rebuild()
+
+            query_vec = self._prepare_query(query)
 
             if self._use_faiss and self._faiss_index is not None:
-                # FAISS 搜索（内积，因为已归一化，等价于余弦相似度）
-                k = min(top_k * 3, len(self._id_list))  # 多取一些做过滤
-                scores, indices = self._faiss_index.search(query_vec, k)
-                results = []
-                for i in range(len(indices[0])):
-                    idx = int(indices[0][i])
-                    if idx < 0 or idx >= len(self._id_list):
-                        continue
-                    mid = self._id_list[idx]
-                    score = float(scores[0][i])
-                    if score < self._similarity_threshold:
-                        continue
-                    meta = self._metadata_store.get(mid, {})
-                    if filters and not self._match_filters(meta, filters):
-                        continue
-                    results.append({
-                        "memory_id": mid,
-                        "score": round(score, 4),
-                        "similarity": round(score, 4),
-                        "metadata": meta,
-                    })
-                    if len(results) >= top_k * 3:
-                        break
-
-                # P2-12: 混合检索增强
-                if self._enable_hybrid and results:
-                    for r in results:
-                        meta = r.get("metadata", {})
-                        text = meta.get("text", meta.get("content", ""))
-                        if not text and "title" in meta:
-                            text = meta["title"]
-                        kw_score = self._keyword_score(query, text)
-                        r["keyword_score"] = round(kw_score, 4)
-                        vec_score = r["score"]
-                        r["hybrid_score"] = round(
-                            self._hybrid_alpha * vec_score + (1 - self._hybrid_alpha) * kw_score, 4
-                        )
-                        r["score"] = r["hybrid_score"]
-                    results.sort(key=lambda x: x["score"], reverse=True)
-
-                # P2-12: MMR 去重
-                if self._enable_mmr and len(results) > top_k:
-                    query_vec = np.array([self._get_embedding(query)], dtype=np.float32)
-                    results = self._mmr_rerank(query_vec[0], results, top_k, self._mmr_lambda)
-
+                # FAISS 搜索 + 阈值过滤 + metadata 过滤
+                results = self._do_faiss_search(query_vec, top_k, filters)
+                # 混合检索增强
+                results = self._apply_hybrid_enhancement(results, query)
+                # MMR 去重
+                results = self._apply_mmr(results, query_vec, top_k)
                 return results[:top_k]
             else:
-                # 纯 numpy 实现：余弦相似度
-                # 向量已归一化，内积即余弦相似度
-                similarities = (self._vectors @ query_vec.T).flatten()
-
-                # P2-12: 动态阈值
-                dynamic_thresh = self._dynamic_threshold(similarities)
-                mask = similarities >= dynamic_thresh
+                # numpy 全量搜索
+                results = self._do_numpy_search(query_vec, top_k)
+                # 动态阈值过滤
+                results = self._apply_dynamic_threshold(results, self._similarity_threshold)
+                # metadata 过滤
                 if filters:
-                    # 应用 metadata 过滤
-                    for i, mid in enumerate(self._id_list):
-                        if mask[i]:
-                            meta = self._metadata_store.get(mid, {})
-                            if not self._match_filters(meta, filters):
-                                mask[i] = False
-
-                # 获取 top_k
-                valid_indices = np.where(mask)[0]
-                if len(valid_indices) == 0:
+                    results = [
+                        r for r in results
+                        if self._match_filters(r.get("metadata", {}), filters)
+                    ]
+                if not results:
                     return []
-
-                valid_scores = similarities[valid_indices]
-                # 按分数降序排序
-                sorted_order = np.argsort(-valid_scores)[:top_k]
-
-                results = []
-                for order_idx in sorted_order:
-                    orig_idx = int(valid_indices[order_idx])
-                    mid = self._id_list[orig_idx]
-                    results.append({
-                        "memory_id": mid,
-                        "score": round(float(similarities[orig_idx]), 4),
-                        "similarity": round(float(similarities[orig_idx]), 4),
-                        "metadata": self._metadata_store.get(mid, {}),
-                    })
-
-                # P2-12: 混合检索增强
-                if self._enable_hybrid and results:
-                    for r in results:
-                        meta = r.get("metadata", {})
-                        text = meta.get("text", meta.get("content", ""))
-                        if not text and "title" in meta:
-                            text = meta["title"]
-                        kw_score = self._keyword_score(query, text)
-                        r["keyword_score"] = round(kw_score, 4)
-                        vec_score = r["score"]
-                        r["hybrid_score"] = round(
-                            self._hybrid_alpha * vec_score + (1 - self._hybrid_alpha) * kw_score, 4
-                        )
-                        r["score"] = r["hybrid_score"]
-                    results.sort(key=lambda x: x["score"], reverse=True)
-
-                # P2-12: MMR 去重
-                if self._enable_mmr and len(results) > top_k:
-                    query_vec_arr = np.array([self._get_embedding(query)], dtype=np.float32)
-                    results = self._mmr_rerank(query_vec_arr[0], results, top_k, self._mmr_lambda)
-
+                # 取 top_k
+                results = results[:top_k]
+                # 混合检索增强
+                results = self._apply_hybrid_enhancement(results, query)
+                # MMR 去重
+                results = self._apply_mmr(results, query_vec, top_k)
                 return results[:top_k]
 
         except Exception as e:
@@ -786,38 +962,171 @@ class VectorSearch:
 
     def delete(self, memory_id: str) -> bool:
         """
-        删除一条记忆的向量
+        删除一条记忆的向量（标记删除 + 惰性重建）
 
-        FAISS 的 IndexFlatIP 不支持直接删除，
-        因此采用标记删除 + 重建时清理的策略。
+        采用标记删除策略：删除操作只标记不立即重建索引，
+        当删除数达到阈值时在下一次搜索/添加操作中触发惰性重建。
+        删除复杂度从 O(n) 降为 O(1)，搜索性能影响极小。
+
+        P2-任务3: 标记删除 + 惰性重建机制
         """
         if memory_id not in self._id_to_idx:
             return False
 
+        if memory_id in self._deleted_ids:
+            # 已经标记为删除，直接返回
+            return False
+
         try:
             idx = self._id_to_idx[memory_id]
+            self._deleted_ids.add(memory_id)
+            self._deleted_indices.add(idx)
 
-            # 从 numpy 矩阵中移除
-            if self._vectors is not None and self._vectors.shape[0] > idx:
-                self._vectors = np.delete(self._vectors, idx, axis=0)
+            logger.debug(f"标记删除向量 [{memory_id}] (idx={idx})")
 
-            # 从 id 列表中移除
-            self._id_list.pop(idx)
-            self._id_to_idx.pop(memory_id, None)
-            self._metadata_store.pop(memory_id, None)
-
-            # 更新剩余 id 的索引映射
-            for i in range(idx, len(self._id_list)):
-                self._id_to_idx[self._id_list[i]] = i
-
-            # FAISS 索引需要重建（IndexFlatIP 不支持删除）
-            if self._use_faiss and self._faiss_index is not None:
-                self._rebuild_faiss_from_vectors()
+            # 检查是否达到重建阈值（不立即重建，惰性触发）
+            if self._should_rebuild():
+                logger.debug(
+                    f"删除数达到重建阈值 "
+                    f"(deleted={len(self._deleted_indices)}, "
+                    f"total={len(self._id_list)})，将在下次操作时惰性重建"
+                )
 
             return True
         except Exception as e:
-            logger.error(f"删除向量失败 [{memory_id}]: {e}")
+            logger.error(f"标记删除向量失败 [{memory_id}]: {e}")
             return False
+
+    # ============================================================
+    # P2-任务3: 标记删除 + 惰性重建机制
+    # ============================================================
+
+    def _should_rebuild(self) -> bool:
+        """检查是否达到惰性重建阈值
+
+        触发条件（满足任一即触发）：
+        - 待清理索引数达到总条目数的 rebuild_ratio（默认 20%）
+        - 待清理索引数达到 rebuild_abs_threshold（默认 100 条）
+
+        Returns:
+            True 表示需要触发重建
+        """
+        total = len(self._id_list)
+        if total == 0:
+            return False
+        pending = len(self._deleted_indices)
+        if pending == 0:
+            return False
+        ratio_threshold = int(total * self._rebuild_ratio)
+        return pending >= ratio_threshold or pending >= self._rebuild_abs_threshold
+
+    def _do_lazy_rebuild(self) -> None:
+        """执行惰性重建：清理标记删除的条目并重建索引
+
+        物理压缩向量矩阵和 ID 列表，重建 FAISS 索引。
+        重建后清空 _deleted_ids 和 _deleted_indices。
+        """
+        if not self._deleted_indices:
+            return
+
+        deleted_count = len(self._deleted_indices)
+        total_before = len(self._id_list)
+
+        logger.info(
+            f"触发惰性索引重建: 待清理 {deleted_count} 条, "
+            f"总计 {total_before} 条, 比例 {deleted_count/total_before:.1%}"
+        )
+
+        # 压缩向量矩阵和 ID 列表
+        self._compact_vectors()
+
+        # 重建 FAISS 索引
+        if self._use_faiss and self._faiss_index is not None:
+            self._rebuild_faiss_from_vectors()
+
+        total_after = len(self._id_list)
+        logger.info(f"惰性重建完成: {total_before} -> {total_after} 条向量")
+
+    def _compact_vectors(self) -> None:
+        """物理压缩向量矩阵和 ID 列表，移除标记删除的条目
+
+        重建后：
+        - _vectors: 只保留活动向量
+        - _id_list: 只保留活动 ID
+        - _id_to_idx: 更新为新的索引映射
+        - _metadata_store: 只保留活动 ID 的元数据
+        - _deleted_ids / _deleted_indices: 清空
+        """
+        if not self._deleted_indices:
+            return
+
+        total = len(self._id_list)
+        keep_mask = np.ones(total, dtype=bool)
+        for idx in self._deleted_indices:
+            if 0 <= idx < total:
+                keep_mask[idx] = False
+
+        # 压缩向量矩阵
+        if self._vectors is not None and self._vectors.shape[0] == total:
+            self._vectors = self._vectors[keep_mask]
+
+        # 压缩 ID 列表
+        new_id_list = []
+        new_id_to_idx: Dict[str, int] = {}
+        new_metadata_store: Dict[str, dict] = {}
+        new_idx = 0
+        for i in range(total):
+            if keep_mask[i]:
+                mid = self._id_list[i]
+                new_id_list.append(mid)
+                new_id_to_idx[mid] = new_idx
+                if mid in self._metadata_store:
+                    new_metadata_store[mid] = self._metadata_store[mid]
+                new_idx += 1
+
+        self._id_list = new_id_list
+        self._id_to_idx = new_id_to_idx
+        self._metadata_store = new_metadata_store
+
+        # 清空删除标记
+        self._deleted_ids.clear()
+        self._deleted_indices.clear()
+
+    def force_rebuild(self) -> None:
+        """强制重建索引（清理所有标记删除的条目）
+
+        无论是否达到阈值，立即执行完整的索引重建。
+        可用于定期维护或在批量删除后手动调用。
+
+        P2-任务3: 标记删除 + 惰性重建机制
+        """
+        if not self._deleted_indices:
+            logger.debug("force_rebuild: 没有待清理的条目，跳过")
+            return
+
+        logger.info(
+            f"强制重建索引: 待清理 {len(self._deleted_indices)} 条, "
+            f"总计 {len(self._id_list)} 条"
+        )
+
+        self._compact_vectors()
+
+        if self._use_faiss and self._faiss_index is not None:
+            self._rebuild_faiss_from_vectors()
+
+        self._save_index()
+
+        logger.info(f"强制重建完成: 当前 {len(self._id_list)} 条活动向量")
+
+    def get_deleted_count(self) -> int:
+        """查询当前标记待删除的 memory_id 数量
+
+        Returns:
+            已标记删除的唯一 memory_id 数量
+
+        P2-任务3: 标记删除 + 惰性重建机制
+        """
+        return len(self._deleted_ids)
 
     def batch_add(self, items: List[Dict]) -> int:
         """
@@ -839,7 +1148,12 @@ class VectorSearch:
         return success
 
     def rebuild_index(self) -> None:
-        """重建索引（从 memory_id 列表和向量矩阵重建 FAISS 索引）"""
+        """重建索引（从 memory_id 列表和向量矩阵重建 FAISS 索引）
+
+        P2-任务3: 重建时清理标记删除的条目，物理压缩向量矩阵。
+        """
+        # 先清理标记删除的条目
+        self._compact_vectors()
         if self._use_faiss:
             self._rebuild_faiss_from_vectors()
         self._save_index()
@@ -992,6 +1306,7 @@ class VectorSearch:
 
     def get_stats(self) -> Dict:
         """获取向量库统计信息"""
+        active_count = len(self._id_list) - len(self._deleted_indices)
         return {
             "embed_backend": self._embed_backend,
             "embed_model": self._embedding_model,
@@ -999,7 +1314,10 @@ class VectorSearch:
             "dimension": self._embedding_dim,  # 兼容别名
             "index_backend": "faiss" if self._use_faiss else "numpy",
             "backend": self._embed_backend,  # 兼容别名
-            "total_vectors": len(self._id_list),
+            "total_vectors": active_count,  # P2-任务3: 返回活动向量数
+            "total_indexed": len(self._id_list),  # 索引中总条目数（含待删除）
+            "deleted_count": len(self._deleted_ids),  # 标记删除的唯一 ID 数
+            "pending_cleanup": len(self._deleted_indices),  # 待清理的索引槽位数
             "similarity_threshold": self._similarity_threshold,
             "index_path": self._index_path,
             "enable_mmr": self._enable_mmr,
@@ -1042,7 +1360,7 @@ class VectorSearch:
         if any(c.isalpha() for c in q):
             if q.lower() != q:
                 queries.append(q.lower())
-        return list(dict.fromkeys(queries))[:5]
+        return list(dict.fromkeys(queries))[:QUERY_EXPANSION_MAX_VARIANTS]
 
     def _keyword_score(self, query: str, text: str) -> float:
         """计算关键词匹配分数（0~1）"""
@@ -1057,7 +1375,7 @@ class VectorSearch:
         for token in set(tokens):
             if token in doc_set:
                 tf = doc_tokens.count(token) / len(doc_tokens)
-                match_score += min(tf * 3, 1.0)
+                match_score += min(tf * KEYWORD_MATCH_MAX_TF_FACTOR, 1.0)
         return min(match_score / max(len(tokens), 1), 1.0)
 
     # ============================================================
@@ -1069,7 +1387,7 @@ class VectorSearch:
         query_vec: np.ndarray,
         candidates: List[Dict],
         top_k: int,
-        lambda_: float = 0.7,
+        lambda_: float = DEFAULT_MMR_LAMBDA,
     ) -> List[Dict]:
         """MMR 去重重排序：平衡相关性与多样性"""
         if len(candidates) <= top_k:
@@ -1113,17 +1431,26 @@ class VectorSearch:
     # P2-12: 检索质量增强 - 动态阈值
     # ============================================================
 
-    def _dynamic_threshold(self, scores: np.ndarray) -> float:
-        """根据分数分布动态计算相似度阈值"""
+    def _dynamic_threshold(self, scores: np.ndarray, base_threshold: float = None) -> float:
+        """根据分数分布动态计算相似度阈值。
+
+        Args:
+            scores: 分数数组
+            base_threshold: 基础相似度阈值，None 时使用配置值
+
+        Returns:
+            动态计算后的相似度阈值
+        """
+        base_threshold = base_threshold if base_threshold is not None else self._similarity_threshold
         if len(scores) == 0:
-            return self._similarity_threshold
+            return base_threshold
         mean_score = float(np.mean(scores))
         std_score = float(np.std(scores))
         if std_score < self._min_score_variance:
-            return self._similarity_threshold
-        dynamic_thresh = mean_score - 0.5 * std_score
-        dynamic_thresh = max(dynamic_thresh, self._similarity_threshold * 0.7)
-        dynamic_thresh = min(dynamic_thresh, 0.95)
+            return base_threshold
+        dynamic_thresh = mean_score - DYNAMIC_THRESHOLD_STD_FACTOR * std_score
+        dynamic_thresh = max(dynamic_thresh, base_threshold * DYNAMIC_THRESHOLD_MIN_RATIO)
+        dynamic_thresh = min(dynamic_thresh, DYNAMIC_THRESHOLD_MAX)
         return dynamic_thresh
 
     # ============================================================

@@ -22,15 +22,47 @@ from typing import Callable, Dict, Optional
 
 import structlog
 
+from ..common.constants import (
+    PHASE_FLOOD,
+    PHASE_RISING,
+    PHASE_SLACK,
+    PHASE_EBB,
+    FLOOD_START_HOUR,
+    FLOOD_END_HOUR,
+    RISING_START_HOUR,
+    RISING_END_HOUR,
+    EBB_START_HOUR,
+    EBB_END_HOUR,
+    DEFAULT_PHASE_CHECK_INTERVAL,
+    FLOOD_L0_MAX_ITEMS,
+    FLOOD_SEARCH_TIMEOUT_MS,
+    FLOOD_TOP_K_EXPAND,
+    FLOOD_WRITE_BATCH_SIZE,
+    RISING_L0_MAX_ITEMS,
+    RISING_SEARCH_TIMEOUT_MS,
+    RISING_TOP_K_EXPAND,
+    RISING_WRITE_BATCH_SIZE,
+    SLACK_L0_MAX_ITEMS,
+    SLACK_SEARCH_TIMEOUT_MS,
+    SLACK_TOP_K_EXPAND,
+    SLACK_WRITE_BATCH_SIZE,
+    EBB_L0_MAX_ITEMS,
+    EBB_SEARCH_TIMEOUT_MS,
+    EBB_TOP_K_EXPAND,
+    EBB_WRITE_BATCH_SIZE,
+    CONSOLIDATION_MODE_QUICK,
+    CONSOLIDATION_MODE_FULL,
+)
+
 logger = structlog.get_logger(__name__)
 
 
 class TidePhase(str, Enum):
     """潮汐四相"""
-    FLOOD = "flood"       # 潮起 - 召回活跃期
-    RISING = "rising"     # 涨潮 - 写入活跃期
-    SLACK = "slack"       # 平潮 - 空闲期
-    EBB = "ebb"           # 潮落 - 低峰期
+    FLOOD = PHASE_FLOOD       # 潮起 - 召回活跃期
+    RISING = PHASE_RISING     # 涨潮 - 写入活跃期
+    SLACK = PHASE_SLACK       # 平潮 - 空闲期
+    EBB = PHASE_EBB           # 潮落 - 低峰期
 
 
 class TidePhaseController:
@@ -64,7 +96,7 @@ class TidePhaseController:
         schedule: Dict = None,
         initial_phase: Optional[TidePhase] = None,
         auto_switch: bool = True,
-        check_interval: int = 60,  # 检查相位切换的间隔（秒）
+        check_interval: int = DEFAULT_PHASE_CHECK_INTERVAL,  # 检查相位切换的间隔（秒）
     ):
         """
         初始化潮汐相位控制器
@@ -242,46 +274,46 @@ class TidePhaseController:
 
         if phase == TidePhase.FLOOD:
             return {
-                "phase": "flood",
+                "phase": PHASE_FLOOD,
                 "description": "潮起 - 召回活跃期，优先保证检索速度",
                 "cache": {
                     "l0_enabled": True,
-                    "l0_max_items": 200,  # L0 缓存扩容
+                    "l0_max_items": FLOOD_L0_MAX_ITEMS,  # L0 缓存扩容
                     "preload_enabled": True,
                 },
                 "search": {
-                    "timeout_ms": 500,       # 检索超时短
-                    "top_k_expand": 2,       # 扩大召回范围
+                    "timeout_ms": FLOOD_SEARCH_TIMEOUT_MS,       # 检索超时短
+                    "top_k_expand": FLOOD_TOP_K_EXPAND,       # 扩大召回范围
                 },
                 "consolidation": {
                     "enabled": False,        # 跳过巩固
                     "mode": "none",
                 },
                 "write": {
-                    "batch_size": 10,        # 小批量写入
+                    "batch_size": FLOOD_WRITE_BATCH_SIZE,        # 小批量写入
                     "async_write": True,     # 异步写入
                 },
             }
 
         elif phase == TidePhase.RISING:
             return {
-                "phase": "rising",
+                "phase": PHASE_RISING,
                 "description": "涨潮 - 写入活跃期，优先保证写入速度",
                 "cache": {
                     "l0_enabled": True,
-                    "l0_max_items": 100,
+                    "l0_max_items": RISING_L0_MAX_ITEMS,
                     "preload_enabled": False,
                 },
                 "search": {
-                    "timeout_ms": 2000,
-                    "top_k_expand": 1,
+                    "timeout_ms": RISING_SEARCH_TIMEOUT_MS,
+                    "top_k_expand": RISING_TOP_K_EXPAND,
                 },
                 "consolidation": {
                     "enabled": False,
                     "mode": "none",
                 },
                 "write": {
-                    "batch_size": 100,       # 大批量写入
+                    "batch_size": RISING_WRITE_BATCH_SIZE,       # 大批量写入
                     "async_write": True,     # 异步写入
                     "l1_sync": True,         # L1 同步持久化
                 },
@@ -289,49 +321,49 @@ class TidePhaseController:
 
         elif phase == TidePhase.SLACK:
             return {
-                "phase": "slack",
+                "phase": PHASE_SLACK,
                 "description": "平潮 - 空闲期，可执行巩固、蒸馏等后台任务",
                 "cache": {
                     "l0_enabled": True,
-                    "l0_max_items": 100,
+                    "l0_max_items": SLACK_L0_MAX_ITEMS,
                     "preload_enabled": True,
                 },
                 "search": {
-                    "timeout_ms": 2000,
-                    "top_k_expand": 1,
+                    "timeout_ms": SLACK_SEARCH_TIMEOUT_MS,
+                    "top_k_expand": SLACK_TOP_K_EXPAND,
                 },
                 "consolidation": {
                     "enabled": True,
-                    "mode": "quick",         # 快速巩固
+                    "mode": CONSOLIDATION_MODE_QUICK,         # 快速巩固
                     "distill_enabled": False,  # 轻量，不做蒸馏
                 },
                 "write": {
-                    "batch_size": 50,
+                    "batch_size": SLACK_WRITE_BATCH_SIZE,
                     "async_write": False,
                 },
             }
 
         else:  # EBB
             return {
-                "phase": "ebb",
+                "phase": PHASE_EBB,
                 "description": "潮落 - 低峰期，执行深度整理、遗忘等重任务",
                 "cache": {
                     "l0_enabled": False,      # 关闭 L0 缓存（省电/省内存）
-                    "l0_max_items": 10,
+                    "l0_max_items": EBB_L0_MAX_ITEMS,
                     "preload_enabled": False,
                 },
                 "search": {
-                    "timeout_ms": 5000,       # 检索可慢一些
-                    "top_k_expand": 1,
+                    "timeout_ms": EBB_SEARCH_TIMEOUT_MS,       # 检索可慢一些
+                    "top_k_expand": EBB_TOP_K_EXPAND,
                 },
                 "consolidation": {
                     "enabled": True,
-                    "mode": "full",           # 完整巩固
+                    "mode": CONSOLIDATION_MODE_FULL,           # 完整巩固
                     "distill_enabled": True,  # 语义蒸馏
                     "forget_enabled": True,   # 全量遗忘
                 },
                 "write": {
-                    "batch_size": 200,
+                    "batch_size": EBB_WRITE_BATCH_SIZE,
                     "async_write": False,
                 },
             }

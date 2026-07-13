@@ -19,6 +19,25 @@ from ..core.models import (
     MemoryLayer,
 )
 from ..db import DatabaseMigrator
+from ..common.constants import (
+    L3_MAX_ITEMS,
+    L3_RETENTION_DAYS,
+    L3_ACCESS_PRIORITY,
+    DEFAULT_L3_STORAGE_PATH,
+    ENCRYPTION_KEY_SIZE,
+    ENCRYPTION_SALT_SIZE,
+    ENCRYPTION_NONCE_SIZE,
+    ENCRYPTION_TAG_SIZE,
+    PBKDF2_ITERATIONS,
+    PBKDF2_DKLEN,
+    QUALITY_SCORE_MAX,
+    QUALITY_SCORE_DIVISOR,
+    QUALITY_SCORE_DEFAULT,
+    CONTENT_SANITIZED,
+    CONTENT_ENCRYPTED,
+    DEFAULT_TOP_K,
+    FILTER_EXPAND_MULTIPLIER,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -39,10 +58,10 @@ class AbyssLayer:
 
     def __init__(self, config: dict = None):
         config = config or {}
-        self.max_items = config.get("max_items", 100000)
-        self.retention_days = config.get("retention_days", -1)  # 永久
-        self.access_priority = config.get("access_priority", 1)
-        self._storage_path = config.get("storage_path", "./data/memory/l3_abyss")
+        self.max_items = config.get("max_items", L3_MAX_ITEMS)
+        self.retention_days = config.get("retention_days", L3_RETENTION_DAYS)  # 永久
+        self.access_priority = config.get("access_priority", L3_ACCESS_PRIORITY)
+        self._storage_path = config.get("storage_path", DEFAULT_L3_STORAGE_PATH)
         self._db_path = os.path.join(self._storage_path, "index.db")
         self._vault_path = os.path.join(self._storage_path, "vault")
         self._master_key_path = os.path.join(self._storage_path, "master.key.enc")
@@ -100,7 +119,7 @@ class AbyssLayer:
             self._load_master_key()
         else:
             # 生成新主密钥
-            self._master_key = os.urandom(32)  # 256 bits
+            self._master_key = os.urandom(ENCRYPTION_KEY_SIZE)  # 256 bits
             self._save_master_key()
             logger.info("生成新的 L3 主密钥")
 
@@ -113,12 +132,12 @@ class AbyssLayer:
             if self._password:
                 # 用密码解密主密钥
                 # 格式: salt(16) + nonce(12) + ciphertext + tag(16)
-                if len(data) < 16 + 12 + 16:
+                if len(data) < ENCRYPTION_SALT_SIZE + ENCRYPTION_NONCE_SIZE + ENCRYPTION_TAG_SIZE:
                     raise ValueError("主密钥文件格式错误")
 
-                salt = data[:16]
-                nonce = data[16:28]
-                ciphertext_with_tag = data[28:]
+                salt = data[:ENCRYPTION_SALT_SIZE]
+                nonce = data[ENCRYPTION_SALT_SIZE:ENCRYPTION_SALT_SIZE + ENCRYPTION_NONCE_SIZE]
+                ciphertext_with_tag = data[ENCRYPTION_SALT_SIZE + ENCRYPTION_NONCE_SIZE:]
 
                 # 派生解密密钥
                 derived_key, _ = self._pbkdf2_derive(self._password, salt)
@@ -137,14 +156,14 @@ class AbyssLayer:
             else:
                 # 没有密码，直接加载（明文存储）
                 self._master_key = data
-                if len(self._master_key) != 32:
+                if len(self._master_key) != ENCRYPTION_KEY_SIZE:
                     logger.warning("主密钥长度异常，将重新生成")
-                    self._master_key = os.urandom(32)
+                    self._master_key = os.urandom(ENCRYPTION_KEY_SIZE)
                     self._save_master_key()
         except Exception as e:
             logger.error(f"加载主密钥失败: {e}")
             # 失败时生成新密钥（会导致旧数据无法解密，但保证系统可用）
-            self._master_key = os.urandom(32)
+            self._master_key = os.urandom(ENCRYPTION_KEY_SIZE)
             self._save_master_key()
 
     def _save_master_key(self) -> None:
@@ -155,8 +174,8 @@ class AbyssLayer:
         try:
             if self._password:
                 # 用密码加密主密钥后保存
-                salt = os.urandom(16)
-                nonce = os.urandom(12)
+                salt = os.urandom(ENCRYPTION_SALT_SIZE)
+                nonce = os.urandom(ENCRYPTION_NONCE_SIZE)
 
                 # 派生加密密钥
                 derived_key, _ = self._pbkdf2_derive(self._password, salt)
@@ -386,7 +405,7 @@ class AbyssLayer:
             salt = bytes.fromhex(salt_hex)
         else:
             # 用 content_hash 作为 salt（每条记忆唯一）
-            salt = hashlib.sha256(content_hash.encode("utf-8")).digest()[:16]
+            salt = hashlib.sha256(content_hash.encode("utf-8")).digest()[:ENCRYPTION_SALT_SIZE]
 
         # 将主密钥与 content_hash 混合，再做 PBKDF2
         mixed = self._master_key + content_hash.encode("utf-8")
@@ -394,8 +413,8 @@ class AbyssLayer:
             "sha256",
             mixed,
             salt,
-            10000,  # 迭代次数
-            dklen=32,  # 256 bits
+            PBKDF2_ITERATIONS,  # 迭代次数
+            dklen=PBKDF2_DKLEN,  # 256 bits
         )
         return derived
 
@@ -405,8 +424,8 @@ class AbyssLayer:
             "sha256",
             password.encode("utf-8"),
             salt,
-            100000,
-            dklen=32,
+            PBKDF2_ITERATIONS * 10,  # 主密钥派生迭代次数更多
+            dklen=PBKDF2_DKLEN,
         )
         return key, salt
 
@@ -751,7 +770,7 @@ class AbyssLayer:
             logger.error(f"L3 删除记忆失败 [{memory_id}]: {e}")
             return False
 
-    def search(self, query: str, domain: str = None, top_k: int = 10) -> List[Dict]:
+    def search(self, query: str, domain: str = None, top_k: int = DEFAULT_TOP_K) -> List[Dict]:
         """
         搜索（只搜元数据索引，内容不解密
 
@@ -777,7 +796,7 @@ class AbyssLayer:
                 FROM memories WHERE 1=1 {query_cond}
                 ORDER BY quality_score DESC
                 LIMIT ?
-            """, params + [top_k * 10]).fetchall()
+            """, params + [top_k * FILTER_EXPAND_MULTIPLIER]).fetchall()
             conn.close()
 
             results = []
@@ -788,10 +807,10 @@ class AbyssLayer:
                 if score > 0 or not query:
                     results.append({
                         "memory_id": row[0],
-                        "content_preview": "[ENCRYPTED]",  # L3层内容加密
+                        "content_preview": CONTENT_ENCRYPTED,  # L3层内容加密
                         "layer": row[1],
                         "domain": row[2],
-                        "similarity": min(1.0, (score + row[5] / 100) / 6),
+                        "similarity": min(1.0, (score + row[5] / QUALITY_SCORE_MAX) / QUALITY_SCORE_DIVISOR),
                         "created_at": row[3],
                         "emotion_tags": [row[7]] if row[7] else [],
                         "quality_score": row[5],
