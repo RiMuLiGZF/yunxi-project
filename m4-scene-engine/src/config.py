@@ -119,6 +119,26 @@ class Settings(BaseSettings):
     # ---- 数据 ----
     data_path: str = Field(default="", description="数据目录路径")
 
+    @field_validator("data_path")
+    @classmethod
+    def validate_data_path(cls, v: str) -> str:
+        """验证数据目录路径，为空则自动推导默认路径.
+
+        默认路径优先级：
+        1. 项目根目录下的 data/（推荐）
+        2. src/data/（向后兼容）
+        """
+        if v:
+            return v
+        # 自动推导默认数据目录
+        project_root = Path(__file__).resolve().parent.parent
+        default_data = project_root / "data"
+        legacy_data = project_root / "src" / "data"
+        # 如果默认 data 目录不存在但 legacy 存在，使用 legacy（向后兼容）
+        if not default_data.exists() and legacy_data.exists():
+            return str(legacy_data)
+        return str(default_data)
+
     # ---- 安全 ----
     admin_token: str = Field(default="", description="管理员令牌")
 

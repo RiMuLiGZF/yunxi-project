@@ -1,0 +1,284 @@
+"""场景定义数据模块.
+
+集中管理所有场景的配置定义，包括默认场景、动作类型和场景定义字典。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# 场景定义
+# ---------------------------------------------------------------------------
+
+#: 默认场景
+DEFAULT_SCENE = "chat"
+
+#: 支持的场景动作类型
+ACTION_TYPES: list[str] = [
+    "launch_vscode",       # 启动 VS Code
+    "open_project",        # 打开项目
+    "open_file",           # 打开文件
+    "install_extension",   # 安装扩展
+    "run_command",         # 执行命令
+]
+
+#: 场景定义字典
+SCENE_DEFINITIONS: dict[str, dict[str, Any]] = {
+    "chat": {
+        "id": "chat",
+        "name": "日常对话",
+        "icon": "💬",
+        "description": "日常聊天、问答、闲聊场景",
+        "tone": "friendly",
+        "keywords": [
+            "聊天", "闲聊", "说说", "聊聊", "问答", "提问",
+            "你好", "hi", "hello", "在吗", "早上好",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+    },
+    "creative": {
+        "id": "creative",
+        "name": "创意创作",
+        "icon": "🎨",
+        "description": "文案写作、内容创作、灵感激发场景",
+        "tone": "creative",
+        "keywords": [
+            "写一篇", "创作", "文案", "文章", "故事", "小说",
+            "诗歌", "灵感", "创意", "写点", "写作",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+    },
+    "learning": {
+        "id": "learning",
+        "name": "学习教育",
+        "icon": "📚",
+        "description": "知识学习、技能提升、教育辅导场景",
+        "tone": "educational",
+        "keywords": [
+            "学习", "教程", "解释", "讲解", "教学", "课程",
+            "知识", "考试", "复习", "原理", "概念",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+    },
+    "life": {
+        "id": "life",
+        "name": "生活助手",
+        "icon": "🏠",
+        "description": "日常生活、出行、美食、健康等生活场景",
+        "tone": "warm",
+        "keywords": [
+            "菜谱", "食谱", "做饭", "美食", "旅游", "出行",
+            "健康", "运动", "减肥", "养生", "生活",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+    },
+    "work_dev": {
+        "id": "work_dev",
+        "name": "工作开发",
+        "icon": "💻",
+        "description": "编程开发、代码编写、项目调试场景",
+        "tone": "professional",
+        "keywords": [
+            "写代码", "开发", "编程", "写程序", "debug", "调试",
+            "VS Code", "vscode", "编辑器", "项目", "工作", "开发模式",
+        ],
+        "mcp_tools": [
+            {
+                "name": "yunxi_vscode_launch",
+                "params": {},
+                "trigger": "on_enter",
+                "required": False,
+            },
+            {
+                "name": "yunxi_compute_schedule",
+                "params": {"action": "query_available"},
+                "trigger": "on_enter",
+                "required": False,
+            },
+        ],
+        "actions": [
+            {
+                "type": "launch_vscode",
+                "params": {
+                    "new_window": True,
+                },
+                "condition": "not_running",
+                "once": False,
+            },
+            {
+                "type": "open_project",
+                "params": {
+                    "project_path": "",
+                },
+                "condition": "has_project_path",
+                "once": False,
+            },
+            {
+                "type": "install_extension",
+                "params": {
+                    "extensions": [
+                        "ms-python.python",
+                        "dbaeumer.vscode-eslint",
+                        "esbenp.prettier-vscode",
+                    ],
+                },
+                "condition": "first_enter",
+                "once": True,
+            },
+        ],
+        "skills": [
+            {
+                "name": "vscode_control",
+                "auto_trigger": ["on_enter"],
+                "default_params": {
+                    "action": "launch",
+                },
+                "required": False,
+            },
+            {
+                "name": "file_operation",
+                "auto_trigger": [],
+                "default_params": {},
+                "required": False,
+            },
+            {
+                "name": "terminal_command",
+                "auto_trigger": [],
+                "default_params": {},
+                "required": False,
+            },
+            {
+                "name": "git_tools",
+                "auto_trigger": [],
+                "default_params": {},
+                "required": False,
+            },
+        ],
+        "is_business_mode": True,
+        "category": "work",
+    },
+    # -----------------------------------------------------------------------
+    # 业务模式场景（M8 迁移，占位定义）
+    # -----------------------------------------------------------------------
+    "growth": {
+        "id": "growth",
+        "name": "成长中心",
+        "icon": "🌱",
+        "description": "记录成长轨迹，解锁成就天赋，见证每一步进步",
+        "tone": "encouraging",
+        "keywords": [
+            "成长", "进步", "成就", "天赋", "等级", "经验",
+            "解锁", "任务", "打卡", "成长中心",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "growth",
+    },
+    "review": {
+        "id": "review",
+        "name": "复盘总结",
+        "icon": "📝",
+        "description": "每日复盘、周总结、目标回顾，沉淀经验持续成长",
+        "tone": "reflective",
+        "keywords": [
+            "复盘", "总结", "回顾", "日记", "周报", "月报",
+            "反思", "目标", "复盘总结",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "growth",
+    },
+    "study_plan": {
+        "id": "study_plan",
+        "name": "学业规划",
+        "icon": "🎓",
+        "description": "学习计划、课程安排、知识管理，助力学业进步",
+        "tone": "educational",
+        "keywords": [
+            "学习计划", "课程", "学业", "考试", "复习", "备考",
+            "知识体系", "学业规划",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "study",
+    },
+    "life_management": {
+        "id": "life_management",
+        "name": "生活管理",
+        "icon": "🏠",
+        "description": "日程安排、待办事项、习惯养成，管理生活方方面面",
+        "tone": "warm",
+        "keywords": [
+            "日程", "待办", "todo", "习惯", "打卡", "计划",
+            "提醒", "生活管理",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "life",
+    },
+    "social_relation": {
+        "id": "social_relation",
+        "name": "人际关系",
+        "icon": "👥",
+        "description": "社交技巧、关系维护、沟通提升，经营美好人际关系",
+        "tone": "friendly",
+        "keywords": [
+            "社交", "人际", "关系", "沟通", "交友", "情商",
+            "人际关系",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "social",
+    },
+    "emotion_comfort": {
+        "id": "emotion_comfort",
+        "name": "情绪陪伴",
+        "icon": "💗",
+        "description": "情绪疏导、心理支持、温暖陪伴，守护心理健康",
+        "tone": "gentle",
+        "keywords": [
+            "情绪", "心理", "安慰", "陪伴", "焦虑", "抑郁",
+            "压力", "心情不好", "情绪陪伴",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "emotion",
+    },
+    "appearance": {
+        "id": "appearance",
+        "name": "形象工坊",
+        "icon": "👗",
+        "description": "穿搭建议、形象设计、风格探索，打造个人独特形象",
+        "tone": "fashionable",
+        "keywords": [
+            "穿搭", "形象", "风格", "美妆", "护肤", "穿衣",
+            "搭配", "形象工坊",
+        ],
+        "mcp_tools": [],
+        "actions": [],
+        "skills": [],
+        "is_business_mode": True,
+        "category": "appearance",
+    },
+}

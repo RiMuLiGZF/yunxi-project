@@ -58,8 +58,13 @@ def get_db_path(base_dir: Path | None = None) -> str:
         return env_path
 
     if base_dir is None:
-        base_dir = Path(__file__).resolve().parent.parent.parent
+        # 从 src/models/db/base.py 向上四级到项目根目录
+        base_dir = Path(__file__).resolve().parent.parent.parent.parent
     data_dir = base_dir / "data"
+    # 向后兼容：如果项目根 data 不存在但 src/data 存在，使用 src/data
+    legacy_data_dir = base_dir / "src" / "data"
+    if not data_dir.exists() and legacy_data_dir.exists():
+        data_dir = legacy_data_dir
     data_dir.mkdir(parents=True, exist_ok=True)
     return str(data_dir / "m4.db")
 
