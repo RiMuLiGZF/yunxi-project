@@ -393,6 +393,27 @@ class HealthMonitor:
         any_down = any(r.status == "down" for r in ready.values())
         any_degraded = any(r.status == "degraded" for r in ready.values())
 
+        # 检查降级状态（惰性导入，避免循环依赖）
+        degradation_info: dict[str, Any] = {}
+        try:
+            from degradation import get_degradation_manager
+
+            mgr = get_degradation_manager()
+            stats = mgr.get_stats()
+            degradation_info = {
+                "level": stats["current_level"],
+                "level_value": stats["current_level_value"],
+                "disabled_count": stats["disabled_count"],
+                "disabled_features": stats["disabled_features"],
+            }
+            # L3 及以上降级时整体状态为 degraded
+            if stats["current_level_value"] >= 3:
+                any_degraded = True
+        except ImportError:
+            pass
+        except Exception as exc:
+            logger.warning("degradation_status_check_failed", error=str(exc))
+
         if live.status != "up":
             overall = "down"
         elif any_down:
@@ -404,12 +425,17 @@ class HealthMonitor:
         else:
             overall = "unknown"
 
-        return {
+        result: dict[str, Any] = {
             "status": overall,
             "timestamp": time.time(),
             "liveness": live.to_dict(),
             "readiness": {name: status.to_dict() for name, status in ready.items()},
         }
+
+        if degradation_info:
+            result["degradation"] = degradation_info
+
+        return result
 
     # ── 组件详细状态 ──────────────────────────────────
 
@@ -894,3 +920,44 @@ def _get_disk_free_mb(path: str) -> float | None:
         logger.warning("disk_free_check_failed", path=path, error=str(exc))
 
     return None
+
+
+# ── 降级状态健康检查器 ──────────────────────────────────
+
+
+def make_degradation_checker() -> tuple[str, HealthChecker, HealthCheckLevel, ComponentType]:
+    """创建降级状态健康检查器
+
+    检查当前降级级别，L3 及以上标记为 degraded。
+    使用惰性导入避免循环依赖。
+
+    Returns:
+        (name, checker, level, component_type) 元组
+    """
+
+    async def degradation_check() -> bool:
+        """降级状态检查函数"""
+        try:
+            from degradation import get_degradation_manager, DegradationLevel
+
+            manager = get_degradation_manager()
+            current_level = manager.current_level
+
+            # L3 及以上视为 degraded
+            if current_level >= DegradationLevel.L3_HEAVY:
+                raise RuntimeError(
+                    f"System in heavy degradation: {current_level.name} "
+                    f"(core features only)"
+                )
+
+            return True
+        except RuntimeError:
+            raise
+        except ImportError:
+            # 降级模块不可用时跳过检查
+            return True
+        except Exception as exc:
+            logger.warning("degradation_check_unavailable", error=str(exc))
+            return True
+
+    return ("degradation", degradation_check, "readiness", "custom")

@@ -133,6 +133,10 @@ class RetryCoordinator:
         # [P1-4-1] 容量与 TTL 治理
         self._max_states = max_states
         self._state_ttl_seconds = state_ttl_seconds
+        self._total_expired: int = 0
+        """累计过期清理的状态数"""
+        self._total_evicted: int = 0
+        """累计容量淘汰的状态数"""
         self._logger = logger.bind(service="retry_coordinator")
 
     def check_can_retry(
@@ -337,12 +341,44 @@ class RetryCoordinator:
         }
         return {
             "active_tasks": len(self._states),
+            "max_states": self._max_states,
+            "state_ttl_seconds": self._state_ttl_seconds,
+            "total_expired": self._total_expired,
+            "total_evicted": self._total_evicted,
             "max_retries": self._max_retries,
             "base_delay": self._base_delay,
             "max_delay": self._max_delay,
             "backoff_multiplier": self._backoff_multiplier,
             "tasks": active_states,
         }
+
+    def cleanup_expired(self) -> int:
+        """主动清理所有过期的重试状态（内存泄漏防护）。
+
+        与惰性清理（每次 _get_or_create_state 时触发）不同，
+        此方法可以被外部定时任务调用，确保即使长时间没有新任务，
+        过期状态也能被及时回收。
+
+        Returns:
+            清理掉的过期状态数量
+        """
+        now = time.time()
+        expired = [
+            tid for tid, s in self._states.items()
+            if now - s.last_updated > self._state_ttl_seconds
+        ]
+        for tid in expired:
+            del self._states[tid]
+
+        if expired:
+            self._total_expired += len(expired)
+            self._logger.info(
+                "retry_coordinator_cleanup_expired",
+                expired_count=len(expired),
+                remaining=len(self._states),
+            )
+
+        return len(expired)
 
     def _get_or_create_state(self, task_id: str) -> RetryState:
         """获取或创建任务重试状态
@@ -358,11 +394,24 @@ class RetryCoordinator:
         ]
         for tid in expired:
             del self._states[tid]
+        if expired:
+            self._total_expired += len(expired)
+            self._logger.debug(
+                "retry_state_expired_cleanup",
+                expired_count=len(expired),
+                remaining=len(self._states),
+            )
 
         # 容量淘汰：如果超过上限，淘汰最旧的条目（按 last_updated）
         if len(self._states) >= self._max_states:
             oldest_tid = min(self._states.items(), key=lambda x: x[1].last_updated)[0]
             del self._states[oldest_tid]
+            self._total_evicted += 1
+            self._logger.warning(
+                "retry_state_capacity_eviction",
+                evicted_task_id=oldest_tid,
+                max_states=self._max_states,
+            )
 
         if task_id not in self._states:
             self._states[task_id] = RetryState(

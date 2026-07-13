@@ -53,9 +53,27 @@ class SQLitePersistence:
     MAX_RETRIES: int = 3
     RETRY_BACKOFFS: tuple[float, ...] = (0.05, 0.1, 0.2)  # 秒，指数退避
 
-    def __init__(self, db_path: str = ":memory:") -> None:
+    # 连接泄漏检测默认配置
+    DEFAULT_CONNECTION_MAX_AGE: float = 3600.0  # 秒，连接最大存活时间
+    CONNECTION_LEAK_ENABLED: bool = True  # 是否启用连接泄漏检测
+
+    def __init__(
+        self,
+        db_path: str = ":memory:",
+        connection_max_age: float | None = None,
+        enable_leak_detection: bool = True,
+    ) -> None:
         self.db_path: str = db_path
         self._connection: sqlite3.Connection | None = None
+        self._connection_age: float = 0.0
+        """连接创建时间戳（time.time()），用于泄漏检测"""
+        self._connection_max_age: float = (
+            connection_max_age if connection_max_age is not None
+            else self.DEFAULT_CONNECTION_MAX_AGE
+        )
+        """连接最大存活时间（秒），超过后自动重置"""
+        self._enable_leak_detection: bool = enable_leak_detection
+        """是否启用连接泄漏检测"""
         self._logger: structlog.stdlib.BoundLogger = logger.bind(service="sqlite_persistence", db_path=db_path)
         self._init_db()
 
@@ -73,6 +91,8 @@ class SQLitePersistence:
             check_same_thread=False,
         )
         self._connection.row_factory = sqlite3.Row
+        # 记录连接创建时间，用于泄漏检测
+        self._connection_age = time.time()
 
         # 启用 WAL 模式与性能参数
         self._configure_pragmas()
@@ -331,6 +351,75 @@ class SQLitePersistence:
             result["healthy"] = False
 
         return result
+
+    # ── 连接泄漏检测 ──────────────────────────────────────
+
+    def check_connection_leak(self, max_age_seconds: float | None = None) -> bool:
+        """检查连接是否泄漏（存活时间过长）。
+
+        如果连接存活时间超过 max_age_seconds，视为潜在泄漏，
+        自动执行安全重连（关闭旧连接 + 建立新连接）。
+
+        Args:
+            max_age_seconds: 最大存活时间（秒），为 None 时使用实例级配置。
+
+        Returns:
+            True 表示检测到泄漏并已执行重连，False 表示连接正常。
+        """
+        if not self._enable_leak_detection:
+            return False
+        if self._connection is None:
+            return False
+
+        max_age = max_age_seconds if max_age_seconds is not None else self._connection_max_age
+        age = time.time() - self._connection_age
+
+        if age <= max_age:
+            return False
+
+        self._logger.warning(
+            "sqlite_connection_leak_detected",
+            age_seconds=round(age, 2),
+            max_age_seconds=max_age,
+            db_path=self.db_path,
+        )
+
+        # 执行安全重连
+        self._reconnect()
+        return True
+
+    def _reconnect(self) -> None:
+        """安全重连：关闭旧连接并重新建立新连接。
+
+        用于连接泄漏检测后的自动重置，或连接异常时的恢复。
+        重连后会重新创建表结构（IF NOT EXISTS，安全），
+        并重置连接创建时间。
+        """
+        self._logger.info(
+            "sqlite_connection_reconnecting",
+            db_path=self.db_path,
+            previous_age_seconds=round(time.time() - self._connection_age, 2),
+        )
+
+        # 关闭旧连接
+        if self._connection is not None:
+            try:
+                self._connection.close()
+            except sqlite3.Error as exc:
+                self._logger.warning(
+                    "sqlite_reconnect_close_failed",
+                    error=str(exc),
+                )
+            finally:
+                self._connection = None
+
+        # 重新初始化
+        self._init_db()
+
+        self._logger.info(
+            "sqlite_connection_reconnected",
+            db_path=self.db_path,
+        )
 
     # ── 表结构初始化 ──────────────────────────────────────
 

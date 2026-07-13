@@ -159,6 +159,10 @@ class IdempotencyManager:
         self._total_evictions: int = 0  # LRU 淘汰次数
         self._total_expired: int = 0    # TTL 过期清理次数
 
+        # 惰性清理计数器：每 N 次 store 触发一次过期清理
+        self._cleanup_interval: int = 100
+        self._store_count: int = 0
+
     async def check(self, key: str) -> tuple[bool, Any]:
         """检查幂等键是否存在，并返回缓存结果。
 
@@ -245,6 +249,12 @@ class IdempotencyManager:
                     cache_size=len(self._cache),
                 )
 
+        # 惰性过期清理：每 N 次 store 触发一次
+        self._store_count += 1
+        if self._store_count % self._cleanup_interval == 0:
+            # 异步触发清理，不阻塞当前调用
+            asyncio.create_task(self._lazy_cleanup())
+
         self._logger.debug(
             "idempotency_stored",
             key=key,
@@ -302,6 +312,52 @@ class IdempotencyManager:
         # 缓存结果
         await self.store(key, result, is_error=False)
         return result
+
+    async def _lazy_cleanup(self) -> None:
+        """异步惰性清理（由 store 定期触发）。
+
+        作为后台任务执行，不阻塞业务调用。
+        """
+        try:
+            await self.acleanup()
+        except Exception as exc:
+            self._logger.warning(
+                "idempotency_lazy_cleanup_failed",
+                error=str(exc),
+            )
+
+    async def acleanup(self) -> int:
+        """异步版本的过期清理（内存泄漏防护）。
+
+        在锁内执行清理，确保线程安全。
+        与同步的 cleanup() 相比，此方法使用 async with self._lock，
+        适用于异步上下文中调用。
+
+        Returns:
+            清理掉的过期条目数量
+        """
+        now = time.time()
+        expired_count = 0
+
+        async with self._lock:
+            expired_keys: list[str] = []
+            for k, (_r, _e, ts) in self._cache.items():
+                if now - ts > self.ttl:
+                    expired_keys.append(k)
+
+            for k in expired_keys:
+                del self._cache[k]
+                expired_count += 1
+
+            self._total_expired += expired_count
+
+        if expired_count > 0:
+            self._logger.info(
+                "idempotency_acleanup",
+                expired=expired_count,
+                remaining=len(self._cache),
+            )
+        return expired_count
 
     def cleanup(self) -> int:
         """清理所有过期的幂等条目。
