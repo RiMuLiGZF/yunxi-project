@@ -8,6 +8,7 @@
 - 30400-30499: 鉴权与安全错误
 - 30500-30599: 离线队列错误
 - 30600-30699: 资源相关错误
+- 30700-30799: 幂等性相关错误
 """
 
 from __future__ import annotations
@@ -64,3 +65,8 @@ ERR_QUEUE_REPLAY_FAILED = ErrorCode(30502, "Queue replay failed", 500)
 ERR_VRAM_OVERFLOW = ErrorCode(30600, "VRAM overflow", 503)
 ERR_RATE_LIMITED = ErrorCode(30601, "Rate limit exceeded", 429)
 ERR_CIRCUIT_OPEN = ErrorCode(30602, "Circuit breaker is open", 503)
+
+# ---------- 幂等性相关错误（30700-30799） ----------
+ERR_IDEMPOTENCY_KEY_INVALID = ErrorCode(30700, "Invalid idempotency key", 400)
+ERR_IDEMPOTENCY_KEY_CONFLICT = ErrorCode(30701, "Idempotency key conflict: request already in progress", 409)
+ERR_IDEMPOTENCY_KEY_MISMATCH = ErrorCode(30702, "Idempotency key request body mismatch", 422)
