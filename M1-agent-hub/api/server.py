@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Generic, Literal, TypeVar
 
 import structlog
 
@@ -43,15 +43,23 @@ except ImportError:
 # ── Pydantic 请求/响应模型 ──────────────────────────────
 
 class SubmitTaskRequest(BaseModel):
-    """[V10.0] 提交任务请求"""
-    user_input: str
-    task_id: str = Field(default_factory=lambda: "")
-    trace_id: str = ""
-    model: str = ""
+    """[V10.0] 提交任务请求
+
+    字段边界校验：
+    - user_input: 1~10000 字符
+    - task_id: 最长 64 字符，允许空字符串（服务端自动生成）
+    - trace_id: 最长 64 字符
+    - model: 最长 128 字符
+    - priority: 1~10 整数
+    """
+    user_input: str = Field(..., min_length=1, max_length=10000)
+    task_id: str = Field(default="", max_length=64)
+    trace_id: str = Field(default="", max_length=64)
+    model: str = Field(default="", max_length=128)
     budget: dict[str, Any] = Field(default_factory=dict)  # [v2.0-LINKAGE]
-    input_tokens: int = 0
-    output_tokens: int = 0
-    priority: int = 5
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    priority: int = Field(default=5, ge=1, le=10)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -66,30 +74,48 @@ class SubmitTaskResponse(BaseModel):
 
 
 class BusPublishRequest(BaseModel):
-    """[V10.0] 消息总线发布请求"""
-    topic: str
+    """[V10.0] 消息总线发布请求
+
+    字段边界校验：
+    - topic: 1~128 字符
+    - sender: 最长 64 字符
+    - msg_type: 最长 64 字符
+    - priority: 1~10 整数
+    - ttl: 0~3600 秒
+    """
+    topic: str = Field(..., min_length=1, max_length=128)
     payload: dict[str, Any] = Field(default_factory=dict)
-    sender: str = "api_client"
-    recipient: str | None = None
-    msg_type: str = "user.input"
-    priority: int = 5
-    ttl: int = 300
-    trace_id: str = ""
+    sender: str = Field(default="api_client", max_length=64)
+    recipient: str | None = Field(default=None, max_length=64)
+    msg_type: str = Field(default="user.input", max_length=64)
+    priority: int = Field(default=5, ge=1, le=10)
+    ttl: int = Field(default=300, ge=0, le=3600)
+    trace_id: str = Field(default="", max_length=64)
 
 
 class CloneRequest(BaseModel):
-    """[V10.0-P2-1] 分身申请请求"""
-    parent_agent_id: str
-    clone_type: str = "scout"  # scout | planner | writer | reviewer
-    task_id: str = ""
+    """[V10.0-P2-1] 分身申请请求
+
+    字段边界校验：
+    - parent_agent_id: 1~64 字符
+    - clone_type: 枚举值（scout/planner/writer/reviewer）
+    - ttl: 0~86400 秒（0表示使用默认TTL）
+    """
+    parent_agent_id: str = Field(..., min_length=1, max_length=64)
+    clone_type: Literal["scout", "planner", "writer", "reviewer"] = "scout"
+    task_id: str = Field(default="", max_length=64)
     capabilities: list[str] = Field(default_factory=list)
     context: dict[str, Any] = Field(default_factory=dict)
-    ttl: int = 0  # 0表示使用默认TTL
+    ttl: int = Field(default=0, ge=0, le=86400)  # 0表示使用默认TTL
 
 
 class CloneReleaseRequest(BaseModel):
-    """[V10.0-P2-1] 分身释放请求"""
-    clone_id: str
+    """[V10.0-P2-1] 分身释放请求
+
+    字段边界校验：
+    - clone_id: 1~64 字符
+    """
+    clone_id: str = Field(..., min_length=1, max_length=64)
 
 
 class AgentStatusResponse(BaseModel):
@@ -115,10 +141,16 @@ class TaskStatusResponse(BaseModel):
 # ── 联邦调度请求/响应模型 ──────────────────────────────
 
 class FedRegisterRequest(BaseModel):
-    """[V11.0] 注册外部Agent请求"""
-    display_name: str = ""
-    provider: str = ""
-    agent_type: str = "llm"
+    """[V11.0] 注册外部Agent请求
+
+    字段边界校验：
+    - display_name: 最长 128 字符
+    - provider: 最长 64 字符
+    - agent_type: 枚举值（llm/code/design/search/tool/custom）
+    """
+    display_name: str = Field(default="", max_length=128)
+    provider: str = Field(default="", max_length=64)
+    agent_type: Literal["llm", "code", "design", "search", "tool", "custom"] = "llm"
     capabilities: list[str] = []
     privacy_level: str = "standard"
     connection_type: str = "api_key"
@@ -127,46 +159,163 @@ class FedRegisterRequest(BaseModel):
 
 
 class FedInvokeRequest(BaseModel):
-    """[V11.0] 调用外部Agent请求"""
-    agent_id: str = ""
-    prompt: str = ""
-    system_prompt: str = ""
-    temperature: float = 0.7
-    max_tokens: int = 2048
+    """[V11.0] 调用外部Agent请求
+
+    字段边界校验：
+    - agent_id: 最长 64 字符
+    - prompt: 最长 100000 字符
+    - system_prompt: 最长 50000 字符
+    - temperature: 0~2 浮点数
+    - max_tokens: 1~32768 整数
+    """
+    agent_id: str = Field(default="", max_length=64)
+    prompt: str = Field(default="", max_length=100000)
+    system_prompt: str = Field(default="", max_length=50000)
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    max_tokens: int = Field(default=2048, ge=1, le=32768)
     security_level: str = "PUBLIC"
 
 
 class FedDecideRequest(BaseModel):
-    """[V11.0] 联邦调度决策请求"""
+    """[V11.0] 联邦调度决策请求
+
+    字段边界校验：
+    - remaining_budget: >= -1（-1表示不限制）
+    - task_complexity: 0~1 浮点数
+    """
     task_type: str = "general"
     security_level: str = "PUBLIC"
     user_preference: str = "balanced"
-    remaining_budget: float = -1.0
+    remaining_budget: float = Field(default=-1.0, ge=-1.0)
     speed_requirement: str = "medium"
-    task_complexity: float = 0.5
+    task_complexity: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class FedCompareRequest(BaseModel):
-    """[V11.0] Agent对比请求"""
+    """[V11.0] Agent对比请求
+
+    字段边界校验：
+    - prompt: 最长 100000 字符
+    - system_prompt: 最长 50000 字符
+    - temperature: 0~2 浮点数
+    - max_tokens: 1~32768 整数
+    """
     agent_ids: list[str] = []
-    prompt: str = ""
-    system_prompt: str = ""
-    temperature: float = 0.7
-    max_tokens: int = 2048
+    prompt: str = Field(default="", max_length=100000)
+    system_prompt: str = Field(default="", max_length=50000)
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    max_tokens: int = Field(default=2048, ge=1, le=32768)
     output_mode: str = "best_only"
     task_type: str = "general"
 
 
 class FedPrivacyScanRequest(BaseModel):
-    """[V11.0] 隐私扫描请求"""
-    content: str = ""
+    """[V11.0] 隐私扫描请求
+
+    字段边界校验：
+    - content: 最长 100000 字符
+    """
+    content: str = Field(default="", max_length=100000)
     security_level: str = "PUBLIC"
     task_type: str = "general"
 
 
 class FedBudgetRequest(BaseModel):
-    """[V11.0] 预算设置请求"""
-    monthly_budget: float = 10.0
+    """[V11.0] 预算设置请求
+
+    字段边界校验：
+    - monthly_budget: 0~100000 浮点数
+    """
+    monthly_budget: float = Field(default=10.0, ge=0, le=100000)
+
+
+# ── Chat 请求模型 ──────────────────────────────────
+
+class ChatRequest(BaseModel):
+    """[V11.3] 同步对话请求
+
+    用于 /api/v1/chat 端点，替代直接读取 request.json() 的方式。
+    字段边界校验：
+    - user_input: 1~10000 字符
+    - trace_id: 最长 64 字符
+    - model: 最长 128 字符
+    """
+    user_input: str = Field(..., min_length=1, max_length=10000)
+    trace_id: str = Field(default="", max_length=64)
+    model: str = Field(default="", max_length=128)
+
+
+class ChatStreamRequest(BaseModel):
+    """[V11.3] 流式对话请求
+
+    用于 /api/v1/chat/stream 端点，替代直接读取 request.json() 的方式。
+    字段边界校验：
+    - user_input: 1~10000 字符
+    - trace_id: 最长 64 字符
+    - voice_polish: 是否启用人格润色（默认 True）
+    """
+    user_input: str = Field(..., min_length=1, max_length=10000)
+    trace_id: str = Field(default="", max_length=64)
+    voice_polish: bool = True  # [V10.1] 流式润色开关
+
+
+# ── 通用响应模型 ──────────────────────────────────
+
+# 泛型类型变量，用于 ApiResponse 和 PaginatedResponse
+T = TypeVar("T")
+
+
+class ApiResponse(BaseModel, Generic[T]):
+    """[V11.3] 通用成功响应模型
+
+    统一 API 成功响应格式，包含状态标识、业务数据和提示信息。
+
+    Attributes:
+        success: 操作是否成功，固定为 True
+        data: 响应数据，泛型类型，由具体接口决定
+        message: 可选提示信息
+    """
+    success: bool = True
+    data: T | None = None
+    message: str = ""
+
+
+class ErrorResponse(BaseModel):
+    """[V11.3] 通用错误响应模型
+
+    统一 API 错误响应格式，包含错误码、错误信息和追踪ID。
+
+    Attributes:
+        success: 操作是否成功，固定为 False
+        error: 错误码标识
+        message: 错误详细描述
+        trace_id: 追踪ID，用于问题排查
+    """
+    success: bool = False
+    error: str = ""
+    message: str = ""
+    trace_id: str = ""
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """[V11.3] 分页响应模型
+
+    统一分页查询响应格式，包含数据列表和分页信息。
+
+    Attributes:
+        success: 操作是否成功
+        items: 当前页数据列表
+        total: 总记录数
+        page: 当前页码（从1开始）
+        page_size: 每页记录数
+        total_pages: 总页数
+    """
+    success: bool = True
+    items: list[T] = Field(default_factory=list)
+    total: int = 0
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=500)
+    total_pages: int = Field(default=0, ge=0)
 
 
 # ── API 工厂 ────────────────────────────────────────────
@@ -216,6 +365,9 @@ def create_server(
     # [V11.1] 鉴权中间件 — 保护联邦调度关键接口
     if federation_registry is not None:
         _register_auth_middleware(app)
+
+    # [V11.2] 注册全局异常处理器
+    _register_exception_handlers(app)
 
     _register_routes(
         app, orchestrator, registry, ledger, message_bus,
@@ -405,6 +557,121 @@ def _register_auth_middleware(app: "FastAPI") -> None:
         return await call_next(request)
 
 
+# ── 全局异常处理器 ──────────────────────────────────────
+
+def _register_exception_handlers(app: "FastAPI") -> None:
+    """[V11.2] 注册全局异常处理器
+
+    统一捕获各类异常并转换为标准错误响应格式：
+    - M1BaseException：业务异常，直接使用其结构化信息
+    - RequestValidationError：FastAPI/Pydantic 参数校验异常
+    - Exception：通用未知异常，返回内部错误
+
+    所有异常均返回与 error_codes.build_error_response 一致的格式。
+    """
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    from fastapi.exceptions import RequestValidationError
+
+    # 导入统一异常基类与错误码
+    try:
+        from exceptions import M1BaseException
+    except ImportError:
+        M1BaseException = None  # type: ignore[assignment,misc]
+
+    from error_codes import ERR_PARAM_INVALID, ERR_INTERNAL, build_error_response
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """处理 FastAPI/Pydantic 参数校验异常
+
+        将 Pydantic 的验证错误映射到统一的参数校验错误码，
+        并在 detail 中包含字段级别的错误信息。
+        """
+        # 提取字段错误信息
+        errors = exc.errors()
+        detail_parts = []
+        for err in errors:
+            loc = " -> ".join(str(x) for x in err.get("loc", []))
+            msg = err.get("msg", "")
+            err_type = err.get("type", "")
+            if loc:
+                detail_parts.append(f"[{loc}] {msg} ({err_type})")
+            else:
+                detail_parts.append(f"{msg} ({err_type})")
+        detail = "; ".join(detail_parts) if detail_parts else "参数校验失败"
+
+        # 尝试从请求中获取 trace_id
+        trace_id = ""
+        try:
+            body = getattr(request, "_body", None)
+            if body and isinstance(body, dict):
+                trace_id = body.get("trace_id", "")
+        except Exception:
+            pass
+
+        response = build_error_response(
+            error_code=ERR_PARAM_INVALID,
+            detail=detail,
+            trace_id=trace_id,
+            data={"errors": errors},
+        )
+        return JSONResponse(
+            status_code=ERR_PARAM_INVALID.http_status,
+            content=response,
+        )
+
+    if M1BaseException is not None:
+        @app.exception_handler(M1BaseException)
+        async def m1_base_exception_handler(
+            request: Request, exc: M1BaseException
+        ) -> JSONResponse:
+            """处理 M1 统一业务异常
+
+            直接使用异常对象的结构化信息生成标准错误响应。
+            """
+            logger.warning(
+                "m1_exception_caught",
+                code=exc.code,
+                message=exc.error_code.message,
+                detail=exc.detail,
+                trace_id=exc.trace_id,
+                exc_type=exc.__class__.__name__,
+            )
+            return JSONResponse(
+                status_code=exc.http_status,
+                content=exc.to_response(),
+            )
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        """处理未捕获的通用异常
+
+        返回内部错误响应，避免泄露敏感信息，同时记录错误日志。
+        """
+        logger.error(
+            "unhandled_exception",
+            error=str(exc),
+            exc_type=exc.__class__.__name__,
+            path=request.url.path,
+            method=request.method,
+        )
+        response = build_error_response(
+            error_code=ERR_INTERNAL,
+            detail="服务器内部错误",
+            trace_id="",
+            data=None,
+        )
+        return JSONResponse(
+            status_code=ERR_INTERNAL.http_status,
+            content=response,
+        )
+
+
 # ── 路由注册 ────────────────────────────────────────────
 
 def _register_routes(
@@ -515,31 +782,34 @@ def _register_routes(
     # ── 兼容旧版接口 ──────────────────────────────────
 
     @app.post("/api/v1/chat")
-    async def chat(request: Request) -> JSONResponse:
-        """同步对话"""
-        body = await request.json()
-        user_input = body.get("user_input", "")
-        trace_id = body.get("trace_id")
+    async def chat(request: ChatRequest) -> JSONResponse:
+        """同步对话
 
+        使用 ChatRequest Pydantic 模型进行输入校验，
+        替代直接读取 request.json() 的方式。
+        """
         result = await orchestrator.process(
-            user_input=user_input,
-            trace_id=trace_id,
+            user_input=request.user_input,
+            trace_id=request.trace_id,
+            model=request.model,
         )
         return JSONResponse(content=result)
 
     @app.post("/api/v1/chat/stream")
-    async def chat_stream(request: Request) -> StreamingResponse:
+    async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
         """SSE 流式对话
+
+        使用 ChatStreamRequest Pydantic 模型进行输入校验，
+        替代直接读取 request.json() 的方式。
 
         支持 voice_polish 参数控制人格润色：
         - true（默认）：流畅模式，按句子缓冲润色后流式输出
         - false：极速模式，跳过润色直接输出原始内容
         - YunxiVoice 响应 > 500ms 时自动降级为极速模式
         """
-        body = await request.json()
-        user_input = body.get("user_input", "")
-        trace_id = body.get("trace_id")
-        voice_polish: bool = body.get("voice_polish", True)  # [V10.1] 流式润色开关
+        user_input = request.user_input
+        trace_id = request.trace_id
+        voice_polish: bool = request.voice_polish  # [V10.1] 流式润色开关
 
         async def event_generator() -> AsyncIterator[str]:
             async for chunk in orchestrator.process_stream(

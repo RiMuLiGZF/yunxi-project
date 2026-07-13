@@ -21,7 +21,117 @@ from typing import Any, Callable
 
 import structlog
 
+try:
+    from pydantic import BaseModel, Field, field_validator, ConfigDict
+    from pydantic import ValidationError as PydanticValidationError
+
+    _PYDANTIC_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _PYDANTIC_AVAILABLE = False
+    # 降级：定义占位类，避免运行时 ImportError
+    class BaseModel:  # type: ignore[no-redef]
+        pass
+
+    def Field(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+        return None
+
+    class PydanticValidationError(Exception):  # type: ignore[no-redef]
+        pass
+
 logger = structlog.get_logger(__name__)
+
+# ── Pydantic 配置模型 ────────────────────────────────────────────────────────
+
+
+class ServerConfig(BaseModel):
+    """服务端配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    host: str = "0.0.0.0"
+    port: int = Field(default=8000, ge=1, le=65535)
+    log_level: str = "info"
+
+    @field_validator("log_level")
+    @classmethod
+    def _validate_log_level(cls, v: str) -> str:
+        allowed = {"debug", "info", "warning", "error"}
+        if v.lower() not in allowed:
+            raise ValueError(f"log_level 必须是 {allowed} 之一，当前值: {v}")
+        return v.lower()
+
+
+class DatabaseConfig(BaseModel):
+    """数据库配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    db_path: str = "./data/m1.db"
+    wal_mode: bool = True
+    busy_timeout: int = 5000
+
+
+class MessageBusConfig(BaseModel):
+    """消息总线配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    max_queue_size: int = 10000
+    topic_pattern: str = "m1.*"
+
+
+class FederationConfig(BaseModel):
+    """联邦调度配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = True
+    default_privacy_level: str = "L1"
+
+
+class AgentsConfig(BaseModel):
+    """Agent 管理配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    max_concurrent: int = 100
+    default_timeout_s: int = 300
+
+
+class MemoryConfig(BaseModel):
+    """记忆系统配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = True
+    max_entries: int = 10000
+
+
+class SecurityConfig(BaseModel):
+    """安全配置子模型。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    admin_key: str | None = None
+    rate_limit_per_minute: int = 60
+
+
+class M1Config(BaseModel):
+    """M1 调度中心配置校验 Schema。
+
+    使用 Pydantic v2 风格的模型配置，允许额外字段（extra="allow"），
+    仅对已知字段进行类型与范围校验，未知字段原样保留以保证向后兼容。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    server: ServerConfig = Field(default_factory=ServerConfig)
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    message_bus: MessageBusConfig = Field(default_factory=MessageBusConfig)
+    federation: FederationConfig = Field(default_factory=FederationConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 
 class ConfigValidationError(Exception):
@@ -58,6 +168,9 @@ class ConfigManager:
         "security.jwt_secret",
     ]
 
+    # 当前配置版本号，用于版本迁移
+    _CURRENT_CONFIG_VERSION: int = 1
+
     def __init__(
         self,
         config_path: str | None = None,
@@ -72,6 +185,10 @@ class ConfigManager:
         2. 项目根目录 config/yunxi.env（全局配置）
         3. 指定的配置文件（YAML/JSON）
         4. 默认配置
+
+        加载完成后执行：
+        - 配置版本迁移（_migrate_config）
+        - Pydantic Schema 校验（validate_schema）
 
         Args:
             config_path: 配置文件路径，为 None 时使用默认配置
@@ -97,6 +214,14 @@ class ConfigManager:
         ]
         self._logger = logger.bind(service="config_manager")
 
+        # 热加载回退相关状态
+        # 上一版有效配置的深拷贝，热加载失败时用于回退
+        self._last_valid_config: dict[str, Any] = {}
+        # 上次热加载的成功状态
+        self._reload_status: bool = True
+        # 上次热加载失败的原因（成功时为空字符串）
+        self._reload_error: str = ""
+
         # 1. 先加载默认配置作为基础
         self._load_defaults()
 
@@ -109,6 +234,16 @@ class ConfigManager:
 
         # 4. 从环境变量加载（最高优先级，覆盖所有其他来源）
         self._load_from_env()
+
+        # 5. 配置版本迁移
+        self._config = self._migrate_config(self._config)
+
+        # 6. Pydantic Schema 校验
+        if _PYDANTIC_AVAILABLE:
+            self.validate_schema()
+
+        # 7. 保存首份有效配置快照
+        self._last_valid_config = json.loads(json.dumps(self._config))
 
         if validate_on_load:
             self.validate_required()
@@ -231,6 +366,10 @@ class ConfigManager:
         同时保留历史模块的默认值以保证向后兼容。
         """
         self._config = {
+            # 元信息（版本迁移用）
+            "meta": {
+                "config_version": 1,
+            },
             # 基础配置
             "basic": {
                 "name": "m1-scheduler",
@@ -513,8 +652,15 @@ class ConfigManager:
 
         采用节流策略，检查间隔由 _check_interval 控制。
 
+        热加载流程：
+        1. 保存当前有效配置快照到 _last_valid_config
+        2. 重新加载配置文件
+        3. 执行 Pydantic Schema 校验
+        4. 校验失败时自动回退到上一版有效配置，并记录 warning 日志
+        5. 更新 reload_status 属性
+
         Returns:
-            是否发生了重载
+            是否发生了重载（校验失败回退时也返回 True，因为触发了加载流程）
         """
         if not self._config_path:
             return False
@@ -531,10 +677,51 @@ class ConfigManager:
         mtime: float = path.stat().st_mtime
         if mtime > self._last_modified:
             self._logger.info("config_reload_triggered", path=str(path))
-            # 重载前先重置为默认值，避免旧值残留
-            self._load_defaults()
-            self._load()
-            return True
+
+            # 保存当前有效配置快照，用于回退
+            old_config_snapshot: dict[str, Any] = json.loads(json.dumps(self._config))
+
+            try:
+                # 重载前先重置为默认值，避免旧值残留
+                self._load_defaults()
+                self._load()
+                self._load_from_env()
+
+                # 配置版本迁移
+                self._config = self._migrate_config(self._config)
+
+                # Pydantic Schema 校验
+                if _PYDANTIC_AVAILABLE:
+                    self.validate_schema()
+
+                # 校验通过，更新有效配置快照
+                self._last_valid_config = json.loads(json.dumps(self._config))
+                self._reload_status = True
+                self._reload_error = ""
+
+                # 触发变更回调
+                self._fire_change_callbacks(old_config_snapshot)
+
+                self._logger.info("config_reload_succeeded", path=str(path))
+                return True
+
+            except Exception as exc:
+                # 校验失败：自动回退到上一版有效配置
+                self._config = json.loads(json.dumps(self._last_valid_config))
+                self._reload_status = False
+                self._reload_error = str(exc)
+
+                # 恢复文件修改时间，避免反复触发
+                self._last_modified = mtime
+
+                self._logger.warning(
+                    "config_reload_failed_fallback",
+                    path=str(path),
+                    error=str(exc),
+                    fallback_to="last_valid_config",
+                )
+                return True
+
         return False
 
     # ── 必填校验 ──────────────────────────────────────────────────────────────
@@ -573,6 +760,229 @@ class ConfigManager:
             raise ConfigValidationError(error_msg)
 
         self._logger.info("config_validation_passed", fields=len(required))
+
+    # ── Pydantic Schema 校验 ──────────────────────────────────────────────────
+
+    def validate_schema(self) -> None:
+        """使用 Pydantic M1Config 模型对配置进行 Schema 校验。
+
+        仅对 M1Config 模型中定义的字段分组进行类型与范围校验，
+        额外字段（extra="allow"）不做校验，保证向后兼容。
+
+        校验失败时抛出 ConfigurationError（从 exceptions.py 惰性导入），
+        错误信息明确指出哪个字段、什么原因。
+
+        Raises:
+            ConfigurationError: 当 Pydantic 校验失败时抛出，
+                detail 中包含每个错误字段的位置与原因。
+        """
+        if not _PYDANTIC_AVAILABLE:
+            self._logger.debug("pydantic_not_available_skip_schema_validation")
+            return
+
+        try:
+            # 使用 model_validate 进行校验（Pydantic v2 风格）
+            M1Config.model_validate(self._config)
+            self._logger.info("config_schema_validation_passed")
+        except PydanticValidationError as exc:
+            # 格式化错误信息：列出每个字段的位置与原因
+            error_details: list[str] = []
+            for err in exc.errors():
+                loc = ".".join(str(x) for x in err.get("loc", []))
+                msg = err.get("msg", "未知错误")
+                error_details.append(f"字段 '{loc}': {msg}")
+
+            error_msg = (
+                f"配置 Schema 校验失败，共 {len(error_details)} 处错误：\n"
+                + "\n".join(f"  - {d}" for d in error_details)
+            )
+
+            self._logger.error(
+                "config_schema_validation_failed",
+                error_count=len(error_details),
+                errors=error_details,
+            )
+
+            # 惰性导入 ConfigurationError，避免循环导入
+            try:
+                from exceptions import ConfigurationError
+
+                raise ConfigurationError(
+                    detail=error_msg,
+                    data={"validation_errors": error_details},
+                ) from exc
+            except ImportError:
+                # 如果 exceptions 模块不可用，回退到内置异常
+                raise ConfigValidationError(error_msg) from exc
+
+    # ── 配置版本迁移 ──────────────────────────────────────────────────────────
+
+    def _migrate_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        """将旧版本配置自动迁移到当前版本。
+
+        读取 meta.config_version 字段，从旧版本逐步升级到 _CURRENT_CONFIG_VERSION。
+        当前版本为 1，此方法为未来版本预留扩展点。
+
+        迁移原则：
+        - 不破坏现有配置结构，仅做字段重命名、默认值补充、格式转换
+        - 每次版本升级独立一个 _migrate_v{N}_to_v{N+1} 方法
+        - 迁移完成后更新 meta.config_version 为当前版本
+
+        Args:
+            config: 原始配置字典
+
+        Returns:
+            迁移后的配置字典
+        """
+        # 确保 meta 配置块存在
+        if "meta" not in config or not isinstance(config["meta"], dict):
+            config["meta"] = {}
+
+        # 读取源版本号，默认 0（无版本标记的旧配置）
+        source_version: int = int(config.get("meta", {}).get("config_version", 0))
+        target_version: int = self._CURRENT_CONFIG_VERSION
+
+        if source_version >= target_version:
+            return config
+
+        self._logger.info(
+            "config_migration_started",
+            from_version=source_version,
+            to_version=target_version,
+        )
+
+        # 逐步迁移：v0 -> v1 -> v2 -> ...
+        current_version = source_version
+        migrations = {
+            0: self._migrate_v0_to_v1,
+            # 未来版本扩展点：
+            # 1: self._migrate_v1_to_v2,
+            # 2: self._migrate_v2_to_v3,
+        }
+
+        while current_version < target_version:
+            migrate_fn = migrations.get(current_version)
+            if migrate_fn is None:
+                self._logger.warning(
+                    "config_migration_no_handler",
+                    from_version=current_version,
+                )
+                break
+            config = migrate_fn(config)
+            current_version += 1
+            config["meta"]["config_version"] = current_version
+
+        # 最终确认版本号
+        config["meta"]["config_version"] = current_version
+
+        self._logger.info(
+            "config_migration_completed",
+            from_version=source_version,
+            to_version=current_version,
+        )
+
+        return config
+
+    def _migrate_v0_to_v1(self, config: dict[str, Any]) -> dict[str, Any]:
+        """从 v0（无版本标记）迁移到 v1。
+
+        v1 变更：
+        - 新增 meta.config_version = 1
+        - 补充 server 配置块的默认值（从 basic 块迁移 host/port/log_level）
+        - 补充 database.db_path 默认值（从 database.path 或 persistence.db_path 推断）
+        - 补充 agents.max_concurrent / default_timeout_s
+        - 补充 memory.enabled / max_entries
+
+        仅在目标字段不存在时才迁移，避免覆盖用户已有的显式配置。
+
+        Args:
+            config: v0 配置字典
+
+        Returns:
+            v1 配置字典
+        """
+        # server 块：从 basic 推断
+        if "server" not in config or not isinstance(config["server"], dict):
+            config["server"] = {}
+
+        basic = config.get("basic", {})
+        if "host" not in config["server"] and isinstance(basic, dict) and "host" in basic:
+            config["server"]["host"] = basic["host"]
+        if "port" not in config["server"] and isinstance(basic, dict) and "port" in basic:
+            config["server"]["port"] = basic["port"]
+        if "log_level" not in config["server"] and isinstance(basic, dict) and "log_level" in basic:
+            config["server"]["log_level"] = basic["log_level"]
+
+        # database 块：db_path 从 database.path 或 persistence.db_path 推断
+        if "database" not in config or not isinstance(config["database"], dict):
+            config["database"] = {}
+
+        db_section = config.get("database", {})
+        if "db_path" not in config["database"]:
+            if isinstance(db_section, dict) and "path" in db_section:
+                config["database"]["db_path"] = db_section["path"]
+            elif "persistence" in config and isinstance(config["persistence"], dict):
+                config["database"]["db_path"] = config["persistence"].get("db_path", "./data/m1.db")
+
+        # agents 块：从 scheduler / workflow 推断
+        if "agents" not in config or not isinstance(config["agents"], dict):
+            config["agents"] = {}
+
+        scheduler = config.get("scheduler", {})
+        workflow = config.get("workflow", {})
+        if "max_concurrent" not in config["agents"]:
+            if isinstance(scheduler, dict) and "max_concurrent_tasks" in scheduler:
+                config["agents"]["max_concurrent"] = scheduler["max_concurrent_tasks"]
+            elif isinstance(workflow, dict) and "max_concurrent" in workflow:
+                config["agents"]["max_concurrent"] = workflow["max_concurrent"]
+        if "default_timeout_s" not in config["agents"]:
+            if isinstance(scheduler, dict) and "default_timeout" in scheduler:
+                config["agents"]["default_timeout_s"] = scheduler["default_timeout"]
+
+        # memory 块：从 memory 块迁移 enabled/max_entries
+        if "memory" in config and isinstance(config["memory"], dict):
+            mem = config["memory"]
+            if "enabled" not in mem:
+                mem["enabled"] = True
+            if "max_entries" not in mem:
+                # 从 ltm_capacity 或 stm_max_sessions 推断一个合理值
+                if "ltm_capacity" in mem:
+                    mem["max_entries"] = mem["ltm_capacity"]
+                elif "stm_max_sessions" in mem:
+                    mem["max_entries"] = mem["stm_max_sessions"]
+
+        # security 块：rate_limit_per_minute 从 guardrails 推断
+        if "security" not in config or not isinstance(config["security"], dict):
+            config["security"] = {}
+
+        guardrails = config.get("guardrails", {})
+        if "rate_limit_per_minute" not in config["security"]:
+            if isinstance(guardrails, dict) and "rate_limit_per_minute" in guardrails:
+                config["security"]["rate_limit_per_minute"] = guardrails["rate_limit_per_minute"]
+
+        self._logger.debug("config_migration_v0_to_v1_done")
+        return config
+
+    # ── 热加载状态属性 ────────────────────────────────────────────────────────
+
+    @property
+    def reload_status(self) -> bool:
+        """上次热加载是否成功。
+
+        Returns:
+            True 表示上次热加载校验通过；
+            False 表示上次热加载校验失败，已自动回退到上一版有效配置。
+        """
+        return self._reload_status
+
+    @property
+    def reload_error(self) -> str:
+        """上次热加载失败的错误信息。
+
+        Returns:
+            失败原因字符串；成功时为空字符串。
+        """
+        return self._reload_error
 
     # ── 取值接口 ──────────────────────────────────────────────────────────────
 

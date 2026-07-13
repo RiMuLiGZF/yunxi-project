@@ -1,0 +1,14 @@
+# 运行时生成的数据库文件
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 临时文件
+*.tmp
+*.bak
