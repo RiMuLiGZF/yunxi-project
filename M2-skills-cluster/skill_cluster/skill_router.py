@@ -12,7 +12,7 @@ from skill_cluster.resilience.circuit_breaker import ErrorClassifier
 from skill_cluster.config import IdempotencyConfig, RateLimitConfig
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest, SkillInvokeResult
 from skill_cluster.middleware import MiddlewarePipeline
-from skill_cluster.permissions import SkillPermissionManager
+from skill_cluster.security.permissions import SkillPermissionManager
 from skill_cluster.resilience.rate_limiter import rate_limit_middleware
 from skill_cluster.skill_registry import SkillRegistry
 

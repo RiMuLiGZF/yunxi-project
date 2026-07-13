@@ -37,7 +37,7 @@ from skill_cluster.interfaces import (
     SkillManifest,
     SkillQuery,
 )
-from skill_cluster.permissions import PermissionMatrix, SkillPermissionManager
+from skill_cluster.security.permissions import PermissionMatrix, SkillPermissionManager
 from skill_cluster.skill_registry import SkillRegistry
 from skill_cluster.skill_router import SkillRouter
 from skill_cluster.skill_pipeline import (
@@ -70,7 +70,7 @@ from skill_cluster.middleware import (
     metrics_middleware,
     logging_middleware,
 )
-from skill_cluster.agent_runtime import (
+from skill_cluster.agent.runtime import (
     AgentRegistry,
     AgentRuntime,
     AgentState,
@@ -91,7 +91,7 @@ from skill_cluster.infrastructure.streaming import (
     StreamingInvoker,
     StreamableSkillMixin,
 )
-from skill_cluster.sandbox import (
+from skill_cluster.security.sandbox import (
     SandboxConfig,
     SandboxExecutor,
     SandboxMiddleware,
@@ -108,28 +108,28 @@ from skill_cluster.a2a_protocol import (
 from skill_cluster.a2a_bus import A2ABus
 from skill_cluster.plugin_loader import PluginInfo, PluginLoader
 from skill_cluster.infrastructure.hooks import HookManager, HookRegistration
-from skill_cluster.agent_memory import AgentMemory, MemoryEntry
-from skill_cluster.adaptive_router import AdaptiveRouter, SkillMetrics
-from skill_cluster.skill_graph import ComposableChain, GraphEdge, SkillGraph
-from skill_cluster.token_budget import BudgetAlert, BudgetEntry, TokenBudget
-from skill_cluster.skill_experience import (
+from skill_cluster.agent.memory import AgentMemory, MemoryEntry
+from skill_cluster.discovery.routers.adaptive import AdaptiveRouter, SkillMetrics
+from skill_cluster.agent.experience.graph import ComposableChain, GraphEdge, SkillGraph
+from skill_cluster.agent.token_budget import BudgetAlert, BudgetEntry, TokenBudget
+from skill_cluster.agent.experience.bank import (
     ExperienceRecord,
     SkillExperienceBank,
     SuccessPattern,
 )
-from skill_cluster.skill_recommender import SkillRecommender, SkillRecommendation
-from skill_cluster.memory_skill_bridge import (
+from skill_cluster.discovery.recommender import SkillRecommender, SkillRecommendation
+from skill_cluster.agent.experience.memory_bridge import (
     BridgeStats,
     MemorySkillBridge,
 )
-from skill_cluster.skill_handbook import SkillHandbook, SkillProfile
-from skill_cluster.edge_cloud_orchestrator import (
+from skill_cluster.agent.experience.handbook import SkillHandbook, SkillProfile
+from skill_cluster.discovery.routers.edge_cloud import (
     EdgeCloudConfig,
     EdgeCloudOrchestrator,
 )
-from skill_cluster.tool_lazy_discoverer import ToolLazyDiscoverer, ToolReference
-from skill_cluster.skill_bandit_router import SkillBanditRouter, BanditArm
-from skill_cluster.skill_selection import (
+from skill_cluster.discovery.lazy_discoverer import ToolLazyDiscoverer, ToolReference
+from skill_cluster.discovery.routers.bandit import SkillBanditRouter, BanditArm
+from skill_cluster.discovery.selection import (
     AdaptiveSelection,
     BanditSelection,
     CompositeSelection,
@@ -165,7 +165,7 @@ from skill_cluster.mcp_transport import (
     handle_mcp_tool_list,
     wrap_jsonrpc_response,
 )
-from skill_cluster.ast_scanner import (
+from skill_cluster.security.ast_scanner import (
     ASTSecurityScanner,
     ScanResult,
     SecurityFinding,

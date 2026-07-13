@@ -10,8 +10,8 @@ from typing import Any
 import structlog
 
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest, SkillInvokeResult, SkillManifest
-from skill_cluster.code_execution_bridge import CodeExecutionBridge, ExecutionResult, ExecutionStatus
-from skill_cluster.result_renderer import ResultRenderer, RenderedOutput
+from skill_cluster.security.code_exec.bridge import CodeExecutionBridge, ExecutionResult, ExecutionStatus
+from skill_cluster.security.code_exec.renderer import ResultRenderer, RenderedOutput
 
 logger = structlog.get_logger()
 
