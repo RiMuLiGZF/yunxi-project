@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from skill_cluster.event_bus import EventBus, SkillEvent
+from skill_cluster.infrastructure.event_bus import EventBus, SkillEvent
 
 
 @pytest.fixture

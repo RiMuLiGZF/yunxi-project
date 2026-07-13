@@ -8,12 +8,12 @@ from typing import Any
 
 import structlog
 
-from skill_cluster.circuit_breaker import ErrorClassifier
+from skill_cluster.resilience.circuit_breaker import ErrorClassifier
 from skill_cluster.config import IdempotencyConfig, RateLimitConfig
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest, SkillInvokeResult
 from skill_cluster.middleware import MiddlewarePipeline
 from skill_cluster.permissions import SkillPermissionManager
-from skill_cluster.rate_limiter import rate_limit_middleware
+from skill_cluster.resilience.rate_limiter import rate_limit_middleware
 from skill_cluster.skill_registry import SkillRegistry
 
 logger = structlog.get_logger()
@@ -72,7 +72,7 @@ class SkillRouter:
         self._idempotency_config = idempotency_config or IdempotencyConfig()
         self._idempotency_manager: "IdempotencyManager | None" = None
         if self._idempotency_config.enabled:
-            from skill_cluster.idempotency import IdempotencyManager
+            from skill_cluster.resilience.idempotency import IdempotencyManager
             from skill_cluster.middleware import idempotent_middleware
             self._idempotency_manager = IdempotencyManager(
                 ttl=self._idempotency_config.ttl,

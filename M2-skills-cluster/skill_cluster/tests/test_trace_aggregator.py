@@ -2,7 +2,7 @@
 
 import time
 
-from skill_cluster.trace_aggregator import (
+from skill_cluster.infrastructure.tracing.aggregator import (
     TraceAggregator,
     TraceChain,
     TraceSpan,

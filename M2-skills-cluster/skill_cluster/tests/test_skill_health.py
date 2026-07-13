@@ -2,7 +2,7 @@
 
 import pytest
 
-from skill_cluster.skill_health import (
+from skill_cluster.infrastructure.health.skill_health import (
     CacheHealthChecker,
     CircuitBreakerHealthChecker,
     ClusterHealthReport,

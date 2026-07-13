@@ -20,7 +20,7 @@ from skill_cluster.a2a_protocol import (
     A2ATask,
 )
 from skill_cluster.agent_runtime import AgentRegistry
-from skill_cluster.event_bus import EventBus
+from skill_cluster.infrastructure.event_bus import EventBus
 
 logger = structlog.get_logger()
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from skill_cluster.interfaces import SkillInvokeRequest, SkillInvokeResult
-from skill_cluster.streaming import (
+from skill_cluster.infrastructure.streaming import (
     StreamChunk,
     StreamInvokeResult,
     StreamingInvoker,

@@ -36,7 +36,7 @@ import structlog
 from pydantic import BaseModel, Field  # noqa: F401  向后兼容
 
 from skill_cluster.error_codes import ErrorCode, make_error_response, make_success_response
-from skill_cluster.rate_limiter import (
+from skill_cluster.resilience.rate_limiter import (
     RateLimitConfig,
     get_global_registry,
 )

@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from skill_cluster.circuit_breaker import (
+from skill_cluster.resilience.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,

@@ -11,7 +11,7 @@ from skill_cluster.middleware import (
     MiddlewarePipeline,
     logging_middleware,
 )
-from skill_cluster.metrics import MetricsCollector
+from skill_cluster.infrastructure.metrics import MetricsCollector
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Metrics 单元测试."""
 
-from skill_cluster.metrics import Counter, Histogram, MetricsCollector
+from skill_cluster.infrastructure.metrics import Counter, Histogram, MetricsCollector
 
 
 def test_counter_basic() -> None:

@@ -12,9 +12,9 @@ from typing import Any, Awaitable, Callable
 import structlog
 
 from skill_cluster.interfaces import SkillInvokeRequest, SkillInvokeResult
-from skill_cluster.event_bus import EventBus, SkillEvent
+from skill_cluster.infrastructure.event_bus import EventBus, SkillEvent
 from skill_cluster.skill_cache import SkillCache
-from skill_cluster.circuit_breaker import ResilientSkillInvoker
+from skill_cluster.resilience.circuit_breaker import ResilientSkillInvoker
 
 logger = structlog.get_logger()
 
@@ -245,10 +245,10 @@ def idempotent_middleware(
     Returns:
         符合 Middleware 签名的中间件函数.
     """
-    from skill_cluster.idempotency import idempotent_middleware as _idempotent_mw
+    from skill_cluster.resilience.idempotency import idempotent_middleware as _idempotent_mw
     return _idempotent_mw(manager, key_source, header_name)
 
 
 # 延迟导入避免循环依赖
-from skill_cluster.metrics import MetricsCollector
-from skill_cluster.idempotency import IdempotencyManager  # noqa: F401
+from skill_cluster.infrastructure.metrics import MetricsCollector
+from skill_cluster.resilience.idempotency import IdempotencyManager  # noqa: F401

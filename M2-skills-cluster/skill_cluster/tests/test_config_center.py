@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from skill_cluster.config_center import ConfigCenter
+from skill_cluster.infrastructure.config_center import ConfigCenter
 
 
 @pytest.fixture

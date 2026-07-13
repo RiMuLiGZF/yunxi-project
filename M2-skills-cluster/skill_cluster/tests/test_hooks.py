@@ -17,7 +17,7 @@ import asyncio
 
 import pytest
 
-from skill_cluster.hooks import HookManager, HookRegistration
+from skill_cluster.infrastructure.hooks import HookManager, HookRegistration
 from skill_cluster.interfaces import SkillInvokeRequest, SkillInvokeResult
 
 
@@ -395,7 +395,7 @@ async def test_middleware_on_error(hooks: HookManager) -> None:
 @pytest.mark.asyncio
 async def test_event_bus_bridge(hooks: HookManager) -> None:
     """测试事件总线桥接：事件触发对应钩子."""
-    from skill_cluster.event_bus import EventBus, SkillEvent
+    from skill_cluster.infrastructure.event_bus import EventBus, SkillEvent
 
     bus = EventBus()
     received = []

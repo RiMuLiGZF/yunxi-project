@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from skill_cluster.api_v2 import create_v2_app
 from skill_cluster.config import IdempotencyConfig
-from skill_cluster.rate_limiter import (
+from skill_cluster.resilience.rate_limiter import (
     get_global_registry,
 )
 from skill_cluster.error_codes import ErrorCode

@@ -45,8 +45,8 @@ from skill_cluster.skill_pipeline import (
     PipelineEngine,
     PipelineStep,
 )
-from skill_cluster.event_bus import EventBus, SkillEvent
-from skill_cluster.circuit_breaker import (
+from skill_cluster.infrastructure.event_bus import EventBus, SkillEvent
+from skill_cluster.resilience.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
@@ -55,7 +55,7 @@ from skill_cluster.circuit_breaker import (
     RetryExecutor,
 )
 from skill_cluster.skill_cache import SkillCache
-from skill_cluster.config_center import ConfigCenter
+from skill_cluster.infrastructure.config_center import ConfigCenter
 from skill_cluster.function_schema import (
     ActionSignature,
     FunctionParameter,
@@ -79,13 +79,13 @@ from skill_cluster.pipeline_store import (
     PipelineRunRecord,
     PipelineStateStore,
 )
-from skill_cluster.metrics import (
+from skill_cluster.infrastructure.metrics import (
     Counter,
     Histogram,
     MetricsCollector,
     MetricSample,
 )
-from skill_cluster.streaming import (
+from skill_cluster.infrastructure.streaming import (
     StreamChunk,
     StreamInvokeResult,
     StreamingInvoker,
@@ -107,7 +107,7 @@ from skill_cluster.a2a_protocol import (
 )
 from skill_cluster.a2a_bus import A2ABus
 from skill_cluster.plugin_loader import PluginInfo, PluginLoader
-from skill_cluster.hooks import HookManager, HookRegistration
+from skill_cluster.infrastructure.hooks import HookManager, HookRegistration
 from skill_cluster.agent_memory import AgentMemory, MemoryEntry
 from skill_cluster.adaptive_router import AdaptiveRouter, SkillMetrics
 from skill_cluster.skill_graph import ComposableChain, GraphEdge, SkillGraph
@@ -140,7 +140,7 @@ from skill_cluster.skill_selection import (
     SelectionStrategyType,
     SkillSelectionOrchestrator,
 )
-from skill_cluster.skill_health import (
+from skill_cluster.infrastructure.health.skill_health import (
     CacheHealthChecker,
     CircuitBreakerHealthChecker,
     ClusterHealthReport,
@@ -149,7 +149,7 @@ from skill_cluster.skill_health import (
     RegistryHealthChecker,
     SkillClusterHealthChecker,
 )
-from skill_cluster.trace_aggregator import (
+from skill_cluster.infrastructure.tracing.aggregator import (
     TraceAggregator,
     TraceChain,
     TraceSpan,
