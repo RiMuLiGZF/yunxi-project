@@ -104,6 +104,30 @@ class SkillsExecutionConfig(BaseModel):
     max_concurrent: int = 10
 
 
+class RateLimitConfig(BaseModel):
+    """限流配置.
+
+    基于令牌桶算法的多维度限流配置。
+    速率单位为 tokens/秒，容量为桶最大令牌数。
+    将速率设为 0 表示该维度不限流。
+    """
+    enabled: bool = True
+    # 全局限流
+    global_rate: float = 100.0
+    global_capacity: float = 200.0
+    # 按技能限流
+    per_skill_rate: float = 20.0
+    per_skill_capacity: float = 50.0
+    # 按IP限流
+    per_ip_rate: float = 10.0
+    per_ip_capacity: float = 30.0
+    # 按用户限流（默认关闭）
+    per_user_rate: float = 0.0
+    per_user_capacity: float = 0.0
+    # 单次请求消耗令牌数
+    cost_per_request: float = 1.0
+
+
 class SkillsConfig(BaseModel):
     """技能配置."""
     enabled: list[str] = Field(default_factory=list)
@@ -111,6 +135,7 @@ class SkillsConfig(BaseModel):
     hot_reload: bool = False
     hot_reload_interval: int = 60
     execution: SkillsExecutionConfig = Field(default_factory=SkillsExecutionConfig)
+    rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
 
 
 class VoicePolishConfig(BaseModel):

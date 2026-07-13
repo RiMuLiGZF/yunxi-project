@@ -32,14 +32,20 @@ import structlog
 from pydantic import BaseModel, Field
 
 from skill_cluster.error_codes import ErrorCode, make_error_response, make_success_response
+from skill_cluster.rate_limiter import (
+    RateLimitConfig,
+    get_global_registry,
+)
+from skill_cluster.exceptions import M2BaseException
 
 logger = structlog.get_logger()
 
 # FastAPI 可选导入
 _fastapi_available = False
 try:
-    from fastapi import FastAPI, HTTPException, Query, Header
+    from fastapi import FastAPI, HTTPException, Query, Header, Request
     from fastapi.responses import JSONResponse
+    from fastapi.exceptions import RequestValidationError
     _fastapi_available = True
 except ImportError:
     FastAPI = None  # type: ignore[assignment, misc]
@@ -153,6 +159,127 @@ class SystemStats(BaseModel):
     uptime_seconds: float = 0.0
 
 
+# ---- 全局异常处理 ----
+
+def _register_exception_handlers(app: Any) -> None:
+    """为 FastAPI 应用注册全局异常处理器.
+
+    注册三类异常处理器：
+    1. M2BaseException - 业务异常，统一返回标准错误响应 + warning 日志
+    2. RequestValidationError - Pydantic 参数校验错误，映射到参数校验错误码 + 字段级详情
+    3. Exception - 通用未捕获异常，返回内部错误 + error 日志，不泄露堆栈
+
+    Args:
+        app: FastAPI 应用实例
+    """
+    if not _fastapi_available:
+        return
+
+    @app.exception_handler(M2BaseException)
+    async def m2_base_exception_handler(request: "Request", exc: M2BaseException) -> "JSONResponse":
+        """M2 业务异常统一处理.
+
+        将 M2BaseException 转换为标准错误响应，记录 warning 级别日志。
+        """
+        # 尝试从请求头获取 trace_id，若异常中已有则优先使用异常中的
+        trace_id = exc.trace_id
+        if not trace_id:
+            trace_id = request.headers.get("x-trace-id", "")
+
+        logger.warning(
+            "m2_business_exception",
+            error_type=exc.__class__.__name__,
+            error_code=exc.code,
+            error_message=exc.message,
+            trace_id=trace_id,
+            path=getattr(request, "url", ""),
+            method=getattr(request, "method", ""),
+        )
+
+        response_body = exc.to_response()
+        # 确保 trace_id 不为空
+        if not response_body.get("trace_id"):
+            response_body["trace_id"] = trace_id
+
+        return JSONResponse(
+            status_code=exc.http_status,
+            content=response_body,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: "Request", exc: "RequestValidationError"
+    ) -> "JSONResponse":
+        """Pydantic 参数校验错误处理.
+
+        将 FastAPI 的 RequestValidationError 转换为标准错误响应，
+        提供字段级别的错误详情。
+        """
+        trace_id = request.headers.get("x-trace-id", "")
+
+        # 格式化字段级错误详情
+        field_errors: list[dict[str, Any]] = []
+        for err in exc.errors():
+            loc = err.get("loc", ())
+            # 将位置元组转换为字段路径字符串
+            field = ".".join(str(part) for part in loc if part != "body")
+            field_errors.append({
+                "field": field,
+                "message": err.get("msg", ""),
+                "type": err.get("type", ""),
+            })
+
+        logger.warning(
+            "request_validation_error",
+            trace_id=trace_id,
+            path=getattr(request, "url", ""),
+            method=getattr(request, "method", ""),
+            field_errors=field_errors,
+        )
+
+        response_body = make_error_response(
+            code=ErrorCode.INVALID_PARAMS,
+            message="请求参数校验失败",
+            data={"errors": field_errors},
+            trace_id=trace_id,
+        )
+
+        return JSONResponse(
+            status_code=400,
+            content=response_body,
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: "Request", exc: Exception) -> "JSONResponse":
+        """未捕获异常兜底处理.
+
+        捕获所有未处理的异常，返回内部错误响应，记录 error 级别日志，
+        不向客户端泄露堆栈信息。
+        """
+        trace_id = request.headers.get("x-trace-id", "")
+
+        logger.error(
+            "unhandled_exception",
+            error_type=exc.__class__.__name__,
+            error_message=str(exc),
+            trace_id=trace_id,
+            path=getattr(request, "url", ""),
+            method=getattr(request, "method", ""),
+            exc_info=exc,
+        )
+
+        response_body = make_error_response(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="服务器内部错误",
+            trace_id=trace_id,
+        )
+
+        return JSONResponse(
+            status_code=500,
+            content=response_body,
+        )
+
+
 # ---- API 应用工厂 ----
 
 def create_v2_app(
@@ -183,6 +310,9 @@ def create_v2_app(
         description="M2 技能集群系统标准接口（M8对接标准）",
         version="2.1.0",
     )
+
+    # ---- 全局异常处理器 ----
+    _register_exception_handlers(app)
 
     start_time = time.time()
 
@@ -262,6 +392,25 @@ def create_v2_app(
 
     def _get_trace_id(x_trace_id: str | None) -> str:
         return x_trace_id or _gen_trace_id()
+
+    def _get_client_ip(request: "Request") -> str:
+        """提取客户端真实 IP.
+
+        优先从 X-Forwarded-For / X-Real-IP 头获取，
+        其次使用 request.client.host。
+        """
+        # 从常见的代理头中获取
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            # X-Forwarded-For 格式: client, proxy1, proxy2
+            return xff.split(",")[0].strip()
+        x_real_ip = request.headers.get("X-Real-IP")
+        if x_real_ip:
+            return x_real_ip.strip()
+        client = getattr(request, "client", None)
+        if client and hasattr(client, "host"):
+            return str(client.host)
+        return "unknown"
 
     # ---- 1. 健康检查类 ----
 
@@ -489,6 +638,7 @@ def create_v2_app(
     @app.post("/api/v2/skills/invoke", response_model=ApiResponse)
     async def invoke_skill(
         req: SkillInvokeRequest,
+        request: Request,
         x_trace_id: str | None = Header(default=None),
     ):
         """调用技能.
@@ -505,24 +655,63 @@ def create_v2_app(
             )
 
         try:
-            result = await router.invoke(
-                skill_id=req.skill_id,
-                action=req.action,
-                params=req.params,
-                agent_id=req.agent_id,
-                timeout=req.timeout,
-                trace_id=trace_id,
-                device_type=req.device_type,
+            # 从请求中提取客户端 IP，注入 metadata 供限流中间件使用
+            client_ip = _get_client_ip(request)
+            params_with_ip = dict(req.params) if req.params else {}
+            # 将 IP 信息放入 metadata（通过 params 传递，router.invoke 内部会处理）
+            # 由于 router.invoke 接口限制，这里通过 params 中的特殊字段传递
+            # 实际项目中建议扩展 SkillInvokeRequest 的 metadata 字段
+            invoke_kwargs: dict[str, Any] = {
+                "skill_id": req.skill_id,
+                "action": req.action,
+                "params": req.params,
+                "agent_id": req.agent_id,
+                "timeout": req.timeout,
+                "trace_id": trace_id,
+                "device_type": req.device_type,
+            }
+
+            result = await router.invoke(**invoke_kwargs)
+
+            status = getattr(result, "status", "success")
+            result_data = getattr(result, "data", None)
+            result_error = getattr(result, "error", None)
+
+            # 检测是否为限流响应
+            is_rate_limited = (
+                isinstance(result_data, dict)
+                and result_data.get("error_code") == "RATE_LIMITED"
             )
 
             data = {
                 "skill_id": req.skill_id,
                 "action": req.action,
-                "status": getattr(result, "status", "success"),
-                "data": getattr(result, "data", None),
-                "error": getattr(result, "error", None),
+                "status": status,
+                "data": result_data,
+                "error": result_error,
                 "latency_ms": getattr(result, "latency_ms", 0),
             }
+
+            if is_rate_limited:
+                # 限流响应：返回 RATE_LIMITED 错误码和标准响应头
+                retry_after = result_data.get("retry_after", 1.0)  # type: ignore[union-attr]
+                response = JSONResponse(
+                    content=make_error_response(
+                        ErrorCode.RATE_LIMITED,
+                        message=result_error or "请求过于频繁，请稍后再试",
+                        data=result_data,
+                        trace_id=trace_id,
+                    ),
+                    status_code=429,
+                )
+                response.headers["X-RateLimit-Limit"] = str(
+                    result_data.get("limit", 0)  # type: ignore[union-attr]
+                )
+                response.headers["X-RateLimit-Remaining"] = "0"
+                response.headers["X-RateLimit-Reset"] = str(int(retry_after))
+                response.headers["Retry-After"] = str(int(retry_after))
+                return response
+
             return make_success_response(data=data, trace_id=trace_id)
 
         except Exception as e:

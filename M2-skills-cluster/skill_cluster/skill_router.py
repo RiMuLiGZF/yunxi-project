@@ -8,47 +8,19 @@ from typing import Any
 
 import structlog
 
+from skill_cluster.circuit_breaker import ErrorClassifier
+from skill_cluster.config import RateLimitConfig
 from skill_cluster.interfaces import ISkill, SkillInvokeRequest, SkillInvokeResult
 from skill_cluster.middleware import MiddlewarePipeline
 from skill_cluster.permissions import SkillPermissionManager
+from skill_cluster.rate_limiter import rate_limit_middleware
 from skill_cluster.skill_registry import SkillRegistry
 
 logger = structlog.get_logger()
 
-
-class ErrorClassifier:
-    """错误分类器：区分可重试与不可重试错误."""
-
-    RETRYABLE_ERRORS = (
-        asyncio.TimeoutError,
-        ConnectionError,
-        OSError,
-    )
-    TRANSIENT_KEYWORDS = (
-        "timeout",
-        "connection",
-        "refused",
-        "temporary",
-        "unavailable",
-        "rate limit",
-        "429",
-        "503",
-        "504",
-    )
-
-    @classmethod
-    def classify(cls, exc: Exception) -> tuple[str, bool]:
-        """分类异常.
-
-        Returns:
-            (错误类型标识, 是否可重试).
-        """
-        if isinstance(exc, cls.RETRYABLE_ERRORS):
-            return type(exc).__name__, True
-        msg = str(exc).lower()
-        if any(kw in msg for kw in cls.TRANSIENT_KEYWORDS):
-            return "transient_error", True
-        return "business_error", False
+# 【向后兼容】ErrorClassifier 已迁移至 circuit_breaker.py
+# 此处保留导入别名，旧代码无需修改即可继续使用
+__all__ = ["ErrorClassifier"]
 
 
 class SkillRouter:
@@ -75,6 +47,7 @@ class SkillRouter:
         registry: SkillRegistry | None = None,
         permission_manager: SkillPermissionManager | None = None,
         middleware: MiddlewarePipeline | None = None,
+        rate_limit_config: RateLimitConfig | None = None,
     ) -> None:
         if hasattr(self, "_initialized"):
             return
@@ -82,6 +55,18 @@ class SkillRouter:
         self._permission_manager = permission_manager or SkillPermissionManager()
         # 【P0-2 修复】初始化中间件管道
         self.middleware = middleware or MiddlewarePipeline()
+        # 【限流中间件】默认启用，可通过配置关闭
+        self._rate_limit_config = rate_limit_config or RateLimitConfig()
+        if self._rate_limit_config.enabled:
+            self.middleware.use(
+                rate_limit_middleware(self._rate_limit_config)
+            )
+            logger.info(
+                "rate_limit_middleware_enabled",
+                global_rate=self._rate_limit_config.global_rate,
+                per_skill_rate=self._rate_limit_config.per_skill_rate,
+                per_ip_rate=self._rate_limit_config.per_ip_rate,
+            )
         self._initialized = True
 
     @classmethod
