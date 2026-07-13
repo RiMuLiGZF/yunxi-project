@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 import time
 import uuid
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -83,12 +85,63 @@ async def lifespan(app: FastAPI):
     set_workflow_count(stats.get("total_workflows", 0))
     print(f"[M7] Loaded {stats.get('total_workflows', 0)} workflows from storage")
 
+    # P1-07: 启动时清理遗留临时文件
+    _cleanup_temp_files(max_age_seconds=3600)
+
+    # P1-07: 启动定期临时文件清理任务
+    cleanup_task = asyncio.create_task(_periodic_temp_cleanup())
+
     print(f"[M7] Service started successfully on port {os.environ.get('M7_PORT', '8007')}")
 
     yield
 
     # 关闭时
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     print("[M7] Shutting down M7 Workflow Builder...")
+
+
+async def _periodic_temp_cleanup():
+    """P1-07: 定期清理临时文件（每小时一次）."""
+    while True:
+        await asyncio.sleep(3600)  # 1小时
+        try:
+            _cleanup_temp_files(max_age_seconds=3600)
+        except Exception as e:
+            print(f"[M7] 临时文件清理失败: {e}")
+
+
+def _cleanup_temp_files(max_age_seconds: int = 3600):
+    """P1-07: 清理超过指定时间的临时文件.
+
+    清理 M7_TEMP_DIR 目录下超过 max_age_seconds 的文件。
+    """
+    try:
+        from .utils.security import get_temp_dir
+        temp_dir = get_temp_dir()
+    except Exception:
+        temp_dir = os.path.join(os.path.expanduser("~"), ".yunxi", "m7_temp")
+
+    if not os.path.isdir(temp_dir):
+        return
+
+    now = time.time()
+    cleaned = 0
+    for filename in os.listdir(temp_dir):
+        filepath = os.path.join(temp_dir, filename)
+        if os.path.isfile(filepath):
+            try:
+                if now - os.path.getmtime(filepath) > max_age_seconds:
+                    os.remove(filepath)
+                    cleaned += 1
+            except Exception:
+                pass
+
+    if cleaned > 0:
+        print(f"[M7-P1-07] 清理了 {cleaned} 个过期临时文件")
 
 
 def create_app() -> FastAPI:

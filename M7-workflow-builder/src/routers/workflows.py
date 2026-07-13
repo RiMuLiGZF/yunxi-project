@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import time
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 
 from ..models import (
     ApiResponse,
@@ -254,15 +255,44 @@ async def duplicate_workflow(
 # 工作流运行
 # ============================================================
 
+async def _execute_workflow_background(
+    workflow_id: str,
+    workflow: dict,
+    run_id: str,
+    req: WorkflowRunRequest,
+    username: str,
+):
+    """后台执行工作流，并持久化运行状态."""
+    run_result = await _engine.run_workflow(
+        workflow=workflow,
+        input_data=req.input_data,
+        start_block=req.start_block,
+        runtime_variables=req.variables,
+        triggered_by=username,
+    )
+
+    # 更新运行记录为最终状态
+    _storage.update_run(workflow_id, run_id, run_result)
+
+    # 更新运行计数
+    _storage.increment_run_count(workflow_id)
+
+    # 记录指标
+    from ..m8_api.health_endpoints import record_run
+    record_run(run_result.get("status") == "success")
+
+
 @router.post("/{workflow_id}/run")
 async def run_workflow(
     request: Request,
     workflow_id: str,
+    background_tasks: BackgroundTasks,
     req: WorkflowRunRequest = WorkflowRunRequest(),
     current_user: dict = Depends(get_current_user),
 ):
     """运行工作流.
 
+    异步后台执行，立即返回运行 ID，支持运行中状态查询。
     支持线性串行和 DAG 两种执行模式，自动检测工作流结构。
     记录每步的输入/输出/状态/耗时。
     """
@@ -282,29 +312,66 @@ async def run_workflow(
             request_id=request.headers.get("X-Request-ID", ""),
         )
 
-    # 执行工作流
-    run_result = await _engine.run_workflow(
-        workflow=workflow,
-        input_data=req.input_data,
-        start_block=req.start_block,
-        runtime_variables=req.variables,
-        triggered_by=current_user.get("username", ""),
+    # 创建运行记录（running 状态）
+    run_id = f"run_{uuid.uuid4().hex[:12]}"
+    now = _now_iso()
+    run_record = {
+        "id": run_id,
+        "workflow_id": workflow_id,
+        "status": "running",
+        "input_data": req.input_data,
+        "variables": req.variables,
+        "started_at": now,
+        "finished_at": None,
+        "steps": [],
+        "error": None,
+        "output": None,
+        "triggered_by": current_user.get("username", ""),
+    }
+    _storage.add_run(workflow_id, run_record)
+
+    # 添加后台任务
+    background_tasks.add_task(
+        _execute_workflow_background,
+        workflow_id,
+        workflow,
+        run_id,
+        req,
+        current_user.get("username", ""),
     )
 
-    # 保存运行记录
-    _storage.add_run(workflow_id, run_result)
+    return ApiResponse.success(
+        message="工作流已提交执行",
+        data={
+            "run_id": run_id,
+            "workflow_id": workflow_id,
+            "status": "running",
+            "started_at": now,
+        },
+        request_id=request.headers.get("X-Request-ID", ""),
+    )
 
-    # 更新运行计数
-    _storage.increment_run_count(workflow_id)
 
-    # 记录指标
-    from ..m8_api.health_endpoints import record_run
-    record_run(run_result.get("status") == "success")
+@router.get("/{workflow_id}/runs/{run_id}")
+async def get_run_status(
+    request: Request,
+    workflow_id: str,
+    run_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """查询工作流运行状态.
 
-    success = run_result.get("status") == "success"
+    支持查询正在运行（running）和已完成（success/failed）的运行记录。
+    """
+    run_record = _storage.get_run(workflow_id, run_id)
+    if not run_record:
+        return ApiResponse.error(
+            code=404,
+            message=f"运行记录 {run_id} 不存在",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
 
     return ApiResponse.success(
-        message="工作流执行完成" if success else "工作流执行失败",
-        data=run_result,
+        data=run_record,
         request_id=request.headers.get("X-Request-ID", ""),
     )

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import logging
 import os
 import time
 import uuid
@@ -16,6 +17,8 @@ from collections import deque
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import httpx
+
+logger = logging.getLogger("m7.engine")
 
 # 安全工具
 try:
@@ -1256,6 +1259,76 @@ class WorkflowEngine:
     M2 不可用时自动降级到内置积木实现。
     """
 
+    # P1-05: 全局并发控制
+    _running_count: int = 0
+    _running_lock: asyncio.Lock = asyncio.Lock() if hasattr(asyncio, 'Lock') else None
+    _max_running: int = 0
+
+    @classmethod
+    def _get_max_running(cls) -> int:
+        """获取最大并发工作流数."""
+        if cls._max_running <= 0:
+            cls._max_running = int(os.environ.get("M7_MAX_RUNNING_WORKFLOWS", "10"))
+        return cls._max_running
+
+    @classmethod
+    async def _acquire_slot(cls) -> bool:
+        """获取执行槽位（并发控制）.
+
+        Returns:
+            True 获取成功，False 已满
+        """
+        if cls._running_lock is None:
+            cls._running_lock = asyncio.Lock()
+        async with cls._running_lock:
+            if cls._running_count >= cls._get_max_running():
+                return False
+            cls._running_count += 1
+            return True
+
+    @classmethod
+    async def _release_slot(cls):
+        """释放执行槽位."""
+        if cls._running_lock is None:
+            cls._running_lock = asyncio.Lock()
+        async with cls._running_lock:
+            if cls._running_count > 0:
+                cls._running_count -= 1
+
+    @classmethod
+    def get_running_count(cls) -> int:
+        """获取当前运行中的工作流数."""
+        return cls._running_count
+
+    # P1-04: 活跃任务管理（取消支持）
+    _active_tasks: Dict[str, asyncio.Task] = {}
+
+    @classmethod
+    def _register_task(cls, run_id: str, task: asyncio.Task):
+        """注册运行任务."""
+        cls._active_tasks[run_id] = task
+
+    @classmethod
+    def _unregister_task(cls, run_id: str):
+        """注销运行任务."""
+        cls._active_tasks.pop(run_id, None)
+
+    @classmethod
+    async def cancel_run(cls, run_id: str) -> bool:
+        """取消正在运行的工作流.
+
+        Args:
+            run_id: 运行 ID
+
+        Returns:
+            是否成功取消
+        """
+        task = cls._active_tasks.get(run_id)
+        if task and not task.done():
+            task.cancel()
+            return True
+        return False
+
     def __init__(
         self,
         m2_client: Optional[M2SkillClient] = None,
@@ -1284,6 +1357,9 @@ class WorkflowEngine:
         self.block_timeout = block_timeout or float(
             os.environ.get("M7_BLOCK_TIMEOUT", "60")
         )
+
+        # P1-01: DAG 并行执行配置
+        self.max_parallel_nodes = int(os.environ.get("M7_MAX_PARALLEL_NODES", "5"))
 
     async def _check_m2_available(self, force: bool = False) -> bool:
         """检查 M2 是否可用（带缓存）."""
@@ -1380,6 +1456,8 @@ class WorkflowEngine:
     ) -> Tuple[Dict[str, Any], bool]:
         """执行单个积木块.
 
+        支持节点级重试（P1-03）：从积木配置中读取重试策略。
+
         Args:
             block: 积木块配置
             step_input: 输入参数
@@ -1393,6 +1471,13 @@ class WorkflowEngine:
         action = block_config.get("action", "default")
         # action 已经在 step_input 里可能有，但我们用配置里的
         action = block.get("config", {}).get("action", "default")
+
+        # P1-03: 重试策略
+        retry_config = block.get("retry", {})
+        max_retries = int(retry_config.get("max_retries", 0))
+        retry_delay = float(retry_config.get("retry_delay", 1.0))
+        retry_backoff = float(retry_config.get("retry_backoff", 2.0))
+        retry_on = retry_config.get("retry_on", [])  # 错误类型白名单，空=所有错误都重试
 
         result: Dict[str, Any] = {
             "block_id": block["id"],
@@ -1410,65 +1495,104 @@ class WorkflowEngine:
             "source": "m2" if m2_available else "builtin",
         }
 
-        try:
-            # 节点级超时控制
-            async def _do_execute() -> Any:
-                if m2_available:
-                    # 调用 M2 技能
-                    response = await self.m2_client.invoke_skill(
-                        skill_id=skill_id,
-                        action=action,
-                        params=step_input,
-                    )
-                    return ("m2", response)
-                elif self.use_builtin_fallback and skill_id in BUILTIN_BLOCKS:
-                    # 使用内置降级实现
-                    builtin_result = await execute_builtin_block(
-                        skill_id=skill_id,
-                        action=action,
-                        params=step_input,
-                    )
-                    return ("builtin", builtin_result)
-                else:
-                    return ("no_impl", f"M2 不可用且无内置降级实现: {skill_id}")
+        last_error = None
+        for attempt in range(max_retries + 1):
+            try:
+                # 节点级超时控制
+                async def _do_execute() -> Any:
+                    if m2_available:
+                        # 调用 M2 技能
+                        response = await self.m2_client.invoke_skill(
+                            skill_id=skill_id,
+                            action=action,
+                            params=step_input,
+                        )
+                        return ("m2", response)
+                    elif self.use_builtin_fallback and skill_id in BUILTIN_BLOCKS:
+                        # 使用内置降级实现
+                        builtin_result = await execute_builtin_block(
+                            skill_id=skill_id,
+                            action=action,
+                            params=step_input,
+                        )
+                        return ("builtin", builtin_result)
+                    else:
+                        return ("no_impl", f"M2 不可用且无内置降级实现: {skill_id}")
 
-            exec_result = await asyncio.wait_for(
-                _do_execute(),
-                timeout=self.block_timeout,
-            )
+                exec_result = await asyncio.wait_for(
+                    _do_execute(),
+                    timeout=self.block_timeout,
+                )
 
-            if exec_result[0] == "m2":
-                response = exec_result[1]
-                resp_code = response.get("code", -1)
-                resp_data = response.get("data", {})
-                if resp_code == 20000 or response.get("success", False):
-                    invoke_data = (
-                        resp_data.get("data", resp_data)
-                        if isinstance(resp_data, dict)
-                        else resp_data
-                    )
-                    result["status"] = "success"
-                    result["output"] = invoke_data
+                if exec_result[0] == "m2":
+                    response = exec_result[1]
+                    resp_code = response.get("code", -1)
+                    resp_data = response.get("data", {})
+                    if resp_code == 20000 or response.get("success", False):
+                        invoke_data = (
+                            resp_data.get("data", resp_data)
+                            if isinstance(resp_data, dict)
+                            else resp_data
+                        )
+                        result["status"] = "success"
+                        result["output"] = invoke_data
+                    else:
+                        result["status"] = "failed"
+                        result["error"] = response.get("message", "技能执行失败")
+                elif exec_result[0] == "builtin":
+                    builtin_result = exec_result[1]
+                    if builtin_result.get("success"):
+                        result["status"] = "success"
+                        result["output"] = builtin_result.get("data")
+                    else:
+                        result["status"] = "failed"
+                        result["error"] = builtin_result.get("error", "内置积木执行失败")
                 else:
                     result["status"] = "failed"
-                    result["error"] = response.get("message", "技能执行失败")
-            elif exec_result[0] == "builtin":
-                builtin_result = exec_result[1]
-                if builtin_result.get("success"):
-                    result["status"] = "success"
-                    result["output"] = builtin_result.get("data")
-                else:
-                    result["status"] = "failed"
-                    result["error"] = builtin_result.get("error", "内置积木执行失败")
-            else:
+                    result["error"] = exec_result[1]
+
+                # 成功则退出重试循环
+                if result["status"] == "success":
+                    break
+
+                last_error = result["error"]
+
+            except asyncio.TimeoutError:
+                last_error = f"节点执行超时（{self.block_timeout}秒）"
                 result["status"] = "failed"
-                result["error"] = exec_result[1]
-        except asyncio.TimeoutError:
-            result["status"] = "failed"
-            result["error"] = f"节点执行超时（{self.block_timeout}秒）"
-        except Exception as e:
-            result["status"] = "failed"
-            result["error"] = str(e)
+                result["error"] = last_error
+            except asyncio.CancelledError:
+                result["status"] = "cancelled"
+                result["error"] = "工作流已被取消"
+                result["finished_at"] = time.time()
+                result["duration_ms"] = int((result["finished_at"] - result["started_at"]) * 1000)
+                return result, False
+            except Exception as e:
+                last_error = str(e)
+                result["status"] = "failed"
+                result["error"] = last_error
+
+            # P1-03: 判断是否需要重试
+            if attempt < max_retries and result["status"] == "failed":
+                # 检查错误类型是否在白名单中
+                should_retry = True
+                if retry_on:
+                    should_retry = any(
+                        keyword in (last_error or "").lower()
+                        for keyword in retry_on
+                    )
+                if should_retry:
+                    result["retry_count"] = attempt + 1
+                    delay = retry_delay * (retry_backoff ** attempt)
+                    logger.warning(
+                        f"[P1-03] 节点 {block.get('name', block['id'])} "
+                        f"第{attempt + 1}次执行失败，{delay:.1f}s后重试: {last_error}"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    break
+            else:
+                break
 
         result["finished_at"] = time.time()
         result["duration_ms"] = int((result["finished_at"] - result["started_at"]) * 1000)
@@ -1486,16 +1610,8 @@ class WorkflowEngine:
         """运行工作流.
 
         支持线性串行和 DAG 两种执行模式。自动检测工作流结构。
-
-        Args:
-            workflow: 工作流字典
-            input_data: 初始输入数据
-            start_block: 可选的起始积木块 ID
-            runtime_variables: 运行时变量
-            triggered_by: 触发者
-
-        Returns:
-            运行记录字典
+        DAG 模式下支持同层节点并行执行（P1-01）。
+        支持取消（P1-04）和并发限流（P1-05）。
         """
         blocks = workflow.get("blocks", [])
         if not blocks:
@@ -1524,6 +1640,29 @@ class WorkflowEngine:
         input_data = input_data or {}
         runtime_variables = runtime_variables or {}
 
+        # P1-05: 并发限流
+        if not await WorkflowEngine._acquire_slot():
+            return {
+                "run_id": run_id,
+                "workflow_id": workflow.get("id", ""),
+                "workflow_name": workflow.get("name", ""),
+                "status": "rejected",
+                "started_at": run_start_time,
+                "finished_at": time.time(),
+                "duration_ms": 0,
+                "steps": [],
+                "total_blocks": len(blocks),
+                "success_blocks": 0,
+                "failed_blocks": 0,
+                "skipped_blocks": 0,
+                "triggered_by": triggered_by,
+                "trigger_type": workflow.get("trigger", {}).get("type", "manual"),
+                "input_data": input_data,
+                "final_output": None,
+                "error": f"系统繁忙，并发工作流数已达上限（{WorkflowEngine._get_max_running()}）",
+                "running_count": WorkflowEngine.get_running_count(),
+            }
+
         # 解析变量
         variables_config = workflow.get("variables", [])
         variables = self._resolve_variables(variables_config, runtime_variables, input_data)
@@ -1535,6 +1674,7 @@ class WorkflowEngine:
         try:
             execution_order = topological_sort(blocks, start_block)
         except ValueError as e:
+            await WorkflowEngine._release_slot()
             return {
                 "run_id": run_id,
                 "workflow_id": workflow.get("id", ""),
@@ -1566,144 +1706,88 @@ class WorkflowEngine:
         skipped_count = 0
         timeout_error: Optional[str] = None
 
-        # P2-15: 条件分支跳过集合（条件积木 false 分支的节点会被加入）
+        # P2-15: 条件分支跳过集合
         condition_skip: Set[str] = set()
 
-        for block_id in execution_order:
-            # 检查工作流整体超时
-            elapsed = time.time() - run_start_time
-            if elapsed > self.workflow_timeout:
-                timeout_error = f"工作流执行超时（{self.workflow_timeout}秒）"
-                overall_status = "failed"
-                break
+        # P1-01: DAG 并行执行（线性工作流保持串行）
+        is_linear = is_linear_workflow(blocks)
 
-            block = block_map.get(block_id)
-            if not block:
-                skipped_count += 1
-                continue
+        try:
+            if is_linear:
+                # 线性串行执行
+                for block_id in execution_order:
+                    # 检查取消
+                    if asyncio.current_task().cancelled():
+                        overall_status = "cancelled"
+                        break
 
-            # 计算前驱列表和前驱状态
-            predecessors = [n for n, ns in adjacency.items() if block_id in ns]
-            pred_success = 0
-            pred_failed = 0
-            pred_cond_skip = 0
-            for pred_id in predecessors:
-                if pred_id not in step_results:
-                    continue
-                ps = step_results[pred_id].get("status")
-                if ps == "success":
-                    pred_success += 1
-                elif ps == "skipped" and step_results[pred_id].get("skip_reason") == "condition_branch":
-                    pred_cond_skip += 1
-                else:
-                    pred_failed += 1
+                    # 检查工作流整体超时
+                    elapsed = time.time() - run_start_time
+                    if elapsed > self.workflow_timeout:
+                        timeout_error = f"工作流执行超时（{self.workflow_timeout}秒）"
+                        overall_status = "failed"
+                        break
 
-            # P2-15: 判断是否因条件分支而跳过
-            # 规则:
-            #   - 节点在 condition_skip 中 -> 直接跳过（由条件积木明确标记）
-            #   - 不在 condition_skip 中，但所有前驱都是条件跳过 -> 也跳过（传递性）
-            #   - 有成功前驱的合并节点不在 condition_skip 中，正常执行
-            should_cond_skip = False
-            if block_id in condition_skip:
-                should_cond_skip = True
-            elif predecessors and pred_cond_skip > 0 and pred_success == 0 and pred_failed == 0:
-                # 所有前驱都被条件跳过，当前节点也跳过
-                if pred_cond_skip + pred_failed + pred_success == len(predecessors):
-                    should_cond_skip = True
-                    condition_skip.add(block_id)
+                    step_result = await self._process_single_block(
+                        block_id=block_id,
+                        block_map=block_map,
+                        adjacency=adjacency,
+                        execution_order=execution_order,
+                        variables=variables,
+                        step_results=step_results,
+                        condition_skip=condition_skip,
+                        m2_available=m2_available,
+                        run_start_time=run_start_time,
+                    )
 
-            if should_cond_skip:
-                skip_result = {
-                    "block_id": block_id,
-                    "block_name": block.get("name", ""),
-                    "skill_id": block.get("type", ""),
-                    "action": block.get("config", {}).get("action", "default"),
-                    "status": "skipped",
-                    "input": {},
-                    "output": None,
-                    "error": "条件分支未命中",
-                    "started_at": time.time(),
-                    "finished_at": time.time(),
-                    "duration_ms": 0,
-                    "retry_count": 0,
-                    "skip_reason": "condition_branch",
-                }
-                steps.append(skip_result)
-                step_results[block_id] = skip_result
-                skipped_count += 1
-                continue
+                    if step_result is None:
+                        # 被条件跳过或依赖失败跳过
+                        skipped_count += 1
+                        continue
 
-            # 检查前置依赖是否失败（非条件跳过的失败）
-            deps_failed = pred_failed > 0
+                    steps.append(step_result)
+                    step_results[block_id] = step_result
 
-            if deps_failed:
-                # 依赖失败，跳过此节点
-                skip_result = {
-                    "block_id": block_id,
-                    "block_name": block.get("name", ""),
-                    "skill_id": block.get("type", ""),
-                    "action": block.get("config", {}).get("action", "default"),
-                    "status": "skipped",
-                    "input": {},
-                    "output": None,
-                    "error": "前置依赖执行失败",
-                    "started_at": time.time(),
-                    "finished_at": time.time(),
-                    "duration_ms": 0,
-                    "retry_count": 0,
-                }
-                steps.append(skip_result)
-                step_results[block_id] = skip_result
-                skipped_count += 1
-                continue
+                    # 条件分支处理
+                    block = block_map.get(block_id, {})
+                    if block.get("type", "") == "logic.condition" and step_result.get("status") == "success":
+                        self._handle_condition_branch(block, step_result, condition_skip, block_map)
 
-            # 构建输入
-            step_input = self._build_step_input(
-                block=block,
-                block_index=execution_order.index(block_id),
-                variables=variables,
-                step_results=step_results,
-                adjacency=adjacency,
-            )
+                    if step_result.get("status") == "cancelled":
+                        overall_status = "cancelled"
+                        break
 
-            # 执行积木块
-            step_result, success = await self._execute_block(
-                block=block,
-                step_input=step_input,
-                m2_available=m2_available,
-            )
-            steps.append(step_result)
-            step_results[block_id] = step_result
+                    if not step_result.get("status") == "success":
+                        overall_status = "failed"
+                        break
+            else:
+                # P1-01: DAG BFS 层级并行执行
+                overall_status, steps, step_results, skipped_count, timeout_error = (
+                    await self._run_dag_parallel(
+                        blocks=blocks,
+                        block_map=block_map,
+                        adjacency=adjacency,
+                        in_degree=in_degree.copy(),
+                        variables=variables,
+                        step_results=step_results,
+                        condition_skip=condition_skip,
+                        m2_available=m2_available,
+                        run_start_time=run_start_time,
+                        start_block=start_block,
+                    )
+                )
 
-            # P2-15: 条件分支积木 - 标记未命中分支的直接后继
-            # 注意：只标记直接后继，不递归。合并节点由动态判断决定是否执行
-            block_type = block.get("type", "")
-            if block_type == "logic.condition" and success:
-                cond_result = step_result.get("output", {}).get("result", False)
-                block_config = block.get("config", {})
-                true_branch = block_config.get("true_branch", [])
-                false_branch = block_config.get("false_branch", [])
-                next_blocks = block.get("next", [])
-                if not true_branch and not false_branch and len(next_blocks) >= 2:
-                    true_branch = [next_blocks[0]]
-                    false_branch = next_blocks[1:]
-                skip_branch = false_branch if cond_result else true_branch
-                for sid in skip_branch:
-                    if sid in block_map:
-                        condition_skip.add(sid)
-
-            if not success:
-                overall_status = "failed"
-                # DAG 模式下不立即停止，后续节点会因为依赖失败而被跳过
-                # 但线性模式下可以提前终止（后面的节点都依赖前面的）
-                if is_linear_workflow(blocks):
-                    break
+        except asyncio.CancelledError:
+            overall_status = "cancelled"
+        finally:
+            await WorkflowEngine._release_slot()
 
         run_end_time = time.time()
 
         # 统计
         success_count = sum(1 for s in steps if s["status"] == "success")
         failed_count = sum(1 for s in steps if s["status"] == "failed")
+        cancelled_count = sum(1 for s in steps if s["status"] == "cancelled")
         skipped_count = sum(1 for s in steps if s["status"] == "skipped")
 
         # 找出最终输出（最后一个成功的节点输出）
@@ -1712,10 +1796,6 @@ class WorkflowEngine:
             if step["status"] == "success":
                 final_output = step.get("output")
                 break
-
-        # 如果有被跳过的块（DAG 模式下因依赖失败而跳过），也视为失败
-        if skipped_count > 0 and overall_status == "success":
-            overall_status = "success"  # 只要有成功路径就不算失败
 
         return {
             "run_id": run_id,
@@ -1735,7 +1815,318 @@ class WorkflowEngine:
             "input_data": input_data,
             "final_output": final_output if overall_status == "success" else None,
             "error": timeout_error if timeout_error else (None if overall_status == "success" else "工作流执行失败"),
-            "execution_mode": "dag" if not is_linear_workflow(blocks) else "linear",
+            "execution_mode": "dag_parallel" if not is_linear else "linear",
             "workflow_timeout": self.workflow_timeout,
             "block_timeout": self.block_timeout,
+            "max_parallel_nodes": self.max_parallel_nodes if not is_linear else 1,
         }
+
+    def _handle_condition_branch(
+        self,
+        block: Dict[str, Any],
+        step_result: Dict[str, Any],
+        condition_skip: Set[str],
+        block_map: Dict[str, Dict[str, Any]],
+    ):
+        """处理条件分支积木的跳过逻辑."""
+        cond_result = step_result.get("output", {}).get("result", False)
+        block_config = block.get("config", {})
+        true_branch = block_config.get("true_branch", [])
+        false_branch = block_config.get("false_branch", [])
+        next_blocks = block.get("next", [])
+        if not true_branch and not false_branch and len(next_blocks) >= 2:
+            true_branch = [next_blocks[0]]
+            false_branch = next_blocks[1:]
+        skip_branch = false_branch if cond_result else true_branch
+        for sid in skip_branch:
+            if sid in block_map:
+                condition_skip.add(sid)
+
+    async def _process_single_block(
+        self,
+        block_id: str,
+        block_map: Dict[str, Dict[str, Any]],
+        adjacency: Dict[str, List[str]],
+        execution_order: List[str],
+        variables: Dict[str, Any],
+        step_results: Dict[str, Dict[str, Any]],
+        condition_skip: Set[str],
+        m2_available: bool,
+        run_start_time: float,
+    ) -> Optional[Dict[str, Any]]:
+        """处理单个积木块的执行（含条件跳过、依赖检查）.
+
+        Returns:
+            执行结果字典，如果被跳过返回 None
+        """
+        block = block_map.get(block_id)
+        if not block:
+            return {
+                "block_id": block_id,
+                "block_name": "",
+                "skill_id": "",
+                "action": "default",
+                "status": "skipped",
+                "input": {},
+                "output": None,
+                "error": "积木块不存在",
+                "started_at": time.time(),
+                "finished_at": time.time(),
+                "duration_ms": 0,
+                "retry_count": 0,
+            }
+
+        # 计算前驱
+        predecessors = [n for n, ns in adjacency.items() if block_id in ns]
+        pred_success = 0
+        pred_failed = 0
+        pred_cond_skip = 0
+        for pred_id in predecessors:
+            if pred_id not in step_results:
+                continue
+            ps = step_results[pred_id].get("status")
+            if ps == "success":
+                pred_success += 1
+            elif ps == "skipped" and step_results[pred_id].get("skip_reason") == "condition_branch":
+                pred_cond_skip += 1
+            else:
+                pred_failed += 1
+
+        # 条件分支跳过判断
+        should_cond_skip = False
+        if block_id in condition_skip:
+            should_cond_skip = True
+        elif predecessors and pred_cond_skip > 0 and pred_success == 0 and pred_failed == 0:
+            if pred_cond_skip + pred_failed + pred_success == len(predecessors):
+                should_cond_skip = True
+                condition_skip.add(block_id)
+
+        if should_cond_skip:
+            skip_result = {
+                "block_id": block_id,
+                "block_name": block.get("name", ""),
+                "skill_id": block.get("type", ""),
+                "action": block.get("config", {}).get("action", "default"),
+                "status": "skipped",
+                "input": {},
+                "output": None,
+                "error": "条件分支未命中",
+                "started_at": time.time(),
+                "finished_at": time.time(),
+                "duration_ms": 0,
+                "retry_count": 0,
+                "skip_reason": "condition_branch",
+            }
+            step_results[block_id] = skip_result
+            return None  # 由调用方计数
+
+        # 依赖失败检查
+        if pred_failed > 0:
+            skip_result = {
+                "block_id": block_id,
+                "block_name": block.get("name", ""),
+                "skill_id": block.get("type", ""),
+                "action": block.get("config", {}).get("action", "default"),
+                "status": "skipped",
+                "input": {},
+                "output": None,
+                "error": "前置依赖执行失败",
+                "started_at": time.time(),
+                "finished_at": time.time(),
+                "duration_ms": 0,
+                "retry_count": 0,
+            }
+            step_results[block_id] = skip_result
+            return None  # 由调用方计数
+
+        # 构建输入并执行
+        step_input = self._build_step_input(
+            block=block,
+            block_index=execution_order.index(block_id) if block_id in execution_order else 0,
+            variables=variables,
+            step_results=step_results,
+            adjacency=adjacency,
+        )
+
+        step_result, success = await self._execute_block(
+            block=block,
+            step_input=step_input,
+            m2_available=m2_available,
+        )
+        return step_result
+
+    async def _run_dag_parallel(
+        self,
+        blocks: List[Dict[str, Any]],
+        block_map: Dict[str, Dict[str, Any]],
+        adjacency: Dict[str, List[str]],
+        in_degree: Dict[str, int],
+        variables: Dict[str, Any],
+        step_results: Dict[str, Dict[str, Any]],
+        condition_skip: Set[str],
+        m2_available: bool,
+        run_start_time: float,
+        start_block: Optional[str] = None,
+    ) -> Tuple[str, List[Dict], Dict[str, Dict], int, Optional[str]]:
+        """P1-01: DAG BFS 层级并行执行.
+
+        使用 BFS 拓扑层级，同层入度已满足的节点并行执行。
+        使用 asyncio.Semaphore 控制最大并发度。
+
+        Returns:
+            (overall_status, steps, step_results, skipped_count, timeout_error)
+        """
+        steps: List[Dict[str, Any]] = []
+        overall_status = "success"
+        skipped_count = 0
+        timeout_error: Optional[str] = None
+        semaphore = asyncio.Semaphore(self.max_parallel_nodes)
+
+        # BFS 队列：找到所有入度为 0 的起始节点
+        queue: deque = deque()
+        if start_block:
+            queue.append(start_block)
+        else:
+            for node_id, degree in in_degree.items():
+                if degree == 0:
+                    queue.append(node_id)
+
+        # 按层级处理
+        while queue:
+            # 检查超时
+            elapsed = time.time() - run_start_time
+            if elapsed > self.workflow_timeout:
+                timeout_error = f"工作流执行超时（{self.workflow_timeout}秒）"
+                return "failed", steps, step_results, skipped_count, timeout_error
+
+            # 检查取消
+            if asyncio.current_task().cancelled():
+                return "cancelled", steps, step_results, skipped_count, None
+
+            current_layer = list(queue)
+            queue.clear()
+
+            # 过滤出可以执行的节点（入度为0且不在condition_skip中）
+            executable = []
+            for bid in current_layer:
+                block = block_map.get(bid)
+                if not block:
+                    skipped_count += 1
+                    continue
+
+                # 条件跳过检查
+                if bid in condition_skip:
+                    skip_result = {
+                        "block_id": bid,
+                        "block_name": block.get("name", ""),
+                        "skill_id": block.get("type", ""),
+                        "action": block.get("config", {}).get("action", "default"),
+                        "status": "skipped",
+                        "input": {},
+                        "output": None,
+                        "error": "条件分支未命中",
+                        "started_at": time.time(),
+                        "finished_at": time.time(),
+                        "duration_ms": 0,
+                        "retry_count": 0,
+                        "skip_reason": "condition_branch",
+                    }
+                    step_results[bid] = skip_result
+                    steps.append(skip_result)
+                    skipped_count += 1
+                    # 更新后继入度
+                    for next_id in adjacency.get(bid, []):
+                        in_degree[next_id] = in_degree.get(next_id, 1) - 1
+                        if in_degree[next_id] <= 0:
+                            queue.append(next_id)
+                    continue
+
+                # 依赖失败检查
+                predecessors = [n for n, ns in adjacency.items() if bid in ns]
+                pred_failed = any(
+                    step_results.get(p, {}).get("status") in ("failed", "cancelled")
+                    for p in predecessors
+                    if p in step_results
+                )
+                if pred_failed:
+                    skip_result = {
+                        "block_id": bid,
+                        "block_name": block.get("name", ""),
+                        "skill_id": block.get("type", ""),
+                        "action": block.get("config", {}).get("action", "default"),
+                        "status": "skipped",
+                        "input": {},
+                        "output": None,
+                        "error": "前置依赖执行失败",
+                        "started_at": time.time(),
+                        "finished_at": time.time(),
+                        "duration_ms": 0,
+                        "retry_count": 0,
+                    }
+                    step_results[bid] = skip_result
+                    steps.append(skip_result)
+                    skipped_count += 1
+                    for next_id in adjacency.get(bid, []):
+                        in_degree[next_id] = in_degree.get(next_id, 1) - 1
+                        if in_degree[next_id] <= 0:
+                            queue.append(next_id)
+                    continue
+
+                executable.append(bid)
+
+            if not executable:
+                continue
+
+            # 并行执行当前层
+            async def _exec_with_semaphore(bid: str) -> Tuple[str, Dict[str, Any]]:
+                async with semaphore:
+                    step_input = self._build_step_input(
+                        block=block_map[bid],
+                        block_index=0,
+                        variables=variables,
+                        step_results=step_results,
+                        adjacency=adjacency,
+                    )
+                    result, _ = await self._execute_block(
+                        block=block_map[bid],
+                        step_input=step_input,
+                        m2_available=m2_available,
+                    )
+                    return bid, result
+
+            layer_tasks = [_exec_with_semaphore(bid) for bid in executable]
+            layer_results = await asyncio.gather(*layer_tasks, return_exceptions=True)
+
+            # 处理结果
+            has_failure = False
+            for lr in layer_results:
+                if isinstance(lr, Exception):
+                    logger.error(f"[P1-01] DAG并行执行异常: {lr}")
+                    continue
+                bid, result = lr
+                step_results[bid] = result
+                steps.append(result)
+
+                # 条件分支处理
+                block = block_map.get(bid, {})
+                if block.get("type", "") == "logic.condition" and result.get("status") == "success":
+                    self._handle_condition_branch(block, result, condition_skip, block_map)
+
+                if result.get("status") == "cancelled":
+                    overall_status = "cancelled"
+                    return overall_status, steps, step_results, skipped_count, None
+
+                if result.get("status") != "success":
+                    has_failure = True
+
+            if has_failure:
+                overall_status = "failed"
+
+            # 更新后继入度
+            for bid in executable:
+                for next_id in adjacency.get(bid, []):
+                    in_degree[next_id] = in_degree.get(next_id, 1) - 1
+                    if in_degree[next_id] <= 0:
+                        queue.append(next_id)
+
+        return overall_status, steps, step_results, skipped_count, timeout_error

@@ -60,6 +60,19 @@ def init_db(data_dir: Optional[str] = None) -> None:
         connect_args={"check_same_thread": False},
         pool_pre_ping=True,
     )
+
+    # P1-08: WAL 模式 + 性能优化 PRAGMA
+    from sqlalchemy import event, text
+    @event.listens_for(_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=-20000")  # 20MB 缓存
+        cursor.execute("PRAGMA busy_timeout=5000")  # 5秒忙等待
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
     # 导入模型并创建表
