@@ -597,6 +597,8 @@ class SystemMonitor:
 
         # 数据存储（各级聚合）
         self._raw_data = deque(maxlen=config.data_aggregation.raw_retention_minutes * 60)
+        # 数据库持久化（延迟启用）
+        self._db_enabled = False
         self._minute_data = deque(maxlen=config.data_aggregation.minute_retention_hours * 60)
         self._hour_data = deque(maxlen=config.data_aggregation.hour_retention_days * 24)
         self._day_data = deque(maxlen=config.data_aggregation.day_retention_days)
@@ -628,6 +630,10 @@ class SystemMonitor:
             metric.aggregation_level = AggregationLevel.HOUR
             self._hour_data.append(metric)
 
+    def enable_db_persistence(self) -> None:
+        """启用指标数据库持久化."""
+        self._db_enabled = True
+
     def start(self):
         """启动监控采样."""
         if self._running:
@@ -651,6 +657,18 @@ class SystemMonitor:
                 with self._lock:
                     self._latest_metric = metric
                     self._raw_data.append(metric)
+                    # 持久化到数据库（异步，不阻塞采集循环）
+                    if self._db_enabled:
+                        try:
+                            from .repositories.metric_repository import MetricRepository
+                            MetricRepository.add_metric(
+                                metric_type='system',
+                                value=metric.to_dict(),
+                                aggregation_level='raw',
+                                timestamp=metric.timestamp,
+                            )
+                        except Exception:
+                            pass
                     self._check_aggregation(metric)
             except Exception:
                 pass
@@ -939,6 +957,17 @@ class SystemMonitor:
         if raw_list:
             aggregated = self._aggregate_metrics(raw_list, AggregationLevel.MINUTE)
             self._minute_data.append(aggregated)
+            if self._db_enabled:
+                try:
+                    from .repositories.metric_repository import MetricRepository
+                    MetricRepository.add_metric(
+                        metric_type='system',
+                        value=aggregated.to_dict(),
+                        aggregation_level='minute',
+                        timestamp=aggregated.timestamp,
+                    )
+                except Exception:
+                    pass
 
     def _aggregate_hour(self):
         """生成小时级聚合."""
