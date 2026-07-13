@@ -22,6 +22,10 @@ from src.modes.life_management.models import (
 )
 from src.modes.life_management.service import LifeService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # 路由配置
 # ---------------------------------------------------------------------------
@@ -65,7 +69,7 @@ async def get_overview(
         data = service.get_overview()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] overview 异常: {e}")
+        logger.error("overview 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50001,
             message=f"获取概览失败: {e}",
@@ -89,7 +93,7 @@ async def get_schedules(
         data = service.list_schedules(date=date)
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] schedules 异常: {e}")
+        logger.error("schedules 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50002,
             message=f"获取日程列表失败: {e}",
@@ -107,7 +111,7 @@ async def get_week_schedules(
         data = service.get_week_view()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] week schedules 异常: {e}")
+        logger.error("week schedules 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50003,
             message=f"获取周视图失败: {e}",
@@ -135,7 +139,7 @@ async def create_schedule(
         )
         return make_response(message="日程创建成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] create schedule 异常: {e}")
+        logger.error("create schedule 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50004,
             message=f"创建日程失败: {e}",
@@ -160,7 +164,7 @@ async def delete_schedule(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[LifeManagement] delete schedule 异常: {e}")
+        logger.error("delete schedule 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50005,
             message=f"删除日程失败: {e}",
@@ -184,7 +188,7 @@ async def get_todos(
         data = service.list_todos(status=status)
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] todos 异常: {e}")
+        logger.error("todos 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50006,
             message=f"获取待办列表失败: {e}",
@@ -210,7 +214,7 @@ async def create_todo(
         )
         return make_response(message="待办创建成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] create todo 异常: {e}")
+        logger.error("create todo 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50007,
             message=f"创建待办失败: {e}",
@@ -236,7 +240,7 @@ async def update_todo_status(
             )
         return make_response(message="状态已更新", data=data)
     except Exception as e:
-        print(f"[LifeManagement] update todo status 异常: {e}")
+        logger.error("update todo status 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50008,
             message=f"更新待办状态失败: {e}",
@@ -261,7 +265,7 @@ async def delete_todo(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[LifeManagement] delete todo 异常: {e}")
+        logger.error("delete todo 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50009,
             message=f"删除待办失败: {e}",
@@ -284,7 +288,7 @@ async def get_habits(
         data = service.list_habits()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] habits 异常: {e}")
+        logger.error("habits 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50010,
             message=f"获取习惯列表失败: {e}",
@@ -309,7 +313,7 @@ async def create_habit(
         )
         return make_response(message="习惯创建成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] create habit 异常: {e}")
+        logger.error("create habit 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50011,
             message=f"创建习惯失败: {e}",
@@ -334,7 +338,7 @@ async def checkin_habit(
             )
         return make_response(message="打卡成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] checkin habit 异常: {e}")
+        logger.error("checkin habit 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50012,
             message=f"打卡失败: {e}",
@@ -359,7 +363,7 @@ async def delete_habit(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[LifeManagement] delete habit 异常: {e}")
+        logger.error("delete habit 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50013,
             message=f"删除习惯失败: {e}",
@@ -387,7 +391,7 @@ async def get_habit_records(
         )
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] habit records 异常: {e}")
+        logger.error("habit records 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50014,
             message=f"获取打卡记录失败: {e}",
@@ -410,7 +414,7 @@ async def get_scenes(
         data = service.list_scenes()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] scenes 异常: {e}")
+        logger.error("scenes 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50015,
             message=f"获取场景列表失败: {e}",
@@ -435,7 +439,7 @@ async def switch_scene(
             )
         return make_response(message=f"已切换至{data.get('name', '')}", data=data)
     except Exception as e:
-        print(f"[LifeManagement] switch scene 异常: {e}")
+        logger.error("switch scene 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50016,
             message=f"切换场景失败: {e}",
@@ -458,7 +462,7 @@ async def get_rules(
         data = service.list_rules()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] rules 异常: {e}")
+        logger.error("rules 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50017,
             message=f"获取规则列表失败: {e}",
@@ -482,7 +486,7 @@ async def create_rule(
         )
         return make_response(message="规则创建成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] create rule 异常: {e}")
+        logger.error("create rule 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50018,
             message=f"创建规则失败: {e}",
@@ -507,7 +511,7 @@ async def toggle_rule(
             )
         return make_response(message="状态已更新", data=data)
     except Exception as e:
-        print(f"[LifeManagement] toggle rule 异常: {e}")
+        logger.error("toggle rule 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50019,
             message=f"切换规则状态失败: {e}",
@@ -532,7 +536,7 @@ async def delete_rule(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[LifeManagement] delete rule 异常: {e}")
+        logger.error("delete rule 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50020,
             message=f"删除规则失败: {e}",
@@ -555,7 +559,7 @@ async def get_finance_overview(
         data = service.get_finance_overview()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] finance overview 异常: {e}")
+        logger.error("finance overview 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50021,
             message=f"获取财务概览失败: {e}",
@@ -573,7 +577,7 @@ async def get_finance_categories(
         data = service.list_finance_categories(type="expense")
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] finance categories 异常: {e}")
+        logger.error("finance categories 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50022,
             message=f"获取财务分类失败: {e}",
@@ -602,7 +606,7 @@ async def get_finance_records(
         )
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] finance records 异常: {e}")
+        logger.error("finance records 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50023,
             message=f"获取财务记录失败: {e}",
@@ -627,7 +631,7 @@ async def create_finance_record(
         )
         return make_response(message="记录创建成功", data=data)
     except Exception as e:
-        print(f"[LifeManagement] create finance record 异常: {e}")
+        logger.error("create finance record 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50024,
             message=f"创建财务记录失败: {e}",
@@ -650,7 +654,7 @@ async def get_assistant_tools(
         data = service.get_assistant_tools()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] assistant tools 异常: {e}")
+        logger.error("assistant tools 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50025,
             message=f"获取助手工具失败: {e}",
@@ -673,7 +677,7 @@ async def get_energy_data(
         data = service.get_energy_data()
         return make_response(data=data)
     except Exception as e:
-        print(f"[LifeManagement] energy 异常: {e}")
+        logger.error("energy 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50026,
             message=f"获取能耗数据失败: {e}",

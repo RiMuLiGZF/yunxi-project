@@ -12,6 +12,10 @@ from src.database import get_session
 from src.modes.base_mode import BaseMode
 from src.modes.life_management.service import LifeService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 class LifeManagementMode(BaseMode):
     """生活管理模式类.
@@ -91,7 +95,7 @@ class LifeManagementMode(BaseMode):
                 },
             }
         except Exception as e:
-            print(f"[LifeManagement] on_enter 异常: {e}")
+            logger.error("on_enter 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
             return {
                 "success": True,
                 "message": f"已进入「{self.mode_name}」模式",
@@ -237,7 +241,7 @@ class LifeManagementMode(BaseMode):
                 action_data = {"type": "help", "data": {}}
 
         except Exception as e:
-            print(f"[LifeManagement] handle_message 异常: {e}")
+            logger.error("handle_message 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
             reply = "抱歉，处理你的消息时出现了问题，请稍后再试。"
             action_data = {"type": "error", "data": {"error": str(e)}}
 

@@ -24,6 +24,10 @@ from src.database import (
     StudyProgressDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 种子数据
@@ -347,7 +351,7 @@ def seed_study_data(db: Session, user_id: str = "default") -> bool:
         for m in _get_default_meta_entries(user_id):
             db.add(m)
 
-    print(f"[Seed] 学业规划模式默认数据初始化完成 (user_id={user_id})")
+    logger.info("学业规划模式默认数据初始化完成 (user_id={user_id})", user_id=user_id)
     return True
 
 
@@ -380,7 +384,7 @@ class StudyRepository:
         try:
             seed_study_data(self.db, self.user_id)
         except Exception as e:
-            print(f"[Seed] 学业规划数据初始化跳过: {e}")
+            logger.warning("学业规划数据初始化跳过", error=str(e), error_type=type(e).__name__)
 
     # -----------------------------------------------------------------------
     # 学习目标相关方法

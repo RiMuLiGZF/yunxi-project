@@ -20,6 +20,10 @@ from src.database import (
     SocialReminderDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 种子数据
@@ -226,7 +230,7 @@ def seed_social_data(db: Session, user_id: str = "default") -> bool:
         for lesson in _get_default_eq_lessons(user_id):
             db.add(lesson)
 
-    print(f"[Seed] 人际关系模式默认数据初始化完成 (user_id={user_id})")
+    logger.info("人际关系模式默认数据初始化完成 (user_id={user_id})", user_id=user_id)
     return True
 
 
@@ -258,7 +262,7 @@ class SocialRepository:
         try:
             seed_social_data(self.db, self.user_id)
         except Exception as e:
-            print(f"[Seed] 人际关系数据初始化跳过: {e}")
+            logger.warning("人际关系数据初始化跳过", error=str(e), error_type=type(e).__name__)
 
     # -----------------------------------------------------------------------
     # 联系人相关方法

@@ -23,6 +23,10 @@ from src.modes.review.models import (
 )
 from src.modes.review.service import ReviewService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # 路由配置
 # ---------------------------------------------------------------------------
@@ -69,7 +73,7 @@ async def get_overview(
         data = service.get_overview()
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] overview 异常: {e}")
+        logger.error("overview 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51001,
             message=f"获取概览失败: {e}",
@@ -97,7 +101,7 @@ async def generate_review(
         data = service.generate_review(rtype=req.type, date=req.date)
         return make_response(message="复盘生成成功", data=data)
     except Exception as e:
-        print(f"[Review] generate 异常: {e}")
+        logger.error("generate 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51002,
             message=f"生成复盘失败: {e}",
@@ -123,7 +127,7 @@ async def create_review(
         )
         return make_response(message="复盘保存成功", data=data)
     except Exception as e:
-        print(f"[Review] create review 异常: {e}")
+        logger.error("create review 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51003,
             message=f"保存复盘失败: {e}",
@@ -143,7 +147,7 @@ async def list_reviews(
         data = service.list_reviews(review_type=review_type, limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] list reviews 异常: {e}")
+        logger.error("list reviews 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51004,
             message=f"获取复盘列表失败: {e}",
@@ -168,7 +172,7 @@ async def get_review_detail(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] review detail 异常: {e}")
+        logger.error("review detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51005,
             message=f"获取复盘详情失败: {e}",
@@ -193,7 +197,7 @@ async def delete_review(
             )
         return make_response(message="复盘删除成功", data={})
     except Exception as e:
-        print(f"[Review] delete review 异常: {e}")
+        logger.error("delete review 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51006,
             message=f"删除复盘失败: {e}",
@@ -217,7 +221,7 @@ async def list_emotions(
         data = service.list_emotions(days=days)
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] list emotions 异常: {e}")
+        logger.error("list emotions 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51007,
             message=f"获取情绪记录失败: {e}",
@@ -241,7 +245,7 @@ async def record_emotion(
         )
         return make_response(message="情绪记录成功", data=data)
     except Exception as e:
-        print(f"[Review] record emotion 异常: {e}")
+        logger.error("record emotion 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51008,
             message=f"记录情绪失败: {e}",
@@ -260,7 +264,7 @@ async def get_emotion_stats(
         data = service.get_emotion_stats(days=days)
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] emotion stats 异常: {e}")
+        logger.error("emotion stats 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51009,
             message=f"获取情绪统计失败: {e}",
@@ -284,7 +288,7 @@ async def list_decisions(
         data = service.list_decisions(limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] list decisions 异常: {e}")
+        logger.error("list decisions 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51010,
             message=f"获取决策列表失败: {e}",
@@ -309,7 +313,7 @@ async def get_decision_detail(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] decision detail 异常: {e}")
+        logger.error("decision detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51011,
             message=f"获取决策详情失败: {e}",
@@ -335,7 +339,7 @@ async def create_decision(
         )
         return make_response(message="决策记录创建成功", data=data)
     except Exception as e:
-        print(f"[Review] create decision 异常: {e}")
+        logger.error("create decision 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51012,
             message=f"创建决策失败: {e}",
@@ -372,7 +376,7 @@ async def update_decision(
             )
         return make_response(message="决策更新成功", data=data)
     except Exception as e:
-        print(f"[Review] update decision 异常: {e}")
+        logger.error("update decision 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51013,
             message=f"更新决策失败: {e}",
@@ -397,7 +401,7 @@ async def delete_decision(
             )
         return make_response(message="决策删除成功", data={})
     except Exception as e:
-        print(f"[Review] delete decision 异常: {e}")
+        logger.error("delete decision 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51014,
             message=f"删除决策失败: {e}",
@@ -420,7 +424,7 @@ async def list_biases(
         data = service.list_biases()
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] list biases 异常: {e}")
+        logger.error("list biases 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51015,
             message=f"获取偏差列表失败: {e}",
@@ -443,7 +447,7 @@ async def analyze_bias(
         data = service.analyze_bias(req.text)
         return make_response(message="分析完成", data=data)
     except Exception as e:
-        print(f"[Review] analyze bias 异常: {e}")
+        logger.error("analyze bias 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51016,
             message=f"偏差分析失败: {e}",
@@ -467,7 +471,7 @@ async def list_diaries(
         data = service.list_diaries(limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] list diaries 异常: {e}")
+        logger.error("list diaries 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51017,
             message=f"获取日记列表失败: {e}",
@@ -492,7 +496,7 @@ async def get_diary_detail(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] diary detail 异常: {e}")
+        logger.error("diary detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51018,
             message=f"获取日记详情失败: {e}",
@@ -516,7 +520,7 @@ async def create_diary(
         )
         return make_response(message="日记保存成功", data=data)
     except Exception as e:
-        print(f"[Review] create diary 异常: {e}")
+        logger.error("create diary 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51019,
             message=f"保存日记失败: {e}",
@@ -541,7 +545,7 @@ async def delete_diary(
             )
         return make_response(message="日记删除成功", data={})
     except Exception as e:
-        print(f"[Review] delete diary 异常: {e}")
+        logger.error("delete diary 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51020,
             message=f"删除日记失败: {e}",
@@ -564,7 +568,7 @@ async def get_templates(
         data = service.get_templates()
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] templates 异常: {e}")
+        logger.error("templates 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51021,
             message=f"获取模板失败: {e}",
@@ -587,7 +591,7 @@ async def get_stats(
         data = service.get_stats()
         return make_response(data=data)
     except Exception as e:
-        print(f"[Review] stats 异常: {e}")
+        logger.error("stats 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=51022,
             message=f"获取统计失败: {e}",

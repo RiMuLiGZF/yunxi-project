@@ -12,6 +12,10 @@ from typing import Any
 from src.modes.base_mode import BaseMode
 from src.modes.growth.service import GrowthService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 class GrowthMode(BaseMode):
     """成长中心模式类.
@@ -103,7 +107,7 @@ class GrowthMode(BaseMode):
                 },
             }
         except Exception as e:
-            print(f"[GrowthMode] on_enter 异常: {e}")
+            logger.error("on_enter 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
             return {
                 "success": True,
                 "message": f"已进入「{self.mode_name}」模式",
@@ -289,7 +293,7 @@ class GrowthMode(BaseMode):
                 action_data = {"type": "help", "data": {}}
 
         except Exception as e:
-            print(f"[GrowthMode] handle_message 异常: {e}")
+            logger.error("handle_message 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
             reply = "抱歉，处理你的消息时出现了问题，请稍后再试。"
             action_data = {"type": "error", "data": {"error": str(e)}}
 

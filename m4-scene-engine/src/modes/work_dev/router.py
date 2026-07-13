@@ -28,6 +28,10 @@ from src.modes.work_dev.models import (
 )
 from src.modes.work_dev.service import WorkDevService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # 路由配置
 # ---------------------------------------------------------------------------
@@ -74,7 +78,7 @@ async def get_overview(
         data = service.get_overview()
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] overview 异常: {e}")
+        logger.error("overview 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50001,
             message=f"获取概览失败: {e}",
@@ -99,7 +103,7 @@ async def get_projects(
         data = service.list_projects(status=status, category=category)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] projects 异常: {e}")
+        logger.error("projects 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50002,
             message=f"获取项目列表失败: {e}",
@@ -124,7 +128,7 @@ async def get_project_detail(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] project detail 异常: {e}")
+        logger.error("project detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50003,
             message=f"获取项目详情失败: {e}",
@@ -149,7 +153,7 @@ async def get_project_stats(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] project stats 异常: {e}")
+        logger.error("project stats 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50004,
             message=f"获取项目统计失败: {e}",
@@ -174,7 +178,7 @@ async def create_project(
         )
         return make_response(message="项目创建成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] create project 异常: {e}")
+        logger.error("create project 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50005,
             message=f"创建项目失败: {e}",
@@ -201,7 +205,7 @@ async def update_project(
             )
         return make_response(message="更新成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] update project 异常: {e}")
+        logger.error("update project 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50006,
             message=f"更新项目失败: {e}",
@@ -226,7 +230,7 @@ async def delete_project(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[WorkDev] delete project 异常: {e}")
+        logger.error("delete project 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50007,
             message=f"删除项目失败: {e}",
@@ -254,7 +258,7 @@ async def get_tasks(
         )
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] tasks 异常: {e}")
+        logger.error("tasks 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50008,
             message=f"获取任务列表失败: {e}",
@@ -273,7 +277,7 @@ async def get_task_board(
         data = service.get_task_board(project_id=project_id)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] task board 异常: {e}")
+        logger.error("task board 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50009,
             message=f"获取任务看板失败: {e}",
@@ -302,7 +306,7 @@ async def create_task(
         )
         return make_response(message="任务创建成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] create task 异常: {e}")
+        logger.error("create task 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50010,
             message=f"创建任务失败: {e}",
@@ -329,7 +333,7 @@ async def update_task(
             )
         return make_response(message="更新成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] update task 异常: {e}")
+        logger.error("update task 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50011,
             message=f"更新任务失败: {e}",
@@ -355,7 +359,7 @@ async def update_task_status(
             )
         return make_response(message="状态已更新", data=data)
     except Exception as e:
-        print(f"[WorkDev] update task status 异常: {e}")
+        logger.error("update task status 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50012,
             message=f"更新任务状态失败: {e}",
@@ -380,7 +384,7 @@ async def delete_task(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[WorkDev] delete task 异常: {e}")
+        logger.error("delete task 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50013,
             message=f"删除任务失败: {e}",
@@ -405,7 +409,7 @@ async def get_commits(
         data = service.list_commits(project_id=project_id, limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] commits 异常: {e}")
+        logger.error("commits 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50014,
             message=f"获取提交记录失败: {e}",
@@ -424,7 +428,7 @@ async def get_commit_stats(
         data = service.get_commit_stats(project_id=project_id)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] commit stats 异常: {e}")
+        logger.error("commit stats 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50015,
             message=f"获取提交统计失败: {e}",
@@ -446,7 +450,7 @@ async def create_commit(
         )
         return make_response(message="提交成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] create commit 异常: {e}")
+        logger.error("create commit 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50016,
             message=f"创建提交失败: {e}",
@@ -464,7 +468,7 @@ async def get_branches(
         data = service.list_branches()
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] branches 异常: {e}")
+        logger.error("branches 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50017,
             message=f"获取分支列表失败: {e}",
@@ -487,7 +491,7 @@ async def get_supported_languages(
         data = service.get_supported_languages()
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] languages 异常: {e}")
+        logger.error("languages 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50018,
             message=f"获取语言列表失败: {e}",
@@ -510,7 +514,7 @@ async def execute_code(
         )
         return make_response(message="执行完成", data=data)
     except Exception as e:
-        print(f"[WorkDev] execute code 异常: {e}")
+        logger.error("execute code 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50019,
             message=f"代码执行失败: {e}",
@@ -541,7 +545,7 @@ async def generate_code(
         )
         return make_response(message="操作完成", data=data)
     except Exception as e:
-        print(f"[WorkDev] generate code 异常: {e}")
+        logger.error("generate code 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50020,
             message=f"代码操作失败: {e}",
@@ -568,7 +572,7 @@ async def code_chat(
         )
         return make_response(message="ok", data=data)
     except Exception as e:
-        print(f"[WorkDev] code chat 异常: {e}")
+        logger.error("code chat 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50021,
             message=f"代码对话失败: {e}",
@@ -586,7 +590,7 @@ async def list_chat_conversations(
         data = service.list_chat_sessions()
         return make_response(data={"conversations": data, "total": len(data)})
     except Exception as e:
-        print(f"[WorkDev] chat sessions 异常: {e}")
+        logger.error("chat sessions 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50022,
             message=f"获取会话列表失败: {e}",
@@ -605,7 +609,7 @@ async def get_chat_conversation(
         data = service.get_chat_session(conversation_id)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] chat session detail 异常: {e}")
+        logger.error("chat session detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50023,
             message=f"获取会话详情失败: {e}",
@@ -624,7 +628,7 @@ async def delete_chat_conversation(
         success = service.delete_chat_session(conversation_id)
         return make_response(message="会话已删除", data={"deleted": success})
     except Exception as e:
-        print(f"[WorkDev] delete chat session 异常: {e}")
+        logger.error("delete chat session 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50024,
             message=f"删除会话失败: {e}",
@@ -645,7 +649,7 @@ async def code_ai_status(
             "mode": "fallback（模板匹配）",
         })
     except Exception as e:
-        print(f"[WorkDev] ai status 异常: {e}")
+        logger.error("ai status 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50025,
             message=f"获取状态失败: {e}",
@@ -673,7 +677,7 @@ async def get_snippets(
         )
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] snippets 异常: {e}")
+        logger.error("snippets 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50026,
             message=f"获取代码片段失败: {e}",
@@ -699,7 +703,7 @@ async def create_snippet(
         )
         return make_response(message="片段创建成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] create snippet 异常: {e}")
+        logger.error("create snippet 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50027,
             message=f"创建代码片段失败: {e}",
@@ -726,7 +730,7 @@ async def update_snippet(
             )
         return make_response(message="更新成功", data=data)
     except Exception as e:
-        print(f"[WorkDev] update snippet 异常: {e}")
+        logger.error("update snippet 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50028,
             message=f"更新代码片段失败: {e}",
@@ -751,7 +755,7 @@ async def delete_snippet(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[WorkDev] delete snippet 异常: {e}")
+        logger.error("delete snippet 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50029,
             message=f"删除代码片段失败: {e}",
@@ -774,7 +778,7 @@ async def get_quick_actions(
         data = service.get_quick_actions()
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] quick actions 异常: {e}")
+        logger.error("quick actions 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50030,
             message=f"获取快速操作失败: {e}",
@@ -793,7 +797,7 @@ async def get_recent_activity(
         data = service.get_recent_activity(limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[WorkDev] activity 异常: {e}")
+        logger.error("activity 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50031,
             message=f"获取活动列表失败: {e}",

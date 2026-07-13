@@ -20,6 +20,10 @@ from src.database import (
     VoiceOptionDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 默认数据（用于首次初始化）
@@ -118,7 +122,7 @@ class AppearanceRepository:
                 for tag_data in _DEFAULT_PERSONALITY_TAGS:
                     tag = PersonalityTagDB(**tag_data)
                     self.db.add(tag)
-            print("[Appearance] 性格标签库初始化完成")
+            logger.info("性格标签库初始化完成")
 
         # 初始化声音选项库
         voice_count = self.db.query(VoiceOptionDB).count()
@@ -127,7 +131,7 @@ class AppearanceRepository:
                 for voice_data in _DEFAULT_VOICE_OPTIONS:
                     voice = VoiceOptionDB(**voice_data)
                     self.db.add(voice)
-            print("[Appearance] 声音选项库初始化完成")
+            logger.info("声音选项库初始化完成")
 
     # ------------------------------------------------------------------
     # 形象配置

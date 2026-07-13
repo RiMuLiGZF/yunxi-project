@@ -23,6 +23,10 @@ from src.database import (
     WorkTaskDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 种子数据
@@ -306,7 +310,7 @@ def seed_work_dev_data(db: Session, user_id: str = "default") -> bool:
         for snippet in _get_default_snippets(user_id):
             db.add(snippet)
 
-    print(f"[Seed] 工作开发模式默认数据初始化完成 (user_id={user_id})")
+    logger.info("工作开发模式默认数据初始化完成 (user_id={user_id})", user_id=user_id)
     return True
 
 
@@ -338,7 +342,7 @@ class WorkDevRepository:
         try:
             seed_work_dev_data(self.db, self.user_id)
         except Exception as e:
-            print(f"[Seed] 工作开发数据初始化跳过: {e}")
+            logger.warning("工作开发数据初始化跳过", error=str(e), error_type=type(e).__name__)
 
     # -----------------------------------------------------------------------
     # 项目相关方法

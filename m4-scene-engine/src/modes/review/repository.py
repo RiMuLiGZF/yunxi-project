@@ -21,6 +21,10 @@ from src.database import (
     ReviewReviewDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 种子数据
@@ -274,7 +278,7 @@ def seed_review_data(db: Session, user_id: str = "default") -> bool:
         for bias in _get_default_biases(user_id):
             db.add(bias)
 
-    print(f"[Seed] 复盘总结模式默认数据初始化完成 (user_id={user_id})")
+    logger.info("复盘总结模式默认数据初始化完成 (user_id={user_id})", user_id=user_id)
     return True
 
 
@@ -306,7 +310,7 @@ class ReviewRepository:
         try:
             seed_review_data(self.db, self.user_id)
         except Exception as e:
-            print(f"[Seed] 复盘总结数据初始化跳过: {e}")
+            logger.warning("复盘总结数据初始化跳过", error=str(e), error_type=type(e).__name__)
 
     # -----------------------------------------------------------------------
     # 复盘记录相关方法

@@ -21,6 +21,10 @@ from src.modes.social_relation.models import (
 )
 from src.modes.social_relation.service import SocialService
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # 路由配置
 # ---------------------------------------------------------------------------
@@ -67,7 +71,7 @@ async def get_overview(
         data = service.get_overview()
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] overview 异常: {e}")
+        logger.error("overview 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50001,
             message=f"获取概览失败: {e}",
@@ -90,7 +94,7 @@ async def get_relation_graph(
         data = service.build_relation_graph()
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] relation-graph 异常: {e}")
+        logger.error("relation-graph 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50002,
             message=f"获取关系图谱失败: {e}",
@@ -115,7 +119,7 @@ async def get_contacts(
         data = service.list_contacts(relation=relation, tag=tag)
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] contacts 异常: {e}")
+        logger.error("contacts 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50003,
             message=f"获取联系人列表失败: {e}",
@@ -140,7 +144,7 @@ async def get_contact_detail(
             )
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] contact detail 异常: {e}")
+        logger.error("contact detail 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50004,
             message=f"获取联系人详情失败: {e}",
@@ -164,7 +168,7 @@ async def create_contact(
         )
         return make_response(message="联系人添加成功", data=data)
     except Exception as e:
-        print(f"[SocialRelation] create contact 异常: {e}")
+        logger.error("create contact 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50005,
             message=f"添加联系人失败: {e}",
@@ -192,7 +196,7 @@ async def update_contact(
             )
         return make_response(message="更新成功", data=data)
     except Exception as e:
-        print(f"[SocialRelation] update contact 异常: {e}")
+        logger.error("update contact 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50006,
             message=f"更新联系人失败: {e}",
@@ -217,7 +221,7 @@ async def delete_contact(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[SocialRelation] delete contact 异常: {e}")
+        logger.error("delete contact 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50007,
             message=f"删除联系人失败: {e}",
@@ -242,7 +246,7 @@ async def get_interactions(
         data = service.list_interactions(contact_id=contact_id, limit=limit)
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] interactions 异常: {e}")
+        logger.error("interactions 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50008,
             message=f"获取交往记录失败: {e}",
@@ -269,7 +273,7 @@ async def create_interaction(
         )
         return make_response(message="记录成功", data=data)
     except Exception as e:
-        print(f"[SocialRelation] create interaction 异常: {e}")
+        logger.error("create interaction 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50009,
             message=f"记录交往失败: {e}",
@@ -292,7 +296,7 @@ async def get_reminders(
         data = service.list_reminders()
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] reminders 异常: {e}")
+        logger.error("reminders 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50010,
             message=f"获取提醒列表失败: {e}",
@@ -317,7 +321,7 @@ async def create_reminder(
         )
         return make_response(message="提醒创建成功", data=data)
     except Exception as e:
-        print(f"[SocialRelation] create reminder 异常: {e}")
+        logger.error("create reminder 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50011,
             message=f"创建提醒失败: {e}",
@@ -349,7 +353,7 @@ async def update_reminder(
             )
         return make_response(message="更新成功", data=data)
     except Exception as e:
-        print(f"[SocialRelation] update reminder 异常: {e}")
+        logger.error("update reminder 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50012,
             message=f"更新提醒失败: {e}",
@@ -374,7 +378,7 @@ async def delete_reminder(
             )
         return make_response(message="删除成功", data={})
     except Exception as e:
-        print(f"[SocialRelation] delete reminder 异常: {e}")
+        logger.error("delete reminder 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50013,
             message=f"删除提醒失败: {e}",
@@ -397,7 +401,7 @@ async def get_eq_courses(
         data = service.list_eq_courses()
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] eq-courses 异常: {e}")
+        logger.error("eq-courses 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50014,
             message=f"获取情商课程失败: {e}",
@@ -415,7 +419,7 @@ async def get_eq_score(
         data = service.get_eq_score()
         return make_response(data=data)
     except Exception as e:
-        print(f"[SocialRelation] eq-score 异常: {e}")
+        logger.error("eq-score 异常", error=str(e), error_type=type(e).__name__, exc_info=True)
         return make_response(
             code=50015,
             message=f"获取情商得分失败: {e}",

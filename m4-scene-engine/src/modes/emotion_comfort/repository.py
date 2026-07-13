@@ -25,6 +25,10 @@ from src.database import (
     MoodDiaryDB,
 )
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # 默认数据
@@ -231,7 +235,7 @@ class EmotionRepository:
             self._seed_default_contents()
             self._initialized = True
         except Exception as e:
-            print(f"[EmotionRepo] 初始化默认数据跳过: {e}")
+            logger.warning("初始化默认数据跳过", error=str(e), error_type=type(e).__name__)
 
     # ------------------------------------------------------------------
     # 初始化默认数据
@@ -245,7 +249,7 @@ class EmotionRepository:
             with transactional_scope(self.db):
                 for item in _DEFAULT_RELAX_CONTENTS:
                     self.db.add(RelaxContentDB(**item))
-            print(f"[EmotionRepo] 初始化放松内容: {len(_DEFAULT_RELAX_CONTENTS)} 条")
+            logger.info("初始化放松内容: {_default_relax_contents_count} 条", _default_relax_contents_count=len(_DEFAULT_RELAX_CONTENTS))
 
         # 助眠内容
         sleep_count = self.db.query(SleepContentDB).count()
@@ -253,7 +257,7 @@ class EmotionRepository:
             with transactional_scope(self.db):
                 for item in _DEFAULT_SLEEP_CONTENTS:
                     self.db.add(SleepContentDB(**item))
-            print(f"[EmotionRepo] 初始化助眠内容: {len(_DEFAULT_SLEEP_CONTENTS)} 条")
+            logger.info("初始化助眠内容: {_default_sleep_contents_count} 条", _default_sleep_contents_count=len(_DEFAULT_SLEEP_CONTENTS))
 
         # 心理测评
         assess_count = self.db.query(PsychAssessmentDB).count()
@@ -266,7 +270,7 @@ class EmotionRepository:
                         questions_count=len(questions),
                         **item,
                     ))
-            print(f"[EmotionRepo] 初始化心理测评: {len(_DEFAULT_ASSESSMENTS)} 条")
+            logger.info("初始化心理测评: {_default_assessments_count} 条", _default_assessments_count=len(_DEFAULT_ASSESSMENTS))
 
         # 示例情绪记录（仅当完全没有记录时）
         emotion_count = self.db.query(EmotionRecordDB).filter(
@@ -301,7 +305,7 @@ class EmotionRepository:
                     user_id=self.user_id,
                     created_at=d,
                 ))
-        print(f"[EmotionRepo] 初始化示例情绪记录: 30 条")
+        logger.info("初始化示例情绪记录: 30 条")
 
     def _seed_sample_mood_diary(self) -> None:
         """生成示例心情日记."""
@@ -323,7 +327,7 @@ class EmotionRepository:
                     user_id=self.user_id,
                     created_at=d,
                 ))
-        print(f"[EmotionRepo] 初始化示例心情日记: {len(samples)} 条")
+        logger.info("初始化示例心情日记: {samples_count} 条", samples_count=len(samples))
 
     # ------------------------------------------------------------------
     # 情绪记录
