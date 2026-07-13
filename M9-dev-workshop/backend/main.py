@@ -5,6 +5,8 @@ FastAPI 应用主入口，负责初始化应用、注册路由、配置中间件
 
 import os
 import sys
+import time
+import psutil
 from pathlib import Path
 
 # 确保可以导入同级模块
@@ -12,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -26,16 +28,27 @@ from routers.vscode import router as vscode_router
 from routers.workspace import router as workspace_router
 from routers.mcp import router as mcp_router
 from routers.dashboard import router as dashboard_router
+from routers.code import router as code_router
+
+# 导入中间件
+from core.auth_middleware import AuthMiddleware, RateLimitMiddleware
 
 
 # ===== 初始化配置 =====
 settings = get_settings()
 
+# ===== 版本号 =====
+# P0优化后版本
+APP_VERSION = "1.1.0"
+
+# ===== M8 标准接口启动时间（用于 uptime 计算） =====
+_start_time_m8 = time.time()
+
 # ===== 创建 FastAPI 应用 =====
 app = FastAPI(
     title="云汐 M9 开发者工坊 API",
     description="M9 开发者工坊后端服务 - VS Code 管理、工作区管理、MCP 桥接",
-    version="1.0.0",
+    version=APP_VERSION,
     debug=settings.debug,
 )
 
@@ -47,6 +60,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ===== 认证中间件 =====
+# 全环境启用，保护除白名单外的所有 API 接口
+app.add_middleware(AuthMiddleware)
+
+# ===== 速率限制中间件 =====
+# 全环境启用，防止 API 滥用（默认 100 次/分钟/IP）
+app.add_middleware(RateLimitMiddleware)
 
 
 # ===== 旧 API 路径兼容中间件 =====
@@ -102,6 +123,7 @@ app.include_router(vscode_router)
 app.include_router(workspace_router)
 app.include_router(mcp_router)
 app.include_router(dashboard_router)
+app.include_router(code_router)
 
 
 # ===== 静态文件服务（前端页面） =====
@@ -115,6 +137,273 @@ else:
     _static_dir.mkdir(exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+
+
+# ===== M8 标准接口 - Token 验证辅助函数 =====
+def _verify_m8_token(x_m8_token: str = Header(None)) -> bool:
+    """验证 M8 标准接口的 x-m8-token Header.
+
+    使用与认证中间件一致的 Token 获取逻辑，支持开发环境默认 Token。
+    使用 hmac.compare_digest 防时序攻击。
+    返回 True 表示验证通过。
+    """
+    # 使用与认证中间件一致的 Token 获取逻辑
+    from core.auth_middleware import get_admin_token
+    expected = get_admin_token()
+    # 如果未配置 token，M8 接口也不可访问
+    if not expected:
+        return False
+    # 使用安全的字符串比较（防时序攻击）
+    import hmac
+    return hmac.compare_digest(x_m8_token or "", expected)
+
+
+# ===== M8 标准接口 - 健康检查 =====
+@app.get("/m8/health", summary="M8 标准健康检查接口")
+async def m8_health(x_m8_token: str = Header(None)):
+    """M8 标准健康检查接口
+
+    返回服务健康状态，包含深度探针信息：
+    - DB 连通性
+    - VSCode 状态
+    - MCP 工具数
+    - 服务运行时长
+
+    需要 x-m8-token Header 验证。
+    """
+    # Token 验证
+    if not _verify_m8_token(x_m8_token):
+        return JSONResponse(
+            status_code=401,
+            content={"code": 40101, "message": "Unauthorized: Invalid or missing x-m8-token", "data": None},
+        )
+
+    # 深度探针：DB 连通性
+    db_status = "unknown"
+    try:
+        from models import SessionLocal
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+
+    # 深度探针：VSCode 状态
+    vscode_status = "unknown"
+    vscode_installed = False
+    vscode_running_count = 0
+    try:
+        from vscode_manager import get_vscode_manager
+        vscode_mgr = get_vscode_manager()
+        vscode_installed = vscode_mgr.is_installed()
+        procs = vscode_mgr.get_running_processes()
+        vscode_running_count = len(procs)
+        if vscode_installed:
+            vscode_status = "running" if vscode_running_count > 0 else "installed"
+        else:
+            vscode_status = "not_installed"
+    except Exception:
+        vscode_status = "error"
+
+    # 深度探针：MCP 工具数
+    mcp_tool_count = 0
+    mcp_status = "unknown"
+    try:
+        from mcp_bridge import get_mcp_registry
+        mcp_registry = get_mcp_registry()
+        tools = mcp_registry.list_tools()
+        mcp_tool_count = len(tools)
+        mcp_status = "active"
+    except Exception:
+        mcp_status = "error"
+
+    # 计算 uptime
+    uptime_seconds = int(time.time() - _start_time_m8)
+    uptime_str = f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m {uptime_seconds % 60}s"
+
+    # 总体健康状态
+    overall_status = "healthy"
+    if db_status != "connected":
+        overall_status = "degraded"
+    if mcp_status == "error":
+        overall_status = "degraded"
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "status": overall_status,
+            "service": "yunxi-m9-dev-workshop",
+            "version": APP_VERSION,
+            "uptime": uptime_seconds,
+            "uptime_str": uptime_str,
+            "probes": {
+                "database": {
+                    "status": db_status,
+                },
+                "vscode": {
+                    "status": vscode_status,
+                    "installed": vscode_installed,
+                    "running_instances": vscode_running_count,
+                },
+                "mcp": {
+                    "status": mcp_status,
+                    "tool_count": mcp_tool_count,
+                },
+            },
+        },
+    }
+
+
+# ===== M8 标准接口 - 指标接口 =====
+@app.get("/m8/metrics", summary="M8 标准指标接口")
+async def m8_metrics(x_m8_token: str = Header(None)):
+    """M8 标准指标接口
+
+    返回服务运行指标：
+    - CPU/内存使用率
+    - VSCode 实例数
+    - 项目数
+    - MCP 工具数
+    - 代码执行次数
+
+    需要 x-m8-token Header 验证。
+    """
+    # Token 验证
+    if not _verify_m8_token(x_m8_token):
+        return JSONResponse(
+            status_code=401,
+            content={"code": 40101, "message": "Unauthorized: Invalid or missing x-m8-token", "data": None},
+        )
+
+    # 系统指标：CPU/内存
+    cpu_percent = 0.0
+    memory_percent = 0.0
+    memory_used_mb = 0.0
+    memory_total_mb = 0.0
+    try:
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        mem = psutil.virtual_memory()
+        memory_percent = mem.percent
+        memory_used_mb = round(mem.used / (1024 * 1024), 2)
+        memory_total_mb = round(mem.total / (1024 * 1024), 2)
+    except Exception:
+        pass
+
+    # VSCode 实例数
+    vscode_instances = 0
+    try:
+        from vscode_manager import get_vscode_manager
+        vscode_mgr = get_vscode_manager()
+        vscode_instances = len(vscode_mgr.get_running_processes())
+    except Exception:
+        pass
+
+    # 项目数
+    total_projects = 0
+    try:
+        from workspace_manager import get_workspace_manager
+        ws_mgr = get_workspace_manager()
+        stats = ws_mgr.get_statistics()
+        total_projects = stats.get("total_projects", 0)
+    except Exception:
+        pass
+
+    # MCP 工具数
+    mcp_tool_count = 0
+    try:
+        from mcp_bridge import get_mcp_registry
+        mcp_registry = get_mcp_registry()
+        mcp_tool_count = len(mcp_registry.list_tools())
+    except Exception:
+        pass
+
+    # 代码执行次数（从代码执行器获取）
+    code_exec_count = 0
+    try:
+        from core.code_executor import code_executor
+        # 如果代码执行器有执行计数，则读取
+        if hasattr(code_executor, "exec_count"):
+            code_exec_count = code_executor.exec_count
+    except Exception:
+        pass
+
+    # 运行时长
+    uptime_seconds = int(time.time() - _start_time_m8)
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "service": "yunxi-m9-dev-workshop",
+            "version": APP_VERSION,
+            "uptime": uptime_seconds,
+            "system": {
+                "cpu_percent": cpu_percent,
+                "memory_percent": memory_percent,
+                "memory_used_mb": memory_used_mb,
+                "memory_total_mb": memory_total_mb,
+            },
+            "vscode": {
+                "running_instances": vscode_instances,
+            },
+            "workspace": {
+                "total_projects": total_projects,
+            },
+            "mcp": {
+                "tool_count": mcp_tool_count,
+            },
+            "code_execution": {
+                "total_executions": code_exec_count,
+            },
+        },
+    }
+
+
+# ===== M8 标准接口 - 配置接口 =====
+@app.get("/m8/config", summary="M8 标准配置接口")
+async def m8_config(x_m8_token: str = Header(None)):
+    """M8 标准配置接口
+
+    返回服务配置信息（敏感信息已脱敏）。
+    需要 x-m8-token Header 验证。
+    """
+    # Token 验证
+    if not _verify_m8_token(x_m8_token):
+        return JSONResponse(
+            status_code=401,
+            content={"code": 40101, "message": "Unauthorized: Invalid or missing x-m8-token", "data": None},
+        )
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "service": "yunxi-m9-dev-workshop",
+            "version": APP_VERSION,
+            "config": {
+                # 服务配置
+                "host": settings.host,
+                "port": settings.port,
+                "debug": settings.debug,
+                # 工作区配置（脱敏）
+                "workspace_root": settings.workspace_root,
+                "scan_dirs_count": len(settings.scan_dirs) if settings.scan_dirs else 0,
+                # VSCode 配置
+                "vscode_installed": bool(settings.vscode_path),
+                "vscode_path": settings.vscode_path or "",
+                # MCP 配置
+                "mcp_enabled": settings.mcp_enabled,
+                "mcp_port": settings.mcp_port,
+                # 安全配置（脱敏）
+                "admin_token_configured": bool(settings.admin_token),
+                # 代码执行配置
+                "code_exec_timeout": settings.code_exec_timeout,
+                "code_exec_sandbox_enabled": settings.code_exec_sandbox_enabled,
+            },
+        },
+    }
 
 # ===== 启动事件 =====
 @app.on_event("startup")
@@ -149,7 +438,11 @@ async def startup_event():
     except Exception as e:
         print(f"[M9] 工作区初始化警告: {e}")
 
-    print(f"[M9] 开发者工坊服务启动完成，监听端口: {settings.port}")
+    # 5. 认证中间件已启用（全环境生效）
+    print("[M9] 认证中间件已启用（全环境生效）")
+    print(f"[M9] 速率限制中间件已启用（默认 100次/分钟/IP）")
+
+    print(f"[M9] 开发者工坊服务启动完成，版本: {APP_VERSION}，监听端口: {settings.port}")
 
 
 @app.on_event("shutdown")
@@ -184,7 +477,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "yunxi-m9-dev-workshop",
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "vscode_installed": vscode_mgr.is_installed(),
         "mcp_tools": len(mcp_registry.list_tools()),
     }
@@ -195,13 +488,14 @@ def api_info():
     """获取 API 基本信息"""
     return {
         "name": "云汐 M9 开发者工坊 API",
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "description": "VS Code 管理、工作区管理、MCP 桥接服务",
         "modules": [
             {"name": "VS Code 管理", "prefix": "/api/v1/vscode", "status": "active"},
             {"name": "工作区管理", "prefix": "/api/v1/workspace", "status": "active"},
             {"name": "MCP 桥接", "prefix": "/api/v1/mcp", "status": "active"},
             {"name": "仪表盘", "prefix": "/api/v1/dashboard", "status": "active"},
+            {"name": "代码执行", "prefix": "/api/v1/code", "status": "active"},
         ],
         "deprecated_prefixes": [
             "/api/vscode",
@@ -224,6 +518,9 @@ def root():
             "docs": "/docs",
             "health": "/health",
             "api_info": "/api/info",
+            "m8_health": "/m8/health",
+            "m8_metrics": "/m8/metrics",
+            "m8_config": "/m8/config",
         }
     )
 

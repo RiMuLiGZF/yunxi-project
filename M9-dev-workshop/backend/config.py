@@ -77,6 +77,16 @@ class Settings:
         "http://127.0.0.1:5173",
     ])
 
+    # ===== 安全认证配置 =====
+    # 管理员 Token
+    admin_token: str = ""
+
+    # ===== 代码执行配置 =====
+    # 代码执行超时时间（秒）
+    code_exec_timeout: int = 30
+    # 是否启用沙箱安全检测
+    code_exec_sandbox_enabled: bool = True
+
     def __post_init__(self):
         """初始化后处理：计算派生路径"""
         self.data_dir = self.base_dir / "data"

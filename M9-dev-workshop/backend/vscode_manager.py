@@ -11,6 +11,12 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from pathlib import Path
 
+# 路径安全工具（防止路径遍历攻击）
+try:
+    from .core.path_safety import is_path_safe, assert_path_safe, sanitize_filename
+except ImportError:
+    from core.path_safety import is_path_safe, assert_path_safe, sanitize_filename
+
 # 兼容相对导入和直接运行
 try:
     from .config import get_settings
@@ -123,6 +129,17 @@ class VSCodeManager:
                 "pid": None,
                 "message": "VS Code 未安装或路径未配置"
             }
+
+        # 路径安全校验：确保项目路径在 workspace_root 内，防止路径遍历攻击
+        if project_path:
+            try:
+                assert_path_safe(self.settings.workspace_root, project_path, "vscode_start")
+            except PathSecurityError as e:
+                return {
+                    "success": False,
+                    "pid": None,
+                    "message": f"路径安全校验失败: {str(e)}"
+                }
 
         try:
             # 构建命令参数
@@ -240,6 +257,12 @@ class VSCodeManager:
         if not os.path.exists(path):
             return {"success": False, "message": f"路径不存在: {path}"}
 
+        # 路径安全校验：确保路径在 workspace_root 内，防止路径遍历攻击
+        try:
+            assert_path_safe(self.settings.workspace_root, path, "vscode_open_path")
+        except PathSecurityError as e:
+            return {"success": False, "message": f"路径安全校验失败: {str(e)}"}
+
         if not self.is_installed():
             return {"success": False, "message": "VS Code 未安装"}
 
@@ -267,6 +290,12 @@ class VSCodeManager:
         """
         if not os.path.isfile(file_path):
             return {"success": False, "message": f"文件不存在: {file_path}"}
+
+        # 路径安全校验：确保文件路径在 workspace_root 内，防止路径遍历攻击
+        try:
+            assert_path_safe(self.settings.workspace_root, file_path, "vscode_open_file")
+        except PathSecurityError as e:
+            return {"success": False, "message": f"路径安全校验失败: {str(e)}"}
 
         if not self.is_installed():
             return {"success": False, "message": "VS Code 未安装"}

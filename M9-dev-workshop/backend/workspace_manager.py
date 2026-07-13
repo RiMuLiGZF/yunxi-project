@@ -9,6 +9,12 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from pathlib import Path
 
+# 路径安全工具（防止路径遍历攻击）
+try:
+    from .core.path_safety import safe_join, is_path_safe, assert_path_safe, PathSecurityError, sanitize_filename
+except ImportError:
+    from core.path_safety import safe_join, is_path_safe, assert_path_safe, PathSecurityError, sanitize_filename
+
 # 兼容相对导入和直接运行
 try:
     from .config import get_settings
@@ -59,6 +65,12 @@ class WorkspaceManager:
         创建新项目记录
         :return: 创建结果
         """
+        # 路径安全校验：确保路径在 workspace_root 内，防止路径遍历攻击
+        try:
+            assert_path_safe(self.settings.workspace_root, path, "create_project")
+        except PathSecurityError as e:
+            return {"success": False, "message": f"路径安全校验失败: {str(e)}", "project": None}
+
         # 检查路径是否已存在
         existing = self._db.query(WorkspaceProject).filter(WorkspaceProject.path == path).first()
         if existing:
@@ -156,6 +168,13 @@ class WorkspaceManager:
         self._db.delete(project)
         self._db.commit()
 
+        # 路径安全校验：删除文件前确保路径在 workspace_root 内
+        if delete_files:
+            try:
+                assert_path_safe(self.settings.workspace_root, project_path, "delete_project")
+            except PathSecurityError as e:
+                return {"success": False, "message": f"路径安全校验失败: {str(e)}"}
+
         # 如果需要删除文件
         if delete_files and os.path.exists(project_path):
             import shutil
@@ -208,7 +227,11 @@ class WorkspaceManager:
 
         for scan_dir in dirs_to_scan:
             scan_dir = os.path.expandvars(scan_dir)
+            # 存在性检查
             if not os.path.isdir(scan_dir):
+                continue
+            # 路径安全校验：确保扫描目录在 workspace_root 内，防止越界扫描
+            if not is_path_safe(self.settings.workspace_root, scan_dir):
                 continue
 
             for root, dirs, files in os.walk(scan_dir):
