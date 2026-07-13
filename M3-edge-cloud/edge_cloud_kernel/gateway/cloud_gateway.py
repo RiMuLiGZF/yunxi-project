@@ -2,6 +2,11 @@
 
 管理端云之间的网络连接、连接池和请求转发。
 支持指数退避重试（仅对 429/5xx 重试，401/403 不重试）。
+
+重构说明：
+- 内部重试逻辑已迁移至 RetryCoordinator（common/retry.py）
+- 对外 API 保持 100% 兼容（构造参数、post/get 方法签名不变）
+- 熔断器协同通过 RetryCoordinator.set_circuit_breaker 实现
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ from typing import Any
 import aiohttp
 import structlog
 
+from edge_cloud_kernel.common.retry import RetryCoordinator, RetryPolicy
 from edge_cloud_kernel.gateway.circuit_breaker import (
     CircuitBreaker,
     classify_http_error,
@@ -26,11 +32,14 @@ DEFAULT_READ_TIMEOUT: float = 60.0
 DEFAULT_POOL_SIZE: int = 10
 DEFAULT_POOL_PER_HOST: int = 5
 
-# 重试配置
+# 重试配置（保持原有默认值不变，用于向后兼容）
 DEFAULT_MAX_RETRIES: int = 3
 DEFAULT_RETRY_BASE_DELAY_S: float = 1.0
 DEFAULT_RETRY_MAX_DELAY_S: float = 30.0
 DEFAULT_RETRY_BACKOFF_FACTOR: float = 2.0
+
+# 策略名称常量
+CLOUD_GATEWAY_POLICY = "cloud_gateway"
 
 
 class CloudGateway:
@@ -46,6 +55,7 @@ class CloudGateway:
         _session: aiohttp ClientSession.
         _circuit_breakers: 按服务名称索引的熔断器.
         _closed: 网关是否已关闭.
+        _retry_coordinator: 全局重试协调器.
     """
 
     def __init__(
@@ -84,9 +94,33 @@ class CloudGateway:
         self._session: aiohttp.ClientSession | None = None
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
         self._closed = False
+
+        # 重试相关参数（保留实例属性，用于向后兼容和统计查询）
         self._max_retries = max_retries
         self._retry_base_delay_s = retry_base_delay_s
         self._retry_max_delay_s = retry_max_delay_s
+
+        # 初始化重试协调器并注册 cloud_gateway 策略
+        # 策略参数与原有重试逻辑保持一致
+        self._retry_coordinator = RetryCoordinator()
+        gateway_policy = RetryPolicy(
+            max_retries=max_retries,
+            base_delay=retry_base_delay_s,
+            max_delay=retry_max_delay_s,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            jitter=True,
+            retryable_exceptions=(
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                aiohttp.ClientError,
+                asyncio.TimeoutError,
+            ),
+            retryable_status_codes=(429, 500, 502, 503, 504),
+            retryable_error_codes=(),
+        )
+        self._retry_coordinator.register_policy(CLOUD_GATEWAY_POLICY, gateway_policy)
+
         logger.info(
             "cloud_gateway.init",
             base_url=self._base_url,
@@ -171,6 +205,80 @@ class CloudGateway:
         """
         return status_code == 429 or status_code >= 500
 
+    async def _execute_request(
+        self,
+        method: str,
+        path: str,
+        cb: CircuitBreaker,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """执行单次 HTTP 请求（不含重试）.
+
+        负责熔断器状态检查、请求执行和结果记录。
+        这是 RetryCoordinator 调用的核心执行函数。
+
+        Args:
+            method: HTTP 方法（POST/GET）.
+            path: API 路径.
+            cb: 熔断器实例.
+            **kwargs: 传递给 aiohttp 的参数.
+
+        Returns:
+            响应 JSON 字典.
+
+        Raises:
+            CircuitBreakerError: 熔断器开启.
+            ProviderError: 请求失败（含状态码和响应体）.
+            aiohttp.ClientError: 网络层错误（可重试，由外层捕获）.
+        """
+        if not cb.allow_request():
+            raise CircuitBreakerError(
+                message=f"Circuit breaker '{cb.name}' is open",
+                error_code="CIRCUIT_OPEN",
+                circuit_name=cb.name,
+                reset_in=(
+                    cb._reset_timeout_s - (asyncio.get_running_loop().time() - cb._opened_at)
+                    if cb.state.value == "open"
+                    else 0.0
+                ),
+            )
+
+        if self._session is None:
+            raise ProviderError(
+                message="CloudGateway session not started",
+                error_code="GATEWAY_NOT_STARTED",
+            )
+
+        start_time = asyncio.get_running_loop().time()
+        try:
+            async with self._session.request(method, path, **kwargs) as resp:
+                data = await resp.json()
+                elapsed = (asyncio.get_running_loop().time() - start_time) * 1000
+
+                if resp.status >= 400:
+                    error_type = classify_http_error(resp.status)
+                    cb.record_failure(elapsed, error_type=error_type)
+
+                    # 非重试错误直接抛出 ProviderError（status_code 属性供重试协调器判断）
+                    raise ProviderError(
+                        message=f"Cloud API error: status={resp.status}, body={data}",
+                        error_code=f"CLOUD_API_{resp.status}",
+                        status_code=resp.status,
+                        context={"body": data},
+                    )
+
+                cb.record_success(elapsed)
+                return data
+
+        except ProviderError:
+            # ProviderError 已经过处理（含熔断器记录），直接抛出
+            raise
+        except Exception as e:
+            # 网络异常等，记录熔断器失败，抛出供外层重试
+            elapsed = (asyncio.get_running_loop().time() - start_time) * 1000
+            cb.record_failure(elapsed, error_type="retryable")
+            raise
+
     async def _retry_with_backoff(
         self,
         method: str,
@@ -180,6 +288,10 @@ class CloudGateway:
         **kwargs: Any,
     ) -> dict[str, Any]:
         """带指数退避重试的请求执行.
+
+        使用 RetryCoordinator 统一管理重试逻辑。
+        熔断器通过闭包绑定到单次请求执行中，
+        由 _execute_request 负责每次请求前的熔断检查。
 
         Args:
             method: HTTP 方法（POST/GET）.
@@ -197,86 +309,28 @@ class CloudGateway:
         """
         last_error: Exception | None = None
 
-        for attempt in range(self._max_retries):
-            if not cb.allow_request():
-                raise CircuitBreakerError(
-                    message=f"Circuit breaker '{service_name}' is open",
-                    error_code="CIRCUIT_OPEN",
-                    circuit_name=service_name,
-                    reset_in=cb._reset_timeout_s - (asyncio.get_running_loop().time() - cb._opened_at) if cb.state.value == "open" else 0.0,
-                )
+        async def _do_request() -> dict[str, Any]:
+            """闭包：单次请求执行，供重试协调器调用."""
+            return await self._execute_request(method, path, cb, **kwargs)
 
-            if self._session is None:
-                raise ProviderError(
-                    message="CloudGateway session not started",
-                    error_code="GATEWAY_NOT_STARTED",
-                )
-
-            start_time = asyncio.get_running_loop().time()
-            try:
-                async with self._session.request(method, path, **kwargs) as resp:
-                    data = await resp.json()
-                    elapsed = (asyncio.get_running_loop().time() - start_time) * 1000
-
-                    if resp.status >= 400:
-                        error_type = classify_http_error(resp.status)
-                        cb.record_failure(elapsed, error_type=error_type)
-
-                        if not self._should_retry(resp.status) or attempt >= self._max_retries - 1:
-                            raise ProviderError(
-                                message=f"Cloud API error: status={resp.status}, body={data}",
-                                error_code=f"CLOUD_API_{resp.status}",
-                                status_code=resp.status,
-                                context={"body": data},
-                            )
-
-                        # 指数退避
-                        delay = min(
-                            self._retry_base_delay_s * (DEFAULT_RETRY_BACKOFF_FACTOR ** attempt),
-                            self._retry_max_delay_s,
-                        )
-                        logger.warning(
-                            "cloud_gateway.retry",
-                            method=method,
-                            path=path,
-                            status=resp.status,
-                            attempt=attempt + 1,
-                            delay_s=delay,
-                        )
-                        await asyncio.sleep(delay)
-                        continue
-
-                    cb.record_success(elapsed)
-                    return data
-
-            except ProviderError:
-                raise
-            except Exception as e:
-                elapsed = (asyncio.get_running_loop().time() - start_time) * 1000
-                cb.record_failure(elapsed, error_type="retryable")
-                last_error = e
-
-                if attempt < self._max_retries - 1:
-                    delay = min(
-                        self._retry_base_delay_s * (DEFAULT_RETRY_BACKOFF_FACTOR ** attempt),
-                        self._retry_max_delay_s,
-                    )
-                    logger.warning(
-                        "cloud_gateway.retry_exception",
-                        method=method,
-                        path=path,
-                        attempt=attempt + 1,
-                        delay_s=delay,
-                        error=str(e),
-                    )
-                    await asyncio.sleep(delay)
-
-        # 所有重试耗尽
-        raise ProviderError(
-            message=f"Cloud request failed after {self._max_retries} retries: {last_error}",
-            error_code="CLOUD_RETRY_EXHAUSTED",
-            context={"last_error": str(last_error)},
-        ) from last_error
+        try:
+            return await self._retry_coordinator.execute(
+                _do_request,
+                policy_name=CLOUD_GATEWAY_POLICY,
+            )
+        except CircuitBreakerError:
+            raise
+        except ProviderError as e:
+            # ProviderError 直接抛出（已包含状态码和错误信息）
+            raise
+        except Exception as e:
+            # 其他异常（重试耗尽后的网络异常等）包装为 ProviderError
+            last_error = e
+            raise ProviderError(
+                message=f"Cloud request failed after {self._max_retries} retries: {last_error}",
+                error_code="CLOUD_RETRY_EXHAUSTED",
+                context={"last_error": str(last_error)},
+            ) from last_error
 
     async def post(
         self,

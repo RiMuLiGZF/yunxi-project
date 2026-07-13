@@ -16,11 +16,15 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
 from edge_cloud_kernel.core.kernel_manager import KernelManager
-from edge_cloud_kernel.models.common import SyncTriggerRequest
+from edge_cloud_kernel.models.api_requests import (
+    SyncResolveRequest,
+    SyncTriggerRequest,
+    validate_conflict_id,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -146,7 +150,7 @@ async def sync_trigger(
 @router.get("/api/v3/sync/conflicts", summary="冲突列表")
 async def sync_conflicts(
     request: Request,
-    page: int = Query(1, ge=1, description="页码"),
+    page: int = Query(1, ge=1, le=10000, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),
@@ -188,8 +192,8 @@ async def sync_conflicts(
 @router.post("/api/v3/sync/conflicts/{conflict_id}/resolve", summary="解决冲突")
 async def resolve_conflict(
     request: Request,
-    conflict_id: str,
-    body: dict = Body(default_factory=dict),
+    body: SyncResolveRequest,
+    conflict_id: str = Path(..., description="冲突 ID", min_length=2, max_length=64),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),
 ):
@@ -198,20 +202,23 @@ async def resolve_conflict(
     Args:
         request: FastAPI 请求对象.
         conflict_id: 冲突 ID.
-        body: 请求体，包含 resolution 字段.
+        body: 冲突解决请求体，包含 resolution 字段.
         trace_id: 请求追踪 ID.
         kernel: 内核管理器.
 
     Returns:
         解决结果响应.
     """
+    # Path 参数格式校验
+    validate_conflict_id(conflict_id)
+
     m8_api = kernel.get_component("m8_api")
 
     if m8_api is not None and not kernel.is_mock("m8_api"):
         try:
             result = await m8_api.resolve_conflict(
                 conflict_id=conflict_id,
-                resolution=body.get("resolution", ""),
+                resolution=body.resolution,
                 trace_id=trace_id,
             )
             return result.to_dict()
@@ -226,7 +233,7 @@ async def resolve_conflict(
     return _mock_m8_response(data={
         "conflict_id": conflict_id,
         "resolved": True,
-        "resolution": body.get("resolution", ""),
+        "resolution": body.resolution,
         "source": "mock",
     })
 
@@ -248,7 +255,7 @@ async def v1_sync_status(
 @router.get("/api/v1/sync/conflicts", tags=["V1 Alias"], summary="v1冲突列表（别名）")
 async def v1_sync_conflicts(
     request: Request,
-    page: int = Query(1, ge=1, description="页码"),
+    page: int = Query(1, ge=1, le=10000, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),

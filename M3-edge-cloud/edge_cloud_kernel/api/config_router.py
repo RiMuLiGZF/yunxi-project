@@ -13,11 +13,11 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
 from edge_cloud_kernel.core.kernel_manager import KernelManager
-from edge_cloud_kernel.models.common import ConfigUpdateRequest
+from edge_cloud_kernel.models.api_requests import ConfigUpdateRequest
 
 logger = structlog.get_logger(__name__)
 

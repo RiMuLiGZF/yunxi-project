@@ -13,10 +13,14 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from edge_cloud_kernel.api.dependencies import get_kernel_manager, get_trace_id
 from edge_cloud_kernel.core.kernel_manager import KernelManager
+from edge_cloud_kernel.models.api_requests import (
+    DeviceStatus,
+    validate_device_id_path,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -60,9 +64,9 @@ def _mock_m8_response(
 @router.get("/api/v3/devices", summary="设备列表")
 async def list_devices(
     request: Request,
-    page: int = Query(1, ge=1, description="页码"),
+    page: int = Query(1, ge=1, le=10000, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
-    status: str | None = Query(None, description="按状态过滤"),
+    status: DeviceStatus | None = Query(None, description="按状态过滤"),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),
 ):
@@ -86,7 +90,7 @@ async def list_devices(
             result = await m8_api.list_devices(
                 page=page,
                 page_size=page_size,
-                status=status,
+                status=status.value if status else None,
                 trace_id=trace_id,
             )
             return result.to_dict()
@@ -105,7 +109,7 @@ async def list_devices(
 @router.post("/api/v3/devices/{device_id}/remove", summary="移除设备")
 async def remove_device(
     request: Request,
-    device_id: str,
+    device_id: str = Path(..., description="设备 ID", min_length=2, max_length=64),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),
 ):
@@ -120,6 +124,9 @@ async def remove_device(
     Returns:
         移除结果响应.
     """
+    # Path 参数格式校验
+    validate_device_id_path(device_id)
+
     m8_api = kernel.get_component("m8_api")
 
     if m8_api is not None and not kernel.is_mock("m8_api"):
@@ -147,9 +154,9 @@ async def remove_device(
 @router.get("/api/v1/devices", tags=["V1 Alias"], summary="v1设备列表（别名）")
 async def v1_devices(
     request: Request,
-    page: int = Query(1, ge=1, description="页码"),
+    page: int = Query(1, ge=1, le=10000, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
-    status: str | None = Query(None, description="按状态过滤"),
+    status: DeviceStatus | None = Query(None, description="按状态过滤"),
     trace_id: str = Depends(get_trace_id),
     kernel: KernelManager = Depends(get_kernel_manager),
 ):

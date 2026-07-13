@@ -3,6 +3,10 @@
 提供 M8 管理平台需要的配置管理接口：
 - GET  /api/v3/config          # 获取配置（敏感字段脱敏）
 - POST /api/v3/config/update   # 更新配置（点路径，热更新）
+
+内部使用 Pydantic 模型（EdgeCloudConfig）作为校验层和类型安全访问入口。
+_config 仍为 dict（主存储），保证 100% 向后兼容；
+每次通过 update_config 修改时触发 Pydantic 校验，非法配置立即拒绝。
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ import structlog
 import yaml
 
 from edge_cloud_kernel.m8_api.error_codes import ERR_INVALID_PARAM
+from edge_cloud_kernel.models.config import EdgeCloudConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -45,10 +50,18 @@ class ConfigManager:
     提供配置的加载、查询、更新（热更新）功能。
     敏感字段在输出时自动脱敏，且不允许通过 API 更新。
 
+    内部以 dict 为主存储（_config），保持 100% 向后兼容；
+    同时集成 Pydantic EdgeCloudConfig 模型作为校验层：
+    - 配置加载时通过 Pydantic 校验
+    - 通过 update_config 更新时触发 Pydantic 校验
+    - 可通过 .model 属性获取类型安全的配置模型
+    - 可通过 validate_config() 校验任意配置字典
+
     Attributes:
-        _config: 当前配置字典.
+        _config: 当前配置字典（主存储，向后兼容）.
         _config_path: 配置文件路径.
         _audit_log: 配置变更审计日志.
+        _default_config: 默认配置字典.
     """
 
     def __init__(self, config_path: str = "") -> None:
@@ -67,68 +80,55 @@ class ConfigManager:
         else:
             self._config = copy.deepcopy(self._default_config)
 
+        # 初始校验（确保默认配置也合法）
+        self._validate_current_config()
+
         logger.info(
             "config_manager.initialized",
             path=config_path or "default",
             keys_count=len(self._flatten_keys(self._config)),
         )
 
+    # -----------------------------------------------------------------------
+    # 默认配置
+    # -----------------------------------------------------------------------
+
     def _get_default_config(self) -> dict[str, Any]:
-        """获取默认配置."""
-        return {
-            "basic": {
-                "name": "m3-sync",
-                "version": "2.1.2",
-                "port": 8003,
-                "log_level": "info",
-                "env": "production",
-            },
-            "security": {
-                "encryption_key": "",
-                "admin_token": "",
-                "cors_origins": ["http://localhost:3000"],
-                "e2ee": {
-                    "enabled": True,
-                    "algorithm": "AES-256-GCM",
-                },
-            },
-            "sync": {
-                "mode": "auto",
-                "interval": 60,
-                "conflict_strategy": "newest_wins",
-                "max_concurrent": 10,
-                "max_file_size": 100,
-            },
-            "storage": {
-                "local_path": "./data/sync",
-                "cloud_type": "local",
-                "cloud_path": "./data/cloud",
-                "cache_size": 512,
-            },
-            "offline": {
-                "queue_size": 1000,
-                "retry": {
-                    "max_attempts": 5,
-                    "backoff": "exponential",
-                },
-            },
-            "database": {
-                "type": "sqlite",
-                "path": "./data/m3.db",
-            },
-            "logging": {
-                "format": "json",
-                "level": "info",
-                "file": "./logs/m3.log",
-                "max_size": "100MB",
-                "max_files": 10,
-                "sensitive_fields": ["encryption_key", "password"],
-            },
-            "devices": {
-                "registry_type": "memory",
-                "db_path": "./data/devices.db",
-            },
-        }
+        """获取默认配置（从 Pydantic 模型导出，单一数据源）."""
+        return EdgeCloudConfig().model_dump()
+
+    # -----------------------------------------------------------------------
+    # Pydantic 校验层
+    # -----------------------------------------------------------------------
+
+    def _validate_current_config(self) -> None:
+        """校验当前 _config 是否合法（内部使用）.
+
+        校验失败时记录警告但不抛出（保持向后兼容）。
+        """
+        try:
+            EdgeCloudConfig.model_validate(self._config)
+        except Exception as e:
+            logger.warning("config_manager.validation_warning", error=str(e))
+
+    def _validate_dict(self, config_dict: dict[str, Any]) -> tuple[bool, str]:
+        """校验配置字典是否合法.
+
+        Args:
+            config_dict: 待校验的配置字典.
+
+        Returns:
+            (是否合法, 错误信息).
+        """
+        try:
+            EdgeCloudConfig.model_validate(config_dict)
+            return True, ""
+        except Exception as e:
+            return False, str(e)
+
+    # -----------------------------------------------------------------------
+    # 从文件加载
+    # -----------------------------------------------------------------------
 
     def _load_from_file(self, path: str) -> None:
         """从 YAML 文件加载配置."""
@@ -136,11 +136,48 @@ class ConfigManager:
             with open(path, "r", encoding="utf-8") as f:
                 loaded = yaml.safe_load(f) or {}
             # 与默认配置合并
-            self._config = self._deep_merge(self._default_config, loaded)
+            merged = self._deep_merge(self._default_config, loaded)
+            # 替换环境变量占位符（如 ${M3_ENCRYPTION_KEY}）
+            merged = self._resolve_env_placeholders(merged)
+            # Pydantic 校验
+            valid, err = self._validate_dict(merged)
+            if not valid:
+                logger.warning(
+                    "config_manager.load_validation_failed",
+                    path=path,
+                    error=err,
+                )
+            self._config = merged
             logger.info("config_manager.loaded", path=path)
         except Exception as e:
             logger.error("config_manager.load_error", path=path, error=str(e))
             self._config = copy.deepcopy(self._default_config)
+
+    def _resolve_env_placeholders(self, config: dict[str, Any]) -> dict[str, Any]:
+        """解析配置中的环境变量占位符，如 ${M3_ENCRYPTION_KEY}.
+
+        Args:
+            config: 原始配置字典.
+
+        Returns:
+            替换占位符后的配置字典.
+        """
+        result: dict[str, Any] = {}
+        for key, value in config.items():
+            if isinstance(value, dict):
+                result[key] = self._resolve_env_placeholders(value)
+            elif isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                env_name = value[2:-1]
+                env_value = os.environ.get(env_name, "")
+                result[key] = env_value
+            elif isinstance(value, list):
+                result[key] = [
+                    self._resolve_env_placeholders(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+        return result
 
     def _deep_merge(self, base: dict, override: dict) -> dict:
         """深度合并两个字典（override 覆盖 base）."""
@@ -194,7 +231,10 @@ class ConfigManager:
         updates: dict[str, Any],
         request_id: str = "",
     ) -> tuple[bool, dict[str, Any]]:
-        """更新配置（点路径方式）.
+        """更新配置（点路径方式，带 Pydantic 校验）.
+
+        每次更新都会先做 Pydantic 校验，非法配置立即被拒绝，
+        已成功的更新保留（部分成功模式）。
 
         Args:
             updates: 点路径的更新字典，如 {"sync.mode": "manual", "logging.level": "debug"}.
@@ -225,6 +265,11 @@ class ConfigManager:
             # 检查 key 是否存在
             if not self._key_exists(dot_key):
                 rejected_keys.append(f"{dot_key}(not_found)")
+                continue
+
+            # 先做 Pydantic 校验：构造临时 dict 验证该值是否合法
+            if not self._validate_single_update(dot_key, value):
+                rejected_keys.append(f"{dot_key}(invalid_value)")
                 continue
 
             # 执行更新
@@ -261,6 +306,35 @@ class ConfigManager:
             "rejected_keys": rejected_keys,
             "restart_required": restart_required,
         }
+
+    def _validate_single_update(self, dot_key: str, value: Any) -> bool:
+        """校验单个点路径更新值是否合法.
+
+        通过构造临时配置 dict，应用更新后做全量 Pydantic 校验。
+
+        Args:
+            dot_key: 点路径键名.
+            value: 待校验的值.
+
+        Returns:
+            True 表示值合法.
+        """
+        try:
+            # 深拷贝当前配置
+            temp_config = copy.deepcopy(self._config)
+            # 应用更新
+            parts = dot_key.split(".")
+            current = temp_config
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+            current[parts[-1]] = value
+            # Pydantic 校验
+            EdgeCloudConfig.model_validate(temp_config)
+            return True
+        except Exception:
+            return False
 
     def _is_sensitive_key(self, dot_key: str) -> bool:
         """判断点路径 key 是否为敏感字段."""
@@ -322,3 +396,33 @@ class ConfigManager:
     def audit_log(self) -> list[dict[str, Any]]:
         """获取审计日志."""
         return self._audit_log.copy()
+
+    # -----------------------------------------------------------------------
+    # Pydantic 模型访问（新 API）
+    # -----------------------------------------------------------------------
+
+    @property
+    def model(self) -> EdgeCloudConfig:
+        """获取 Pydantic 配置模型实例（从当前 dict 构建）.
+
+        新代码建议使用此属性获取类型安全的配置模型。
+        每次访问都会从当前 _config 构建，确保与 dict 存储同步。
+
+        Returns:
+            EdgeCloudConfig 实例.
+
+        Raises:
+            pydantic.ValidationError: 当前配置不合法时抛出（极少发生）.
+        """
+        return EdgeCloudConfig.model_validate(self._config)
+
+    def validate_config(self, config_dict: dict[str, Any]) -> tuple[bool, str]:
+        """校验配置字典是否合法.
+
+        Args:
+            config_dict: 待校验的配置字典.
+
+        Returns:
+            (是否合法, 错误信息).
+        """
+        return self._validate_dict(config_dict)
