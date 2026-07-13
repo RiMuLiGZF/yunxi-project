@@ -153,6 +153,8 @@ class VSCodeLauncher:
     def _get_version(self, exe_path: str) -> str:
         """获取 VS Code 版本号.
 
+        使用文件版本信息而非运行 --version，避免意外启动 VS Code 窗口。
+
         Args:
             exe_path: 可执行文件路径
 
@@ -160,14 +162,30 @@ class VSCodeLauncher:
             版本号字符串，获取失败返回空字符串
         """
         try:
+            # Windows下优先从文件属性获取版本号（不启动进程）
+            if sys.platform == "win32":
+                try:
+                    from win32com.client import Dispatch  # type: ignore
+                    ver_parser = Dispatch("Scripting.FileSystemObject")
+                    info = ver_parser.GetFileVersion(exe_path)
+                    if info:
+                        return str(info).strip()
+                except Exception:
+                    pass
+
+            # 回退方案：使用子进程，但增加 CREATE_NO_WINDOW 标志
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = 0x08000000  # CREATE_NO_WINDOW
+
             result = subprocess.run(
                 [exe_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=5,
+                creationflags=creationflags,
             )
             if result.returncode == 0 and result.stdout:
-                # 第一行通常是版本号
                 lines = result.stdout.strip().splitlines()
                 if lines:
                     return lines[0].strip()
@@ -186,6 +204,9 @@ class VSCodeLauncher:
     ) -> dict[str, Any]:
         """启动 VS Code.
 
+        注意：受环境变量 M4_VSCODE_AUTO_LAUNCH 控制，默认为 false（禁用自动启动），
+        防止测试/开发环境意外弹出 VS Code 窗口。需要启用时设置为 true。
+
         Args:
             project_path: 要打开的项目目录路径，为空则仅启动 VS Code
             new_window: 是否在新窗口中打开
@@ -200,6 +221,18 @@ class VSCodeLauncher:
                 "message": "描述信息",
             }
         """
+        # 环境变量开关：默认禁用自动启动
+        auto_launch = os.environ.get("M4_VSCODE_AUTO_LAUNCH", "false").lower() == "true"
+        if not auto_launch:
+            return {
+                "success": False,
+                "path": "",
+                "project_path": project_path or "",
+                "pid": 0,
+                "message": "VS Code 自动启动已禁用（M4_VSCODE_AUTO_LAUNCH=false）",
+                "disabled": True,
+            }
+
         with self._lock:
             # 先检测安装
             detect_result = self.detect_vscode()

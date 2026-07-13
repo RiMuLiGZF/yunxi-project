@@ -13,8 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from src.errors import ErrorCode, M4Error, error_response
+from src.common.logging_setup import clear_context, set_trace_id, setup_logging
+from src.common.middleware import CircuitBreakerMiddleware, RateLimitMiddleware
 
 # ---------------------------------------------------------------------------
 # 应用创建
@@ -44,6 +49,101 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 弹性中间件：限流 + 熔断（环境变量控制开关）
+_rate_limit_enabled = os.environ.get("M4_RATE_LIMIT_ENABLED", "true").lower() == "true"
+_circuit_breaker_enabled = os.environ.get("M4_CIRCUIT_BREAKER_ENABLED", "true").lower() == "true"
+
+if _rate_limit_enabled:
+    app.add_middleware(RateLimitMiddleware)
+if _circuit_breaker_enabled:
+    app.add_middleware(CircuitBreakerMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# 全局异常处理器
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(M4Error)
+async def m4_error_handler(request: Request, exc: M4Error) -> JSONResponse:
+    """M4 业务异常处理器，返回统一格式响应.
+
+    Args:
+        request: 请求对象.
+        exc: M4Error 异常实例.
+
+    Returns:
+        统一格式的 JSON 响应.
+    """
+    trace_id = getattr(request.state, "trace_id", "")
+    status_code = 400 if exc.code < 50000 else 500
+    return JSONResponse(
+        status_code=status_code,
+        content=exc.to_response(request_id=trace_id),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """请求参数验证异常处理器.
+
+    Args:
+        request: 请求对象.
+        exc: 验证异常实例.
+
+    Returns:
+        统一格式的 JSON 响应.
+    """
+    trace_id = getattr(request.state, "trace_id", "")
+    # 提取验证错误详情
+    errors = []
+    for err in exc.errors():
+        errors.append({
+            "field": ".".join(str(loc) for loc in err.get("loc", [])),
+            "message": err.get("msg", ""),
+            "type": err.get("type", ""),
+        })
+    return JSONResponse(
+        status_code=400,
+        content=error_response(
+            code=ErrorCode.INVALID_PARAMETER,
+            message="请求参数验证失败",
+            data={"errors": errors},
+            request_id=trace_id,
+        ),
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """通用异常处理器（兜底），捕获所有未处理异常.
+
+    Args:
+        request: 请求对象.
+        exc: 异常实例.
+
+    Returns:
+        统一格式的 JSON 响应.
+    """
+    trace_id = getattr(request.state, "trace_id", "")
+    # 生产环境不返回详细错误信息
+    env = os.environ.get("M4_ENV", "development")
+    if env == "development":
+        detail = str(exc)
+    else:
+        detail = None
+
+    return JSONResponse(
+        status_code=500,
+        content=error_response(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="服务器内部错误",
+            data={"detail": detail} if detail else None,
+            request_id=trace_id,
+        ),
+    )
+
 
 # ---------------------------------------------------------------------------
 # 服务初始化
@@ -51,6 +151,12 @@ app.add_middleware(
 
 def _init_services() -> None:
     """初始化所有服务并挂载到 app.state."""
+    # 初始化结构化日志系统
+    log_level = os.environ.get("M4_LOG_LEVEL", "info")
+    log_format = os.environ.get("M4_LOG_FORMAT", "console")
+    log_file = os.environ.get("M4_LOG_FILE", "") or None
+    setup_logging(level=log_level, format_type=log_format, log_file=log_file)
+
     from src.services.recognizer import SceneRecognizer
     from src.services.switcher import SceneSwitchManager
     from src.services.context_store import ContextStore
@@ -134,37 +240,44 @@ _init_services()
 
 @app.middleware("http")
 async def add_trace_id_and_auth(request: Request, call_next):
-    """为每个请求注入 trace_id，记录指标，检查鉴权."""
+    """为每个请求注入 trace_id（contextvars），记录指标，检查鉴权."""
     start_time = time.time()
     trace_id = uuid.uuid4().hex[:16]
 
-    # 将 trace_id 存入 request state
+    # 将 trace_id 存入 request state（向后兼容）
     request.state.trace_id = trace_id
 
-    # 鉴权检查（仅对需要鉴权的路径）
-    auth_middleware = getattr(app.state, "auth_middleware", None)
-    if auth_middleware is not None:
-        path = request.url.path
-        headers = dict(request.headers)
+    # 注入 contextvars 链路追踪
+    set_trace_id(trace_id)
+    try:
+        # 鉴权检查（仅对需要鉴权的路径）
+        auth_middleware = getattr(app.state, "auth_middleware", None)
+        if auth_middleware is not None:
+            path = request.url.path
+            headers = dict(request.headers)
 
-        # 只对 /api/v1/admin/* 下的非白名单路径进行鉴权
-        if path.startswith("/api/v1/admin/") and path != "/api/v1/admin/health":
-            auth_ok, auth_code, auth_msg = auth_middleware.check_auth(path, headers)
-            if not auth_ok:
-                response = JSONResponse(
-                    status_code=401,
-                    content={
-                        "code": auth_code,
-                        "message": auth_msg,
-                        "data": {},
-                        "trace_id": trace_id,
-                    },
-                )
-                response.headers["X-Trace-Id"] = trace_id
-                return response
+            # 只对 /api/v1/admin/* 下的非白名单路径进行鉴权
+            if path.startswith("/api/v1/admin/") and path != "/api/v1/admin/health":
+                auth_ok, auth_code, auth_msg = auth_middleware.check_auth(path, headers)
+                if not auth_ok:
+                    response = JSONResponse(
+                        status_code=401,
+                        content={
+                            "code": auth_code,
+                            "message": auth_msg,
+                            "data": {},
+                            "trace_id": trace_id,
+                        },
+                    )
+                    response.headers["X-Trace-Id"] = trace_id
+                    return response
 
-    # 处理请求
-    response = await call_next(request)
+        # 处理请求
+        response = await call_next(request)
+
+    finally:
+        # 清理上下文，避免上下文泄漏
+        clear_context()
 
     # 记录响应时间到指标收集器
     elapsed_ms = (time.time() - start_time) * 1000

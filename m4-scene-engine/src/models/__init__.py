@@ -1,6 +1,9 @@
 """数据模型与场景定义.
 
-包含场景定义、请求/响应模型、通用响应工具等。
+包含场景定义、请求/响应模型、通用响应工具、数据库ORM模型等。
+
+数据库模型请从 db 子包导入：
+    from src.models.db import SceneContextDB, get_session
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from . import db  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # 场景定义

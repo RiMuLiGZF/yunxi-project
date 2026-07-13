@@ -14,8 +14,10 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import List
 from functools import lru_cache
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # ---------------------------------------------------------------------------
@@ -81,38 +83,59 @@ _load_env_files()
 # 配置类
 # ---------------------------------------------------------------------------
 
-class Settings:
+class Settings(BaseSettings):
     """M4 场景引擎配置"""
 
-    def __init__(self) -> None:
-        # ---- 基础服务 ----
-        self.port = int(os.environ.get("M4_PORT", "8004"))
-        self.host = os.environ.get("M4_HOST", "0.0.0.0")
-        self.env = os.environ.get("M4_ENV", "development")
+    model_config = SettingsConfigDict(
+        env_prefix="M4_",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
-        # ---- CORS ----
-        self.cors_origins = os.environ.get("CORS_ORIGINS", "*")
+    # ---- 基础服务 ----
+    port: int = Field(default=8004, ge=1, le=65535, description="服务端口")
+    host: str = Field(default="0.0.0.0", min_length=1, description="监听地址")
+    env: str = Field(default="development", min_length=1, description="运行环境")
 
-        # ---- 场景引擎 ----
-        self.default_scene = os.environ.get("M4_DEFAULT_SCENE", "emotional")
-        self.auto_switch = os.environ.get("M4_AUTO_SWITCH", "true").lower() == "true"
-        self.switch_threshold = float(os.environ.get("M4_SWITCH_THRESHOLD", "0.7"))
-        self.keyword_threshold = float(os.environ.get("M4_KEYWORD_THRESHOLD", "0.7"))
-        self.max_history = int(os.environ.get("M4_MAX_HISTORY", "100"))
+    # ---- CORS ----
+    cors_origins: str = Field(default="*", description="CORS 允许源（逗号分隔）")
 
-        # ---- LLM ----
-        self.enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
-        self.llm_base_url = os.environ.get("M4_LLM_BASE_URL", "")
-        self.llm_model = os.environ.get("M4_LLM_MODEL", "")
+    # ---- 场景引擎 ----
+    default_scene: str = Field(default="emotional", min_length=1, description="默认场景")
+    auto_switch: bool = Field(default=True, description="是否自动切换场景")
+    switch_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="场景切换阈值")
+    keyword_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="关键词匹配阈值")
+    max_history: int = Field(default=100, ge=1, description="最大历史记录数")
 
-        # ---- 数据 ----
-        self.data_path = os.environ.get("M4_DATA_PATH", "")
+    # ---- LLM ----
+    enable_llm: bool = Field(default=False, description="是否启用 LLM")
+    llm_base_url: str = Field(default="", description="LLM 基础 URL")
+    llm_model: str = Field(default="", description="LLM 模型名称")
 
-        # ---- 安全 ----
-        self.admin_token = os.environ.get("M4_ADMIN_TOKEN", "")
+    # ---- 数据 ----
+    data_path: str = Field(default="", description="数据目录路径")
+
+    # ---- 安全 ----
+    admin_token: str = Field(default="", description="管理员令牌")
+
+    # ---- 新增配置字段 ----
+    rate_limit_enabled: bool = Field(default=True, description="是否启用速率限制")
+    rate_limit_per_minute: int = Field(default=60, ge=1, le=10000, description="每分钟速率限制")
+    log_level: str = Field(default="info", description="日志级别")
+    vscode_auto_launch: bool = Field(default=False, description="是否自动启动 VSCode")
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """验证日志级别"""
+        valid_levels = ["debug", "info", "warning", "error", "critical"]
+        if v.lower() not in valid_levels:
+            raise ValueError(f"log_level must be one of {valid_levels}, got {v}")
+        return v.lower()
 
     @property
-    def cors_origin_list(self) -> list:
+    def cors_origin_list(self) -> list[str]:
         """CORS 允许源列表"""
         if self.cors_origins == "*":
             return ["*"]
@@ -133,14 +156,10 @@ class Settings:
 # 单例获取
 # ---------------------------------------------------------------------------
 
-_settings_instance = None
-
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """获取配置单例"""
-    global _settings_instance
-    if _settings_instance is None:
-        _settings_instance = Settings()
-    return _settings_instance
+    return Settings()
 
 
 # 系统版本号（统一从 shared.version 导入）
