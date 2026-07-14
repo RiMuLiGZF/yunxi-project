@@ -40,7 +40,7 @@ from src.common.middleware import (
 app = FastAPI(
     title="M4 场景引擎 API",
     description="云汐项目模块四：场景识别、切换与上下文管理引擎",
-    version="1.0.0",
+    version="1.2.0",
 )
 
 # ---------------------------------------------------------------------------
@@ -330,7 +330,7 @@ async def health_check():
         "message": "ok",
         "data": {
             "status": "healthy",
-            "version": "1.0.0",
+            "version": "1.2.0",
             "module": "m4",
             "uptime_seconds": 0,
         },
@@ -452,7 +452,7 @@ async def root():
     config = getattr(app.state, "config", {})
     return {
         "name": "M4 场景引擎 API",
-        "version": "1.0.0",
+        "version": "1.2.0",
         "status": "running",
         "module": "m4",
         "docs": "/docs",

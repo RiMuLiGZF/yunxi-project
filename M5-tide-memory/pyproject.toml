@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yunxi-m5-tide-memory"
-version = "0.5.0"
+version = "0.5.2"
 description = "云汐系统 M5 潮汐分层记忆系统"
 readme = "README.md"
 requires-python = ">=3.10"

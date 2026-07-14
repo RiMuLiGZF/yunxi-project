@@ -52,7 +52,7 @@ def get_module_version() -> str:
         from tide_memory import __version__
         _cached_version = __version__
     except Exception:
-        _cached_version = "2.4.0-REV2"
+        _cached_version = "0.5.2"
 
     return _cached_version
 # vim: set et ts=4 sw=4:

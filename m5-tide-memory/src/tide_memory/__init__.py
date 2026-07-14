@@ -57,7 +57,7 @@ def _load_version() -> str:
         pass
 
     # 3. 内置默认值
-    return "2.4.0-REV2"
+    return "0.5.2"
 
 
 __version__ = _load_version()

@@ -159,7 +159,7 @@ def _load_system_version() -> str:
             from tide_memory import __version__
             return __version__
         except Exception:
-            return "v2.4.0-REV2"
+            return "v0.5.2"
 
 
 SYSTEM_VERSION = _load_system_version()

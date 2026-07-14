@@ -203,7 +203,7 @@ def _load_system_version() -> str:
         return SYSTEM_VERSION
     except Exception as e:
         logger.warning("config.load_system_version_failed", error_type=type(e).__name__, error=str(e))
-        return "v1.0.0"
+        return "v1.2.0"
 
 
 SYSTEM_VERSION = _load_system_version()

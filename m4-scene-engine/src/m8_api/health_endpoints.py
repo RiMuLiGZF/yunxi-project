@@ -17,7 +17,7 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
-VERSION = "1.0.0"
+VERSION = "1.2.0"
 MODULE_NAME = "m4"
 
 

@@ -51,7 +51,7 @@ async def admin_health(request: Request):
     # 降级
     return make_response(data={
         "status": "healthy",
-        "version": "1.0.0",
+        "version": "1.2.0",
         "module": "m4",
         "uptime_seconds": 0,
         "checks": {
@@ -163,7 +163,7 @@ async def admin_metrics(request: Request):
         "switch_count": 0,
         "auto_switch_count": 0,
         "module": "m4",
-        "version": "1.0.0",
+        "version": "1.2.0",
     })
 
 

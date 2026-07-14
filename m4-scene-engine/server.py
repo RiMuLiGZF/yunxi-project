@@ -90,7 +90,7 @@ def main() -> None:
     print("  M4 场景引擎服务")
     print("  Scene Engine Server")
     print("=" * 60)
-    print(f"  版本:      1.0.0")
+    print(f"  版本:      1.2.0")
     print(f"  地址:      {host}:{port}")
     print(f"  文档地址:  http://localhost:{port}/docs")
     print(f"  健康检查:  http://localhost:{port}/health")
