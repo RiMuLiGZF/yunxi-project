@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ..common.text_utils import tokenize
 
@@ -22,7 +22,7 @@ class KeywordSearch:
     - 支持权重排序（TF-IDF简化版）
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self._inverted_index: Dict[str, Set[str]] = defaultdict(set)  # term -> set of memory_ids
         self._doc_freq: Dict[str, int] = defaultdict(int)  # term -> doc count
@@ -74,7 +74,7 @@ class KeywordSearch:
         if not query_terms and not tags:
             return []
 
-        candidate_scores: Dict[str, Dict] = defaultdict(lambda: {
+        candidate_scores: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
             "score": 0.0, "matched_terms": [], "matched_tags": []
         })
 
@@ -142,7 +142,7 @@ class KeywordSearch:
             return True
         return False
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         return {
             "total_docs": self._total_docs,
             "total_terms": len(self._inverted_index),

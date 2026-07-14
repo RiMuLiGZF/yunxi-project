@@ -207,7 +207,7 @@ class GrowthDatabase:
     _instance: Optional["GrowthDatabase"] = None
     _lock = threading.Lock()
 
-    def __init__(self, db_path: str = None, use_migration: bool = True):
+    def __init__(self, db_path: str = None, use_migration: bool = True) -> None:
         """
         初始化数据库连接
 

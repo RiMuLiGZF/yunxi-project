@@ -31,11 +31,11 @@ class MemoryAPIRouter:
     - GET    /api/v1/memory/list         分页查询
     """
 
-    def __init__(self, app_context: dict = None):
+    def __init__(self, app_context: dict = None) -> None:
         self._app = app_context or {}
         self._request_count = 0
 
-    def get_routes(self) -> List[Dict]:
+    def get_routes(self) -> List[Dict[str, Any]]:
         """获取所有路由定义"""
         return [
             {"method": "POST", "path": "/api/v1/memory/recall", "handler": self.recall},
@@ -114,7 +114,7 @@ class MemoryAPIRouter:
 
         return self._success({"archive_id": f"mem_{uuid.uuid4().hex[:16]}"})
 
-    def get_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
+    def get_memory(self, memory_id: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """获取单条记忆（返回元数据，不含原文）"""
         request = request or {}
         domain = request.get("domain", "private")
@@ -135,7 +135,7 @@ class MemoryAPIRouter:
 
         return self._error(404, "memory not found")
 
-    def delete_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
+    def delete_memory(self, memory_id: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """删除记忆"""
         request = request or {}
         domain = request.get("domain", "private")
@@ -238,7 +238,7 @@ class MemoryAPIRouter:
             "total": 0,
         })
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """获取统计"""
         skill_if = self._app.get("skill_interface")
         if skill_if:
@@ -254,7 +254,7 @@ class MemoryAPIRouter:
             return self._success(result)
         return self._success({"mode": mode, "promoted": 0})
 
-    def get_layers(self) -> Dict:
+    def get_layers(self) -> Dict[str, Any]:
         """获取层级信息"""
         return self._success({
             "layers": [
@@ -284,7 +284,7 @@ class MemoryAPIRouter:
             "phase_controller": "not_available",
         })
 
-    def switch_phase(self, request: Dict) -> Dict:
+    def switch_phase(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """手动切换潮汐相位"""
         phase_controller = self._app.get("phase_controller")
         if not phase_controller:
@@ -324,7 +324,7 @@ class MemoryAPIRouter:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _error(self, code: int, message: str) -> Dict:
+    def _error(self, code: int, message: str) -> Dict[str, Any]:
         self._request_count += 1
         return {
             "code": code,

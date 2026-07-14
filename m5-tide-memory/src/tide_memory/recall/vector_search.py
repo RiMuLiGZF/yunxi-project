@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 import pickle
 from collections import Counter
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import structlog
@@ -102,7 +102,7 @@ class VectorSearch:
     - 内存中维护 memory_id -> 向量映射
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self._embedding_provider = config.get("embedding_provider", DEFAULT_EMBEDDING_PROVIDER)
         self._embedding_model = config.get("embedding_model", DEFAULT_EMBEDDING_MODEL)
@@ -723,7 +723,7 @@ class VectorSearch:
         query_vec: np.ndarray,
         top_k: int,
         filters: dict = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """执行 FAISS 向量搜索，返回候选结果列表。
 
         使用内积（IP）度量，因向量已 L2 归一化，内积等价于余弦相似度。
@@ -770,7 +770,7 @@ class VectorSearch:
         self,
         query_vec: np.ndarray,
         top_k: int,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """执行纯 numpy 向量搜索，返回所有候选结果。
 
         使用矩阵乘法计算余弦相似度（向量已归一化，内积即余弦相似度），
@@ -804,11 +804,11 @@ class VectorSearch:
 
     def _apply_mmr(
         self,
-        results: List[Dict],
+        results: List[Dict[str, Any]],
         query_vec: np.ndarray,
         top_k: int,
         lambda_param: float = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """对搜索结果应用 MMR 去重，平衡相关性与多样性。
 
         当启用 MMR 且结果数量超过 top_k 时，调用 ``_mmr_rerank``
@@ -830,9 +830,9 @@ class VectorSearch:
 
     def _apply_dynamic_threshold(
         self,
-        results: List[Dict],
+        results: List[Dict[str, Any]],
         base_threshold: float = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """根据结果分数分布动态计算相似度阈值并过滤。
 
         从结果列表中提取分数数组，调用 ``_dynamic_threshold`` 计算
@@ -853,9 +853,9 @@ class VectorSearch:
 
     def _apply_hybrid_enhancement(
         self,
-        results: List[Dict],
+        results: List[Dict[str, Any]],
         query: str,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """对搜索结果应用混合检索增强（向量 + 关键词融合打分）。
 
         计算每条结果的关键词匹配分数，按 hybrid_alpha 权重与向量
@@ -890,7 +890,7 @@ class VectorSearch:
         query: str,
         top_k: int = DEFAULT_TOP_K,
         filters: dict = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         向量相似度搜索（P2-12: 质量增强版）
 
@@ -1207,7 +1207,7 @@ class VectorSearch:
     # P2-任务2: HNSW 迁移工具
     # ============================================================
 
-    def migrate_to_hnsw(self) -> Dict:
+    def migrate_to_hnsw(self) -> Dict[str, Any]:
         """
         将现有 Flat 索引迁移为 HNSW 索引
 
@@ -1294,7 +1294,7 @@ class VectorSearch:
             logger.warning(f"设置 ef_search 失败: {e}")
             return False
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """获取向量库统计信息"""
         active_count = len(self._id_list) - len(self._deleted_indices)
         return {
@@ -1375,10 +1375,10 @@ class VectorSearch:
     def _mmr_rerank(
         self,
         query_vec: np.ndarray,
-        candidates: List[Dict],
+        candidates: List[Dict[str, Any]],
         top_k: int,
         lambda_: float = DEFAULT_MMR_LAMBDA,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """MMR 去重重排序：平衡相关性与多样性"""
         if len(candidates) <= top_k:
             return candidates

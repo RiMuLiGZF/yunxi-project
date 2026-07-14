@@ -18,7 +18,7 @@ import os
 import sqlite3
 import threading
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 
@@ -111,7 +111,7 @@ class BaseSQLLayer:
         "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
     ]
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """
         初始化记忆层
 
@@ -316,7 +316,7 @@ class BaseSQLLayer:
             "emotion_tags": [row[7]] if row[7] else [],
         }
 
-    def _sort_search_results(self, results: List[Dict]) -> List[Dict]:
+    def _sort_search_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         对搜索结果排序（子类可覆盖）
 
@@ -461,7 +461,7 @@ class BaseSQLLayer:
                     pass
                 self._conn = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         """析构时关闭连接"""
         try:
             self.close()
@@ -725,7 +725,7 @@ class BaseSQLLayer:
     # 批量操作
     # ============================================================
 
-    def batch_add(self, items: List[MemoryItem]) -> Dict:
+    def batch_add(self, items: List[MemoryItem]) -> Dict[str, Any]:
         """
         批量添加记忆
 
@@ -818,7 +818,7 @@ class BaseSQLLayer:
         domain: Optional[str] = None,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         游标分页查询记忆列表
 

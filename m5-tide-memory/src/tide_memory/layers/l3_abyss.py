@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import structlog
 
@@ -56,7 +56,7 @@ class AbyssLayer:
     - 支持主密钥用用户密码加密存储（可选）
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self.max_items = config.get("max_items", L3_MAX_ITEMS)
         self.retention_days = config.get("retention_days", L3_RETENTION_DAYS)  # 永久
@@ -853,7 +853,7 @@ class AbyssLayer:
         except Exception:
             return 0
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         try:
             with get_connection(self._db_path) as conn:

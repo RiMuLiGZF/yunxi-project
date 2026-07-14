@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.models import MemoryLayer
 from ..common.constants import (
@@ -31,7 +31,7 @@ class DeepLayer(BaseSQLLayer):
 
     _layer_enum = MemoryLayer.L2_DEEP
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         # L2 默认配置
         config.setdefault("max_items", L2_MAX_ITEMS)
@@ -57,7 +57,7 @@ class DeepLayer(BaseSQLLayer):
             "quality_score", "emotion_ei", "emotion_label",
         ]
 
-    def _build_search_result(self, row: Tuple, tags: list, score: int) -> Dict:
+    def _build_search_result(self, row: Tuple, tags: list, score: int) -> Dict[str, Any]:
         """L2 搜索结果额外包含 quality_score 字段"""
         return {
             "memory_id": row[0],
@@ -79,7 +79,7 @@ class DeepLayer(BaseSQLLayer):
     # L2 独有方法
     # ============================================================
 
-    def compress(self) -> Dict:
+    def compress(self) -> Dict[str, Any]:
         """
         执行语义蒸馏（简化版：标记低质量记忆为可压缩）
 

@@ -26,7 +26,7 @@ class M8Response:
     """M8 标准响应格式"""
 
     @staticmethod
-    def success(data: Any = None, message: str = "success") -> Dict:
+    def success(data: Any = None, message: str = "success") -> Dict[str, Any]:
         return {
             "code": ErrorCode.SUCCESS,
             "message": message,
@@ -66,7 +66,7 @@ class M8Interface:
         M8Interface._request_counter += 1
         return f"m5-{uuid.uuid4().hex[:12]}"
 
-    def __init__(self, app_context: dict = None):
+    def __init__(self, app_context: dict = None) -> None:
         self._app = app_context or {}
         self._router = None
 
@@ -90,7 +90,7 @@ class M8Interface:
             ]
         })
 
-    def m8_metrics(self, params: Dict = None) -> Dict:
+    def m8_metrics(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         M8标准：性能指标
 
@@ -163,7 +163,7 @@ class M8Interface:
             "vector_enabled": True,
         })
 
-    def m8_recall(self, params: Dict) -> Dict:
+    def m8_recall(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         M8标准：记忆检索
         
@@ -273,7 +273,7 @@ class M8Interface:
         except Exception as e:
             return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
-    def get_interface_spec(self) -> Dict:
+    def get_interface_spec(self) -> Dict[str, Any]:
         """获取M8接口规范定义"""
         version = get_module_version()
         return {
