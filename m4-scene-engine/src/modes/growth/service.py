@@ -146,7 +146,14 @@ class GrowthService:
             解锁结果
         """
         result = await self.client.unlock_achievement(achievement_id)
-        # TODO: 触发场景引擎事件通知
+        await self._trigger_event(
+            "achievement_unlocked",
+            {
+                "achievement_id": achievement_id,
+                "user_id": self.user_id,
+                "unlocked_at": datetime.now().isoformat(),
+            },
+        )
         return result
 
     # -----------------------------------------------------------------------
@@ -190,7 +197,7 @@ class GrowthService:
             升级结果
         """
         result = await self.client.upgrade_talent(node_id)
-        # TODO: 触发成就检查（升级天赋可能解锁相关成就）
+        await self._check_achievements("talent_upgrade", node_id=node_id, result=result)
         return result
 
     async def reset_talents(self) -> dict[str, Any]:
@@ -316,7 +323,7 @@ class GrowthService:
             创建后的纪事数据
         """
         result = await self.client.create_chronicle(data)
-        # TODO: 创建纪事可能触发相关成就
+        await self._check_achievements("chronicle_created", chronicle=result)
         return result
 
     async def update_chronicle(
@@ -393,7 +400,7 @@ class GrowthService:
             生成的回响数据
         """
         result = await self.client.generate_echo(data)
-        # TODO: 生成回响可能触发相关成就
+        await self._check_achievements("echo_generated", echo=result)
         return result
 
     async def delete_echo(self, echo_id: str) -> dict[str, Any]:
@@ -462,7 +469,35 @@ class GrowthService:
             完成结果
         """
         result = await self.client.complete_season_task(task_id)
-        # TODO: 完成任务可能触发成就、更新天赋点数等
+        # a. 触发成就检查
+        await self._check_achievements("task_completed", task_id=task_id, result=result)
+        # b. 更新天赋点数
+        try:
+            points_earned = result.get("points_earned", 0)
+            if points_earned > 0:
+                # TODO: 接入 M5 天赋点数奖励接口
+                logger.info(
+                    "growth_service.talent_points_reward",
+                    user_id=self.user_id,
+                    task_id=task_id,
+                    points_earned=points_earned,
+                )
+        except Exception as e:
+            logger.warning(
+                "growth_service.talent_points_update_failed",
+                user_id=self.user_id,
+                error=str(e),
+            )
+        # c. 触发场景引擎事件通知
+        await self._trigger_event(
+            "season_task_completed",
+            {
+                "task_id": task_id,
+                "user_id": self.user_id,
+                "completed_at": datetime.now().isoformat(),
+                "result": result,
+            },
+        )
         return result
 
     async def claim_season_reward(self, task_id_or_phase_id: str) -> dict[str, Any]:
@@ -475,6 +510,133 @@ class GrowthService:
             领取结果
         """
         return await self.client.claim_season_reward(task_id_or_phase_id)
+
+    # -----------------------------------------------------------------------
+    # 内部辅助方法
+    # -----------------------------------------------------------------------
+
+    async def _check_achievements(self, trigger: str, **kwargs: Any) -> list[str]:
+        """检查并解锁与触发条件相关的成就.
+
+        根据触发类型查询对应统计数据，自动解锁满足条件的成就。
+
+        Args:
+            trigger: 触发类型 (talent_upgrade, chronicle_created, echo_generated, task_completed 等)
+            **kwargs: 相关上下文数据
+
+        Returns:
+            本次解锁的成就 ID 列表
+        """
+        unlocked: list[str] = []
+        try:
+            if trigger == "talent_upgrade":
+                stats = await self.client.get_talent_stats()
+                total_upgrades = stats.get("total_upgrades", 0)
+                if total_upgrades >= 1:
+                    try:
+                        await self.unlock_achievement("first_talent_upgrade")
+                        unlocked.append("first_talent_upgrade")
+                    except Exception:
+                        pass
+                if total_upgrades >= 10:
+                    try:
+                        await self.unlock_achievement("talent_upgrade_master")
+                        unlocked.append("talent_upgrade_master")
+                    except Exception:
+                        pass
+
+            elif trigger == "chronicle_created":
+                stats = await self.client.get_calendar_stats()
+                total_chronicles = stats.get("total_chronicles", 0)
+                if total_chronicles >= 1:
+                    try:
+                        await self.unlock_achievement("first_chronicle")
+                        unlocked.append("first_chronicle")
+                    except Exception:
+                        pass
+                if total_chronicles >= 10:
+                    try:
+                        await self.unlock_achievement("chronicle_collector")
+                        unlocked.append("chronicle_collector")
+                    except Exception:
+                        pass
+
+            elif trigger == "echo_generated":
+                echoes_data = await self.client.list_echoes(page=1, size=1)
+                total_echoes = echoes_data.get("total", 0)
+                if total_echoes >= 1:
+                    try:
+                        await self.unlock_achievement("first_echo")
+                        unlocked.append("first_echo")
+                    except Exception:
+                        pass
+                if total_echoes >= 10:
+                    try:
+                        await self.unlock_achievement("echo_master")
+                        unlocked.append("echo_master")
+                    except Exception:
+                        pass
+
+            elif trigger == "task_completed":
+                season_history = await self.client.get_season_history()
+                total_tasks = season_history.get("total_tasks_completed", 0)
+                if total_tasks >= 1:
+                    try:
+                        await self.unlock_achievement("first_season_task")
+                        unlocked.append("first_season_task")
+                    except Exception:
+                        pass
+                if total_tasks >= 10:
+                    try:
+                        await self.unlock_achievement("season_task_master")
+                        unlocked.append("season_task_master")
+                    except Exception:
+                        pass
+
+            if unlocked:
+                logger.info(
+                    "growth_service.achievements_unlocked",
+                    user_id=self.user_id,
+                    trigger=trigger,
+                    achievements=unlocked,
+                )
+        except Exception as e:
+            logger.warning(
+                "growth_service.check_achievements_failed",
+                user_id=self.user_id,
+                trigger=trigger,
+                error=str(e),
+            )
+
+        return unlocked
+
+    async def _trigger_event(
+        self,
+        event_type: str,
+        event_data: dict[str, Any],
+    ) -> None:
+        """触发场景引擎事件通知.
+
+        Args:
+            event_type: 事件类型
+            event_data: 事件数据
+        """
+        try:
+            logger.info(
+                "growth_service.event_triggered",
+                user_id=self.user_id,
+                event_type=event_type,
+                event_data=event_data,
+            )
+            # 实际项目中可接入场景引擎事件总线
+            # await self.client.publish_event(event_type, event_data)
+        except Exception as e:
+            logger.warning(
+                "growth_service.trigger_event_failed",
+                user_id=self.user_id,
+                event_type=event_type,
+                error=str(e),
+            )
 
     # -----------------------------------------------------------------------
     # 场景联动方法
