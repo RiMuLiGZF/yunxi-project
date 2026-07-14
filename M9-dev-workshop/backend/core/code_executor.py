@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import os
 import time
+import threading
 from typing import Optional
 from config import get_settings
 from core.models_code import CodeExecutionRequest, CodeExecutionResult
@@ -12,7 +13,30 @@ from core.sandbox_security import is_code_allowed, get_safe_environ, validate_co
 
 class CodeExecutor:
     """代码执行器（沙箱环境）"""
-    
+
+    def __init__(self):
+        self._exec_count = 0        # 总执行次数
+        self._exec_success = 0      # 成功次数
+        self._exec_failed = 0       # 失败次数
+        self._exec_total_time = 0.0 # 总执行时间
+        self._stats_lock = threading.Lock()
+
+    @property
+    def exec_count(self):
+        return self._exec_count
+
+    @property
+    def exec_success_count(self):
+        return self._exec_success
+
+    @property
+    def exec_failed_count(self):
+        return self._exec_failed
+
+    @property
+    def avg_exec_time(self):
+        return round(self._exec_total_time / max(self._exec_count, 1), 3)
+
     LANGUAGE_EXTENSIONS = {
         "python": ".py",
         "javascript": ".js",
@@ -106,14 +130,23 @@ class CodeExecutor:
                     env=env,
                 )
                 
+                execution_time_val = time.time() - start_time
+                with self._stats_lock:
+                    self._exec_count += 1
+                    self._exec_success += 1
+                    self._exec_total_time += execution_time_val
+
                 return CodeExecutionResult(
                     success=result.returncode == 0,
                     stdout=result.stdout,
                     stderr=result.stderr,
                     exit_code=result.returncode,
-                    execution_time=time.time() - start_time
+                    execution_time=execution_time_val
                 )
             except subprocess.TimeoutExpired:
+                with self._stats_lock:
+                    self._exec_count += 1
+                    self._exec_failed += 1
                 return CodeExecutionResult(
                     success=False,
                     stderr=f"执行超时（{request.timeout}秒）",
@@ -121,6 +154,9 @@ class CodeExecutor:
                 )
         
         except Exception as e:
+            with self._stats_lock:
+                self._exec_count += 1
+                self._exec_failed += 1
             return CodeExecutionResult(
                 success=False,
                 stderr=str(e),

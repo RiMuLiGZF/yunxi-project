@@ -94,6 +94,57 @@ class Settings:
         # 确保数据目录存在
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
+        # P2-5: 环境变量覆盖（优先级高于默认值）
+        self._apply_env_overrides()
+
+    def _apply_env_overrides(self):
+        """从环境变量加载配置覆盖（YUNXI_M9_ 前缀）"""
+        env_map = {
+            "YUNXI_M9_HOST": ("host", str),
+            "YUNXI_M9_PORT": ("port", int),
+            "YUNXI_M9_DEBUG": ("debug", lambda v: v.lower() in ("true", "1", "yes")),
+            "YUNXI_M9_WORKSPACE_ROOT": ("workspace_root", str),
+            "YUNXI_M9_MCP_ENABLED": ("mcp_enabled", lambda v: v.lower() in ("true", "1", "yes")),
+            "YUNXI_M9_MCP_PORT": ("mcp_port", int),
+            "YUNXI_M9_ADMIN_TOKEN": ("admin_token", str),
+            "YUNXI_M9_CODE_EXEC_TIMEOUT": ("code_exec_timeout", int),
+            "YUNXI_M9_CODE_EXEC_SANDBOX": ("code_exec_sandbox_enabled", lambda v: v.lower() in ("true", "1", "yes")),
+            "YUNXI_M9_M8_API": ("m8_control_tower_api", str),
+            "YUNXI_M5_API": ("m5_memory_api", str),
+            "YUNXI_M4_API": ("m4_scene_api", str),
+            "YUNXI_M8_INSPECTION_API": ("m8_inspection_api", str),
+        }
+        for env_key, (attr_name, converter) in env_map.items():
+            value = os.environ.get(env_key)
+            if value is not None:
+                try:
+                    setattr(self, attr_name, converter(value))
+                except (ValueError, TypeError):
+                    pass  # 转换失败则忽略，使用默认值
+
+    def reload_config(self) -> dict:
+        """重新加载环境变量覆盖，返回变更项"""
+        old_values = {}
+        changes = {}
+
+        # 记录当前关键配置
+        tracked_attrs = ["host", "port", "debug", "mcp_enabled", "mcp_port",
+                         "admin_token", "code_exec_timeout", "code_exec_sandbox_enabled",
+                         "workspace_root"]
+        for attr in tracked_attrs:
+            old_values[attr] = getattr(self, attr)
+
+        # 重新应用环境变量
+        self._apply_env_overrides()
+
+        # 检测变更
+        for attr in tracked_attrs:
+            new_val = getattr(self, attr)
+            if old_values[attr] != new_val:
+                changes[attr] = {"old": old_values[attr], "new": new_val}
+
+        return changes
+
     def detect_vscode(self) -> Optional[str]:
         """
         自动检测 VS Code 安装路径
@@ -134,13 +185,15 @@ class Settings:
 _settings: Optional[Settings] = None
 
 
-def get_settings() -> Settings:
+def get_settings(force_reload: bool = False) -> Settings:
     """获取全局配置实例（单例模式）"""
     global _settings
-    if _settings is None:
+    if _settings is None or force_reload:
+        old_settings = _settings
         _settings = Settings()
-        # 初始化时自动检测 VS Code
         _settings.detect_vscode()
+        if old_settings is not None:
+            _settings._apply_env_overrides()
     return _settings
 
 

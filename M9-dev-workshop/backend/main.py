@@ -6,6 +6,7 @@ FastAPI 应用主入口，负责初始化应用、注册路由、配置中间件
 import os
 import sys
 import time
+import threading
 import psutil
 from pathlib import Path
 
@@ -42,11 +43,17 @@ from core.error_handler import global_exception_handler
 settings = get_settings()
 
 # ===== 版本号 =====
-# P1优化后版本 - 日志/错误处理/并发安全/输入验证
-APP_VERSION = "1.2.0"
+# P2优化后版本 - 可观测性/数据库/沙箱/MCP/配置中心
+APP_VERSION = "1.3.0"
 
 # ===== M8 标准接口启动时间（用于 uptime 计算） =====
 _start_time_m8 = time.time()
+
+# ===== P2-1: 请求统计计数器 =====
+_request_count = 0
+_request_error_count = 0
+_request_total_time = 0.0
+_request_lock = threading.Lock()
 
 # ===== 创建 FastAPI 应用 =====
 # 初始化日志系统
@@ -126,6 +133,22 @@ async def deprecated_api_redirect_middleware(request: Request, call_next):
             return response
 
     return await call_next(request)
+
+
+# ===== P2-1: 请求统计中间件 =====
+@app.middleware("http")
+async def request_stats_middleware(request: Request, call_next):
+    """请求统计中间件 - 记录请求数、错误数和响应时间"""
+    global _request_count, _request_error_count, _request_total_time
+    start = time.time()
+    response = await call_next(request)
+    elapsed = time.time() - start
+    with _request_lock:
+        _request_count += 1
+        _request_total_time += elapsed
+        if response.status_code >= 400:
+            _request_error_count += 1
+    return response
 
 
 # ===== 注册路由 =====
@@ -272,12 +295,13 @@ async def m8_health(x_m8_token: str = Header(None)):
 async def m8_metrics(x_m8_token: str = Header(None)):
     """M8 标准指标接口
 
-    返回服务运行指标：
-    - CPU/内存使用率
+    返回服务运行指标（P2-1 扩展至 ≥15 个）：
+    - 系统指标：CPU/内存/磁盘/文件描述符
+    - API 指标：请求数/错误数/平均响应时间/端点数
     - VSCode 实例数
     - 项目数
     - MCP 工具数
-    - 代码执行次数
+    - 代码执行：总次数/成功/失败/平均耗时
 
     需要 x-m8-token Header 验证。
     """
@@ -288,17 +312,42 @@ async def m8_metrics(x_m8_token: str = Header(None)):
             content={"code": 40101, "message": "Unauthorized: Invalid or missing x-m8-token", "data": None},
         )
 
-    # 系统指标：CPU/内存
+    # 系统指标：CPU/内存/磁盘/文件描述符
     cpu_percent = 0.0
     memory_percent = 0.0
     memory_used_mb = 0.0
     memory_total_mb = 0.0
+    disk_usage = 0.0
+    open_fds = 0
     try:
         cpu_percent = psutil.cpu_percent(interval=0.1)
         mem = psutil.virtual_memory()
         memory_percent = mem.percent
         memory_used_mb = round(mem.used / (1024 * 1024), 2)
         memory_total_mb = round(mem.total / (1024 * 1024), 2)
+        # P2-1 新增：磁盘使用率
+        disk = psutil.disk_usage("/")
+        disk_usage = round((disk.used / disk.total) * 100, 2)
+        # P2-1 新增：打开的文件描述符/句柄数
+        proc = psutil.Process()
+        try:
+            open_fds = proc.num_fds()
+        except AttributeError:
+            # Windows 使用 num_handles()
+            open_fds = proc.num_handles()
+    except Exception:
+        pass
+
+    # API 请求统计
+    with _request_lock:
+        total_requests = _request_count
+        error_requests = _request_error_count
+        avg_resp_ms = round((_request_total_time / max(_request_count, 1)) * 1000, 3)
+
+    # 端点数
+    endpoints_count = 0
+    try:
+        endpoints_count = len(app.openapi()["paths"].keys())
     except Exception:
         pass
 
@@ -330,13 +379,17 @@ async def m8_metrics(x_m8_token: str = Header(None)):
     except Exception:
         pass
 
-    # 代码执行次数（从代码执行器获取）
+    # 代码执行统计（P2-1 扩展）
     code_exec_count = 0
+    code_exec_success = 0
+    code_exec_failed = 0
+    code_avg_time = 0.0
     try:
         from core.code_executor import code_executor
-        # 如果代码执行器有执行计数，则读取
-        if hasattr(code_executor, "exec_count"):
-            code_exec_count = code_executor.exec_count
+        code_exec_count = code_executor.exec_count
+        code_exec_success = code_executor.exec_success_count
+        code_exec_failed = code_executor.exec_failed_count
+        code_avg_time = code_executor.avg_exec_time
     except Exception:
         pass
 
@@ -355,6 +408,14 @@ async def m8_metrics(x_m8_token: str = Header(None)):
                 "memory_percent": memory_percent,
                 "memory_used_mb": memory_used_mb,
                 "memory_total_mb": memory_total_mb,
+                "disk_usage_percent": disk_usage,
+                "open_file_descriptors": open_fds,
+            },
+            "api": {
+                "total_requests": total_requests,
+                "error_requests": error_requests,
+                "avg_response_time_ms": avg_resp_ms,
+                "endpoints_count": endpoints_count,
             },
             "vscode": {
                 "running_instances": vscode_instances,
@@ -367,6 +428,9 @@ async def m8_metrics(x_m8_token: str = Header(None)):
             },
             "code_execution": {
                 "total_executions": code_exec_count,
+                "success_count": code_exec_success,
+                "failed_count": code_exec_failed,
+                "avg_exec_time_s": code_avg_time,
             },
         },
     }
@@ -415,6 +479,18 @@ async def m8_config(x_m8_token: str = Header(None)):
             },
         },
     }
+
+# ===== M8 标准接口 - 配置热更新 =====
+@app.post("/m8/config/reload", summary="M8 配置热更新接口")
+async def m8_config_reload(x_m8_token: str = Header(None)):
+    """重新加载环境变量配置（P2-5）"""
+    if not _verify_m8_token(x_m8_token):
+        return JSONResponse(status_code=401, content={"code": 40101, "message": "Unauthorized", "data": None})
+
+    changes = settings.reload_config()
+    logger.info(f"配置热更新: {changes}")
+    return {"code": 0, "message": "ok", "data": {"changes": changes, "version": APP_VERSION}}
+
 
 # ===== 启动事件 =====
 @app.on_event("startup")
