@@ -11,8 +11,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import secrets
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
@@ -258,14 +261,88 @@ async def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ============================================================
+# 内部辅助函数
+# ============================================================
+
+async def _send_mcp_request_async(
+    server: Any,
+    method: str,
+    params: Dict[str, Any],
+) -> Any:
+    """向指定 MCP 服务器发送异步 JSON-RPC 请求.
+
+    支持 http 和 stdio 两种传输类型，统一返回 result 字段内容。
+
+    Args:
+        server: MCP 服务器对象
+        method: JSON-RPC 方法名
+        params: 请求参数
+
+    Returns:
+        JSON-RPC 响应的 result 字段
+
+    Raises:
+        ValueError: 服务器配置错误或类型不支持
+        Exception: 请求失败或响应包含错误
+    """
+    if server.transport_type == "http":
+        if not server.endpoint:
+            raise ValueError("服务器未配置端点地址")
+
+        payload = {
+            "jsonrpc": "2.0",
+            "id": secrets.randbelow(100000),
+            "method": method,
+            "params": params,
+        }
+        headers = {"Content-Type": "application/json"}
+        if server.api_key:
+            headers["Authorization"] = f"Bearer {server.api_key}"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(server.endpoint, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+        if "error" in data:
+            error = data["error"]
+            raise RuntimeError(
+                f"JSON-RPC 错误: {error.get('message', '未知错误')} "
+                f"(code: {error.get('code', -1)})"
+            )
+        return data.get("result")
+
+    elif server.transport_type == "stdio":
+        from ..services.stdio_manager import stdio_manager
+
+        stdio_service = None
+        for svc in stdio_manager.list_services():
+            if svc.name == server.name:
+                stdio_service = svc
+                break
+
+        if not stdio_service:
+            raise ValueError(f"stdio 服务未运行: {server.name}")
+
+        return await stdio_manager.send_request(
+            service_id=stdio_service.service_id,
+            method=method,
+            params=params,
+            timeout=10.0,
+        )
+    else:
+        raise ValueError(f"不支持的传输类型: {server.transport_type}")
+
+
+# ============================================================
 # resources 相关方法
 # ============================================================
 
 async def _handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
     """处理 resources/list 方法.
 
-    返回可用的资源列表。
-    当前为基础框架实现，返回空列表，后续可接入各 MCP 服务器的资源。
+    遍历所有已注册的在线 MCP 服务器，并发调用 resources/list，
+    聚合结果并按 uri 去重后返回。
 
     Args:
         params: 参数
@@ -273,18 +350,41 @@ async def _handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         资源列表
     """
-    # TODO: 从各 MCP 服务器聚合 resources
-    # 目前返回空列表作为占位实现
+    servers = mcp_registry.list_servers(status="online")
+    if not servers:
+        return {"resources": []}
+
+    async def _fetch(server: Any) -> List[Dict[str, Any]]:
+        try:
+            result = await _send_mcp_request_async(server, "resources/list", {})
+            if isinstance(result, dict):
+                return result.get("resources", [])
+            return []
+        except Exception:
+            return []
+
+    results = await asyncio.gather(*(_fetch(s) for s in servers), return_exceptions=True)
+
+    seen: Dict[str, Dict[str, Any]] = {}
+    for res_list in results:
+        if isinstance(res_list, Exception):
+            continue
+        for resource in res_list:
+            if isinstance(resource, dict):
+                uri = resource.get("uri")
+                if uri and uri not in seen:
+                    seen[uri] = resource
+
     return {
-        "resources": [],
+        "resources": list(seen.values()),
     }
 
 
 async def _handle_resources_read(params: Dict[str, Any]) -> Dict[str, Any]:
     """处理 resources/read 方法.
 
-    读取指定资源的内容。
-    当前为基础框架实现，返回方法未找到错误，后续可接入各 MCP 服务器的资源读取。
+    解析 URI scheme 作为服务器名，路由到对应 MCP 服务器读取资源。
+    若 scheme 未匹配到服务器，则 fallback 遍历所有在线服务器尝试读取。
 
     Args:
         params: 参数，包含 uri
@@ -299,9 +399,54 @@ async def _handle_resources_read(params: Dict[str, Any]) -> Dict[str, Any]:
     if not uri:
         raise ValueError("缺少资源 URI 参数")
 
-    # TODO: 路由到对应 MCP 服务器读取资源
-    # 目前为占位实现
-    raise ValueError(f"资源不可用（占位实现）: {uri}")
+    # 1. 尝试解析 URI scheme 作为服务器名
+    target_server = None
+    scheme = ""
+    if "://" in uri:
+        scheme = uri.split("://")[0]
+    if scheme:
+        candidate = mcp_registry.get_server_by_name(scheme)
+        if candidate and candidate.status == "online":
+            target_server = candidate
+
+    # 2. scheme 匹配成功，直接转发
+    if target_server:
+        try:
+            result = await _send_mcp_request_async(
+                target_server, "resources/read", {"uri": uri}
+            )
+            if isinstance(result, dict):
+                return result
+            return {"contents": [result]} if result is not None else {}
+        except Exception as e:
+            raise ValueError(f"读取资源失败 ({target_server.name}): {e}")
+
+    # 3. Fallback：遍历所有在线服务器并发尝试读取
+    servers = mcp_registry.list_servers(status="online")
+    if not servers:
+        raise ValueError(f"资源不可用: {uri}")
+
+    async def _try_read(server: Any) -> Optional[Dict[str, Any]]:
+        try:
+            result = await _send_mcp_request_async(
+                server, "resources/read", {"uri": uri}
+            )
+            if isinstance(result, dict):
+                return result
+            return {"contents": [result]} if result is not None else {}
+        except Exception:
+            return None
+
+    tasks = [asyncio.create_task(_try_read(s)) for s in servers]
+    for coro in asyncio.as_completed(tasks):
+        result = await coro
+        if result is not None:
+            # 取消剩余任务
+            for t in tasks:
+                t.cancel()
+            return result
+
+    raise ValueError(f"资源不可用: {uri}")
 
 
 # ============================================================
@@ -311,8 +456,8 @@ async def _handle_resources_read(params: Dict[str, Any]) -> Dict[str, Any]:
 async def _handle_prompts_list(params: Dict[str, Any]) -> Dict[str, Any]:
     """处理 prompts/list 方法.
 
-    返回可用的提示词列表。
-    当前为基础框架实现，返回空列表，后续可接入各 MCP 服务器的提示词。
+    遍历所有已注册的在线 MCP 服务器，并发调用 prompts/list，
+    给每个提示词名称加上服务器前缀以保证唯一性，按 name 去重后返回。
 
     Args:
         params: 参数
@@ -320,18 +465,50 @@ async def _handle_prompts_list(params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         提示词列表
     """
-    # TODO: 从各 MCP 服务器聚合 prompts
-    # 目前返回空列表作为占位实现
+    servers = mcp_registry.list_servers(status="online")
+    if not servers:
+        return {"prompts": []}
+
+    async def _fetch(server: Any) -> List[Dict[str, Any]]:
+        try:
+            result = await _send_mcp_request_async(server, "prompts/list", {})
+            if isinstance(result, dict):
+                prompts = result.get("prompts", [])
+                # 给 prompt name 加上服务器前缀，保证唯一性和可路由性
+                processed = []
+                for p in prompts:
+                    if isinstance(p, dict):
+                        new_p = dict(p)
+                        if "name" in new_p:
+                            new_p["name"] = f"{server.name}.{new_p['name']}"
+                        processed.append(new_p)
+                return processed
+            return []
+        except Exception:
+            return []
+
+    results = await asyncio.gather(*(_fetch(s) for s in servers), return_exceptions=True)
+
+    seen: Dict[str, Dict[str, Any]] = {}
+    for prompt_list in results:
+        if isinstance(prompt_list, Exception):
+            continue
+        for prompt in prompt_list:
+            if isinstance(prompt, dict):
+                name = prompt.get("name")
+                if name and name not in seen:
+                    seen[name] = prompt
+
     return {
-        "prompts": [],
+        "prompts": list(seen.values()),
     }
 
 
 async def _handle_prompts_get(params: Dict[str, Any]) -> Dict[str, Any]:
     """处理 prompts/get 方法.
 
-    获取指定提示词的详细信息。
-    当前为基础框架实现，返回方法未找到错误，后续可接入各 MCP 服务器的提示词。
+    解析提示词名称前缀（格式：server_name.prompt_name）路由到对应 MCP 服务器。
+    若前缀未匹配到服务器，则 fallback 遍历所有在线服务器尝试获取。
 
     Args:
         params: 参数，包含 name 和 arguments
@@ -346,9 +523,62 @@ async def _handle_prompts_get(params: Dict[str, Any]) -> Dict[str, Any]:
     if not prompt_name:
         raise ValueError("缺少提示词名称参数")
 
-    # TODO: 路由到对应 MCP 服务器获取提示词
-    # 目前为占位实现
-    raise ValueError(f"提示词不可用（占位实现）: {prompt_name}")
+    # 1. 解析服务器前缀，格式：server_name.prompt_name
+    server_name = ""
+    raw_name = prompt_name
+    if "." in prompt_name:
+        parts = prompt_name.split(".", 1)
+        server_name = parts[0]
+        raw_name = parts[1]
+
+    target_server = None
+    if server_name:
+        candidate = mcp_registry.get_server_by_name(server_name)
+        if candidate and candidate.status == "online":
+            target_server = candidate
+
+    # 2. 前缀匹配成功，直接转发（使用原始 name）
+    if target_server:
+        try:
+            result = await _send_mcp_request_async(
+                target_server,
+                "prompts/get",
+                {"name": raw_name, "arguments": params.get("arguments", {})},
+            )
+            if isinstance(result, dict):
+                return result
+            return {"prompt": result} if result is not None else {}
+        except Exception as e:
+            raise ValueError(f"获取提示词失败 ({target_server.name}): {e}")
+
+    # 3. Fallback：遍历所有在线服务器并发尝试获取
+    servers = mcp_registry.list_servers(status="online")
+    if not servers:
+        raise ValueError(f"提示词不可用: {prompt_name}")
+
+    async def _try_get(server: Any) -> Optional[Dict[str, Any]]:
+        try:
+            result = await _send_mcp_request_async(
+                server,
+                "prompts/get",
+                {"name": prompt_name, "arguments": params.get("arguments", {})},
+            )
+            if isinstance(result, dict):
+                return result
+            return {"prompt": result} if result is not None else {}
+        except Exception:
+            return None
+
+    tasks = [asyncio.create_task(_try_get(s)) for s in servers]
+    for coro in asyncio.as_completed(tasks):
+        result = await coro
+        if result is not None:
+            # 取消剩余任务
+            for t in tasks:
+                t.cancel()
+            return result
+
+    raise ValueError(f"提示词不可用: {prompt_name}")
 
 
 # ============================================================
