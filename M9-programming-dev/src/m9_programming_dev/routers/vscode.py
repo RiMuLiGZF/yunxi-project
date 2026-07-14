@@ -46,6 +46,8 @@ async def stop_vscode(instance_id: str) -> dict:
 @router.post("/{instance_id}/open-file")
 async def open_file(instance_id: str, file_path: str) -> dict:
     """在VSCode中打开文件"""
+    if ".." in file_path:
+        raise HTTPException(status_code=400, detail="文件路径不允许包含 '..'")
     if vscode_manager.open_file(instance_id, file_path):
         return {"status": "opened"}
     raise HTTPException(status_code=400, detail="无法打开文件")

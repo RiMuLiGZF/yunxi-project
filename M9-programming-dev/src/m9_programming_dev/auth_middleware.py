@@ -170,6 +170,14 @@ class RateLimiter:
             return False, {"remaining": 0, "limit": self.max_requests}
 
         bucket["tokens"] -= 1
+
+        # 清理超过2倍窗口时间的过期桶（最多100个）
+        if len(self._buckets) > 500:
+            cutoff = now - self.window_seconds * 2
+            expired = [k for k, v in self._buckets.items() if v["last_refill"] < cutoff]
+            for k in expired[:100]:
+                del self._buckets[k]
+
         return True, {"remaining": bucket["tokens"], "limit": self.max_requests}
 
 

@@ -122,13 +122,17 @@ def get_safe_environ() -> Dict[str, str]:
         "YUNXI_TOKEN", "M8_API_KEY", "ADMIN_TOKEN",
     ]
 
+    # 匹配规则：精确匹配或以 _TOKEN/_KEY/_SECRET/_PASSWORD 结尾
     keys_to_remove = []
     for key in env:
         upper_key = key.upper()
+        matched = False
         for sensitive in sensitive_keys:
-            if sensitive in upper_key:
-                keys_to_remove.append(key)
+            if upper_key == sensitive or upper_key.endswith("_" + sensitive):
+                matched = True
                 break
+        if matched:
+            keys_to_remove.append(key)
 
     for key in keys_to_remove:
         del env[key]

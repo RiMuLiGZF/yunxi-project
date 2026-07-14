@@ -3,8 +3,10 @@
 import sys
 import os
 
-# 将 src 目录加入 Python 路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+# 确保 src 目录在 Python 路径中
+_src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
 
 from m9_programming_dev.main import app
 from m9_programming_dev.config import settings

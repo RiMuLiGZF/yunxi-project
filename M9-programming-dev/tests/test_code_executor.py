@@ -1,5 +1,6 @@
 """M9 代码执行器单元测试"""
 
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 from m9_programming_dev.code_executor import CodeExecutor
@@ -51,6 +52,9 @@ class TestCodeExecutor:
         assert "ValueError" in result.stderr
         assert result.exit_code != 0
 
+    @pytest.mark.skipif(
+        os.name == "nt", reason="Windows 环境无 bash 命令"
+    )
     def test_bash_execution_success(self):
         """测试Bash脚本成功执行"""
         req = CodeExecutionRequest(language="bash", code="echo 'bash works'")

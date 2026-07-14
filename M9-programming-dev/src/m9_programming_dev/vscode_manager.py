@@ -18,6 +18,19 @@ class VSCodeManager:
     def __init__(self):
         self._instances: Dict[str, VSCodeInstance] = {}
     
+    def _cleanup_stale_instances(self):
+        """清理超过24小时的停止/错误实例"""
+        import time
+        cutoff = time.time() - 86400  # 24小时
+        stale = [
+            iid for iid, inst in self._instances.items()
+            if inst.status in (VSCodeStatus.STOPPED, VSCodeStatus.ERROR)
+        ]
+        for iid in stale:
+            del self._instances[iid]
+        if stale:
+            logger.info("清理了 %d 个过期VSCode实例", len(stale))
+
     def list_instances(self) -> List[VSCodeInstance]:
         """列出所有VSCode实例"""
         return list(self._instances.values())
@@ -28,6 +41,7 @@ class VSCodeManager:
     
     def start_instance(self, name: str, workspace: Optional[str] = None) -> VSCodeInstance:
         """启动VSCode实例"""
+        self._cleanup_stale_instances()
         instance_id = str(uuid.uuid4())[:8]
         ws = workspace or settings.vscode_default_workspace
         

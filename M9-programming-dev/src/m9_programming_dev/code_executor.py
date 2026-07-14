@@ -5,12 +5,28 @@ import tempfile
 import os
 import time
 import logging
+import atexit
 from typing import Optional
 
 logger = logging.getLogger("m9.executor")
 from .config import settings
 from .models import CodeExecutionRequest, CodeExecutionResult
 from .sandbox_security import is_code_allowed, get_safe_environ, validate_code_size
+
+# 兜底清理：进程退出时清除残留的临时代码文件
+_temp_files: list = []
+
+
+def _cleanup_temp_files():
+    for f in _temp_files[:]:
+        try:
+            os.unlink(f)
+        except Exception:
+            pass
+        _temp_files.remove(f) if f in _temp_files else None
+
+
+atexit.register(_cleanup_temp_files)
 
 
 class CodeExecutor:
@@ -72,6 +88,7 @@ class CodeExecutor:
             with tempfile.NamedTemporaryFile(mode='w', suffix=ext, delete=False, encoding='utf-8') as f:
                 f.write(request.code)
                 temp_file = f.name
+                _temp_files.append(temp_file)
 
             # 构建执行命令
             cmd_template = self.LANGUAGE_COMMANDS.get(request.language)

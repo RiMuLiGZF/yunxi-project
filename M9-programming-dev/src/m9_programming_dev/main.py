@@ -49,6 +49,18 @@ def _verify_m8_token(x_m8_token: str = "") -> bool:
     return hmac.compare_digest(x_m8_token, expected)
 
 
+# 依赖注入（可选，方便测试时替换）
+_app_state_manager = None
+_app_state_executor = None
+
+
+def set_app_state(vscode_mgr, project_mgr):
+    """设置应用状态管理器（用于依赖注入）"""
+    global _app_state_manager, _app_state_executor
+    _app_state_manager = vscode_mgr
+    _app_state_executor = project_mgr
+
+
 @app.get("/health")
 async def health_check() -> dict:
     """健康检查"""
@@ -96,8 +108,8 @@ async def m8_std_metrics(x_m8_token: str = Header(default="")) -> dict:
             "cpu_usage": cpu_usage,
             "memory_usage": mem_usage,
             "memory_mb": round(mem_mb, 2),
-            "vscode_instances": len(vscode_manager.list_instances()),
-            "active_projects": len(project_manager.list_projects()),
+            "vscode_instances": len((_app_state_manager or vscode_manager).list_instances()),
+            "active_projects": len((_app_state_executor or project_manager).list_projects()),
         },
     }
 

@@ -62,6 +62,8 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         清理后的安全文件名
     """
+    # 移除null字节
+    filename = filename.replace("\x00", "")
     # 移除路径分隔符
     filename = filename.replace("/", "_").replace("\\", "_")
     # 移除开头的点（隐藏文件）
