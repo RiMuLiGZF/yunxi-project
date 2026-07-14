@@ -2,16 +2,26 @@
 M1 Agent 集群 - 联邦调度模型
 
 联邦调度系统相关的 Pydantic 请求/响应模型。
-迁移自 api/server.py 中的联邦调度模型定义。
+包含从 shared_models 迁移的联邦调度核心模型。
 """
 
 from __future__ import annotations
 
+import time
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base import M1BaseModel
+from models.enums import (
+    ComparisonOutputMode,
+    ConnectionType,
+    ExternalAgentType,
+    AgentPrivacyLevel,
+    LicenseType,
+    UserPreferenceMode,
+    SecurityClassification,
+)
 
 
 class FedRegisterRequest(M1BaseModel):
@@ -107,3 +117,110 @@ class FedBudgetRequest(M1BaseModel):
     """
 
     monthly_budget: float = Field(default=10.0, ge=0, le=100000)
+
+
+# ══════════════════════════════════════════════════════════
+# 联邦调度核心模型（从 shared_models 迁移）
+# ══════════════════════════════════════════════════════════
+
+
+class CostModel(BaseModel):
+    """外部 Agent 成本模型"""
+    input_per_1k: float = 0.0     # 输入单价（美元/1K tokens）
+    output_per_1k: float = 0.0    # 输出单价（美元/1K tokens）
+    currency: str = "USD"
+    per_request: float = 0.0      # 每次请求固定费用
+
+
+class ExternalAgentProfile(BaseModel):
+    """外部 Agent 能力画像"""
+    agent_id: str = ""
+    display_name: str = ""
+    provider: str = ""              # 服务商名称
+    agent_type: ExternalAgentType = ExternalAgentType.LLM
+    capabilities: list[str] = Field(default_factory=list)  # 能力标签
+    languages: list[str] = Field(default_factory=lambda: ["zh", "en"])
+    response_speed: str = "medium"  # fast / medium / slow
+    quality_rating: float = 4.0     # 1-5 质量评分
+    cost_model: CostModel = Field(default_factory=CostModel)
+    privacy_level: AgentPrivacyLevel = AgentPrivacyLevel.STANDARD
+    connection_type: ConnectionType = ConnectionType.API_KEY
+    license: LicenseType = LicenseType.OTHER
+    status: str = "active"          # active / inactive / error
+    config: dict[str, Any] = Field(default_factory=dict)  # 连接配置（不含密钥）
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+    last_health_check: float | None = None
+
+
+class FederationDecision(BaseModel):
+    """联邦调度决策结果"""
+    use_external: bool = False
+    selected_agent_id: str = ""
+    selected_agent_name: str = ""
+    decision_reason: str = ""
+    estimated_cost: float = 0.0     # 预估费用（美元）
+    estimated_latency: str = "medium"
+    privacy_check: str = "passed"   # passed / warning / blocked
+    quality_score: float = 0.0      # 综合评分 0-100
+    fallback_agent_id: str = ""     # 备选 Agent
+
+
+class AgentResultItem(BaseModel):
+    """单 Agent 结果条目"""
+    agent_id: str = ""
+    agent_name: str = ""
+    output: str = ""
+    quality_score: float = 0.0      # 0-100
+    cost: float = 0.0
+    latency_ms: float = 0.0
+    success: bool = True
+    error: str = ""
+
+
+class MultiAgentComparison(BaseModel):
+    """多 Agent 对比结果"""
+    task_id: str = ""
+    results: list[AgentResultItem] = Field(default_factory=list)
+    best_result_index: int = 0
+    fusion_output: str = ""         # 融合输出（可选）
+    output_mode: ComparisonOutputMode = ComparisonOutputMode.BEST_ONLY
+    comparison_summary: str = ""
+    total_cost: float = 0.0
+
+
+class CostRecord(BaseModel):
+    """成本记录"""
+    record_id: str = ""
+    task_id: str = ""
+    agent_id: str = ""
+    agent_name: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: float = 0.0
+    currency: str = "USD"
+    timestamp: float = Field(default_factory=time.time)
+    task_type: str = ""
+    success: bool = True
+
+
+class FederationBudget(BaseModel):
+    """联邦调度预算"""
+    monthly_budget: float = 10.0    # 月度预算（美元）
+    spent_this_month: float = 0.0   # 本月已花费
+    alert_threshold_50: bool = False
+    alert_threshold_80: bool = False
+    alert_threshold_100: bool = False
+    currency: str = "USD"
+    last_reset_month: str = ""      # YYYY-MM
+
+
+class PrivacyScanResult(BaseModel):
+    """隐私扫描结果"""
+    passed: bool = True
+    risk_level: str = "none"        # none / low / medium / high
+    detections: list[dict[str, Any]] = Field(default_factory=list)
+    sanitized_content: str = ""     # 脱敏后的内容
+    blocked: bool = False
+    block_reason: str = ""
+    summary: str = ""

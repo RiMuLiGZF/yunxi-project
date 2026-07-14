@@ -186,10 +186,12 @@ class PythonDevSkill(CodeExecutionSkillBase):
     return arr
 '''
 
-        # 默认模板
+        # 默认模板（未匹配到已知模式时的 fallback）
+        # 后续可扩展为：注入 LLM 调用（参考 M4 _call_llm_for_codegen），
+        # 根据 description 动态生成完整函数体。
         return f'''def {func_name}(*args, **kwargs):
     \"\"\"{description}\"\"\"
-    # TODO: implement
+    # TODO: implement — 可接入 LLM 动态生成（参考 M4 _call_llm_for_codegen）
     return args
 '''
 

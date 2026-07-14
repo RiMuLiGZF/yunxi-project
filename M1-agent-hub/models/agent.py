@@ -1,16 +1,19 @@
 """
 M1 Agent 集群 - Agent 相关模型
 
-Agent 注册、信息查询、状态管理等相关的 Pydantic 模型。
+Agent 注册、信息查询、状态管理、身份模型、分身池、人格偏好等相关的 Pydantic 模型。
+包含从 shared_models 迁移的 Agent 核心模型。
 """
 
 from __future__ import annotations
 
-from typing import Any
+import uuid
+from typing import Any, TypedDict
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base import M1BaseModel
+from models.enums import AgentRole, CloneType, SecurityClassification
 
 
 class AgentStatusResponse(M1BaseModel):
@@ -87,3 +90,63 @@ class AgentListResponse(M1BaseModel):
 
     total: int = 0
     agents: list[AgentInfo] = Field(default_factory=list)
+
+
+# ══════════════════════════════════════════════════════════
+# Agent 核心模型（从 shared_models 迁移）
+# ══════════════════════════════════════════════════════════
+
+
+class SubAgentIdentity(BaseModel):
+    """子Agent身份模型"""
+    agent_id: str = ""
+    name: str = ""
+    role: AgentRole = AgentRole.EXECUTOR
+    version: str = "1.0.0"
+    capabilities: list[str] = Field(default_factory=list)
+    security_clearance: SecurityClassification = SecurityClassification.INTERNAL
+
+
+class CloneIdentity(BaseModel):
+    """临时分身身份"""
+    clone_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    parent_agent_id: str = ""
+    clone_type: CloneType = CloneType.SCOUT
+    task_id: str = ""
+    capabilities: list[str] = Field(default_factory=list)
+    security_clearance: SecurityClassification = SecurityClassification.PUBLIC  # 分身默认最低权限
+    created_at: float = Field(default_factory=lambda: __import__("time").time())
+    ttl: int = 300  # 秒，分身最大存活时间
+    minimized_context: dict[str, Any] = Field(default_factory=dict)  # 最小信息下发
+
+
+class PersonalityPreference(BaseModel):
+    """云汐人格用户偏好配置
+
+    存储在 M5 潮汐记忆系统（L2 海湾层），标记为 CONFIDENTIAL 级。
+    """
+    user_id: str = ""
+    tone_temperature: str = "default"   # colder / default / warmer
+    formality_level: str = "medium"     # casual / medium / formal
+    verbosity: str = "balanced"         # concise / balanced / detailed
+    humor_level: str = "medium"         # low / medium / high
+    nickname: str | None = None         # 用户自定义称呼
+    updated_at: float = Field(default_factory=lambda: __import__("time").time())
+    version: int = 1
+
+
+class AgentInfoDict(TypedDict):
+    """Agent 信息 TypedDict
+
+    用于 Agent 注册中心对外暴露的 Agent 结构化信息。
+    """
+    agent_id: str
+    name: str
+    version: str
+    role: str                      # supervisor / executor / reviewer / external
+    capabilities: list[str]
+    status: str                    # active / inactive / error
+    registered: bool
+    health_status: str             # up / down / degraded / unknown
+    security_clearance: int        # SecurityClassification 的值
+    last_health_check: float | None

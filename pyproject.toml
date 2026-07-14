@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yunxi-project"
-version = "0.1.0"
+version = "0.5.0"
 description = "云汐项目 - Python 后端服务"
 requires-python = ">=3.10"
 readme = "README.md"

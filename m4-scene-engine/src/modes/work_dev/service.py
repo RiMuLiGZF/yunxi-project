@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+import httpx
 import structlog
 from sqlalchemy.orm import Session
 
@@ -1053,7 +1054,7 @@ def main():
     """Main entry point."""
     print("Hello, Yunxi!")
     # NOTE: 请根据上方 Prompt 实现具体业务逻辑
-    # TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
+    # TODO: 接入 _call_llm_for_codegen() 动态生成
     pass
 
 
@@ -1073,7 +1074,7 @@ if __name__ == "__main__":
 function main() {{
   console.log('Hello, Yunxi!'){semicolon}
   // NOTE: 请根据上方 Prompt 实现具体业务逻辑
-  // TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
+  // TODO: 接入 _call_llm_for_codegen() 动态生成
 }}
 
 main(){semicolon}"""
@@ -1091,7 +1092,7 @@ import "fmt"
 func main() {{
 \tfmt.Println("Hello, Yunxi!")
 \t// NOTE: 请根据上方 Prompt 实现具体业务逻辑
-\t// TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
+\t// TODO: 接入 _call_llm_for_codegen() 动态生成
 }}
 '''
 
@@ -1104,7 +1105,7 @@ func main() {{
 fn main() {{
     println!("Hello, Yunxi!");
     // NOTE: 请根据上方 Prompt 实现具体业务逻辑
-    // TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
+    // TODO: 接入 _call_llm_for_codegen() 动态生成
 }}
 '''
 
@@ -1384,3 +1385,85 @@ fn main() {{
         # 按时间排序
         activities.sort(key=lambda x: x["time"], reverse=True)
         return activities[:limit]
+
+    # -----------------------------------------------------------------------
+    # LLM 代码生成
+    # -----------------------------------------------------------------------
+
+    async def _call_llm_for_codegen(
+        self,
+        prompt: str,
+        language: str = "python",
+        context: str = "",
+    ) -> str:
+        """调用 LLM 接口生成代码.
+
+        通过 httpx.AsyncClient 调用已配置的 LLM 服务端点，
+        根据 prompt、语言和上下文代码生成目标代码。
+
+        Args:
+            prompt: 用户需求描述
+            language: 目标编程语言
+            context: 上下文代码（可选，用于增量生成）
+
+        Returns:
+            LLM 返回的生成代码字符串
+
+        Raises:
+            httpx.HTTPError: 网络或服务端错误时抛出
+        """
+        llm_url = os.environ.get(
+            "LLM_CODEGEN_URL",
+            "http://localhost:11434/v1/completions",
+        )
+        llm_api_key = os.environ.get("LLM_API_KEY", "")
+        model = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
+
+        # 构建系统提示词
+        system_prompt = (
+            f"你是一个专业的 {language} 代码生成助手。"
+            f"请根据用户的需求描述，生成高质量的 {language} 代码。"
+            f"只输出代码本身，不要包含额外说明。"
+        )
+        if context:
+            system_prompt += f"\n参考已有上下文代码：\n{context}"
+
+        # 构建请求体（兼容 OpenAI 接口格式）
+        payload = {
+            "model": model,
+            "prompt": f"{system_prompt}\n\n用户需求：{prompt}\n\n请生成{language}代码：",
+            "max_tokens": 2048,
+            "temperature": 0.3,
+            "stop": ["```", "---"],
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+        if llm_api_key:
+            headers["Authorization"] = f"Bearer {llm_api_key}"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                llm_url,
+                json=payload,
+                headers=headers,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+        # 兼容不同 LLM 返回格式
+        raw_code = ""
+        if "choices" in result:
+            choice = result["choices"][0]
+            if "text" in choice:
+                raw_code = choice["text"]
+            elif "message" in choice:
+                raw_code = choice["message"].get("content", "")
+        elif "response" in result:
+            raw_code = result["response"]
+        else:
+            raw_code = str(result)
+
+        # 清理并返回生成的代码
+        return raw_code.strip()

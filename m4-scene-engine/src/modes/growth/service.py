@@ -476,6 +476,17 @@ class GrowthService:
             points_earned = result.get("points_earned", 0)
             if points_earned > 0:
                 # TODO: 接入 M5 天赋点数奖励接口
+                # 接入方式：
+                #   1. 导入: from tide_memory.growth.talents import TalentManager
+                #   2. 实例化: tm = TalentManager()
+                #   3. 调用: tm.add_points(
+                #           amount=points_earned,
+                #           source="season",
+                #           source_id=task_id,
+                #           reason=f"赛季任务完成:{task_id}"
+                #       )
+                # 注意: M5 服务需在 M4 环境中可访问，建议通过 shared.module_client
+                #       调用 M5 的 /api/v1/growth/talents/points 接口。
                 logger.info(
                     "growth_service.talent_points_reward",
                     user_id=self.user_id,

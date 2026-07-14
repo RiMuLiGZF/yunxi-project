@@ -2,7 +2,7 @@
 .SYNOPSIS
 云汐系统一键启动脚本
 .DESCRIPTION
-按依赖顺序启动所有模块（M0-M12）
+按依赖顺序启动所有模块（M0-M12），覆盖全部13个模块
 #>
 
 $ErrorActionPreference = "Continue"
@@ -20,7 +20,7 @@ $Modules = @(
         Name = "M5-潮汐记忆"
         Port = 8005
         Path = "M5-tide-memory"
-        Cmd = "python server.py"
+        Cmd = "python src/main.py"
         LogFile = "m5.log"
     },
     @{
@@ -33,8 +33,8 @@ $Modules = @(
     @{
         Name = "M4-场景引擎"
         Port = 8004
-        Path = "M4-scene-engine"
-        Cmd = "python server.py"
+        Path = "m4-scene-engine"
+        Cmd = "python -m src.main"
         LogFile = "m4.log"
     },
     @{
@@ -59,38 +59,52 @@ $Modules = @(
         LogFile = "m1.log"
     },
     @{
-        Name = "M7-积木平台"
-        Port = 3001
+        Name = "M7-积木编排"
+        Port = 8007
         Path = "M7-workflow-builder"
-        Cmd = "python server.py"
+        Cmd = "python -m src.main"
         LogFile = "m7.log"
     },
     @{
-        Name = "M8-管理台"
+        Name = "M8-控制塔"
         Port = 8008
-        Path = "M8-control-tower\backend"
-        Cmd = "uvicorn main:app --port 8008"
+        Path = "M8-control-tower"
+        Cmd = "python -m backend.main"
         LogFile = "m8.log"
+    },
+    @{
+        Name = "M9-开发者工坊"
+        Port = 8009
+        Path = "M9-dev-workshop"
+        Cmd = "python backend/main.py"
+        LogFile = "m9.log"
+    },
+    @{
+        Name = "M10-系统卫士"
+        Port = 8010
+        Path = "M10-system-guard"
+        Cmd = "python server.py"
+        LogFile = "m10.log"
     },
     @{
         Name = "M0-主理人管控台"
         Port = 8000
         Path = "M0-principal-console"
-        Cmd = "python server.py"
+        Cmd = "python -m src.main"
         LogFile = "m0.log"
     },
     @{
         Name = "M11-MCP总线"
         Port = 8011
         Path = "M11-mcp-bus"
-        Cmd = "python server.py"
+        Cmd = "python -m src.main"
         LogFile = "m11.log"
     },
     @{
         Name = "M12-安全盾"
         Port = 8012
         Path = "M12-security-shield"
-        Cmd = "python server.py"
+        Cmd = 'python -m backend.main'
         LogFile = "m12.log"
     }
 )
@@ -158,7 +172,8 @@ Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "  启动完成！成功 $successCount / $($Modules.Count)" -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
 Write-Host "  M0 主理人管控台: http://localhost:8000" -ForegroundColor White
-Write-Host "  M8 管理台: http://localhost:8008/startup/index.html" -ForegroundColor White
+Write-Host "  M8 控制塔: http://localhost:8008" -ForegroundColor White
+Write-Host "  M9 开发者工坊: http://localhost:8009" -ForegroundColor White
 Write-Host "  M11 MCP总线: http://localhost:8011" -ForegroundColor White
 Write-Host "  M12 安全盾: http://localhost:8012" -ForegroundColor White
 Write-Host "  日志目录: $LogDir" -ForegroundColor Gray

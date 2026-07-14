@@ -1369,12 +1369,13 @@ def main():
     """Main entry point."""
     print("Hello, Yunxi!")
     # TODO: Implement business logic here
+    # 后续应接入 LLM（参考 M4 _call_llm_for_codegen）根据 prompt 动态生成，
+    # 或通过 M4 WorkDevService 的 code_chat 接口获取智能代码生成。
     pass
 
 
 if __name__ == "__main__":
     main()'''
-
 
 def _generate_javascript_code(prompt: str, language: str = "javascript") -> str:
     """生成 JavaScript/TypeScript 代码模板"""
@@ -1384,6 +1385,8 @@ def _generate_javascript_code(prompt: str, language: str = "javascript") -> str:
 function main() {{
   console.log('Hello, Yunxi!');
   // TODO: Implement business logic here
+  // 后续应接入 LLM（参考 M4 _call_llm_for_codegen）根据 prompt 动态生成，
+  // 或通过 M4 WorkDevService 的 code_chat 接口获取智能代码生成。
 }}
 
 main();"""
@@ -1401,6 +1404,8 @@ import "fmt"
 func main() {{
 	fmt.Println("Hello, Yunxi!")
 	// TODO: Implement business logic here
+	// 后续应接入 LLM（参考 M4 _call_llm_for_codegen）根据 prompt 动态生成，
+	// 或通过 M4 WorkDevService 的 code_chat 接口获取智能代码生成。
 }}
 '''
 
@@ -1413,6 +1418,8 @@ def _generate_rust_code(prompt: str) -> str:
 fn main() {{
     println!("Hello, Yunxi!");
     // TODO: Implement business logic here
+    // 后续应接入 LLM（参考 M4 _call_llm_for_codegen）根据 prompt 动态生成，
+    // 或通过 M4 WorkDevService 的 code_chat 接口获取智能代码生成。
 }}
 '''
 
