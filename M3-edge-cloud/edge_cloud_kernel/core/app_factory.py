@@ -410,9 +410,15 @@ def _register_root_endpoint(app: FastAPI) -> None:
                 "mock_mode": mock_components,
             },
             "endpoints": {
+                # 基础健康检查
                 "health": "/health",
-                "m8_health": "/api/v3/health",
-                "m8_metrics": "/api/v3/metrics",
+                # M8 标准对接接口（/m8/* 前缀）
+                "m8_health": "/m8/health",
+                "m8_metrics": "/m8/metrics",
+                "m8_config": "/m8/config",
+                # 业务 API（/api/v3/* 前缀）
+                "api_health": "/api/v3/health",
+                "api_metrics": "/api/v3/metrics",
                 "config": "/api/v3/config",
                 "sync_status": "/api/v3/sync/status",
                 "sync_conflict_resolve": "/api/v3/sync/conflicts/{id}/resolve",
