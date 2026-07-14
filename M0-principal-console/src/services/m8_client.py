@@ -22,6 +22,28 @@ from ..models import (
     SystemResources,
 )
 
+MODULE_PORTS = {
+    "m0": 8000, "m1": 8001, "m2": 8002, "m3": 8003,
+    "m4": 8004, "m5": 8005, "m6": 8006, "m7": 8007,
+    "m8": 8008, "m9": 8009, "m10": 8010, "m11": 8011, "m12": 8012,
+}
+
+MODULE_NAMES = {
+    "m0": "M0 主理人控制台",
+    "m1": "M1 Agent Hub",
+    "m2": "M2 技能集群",
+    "m3": "M3 边云协同",
+    "m4": "M4 场景引擎",
+    "m5": "M5 潮汐记忆",
+    "m6": "M6 硬件外设",
+    "m7": "M7 积木平台",
+    "m8": "M8 控制塔",
+    "m9": "M9 开发工坊",
+    "m10": "M10 系统守护",
+    "m11": "M11 MCP 总线",
+    "m12": "M12 扩展服务",
+}
+
 
 class M8Client:
     """
@@ -111,6 +133,48 @@ class M8Client:
             return False
 
     # ------------------------------------------------------------------
+    # 模块状态收集
+    # ------------------------------------------------------------------
+
+    async def _collect_from_modules(self) -> List[ModuleStatusItem]:
+        """
+        直接轮询各模块的 /m8/health 接口收集真实状态。
+        超时或失败则标记为 stopped。
+        """
+        async def _probe(module: str, port: int) -> ModuleStatusItem:
+            try:
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    headers = {"X-M8-Token": f"yunxi-{module}-admin-token-2026"}
+                    response = await client.get(
+                        f"http://127.0.0.1:{port}/m8/health",
+                        headers=headers,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        return ModuleStatusItem(
+                            key=module,
+                            name=MODULE_NAMES.get(module, module),
+                            status=data.get("status", "unknown"),
+                            port=port,
+                            version=data.get("version"),
+                            last_heartbeat=datetime.now(),
+                        )
+            except Exception:
+                pass
+            return ModuleStatusItem(
+                key=module,
+                name=MODULE_NAMES.get(module, module),
+                status="stopped",
+                port=port,
+                version=None,
+                last_heartbeat=None,
+            )
+
+        tasks = [_probe(m, p) for m, p in MODULE_PORTS.items()]
+        results = await asyncio.gather(*tasks)
+        return list(results)
+
+    # ------------------------------------------------------------------
     # 模块管理
     # ------------------------------------------------------------------
 
@@ -121,21 +185,9 @@ class M8Client:
         Returns:
             List[ModuleStatusItem]: 模块状态列表
         """
-        result = await self._request("GET", "/modules")
-        if result and result.get("code") == 0 and result.get("data"):
-            modules_data = result["data"]
-            if isinstance(modules_data, list):
-                return [
-                    ModuleStatusItem(
-                        key=m.get("key", m.get("module_key", "unknown")),
-                        name=m.get("name", m.get("module_name", "未知模块")),
-                        status=m.get("status", "unknown"),
-                        port=m.get("port"),
-                        version=m.get("version"),
-                        last_heartbeat=m.get("last_heartbeat"),
-                    )
-                    for m in modules_data
-                ]
+        modules = await self._collect_from_modules()
+        if any(m.status != "stopped" for m in modules):
+            return modules
         # Fallback: 返回 mock 数据
         return self._mock_modules()
 
@@ -191,24 +243,27 @@ class M8Client:
         Returns:
             DashboardSummary: 仪表盘汇总数据
         """
-        result = await self._request("GET", "/dashboard/summary")
-        if result and result.get("code") == 0 and result.get("data"):
-            d = result["data"]
-            return DashboardSummary(
-                module_count=d.get("module_count", 0),
-                module_running=d.get("module_running", 0),
-                module_stopped=d.get("module_stopped", 0),
-                system_resources=SystemResources(**d.get("system_resources", {})),
-                alerts=[AlertItem(**a) for a in d.get("alerts", [])],
-                alert_critical_count=d.get("alert_critical_count", 0),
-                alert_warning_count=d.get("alert_warning_count", 0),
-                version=d.get("version", settings.version),
-                today_conversations=d.get("today_conversations", 0),
-                memory_total=d.get("memory_total", 0),
-                uptime_hours=d.get("uptime_hours", 0.0),
-            )
-        # Fallback: 返回 mock 数据
-        return self._mock_dashboard_summary()
+        modules = await self._collect_from_modules()
+        if all(m.status == "stopped" for m in modules):
+            return self._mock_dashboard_summary()
+
+        running = sum(1 for m in modules if m.status != "stopped")
+        stopped = sum(1 for m in modules if m.status == "stopped")
+        mock = self._mock_dashboard_summary()
+
+        return DashboardSummary(
+            module_count=len(modules),
+            module_running=running,
+            module_stopped=stopped,
+            system_resources=mock.system_resources,
+            alerts=mock.alerts,
+            alert_critical_count=mock.alert_critical_count,
+            alert_warning_count=mock.alert_warning_count,
+            version=settings.version,
+            today_conversations=mock.today_conversations,
+            memory_total=mock.memory_total,
+            uptime_hours=mock.uptime_hours,
+        )
 
     async def get_alerts(self) -> List[AlertItem]:
         """

@@ -49,7 +49,7 @@ class M8Config(BaseModel):
     """M8 控制塔连接配置"""
     base_url: str = "http://localhost:8000"
     timeout: int = 10
-    api_prefix: str = "/api"
+    api_prefix: str = "/api/system"
 
 
 class JWTConfig(BaseModel):
