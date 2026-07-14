@@ -1578,6 +1578,7 @@ def _register_routes(
     # === M8 标准对接接口（V11.1 新增）===
     # 覆盖 /health 和 /metrics 为 M8 标准格式
     # 新增 /config、/upgrade、/test 等管理接口
+    # /m8/health、/m8/metrics、/m8/config 为 M8 标准路径别名
     try:
         from api.m8_interface import register_m8_routes
         register_m8_routes(
@@ -1586,8 +1587,18 @@ def _register_routes(
             health_monitor=health_monitor,
             metrics_collector=None,
             orchestrator=orchestrator,
+            registry=registry,
+        )
+        logger.info(
+            "m8_routes_registered_ok",
+            module="m1",
+            has_registry=registry is not None,
         )
     except Exception as exc:
-        logger.warning("m8_routes_register_failed", error=str(exc))
+        logger.error(
+            "m8_routes_register_failed",
+            error=str(exc),
+            exc_type=exc.__class__.__name__,
+        )
 
     return app

@@ -58,6 +58,7 @@ def register_m8_routes(
     health_monitor: Any = None,
     metrics_collector: Any = None,
     orchestrator: Any = None,
+    registry: Any = None,
 ) -> None:
     """注册 M8 标准接口到 FastAPI 应用
 
@@ -67,9 +68,20 @@ def register_m8_routes(
         health_monitor: 健康监控器实例
         metrics_collector: 指标收集器实例
         orchestrator: 编排器实例
+        registry: Agent 注册表实例（用于获取 agent_count）
     """
-    # 先移除已有的同名路由（确保 M8 版本覆盖旧版本）
-    _remove_existing_routes(app, ["/health", "/metrics"])
+    # 先移除已有的同名路由（确保 M8 版本覆盖旧版本，包含 /m8/* 标准路径别名）
+    _remove_existing_routes(
+        app,
+        ["/health", "/metrics", "/m8/health", "/m8/metrics", "/m8/config"],
+    )
+    logger.info(
+        "m8_routes_register_start",
+        module=MODULE_ID,
+        version=MODULE_VERSION,
+        has_registry=registry is not None,
+        has_config_manager=config_manager is not None,
+    )
 
     # ── 鉴权辅助 ─────────────────────────────────────
 
@@ -200,8 +212,13 @@ def register_m8_routes(
 
         if config_manager is not None:
             try:
-                # 获取完整配置并脱敏
-                config_data = config_manager.export_masked() if hasattr(config_manager, 'export_masked') else {}
+                # 获取完整配置并脱敏（优先使用 to_dict(mask_sensitive=True)）
+                if hasattr(config_manager, 'to_dict'):
+                    config_data = config_manager.to_dict(mask_sensitive=True)
+                elif hasattr(config_manager, 'export_masked'):
+                    config_data = config_manager.export_masked()
+                else:
+                    config_data = {}
             except Exception as exc:
                 config_data = {"error": str(exc)}
         else:
@@ -496,19 +513,134 @@ def register_m8_routes(
         if not task:
             raise HTTPException(status_code=404, detail="测试任务不存在")
 
-        
-    
+        return JSONResponse(content={
+            "success": True,
+            **task,
+        })
+
     # ---- /m8/* 标准路径别名（与其他模块保持一致） ----
+    # /m8/health：带 Token 鉴权，返回 module/version/status/timestamp
     @app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
-    async def m8_std_health(x_m8_token: str = Header(default="")):
-        return await m8_health()
+    async def m8_std_health(x_m8_token: str = Header(default="")) -> JSONResponse:
+        """M8 标准健康检查端点（需 Token 鉴权）
 
+        返回字段：module、version、status、timestamp
+        """
+        if not _verify_m8_token(x_m8_token):
+            logger.warning("m8_health_auth_failed", module=MODULE_ID)
+            raise HTTPException(status_code=401, detail="M8 管理令牌无效")
+
+        status = "healthy"
+        if health_monitor is not None:
+            try:
+                overall = await health_monitor.overall_status()
+                raw_status = overall.get("status", "up")
+                if raw_status == "up":
+                    status = "healthy"
+                elif raw_status == "degraded":
+                    status = "degraded"
+                else:
+                    status = "unhealthy"
+            except Exception:
+                status = "degraded"
+
+        logger.info("m8_health_ok", module=MODULE_ID, status=status)
+        return JSONResponse(content={
+            "module": MODULE_ID,
+            "version": MODULE_VERSION,
+            "status": status,
+            "timestamp": time.time(),
+        })
+
+    # /m8/metrics：返回 agent_count/active_agents/task_queue_size/cpu_usage/memory_mb
     @app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
-    async def m8_std_metrics(x_m8_token: str = Header(default="")):
-        return await m8_metrics()
+    async def m8_std_metrics(x_m8_token: str = Header(default="")) -> JSONResponse:
+        """M8 标准性能指标端点
 
+        返回字段：agent_count、active_agents、task_queue_size、cpu_usage、memory_mb
+        """
+        import psutil
+
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        process = psutil.Process()
+        memory_mb = round(process.memory_info().rss / (1024 * 1024), 2)
+
+        agent_count = 0
+        active_agents = 0
+        task_queue_size = 0
+
+        # 从 registry 获取 agent 总数
+        if registry is not None:
+            try:
+                agents = registry.list_all() if hasattr(registry, "list_all") else []
+                agent_count = len(agents)
+            except Exception:
+                pass
+
+        # 从 orchestrator 获取活跃任务和队列大小
+        if orchestrator is not None:
+            try:
+                stats = orchestrator.get_stats() if hasattr(orchestrator, "get_stats") else {}
+                active_agents = stats.get("active_tasks", 0)
+                task_queue_size = stats.get("queue_size", 0)
+            except Exception:
+                pass
+
+        return JSONResponse(content={
+            "agent_count": agent_count,
+            "active_agents": active_agents,
+            "task_queue_size": task_queue_size,
+            "cpu_usage": cpu_usage,
+            "memory_mb": memory_mb,
+            "module": MODULE_ID,
+            "version": MODULE_VERSION,
+            "timestamp": time.time(),
+        })
+
+    # /m8/config：返回脱敏后的模块配置信息
     @app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
-    async def m8_std_config(x_m8_token: str = Header(default="")):
-        return await m8_get_config(x_m8_token=x_m8_token)
+    async def m8_std_config(x_m8_token: str = Header(default="")) -> JSONResponse:
+        """M8 标准配置查询端点（需 Token 鉴权，返回脱敏配置）"""
+        if not _verify_m8_token(x_m8_token):
+            logger.warning("m8_config_auth_failed", module=MODULE_ID)
+            raise HTTPException(status_code=401, detail="M8 管理令牌无效")
+
+        config_data: dict[str, Any] = {}
+        if config_manager is not None:
+            try:
+                if hasattr(config_manager, "to_dict"):
+                    config_data = config_manager.to_dict(mask_sensitive=True)
+                elif hasattr(config_manager, "export_masked"):
+                    config_data = config_manager.export_masked()
+                else:
+                    config_data = {}
+            except Exception as exc:
+                logger.error("m8_config_export_failed", error=str(exc))
+                config_data = {"error": str(exc)}
+        else:
+            config_data = {
+                "basic": {
+                    "name": "m1-scheduler",
+                    "version": MODULE_VERSION,
+                    "port": 8001,
+                    "log_level": "info",
+                    "env": os.environ.get("ENV", "development"),
+                },
+                "security": {
+                    "encryption_key": "***",
+                    "admin_token": "***",
+                    "jwt_secret": "***",
+                },
+            }
+
+        logger.info("m8_config_ok", module=MODULE_ID, masked=True)
+        return JSONResponse(content={
+            "success": True,
+            "module": MODULE_ID,
+            "version": MODULE_VERSION,
+            "config": config_data,
+            "masked": True,
+            "timestamp": time.time(),
+        })
 
 logger.info("m8_routes_registered", module=MODULE_ID, version=MODULE_VERSION)
