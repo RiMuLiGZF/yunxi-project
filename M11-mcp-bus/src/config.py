@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # ---------- 安全配置 ----------
     admin_token: str = Field(default="", description="管理 Token（M8 对接）")
+    api_key_auth_enabled: bool = Field(default=True, description="是否启用 API Key 鉴权，默认启用")
 
     # ---------- 数据库配置 ----------
     db_path: str = Field(default="~/.yunxi/m11_bus.db", description="SQLite 数据库路径")
@@ -68,7 +69,10 @@ class Settings(BaseSettings):
     stdio_stop_timeout: int = Field(default=5, description="stdio 服务停止超时时间（秒）")
 
     # ---------- CORS 配置 ----------
-    cors_origins: str = Field(default="*", description="CORS 允许的来源，逗号分隔")
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+        description="CORS 允许的来源，逗号分隔",
+    )
 
     @property
     def db_file_path(self) -> Path:

@@ -157,7 +157,7 @@ class M10Config(BaseModel):
     audit: AuditConfig = Field(default_factory=AuditConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
     data_aggregation: DataAggregationConfig = Field(default_factory=DataAggregationConfig)
-    cors_origins: str = "*"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 
 
 # ============================================================
@@ -183,6 +183,10 @@ def _apply_env_overrides(config):
         config.sandbox.enabled = True
     elif sandbox_enabled in ("false", "0", "no"):
         config.sandbox.enabled = False
+
+    # CORS 来源覆盖
+    if os.getenv("M10_CORS_ORIGINS"):
+        config.cors_origins = os.getenv("M10_CORS_ORIGINS", "")
 
     return config
 

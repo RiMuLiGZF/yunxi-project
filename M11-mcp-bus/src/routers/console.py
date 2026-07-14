@@ -60,11 +60,11 @@ async def console_page(
     """
     # 鉴权检查：如果没有有效 API Key，返回 401
     if api_key is None:
-        # 开发环境下 api_key 可能为 None（is_development 且未配置 admin_token）
-        # 此时仍然允许访问，但生产环境会在 get_current_api_key 中直接抛出 401
-        # 这里做双重检查，确保安全
+        # api_key 为 None 仅在 API Key 鉴权被显式禁用时发生
+        # （M11_API_KEY_AUTH_ENABLED=false）
+        # 生产环境仍需双重检查，确保安全
         settings = get_settings()
-        if not settings.is_development:
+        if settings.is_production:
             raise HTTPException(
                 status_code=401,
                 detail="需要鉴权才能访问管理控制台",

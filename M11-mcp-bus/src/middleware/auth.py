@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import structlog
 from datetime import datetime
 from fnmatch import fnmatch
 from typing import List, Optional
@@ -18,6 +19,8 @@ from ..config import get_settings
 from ..db import get_session
 from ..models_db import ApiKey
 from ..services.rate_limiter import rate_limiter
+
+logger = structlog.get_logger(__name__)
 
 
 # ============================================================
@@ -156,10 +159,14 @@ async def get_current_api_key(
     if _is_public_path(path):
         return None
 
-    # 从配置读取是否启用鉴权（开发环境默认关闭）
+    # 从配置读取是否启用鉴权（默认启用）
     settings = get_settings()
-    if settings.is_development and not settings.admin_token:
-        # 开发环境且未配置 admin_token 时，跳过鉴权
+    if not settings.api_key_auth_enabled:
+        # 显式禁用 API Key 鉴权时跳过
+        logger.warning(
+            "m11.auth.api_key_auth_disabled",
+            message="API Key 鉴权已被显式禁用（M11_API_KEY_AUTH_ENABLED=false）",
+        )
         return None
 
     # 提取 API Key 值

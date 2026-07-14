@@ -7,12 +7,12 @@ M10 系统卫士 - API 认证中间件
 
 import os
 import hmac
-import logging
+import structlog
 from fastapi import Request, HTTPException, Header
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-logger = logging.getLogger("m10.auth")
+logger = structlog.get_logger("m10.auth")
 
 
 def get_admin_token() -> str:
@@ -21,9 +21,23 @@ def get_admin_token() -> str:
 
 
 def verify_token(token: str) -> bool:
-    """安全验证 Token，使用 hmac.compare_digest 防止时序攻击."""
+    """安全验证 Token，使用 hmac.compare_digest 防止时序攻击.
+
+    Args:
+        token: 请求中携带的令牌.
+
+    Returns:
+        True 表示验证通过.
+    """
     expected = get_admin_token()
     if not expected:
+        logger.warning(
+            "m10.auth.token_not_configured",
+            message="M10_ADMIN_TOKEN 未配置，所有业务接口鉴权将被拒绝",
+        )
+        return False
+    # 拒绝空 Token，防止空值绕过
+    if not token:
         return False
     return hmac.compare_digest(token, expected)
 
@@ -73,7 +87,7 @@ class M10AuthMiddleware(BaseHTTPMiddleware):
                 token = m8_token
 
         if not token:
-            logger.warning(f"未提供认证 Token，拒绝访问: {path}")
+            logger.warning("m10.auth.no_token_provided", path=path)
             return JSONResponse(
                 status_code=401,
                 content={
@@ -84,7 +98,7 @@ class M10AuthMiddleware(BaseHTTPMiddleware):
             )
 
         if not verify_token(token):
-            logger.warning(f"Token 验证失败，拒绝访问: {path}")
+            logger.warning("m10.auth.token_invalid", path=path)
             return JSONResponse(
                 status_code=401,
                 content={

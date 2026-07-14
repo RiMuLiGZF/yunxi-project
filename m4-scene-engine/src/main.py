@@ -346,9 +346,24 @@ import time as _time_m8
 _start_time_m8 = _time_m8.time()
 
 def _verify_m8_token(x_m8_token: str = "") -> bool:
+    """验证 M8 管理令牌（使用 hmac.compare_digest 防止时序攻击）.
+
+    Args:
+        x_m8_token: 请求头中携带的令牌.
+
+    Returns:
+        True 表示验证通过.
+    """
     expected = os.environ.get("M4_ADMIN_TOKEN", "")
     if not expected:
+        logger.warning(
+            "m4.auth.token_not_configured",
+            message="M4_ADMIN_TOKEN 未配置，M8 标准接口暂不鉴权",
+        )
         return True
+    # 拒绝空 Token，防止空值绕过
+    if not x_m8_token:
+        return False
     return hmac.compare_digest(x_m8_token, expected)
 
 
