@@ -9,9 +9,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
+import httpx
 import structlog
 
 from src.models import SCENE_DEFINITIONS
@@ -75,13 +77,14 @@ class SceneRecognizer:
             }
         """
         if not text or not text.strip():
-            return {
+            empty_result = {
                 "scene": "unknown",
                 "confidence": 0.0,
                 "all_scores": {sid: 0.0 for sid in self._scene_keywords},
                 "method": "none",
                 "reason": "输入文本为空",
             }
+            return empty_result
 
         text_lower = text.lower()
         scores: dict[str, float] = {}
@@ -100,6 +103,7 @@ class SceneRecognizer:
 
         # 2. 关键词得分 >= 阈值 -> 直接返回
         if best_score >= self.keyword_threshold:
+            self._schedule_store_to_m5(text, best_scene, best_score)
             result = {
                 "scene": best_scene,
                 "top_scene": best_scene,
@@ -118,6 +122,7 @@ class SceneRecognizer:
             try:
                 llm_result = self._llm_recognize(text, context or {})
                 if llm_result.get("confidence", 0) >= self.keyword_threshold:
+                    self._schedule_store_to_m5(text, llm_result["scene"], llm_result.get("confidence", 0))
                     if include_all_scores:
                         llm_result["all_scores"] = {k: round(v, 4) for k, v in scores.items()}
                         llm_result["scores"] = {k: round(v, 4) for k, v in scores.items()}
@@ -127,6 +132,7 @@ class SceneRecognizer:
                 pass  # LLM 失败时降级到关键词结果
 
         # 4. 返回 unknown
+        self._schedule_store_to_m5(text, "unknown", best_score)
         result = {
             "scene": "unknown",
             "top_scene": "unknown",
@@ -266,6 +272,68 @@ class SceneRecognizer:
     def update_threshold(self, threshold: float) -> None:
         """更新关键词阈值."""
         self.keyword_threshold = max(0.0, min(1.0, threshold))
+
+    # ------------------------------------------------------------------
+    # M5 记忆写入（M4 -> M5 跨模块调用）
+    # ------------------------------------------------------------------
+
+    async def _store_to_m5(
+        self,
+        text: str,
+        scene: str,
+        confidence: float,
+    ) -> None:
+        """将场景识别结果异步写入 M5 记忆服务.
+
+        Args:
+            text: 用户输入文本（原始）
+            scene: 识别到的场景ID
+            confidence: 置信度
+        """
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    "http://localhost:8005/api/v1/memory/store",
+                    json={
+                        "content": (
+                            f"场景识别：用户输入 '{text[:100]}' "
+                            f"被识别为 {scene} 场景"
+                            f"（置信度 {confidence:.2f}）"
+                        ),
+                        "tags": ["scene_recognition", scene],
+                        "source": "m4_recognizer",
+                        "agent_id": "m4_scene_engine",
+                    },
+                )
+        except Exception as e:
+            logger.warning(
+                "recognizer.store_to_m5_failed",
+                scene=scene,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+    def _schedule_store_to_m5(
+        self,
+        text: str,
+        scene: str,
+        confidence: float,
+    ) -> None:
+        """安全地调度异步 M5 写入任务（不阻塞调用方）.
+
+        尝试在已有事件循环中创建 task，若无可运行循环则静默跳过。
+
+        Args:
+            text: 用户输入文本
+            scene: 识别到的场景ID
+            confidence: 置信度
+        """
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._store_to_m5(text, scene, confidence))
+        except RuntimeError:
+            # 没有运行中的事件循环，静默跳过
+            pass
 
     def update_scene_keywords(self, scene_id: str, keywords: list[str]) -> bool:
         """更新指定场景的关键词列表.

@@ -17,6 +17,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+import httpx
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -808,6 +809,20 @@ async def get_realtime_metrics(
     metrics = _get_system_metrics()
     # 自动阈值告警检查
     _check_thresholds_and_generate_alerts(db, metrics)
+
+    # 尝试从 M10 获取增强硬件指标（GPU、温度等 M8 无法自行采集的数据）
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as m10_client:
+            m10_resp = await m10_client.get("http://localhost:8010/api/v1/status/metrics")
+            if m10_resp.status_code == 200:
+                m10_data = m10_resp.json().get("data", m10_resp.json())
+                # 将 M10 返回的增强指标合并到 metrics 中，不覆盖已有字段
+                for key, value in m10_data.items():
+                    if key not in metrics:
+                        metrics[key] = value
+    except Exception:
+        pass  # M10 不可用时静默跳过，不影响原有数据
+
     return ApiResponse.success(data=metrics)
 
 

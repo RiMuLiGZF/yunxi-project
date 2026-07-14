@@ -12,6 +12,7 @@ from collections import deque
 from threading import Lock
 from typing import Any, Callable
 
+import httpx
 import structlog
 
 from src.models import SCENE_DEFINITIONS, DEFAULT_SCENE, SceneSwitchRecord
@@ -137,6 +138,57 @@ class SceneSwitchManager:
                 }
 
         self.register_on_enter("work_dev", _on_enter_work_dev)
+
+        # 场景进入时通过 M2 技能服务激活场景技能（M4 -> M2 跨模块调用）
+        def _on_enter_invoke_skills(
+            scene_id: str,
+            user_id: str,
+            context: dict[str, Any],
+        ) -> dict[str, Any]:
+            """场景进入时调用 M2 技能服务的 activate 动作."""
+            try:
+                resp = httpx.post(
+                    "http://localhost:8002/api/v1/skills/invoke",
+                    json={
+                        "skill_id": f"scene.{scene_id}",
+                        "action": "activate",
+                        "params": {"scene": scene_id},
+                    },
+                    timeout=5.0,
+                )
+                if resp.status_code == 200:
+                    return {
+                        "action": "invoke_skills",
+                        "success": True,
+                        "detail": resp.json(),
+                    }
+                else:
+                    logger.warning(
+                        "switcher.invoke_skills_non_200",
+                        scene_id=scene_id,
+                        status_code=resp.status_code,
+                    )
+                    return {
+                        "action": "invoke_skills",
+                        "success": False,
+                        "detail": {"status_code": resp.status_code},
+                    }
+            except Exception as e:
+                logger.warning(
+                    "switcher.invoke_skills_failed",
+                    scene_id=scene_id,
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                return {
+                    "action": "invoke_skills",
+                    "success": False,
+                    "detail": {"error": str(e)},
+                }
+
+        # 为每个场景注册技能激活钩子
+        for scene_id in SCENE_DEFINITIONS:
+            self.register_on_enter(scene_id, _on_enter_invoke_skills)
 
         # 注册 MCP 工具调用钩子（为每个有 mcp_tools 配置的场景）
         self._init_mcp_hooks()

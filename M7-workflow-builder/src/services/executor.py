@@ -571,12 +571,63 @@ async def execute_builtin_block(
             "insights": [],
         })
     elif skill_id == "skill.tide_memory":
-        result_data.update({
-            "action": action,
-            "domain": params.get("domain", "default"),
-            "result": "[内置降级] 潮汐记忆功能需要 M5 潮汐记忆服务",
-            "success": True,
-        })
+        # 尝试真实调用 M5 潮汐记忆服务，失败时降级到 mock
+        m5_base = "http://localhost:8005/api/v1/memory"
+        m5_result = None
+        try:
+            if action == "store":
+                with httpx.Client(timeout=10.0) as m5_client:
+                    resp = m5_client.post(
+                        f"{m5_base}/store",
+                        json={
+                            "content": params.get("content", ""),
+                            "tags": params.get("tags", []),
+                            "source": "m7_workflow",
+                        },
+                    )
+                    if resp.status_code == 200:
+                        m5_result = resp.json()
+            elif action == "recall":
+                with httpx.Client(timeout=10.0) as m5_client:
+                    resp = m5_client.post(
+                        f"{m5_base}/recall",
+                        json={
+                            "query": params.get("query", ""),
+                            "top_k": params.get("top_k", 5),
+                        },
+                    )
+                    if resp.status_code == 200:
+                        m5_result = resp.json()
+            elif action == "search":
+                with httpx.Client(timeout=10.0) as m5_client:
+                    resp = m5_client.post(
+                        f"{m5_base}/search",
+                        json={
+                            "query": params.get("query", ""),
+                            "top_k": params.get("top_k", 10),
+                        },
+                    )
+                    if resp.status_code == 200:
+                        m5_result = resp.json()
+        except Exception:
+            pass  # M5 不可用时降级到 mock
+
+        if m5_result is not None:
+            result_data.update({
+                "action": action,
+                "domain": params.get("domain", "default"),
+                "result": m5_result,
+                "mode": "m5_real",
+                "success": True,
+            })
+        else:
+            # M5 不可用，降级到原有 mock
+            result_data.update({
+                "action": action,
+                "domain": params.get("domain", "default"),
+                "result": "[内置降级] 潮汐记忆功能需要 M5 潮汐记忆服务",
+                "success": True,
+            })
     elif skill_id == "skill.notify":
         result_data.update({
             "channel": params.get("channel", "system"),
