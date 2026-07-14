@@ -3,10 +3,15 @@
 统一管理所有模块的注册、发现和通信
 """
 
+import os
 import sys
+import time
+import asyncio
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+import httpx
 
 # 确保可以导入 shared 包
 _shared_parent = Path(__file__).resolve().parent.parent
@@ -14,6 +19,37 @@ if str(_shared_parent) not in sys.path:
     sys.path.insert(0, str(_shared_parent))
 
 from shared.config import get_config
+
+# 结构化日志：优先 structlog，缺失时回退到 stdlib logging
+try:
+    import structlog
+
+    _slog = structlog.get_logger("yunxi.module")
+    _HAS_STRUCTLOG = True
+except Exception:  # pragma: no cover - structlog 为本项目硬依赖，此处仅为兜底
+    import logging
+
+    _slog = logging.getLogger("yunxi.module")
+    _HAS_STRUCTLOG = False
+
+
+def _log_event(level: str, event: str, **kwargs: Any) -> None:
+    """统一日志调用，兼容 structlog 与 stdlib logging。"""
+    if _HAS_STRUCTLOG:
+        getattr(_slog, level)(event, **kwargs)
+    else:
+        getattr(_slog, level)(f"{event} {kwargs}")
+
+
+def _is_dev_env() -> bool:
+    """判断是否为开发环境（mock 仅在开发环境生效）。"""
+    env = (
+        os.getenv("YUNXI_ENV")
+        or os.getenv("APP_ENV")
+        or os.getenv("ENV")
+        or "development"
+    )
+    return env.lower() != "production"
 
 
 class ModuleKey(str, Enum):
@@ -77,6 +113,196 @@ class ModuleInfo:
             "category": self.category,
             "status": self.status,
         }
+
+
+class ModuleClient:
+    """模块 HTTP 客户端（httpx 异步）。
+
+    通过 httpx 向目标模块发送真实请求。目标地址优先取自 shared/config
+    （如 m8 默认 http://localhost:8008），可被对应 *_BASE_URL 环境变量覆盖。
+
+    当目标不可达时：
+      - 开发环境：记录 structlog 警告并返回 None，由调用方决定是否走 mock；
+      - 生产环境：抛出异常，禁止静默 mock。
+    """
+
+    def __init__(self, module_key: str, config: Any = None):
+        self.module_key = module_key.lower()
+        self._config = config or get_config()
+        self.base_url = (
+            self._config.get_module_base_url(self.module_key) or ""
+        ).rstrip("/")
+        self.token = self._config.get_module_token(self.module_key) or ""
+        self.timeout = float(os.getenv("MODULE_REQUEST_TIMEOUT", "10"))
+        self.max_retry = max(1, int(os.getenv("MODULE_MAX_RETRY", "2")))
+        self.retry_delay = float(os.getenv("MODULE_RETRY_DELAY", "0.5"))
+        if not self.base_url:
+            raise ValueError(f"未知模块或未配置 base_url: {module_key}")
+        self._client: Optional[httpx.AsyncClient] = None
+
+    def _headers(self, use_auth: bool = True) -> Dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if use_auth and self.token:
+            headers["X-M8-Token"] = self.token
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    async def _ensure_client(self) -> httpx.AsyncClient:
+        if self._client is None or getattr(self._client, "is_closed", False):
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url, timeout=self.timeout
+            )
+        return self._client
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        params: Optional[Dict[str, Any]] = None,
+        json: Optional[Any] = None,
+        data: Optional[Any] = None,
+        headers: Optional[Dict[str, str]] = None,
+        use_auth: bool = True,
+        **kwargs: Any,
+    ) -> Optional[Any]:
+        """发送 HTTP 请求，返回解析后的 JSON。不可达时按环境策略处理。"""
+        merged_headers = self._headers(use_auth)
+        if headers:
+            merged_headers.update(headers)
+        last_error: Optional[Exception] = None
+        for attempt in range(self.max_retry):
+            try:
+                client = await self._ensure_client()
+                start = time.time()
+                resp = await client.request(
+                    method=method.upper(),
+                    url=path,
+                    params=params,
+                    json=json,
+                    data=data,
+                    headers=merged_headers,
+                    **kwargs,
+                )
+                latency = (time.time() - start) * 1000
+                resp.raise_for_status()
+                _log_event(
+                    "debug",
+                    "module_request_ok",
+                    module=self.module_key,
+                    method=method.upper(),
+                    path=path,
+                    status=resp.status_code,
+                    latency_ms=round(latency, 1),
+                )
+                try:
+                    return resp.json()
+                except Exception:
+                    return {"raw_text": resp.text, "status": resp.status_code}
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                status = exc.response.status_code if exc.response is not None else None
+                _log_event(
+                    "warning",
+                    "module_request_http_error",
+                    module=self.module_key,
+                    method=method.upper(),
+                    path=path,
+                    status=status,
+                    attempt=attempt + 1,
+                )
+                # 4xx 客户端错误不重试
+                if status is not None and 400 <= status < 500:
+                    if not _is_dev_env():
+                        raise
+                    return None
+            except Exception as exc:  # 网络错误、连接超时等
+                last_error = exc
+                _log_event(
+                    "warning",
+                    "module_request_error",
+                    module=self.module_key,
+                    method=method.upper(),
+                    path=path,
+                    error=str(exc),
+                    attempt=attempt + 1,
+                )
+            if attempt < self.max_retry - 1:
+                await asyncio.sleep(self.retry_delay)
+
+        # 所有重试均失败
+        if _is_dev_env():
+            _log_event(
+                "warning",
+                "module_unreachable_mock_fallback",
+                module=self.module_key,
+                base_url=self.base_url,
+                error=str(last_error),
+            )
+            return None
+        # 生产环境：禁止静默 mock，向上抛出
+        raise last_error  # type: ignore[misc]
+
+    async def get(
+        self, path: str, params: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Optional[Any]:
+        return await self.request("GET", path, params=params, **kwargs)
+
+    async def post(
+        self,
+        path: str,
+        json: Optional[Any] = None,
+        params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Optional[Any]:
+        return await self.request("POST", path, params=params, json=json, **kwargs)
+
+    async def put(
+        self,
+        path: str,
+        json: Optional[Any] = None,
+        params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Optional[Any]:
+        return await self.request("PUT", path, params=params, json=json, **kwargs)
+
+    async def delete(
+        self, path: str, params: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Optional[Any]:
+        return await self.request("DELETE", path, params=params, **kwargs)
+
+    async def health_check(self) -> bool:
+        """健康检查（GET /health）。"""
+        try:
+            client = await self._ensure_client()
+            start = time.time()
+            resp = await client.get("/health", headers=self._headers(False))
+            latency = (time.time() - start) * 1000
+            ok = resp.status_code == 200
+            _log_event(
+                "debug" if ok else "warning",
+                "module_health_check",
+                module=self.module_key,
+                base_url=self.base_url,
+                status=resp.status_code,
+                latency_ms=round(latency, 1),
+            )
+            return ok
+        except Exception as exc:
+            _log_event(
+                "warning",
+                "module_health_check_failed",
+                module=self.module_key,
+                base_url=self.base_url,
+                error=str(exc),
+            )
+            if not _is_dev_env():
+                return False
+            return False
+
+    async def close(self) -> None:
+        if self._client and not getattr(self._client, "is_closed", False):
+            await self._client.aclose()
+        self._client = None
 
 
 class ModuleRegistry:
@@ -223,6 +449,59 @@ class ModuleRegistry:
         if key in self._modules:
             self._modules[key].status = status
 
+    def get_client(self, key: str) -> ModuleClient:
+        """获取指定模块的 HTTP 客户端。
+
+        返回基于 httpx 的真实客户端（base_url 取自 shared/config，
+        如 m8 默认 http://localhost:8008）。客户端实例按模块 key 缓存复用。
+
+        注意：调用方需通过 ``await client.get/post/...`` 发起真实请求；
+        当目标不可达时，开发环境返回 None（供调用方走 mock），
+        生产环境抛出异常。
+        """
+        key = key.lower()
+        if not hasattr(self, "_clients"):
+            object.__setattr__(self, "_clients", {})
+        cache: Dict[str, ModuleClient] = getattr(self, "_clients", {})
+        if key not in cache:
+            if key not in self._modules:
+                _log_event(
+                    "warning",
+                    "module_not_registered",
+                    module=key,
+                    action="create_client_anyway",
+                )
+            cache[key] = ModuleClient(key, config=self._config)
+        return cache[key]
+
+    async def check_all_health(self) -> Dict[str, bool]:
+        """并发检查所有已注册模块的健康状态。"""
+        results: Dict[str, bool] = {}
+        for module in self.get_all_modules():
+            try:
+                results[module.key] = await self.get_client(module.key).health_check()
+            except Exception as exc:
+                _log_event(
+                    "warning",
+                    "check_all_health_error",
+                    module=module.key,
+                    error=str(exc),
+                )
+                results[module.key] = False
+        return results
+
+    def get_status_summary(self) -> Dict[str, Any]:
+        """返回各模块状态摘要。"""
+        modules = self.get_all_modules()
+        total = len(modules)
+        running = sum(1 for m in modules if m.status == "running")
+        return {
+            "total": total,
+            "running": running,
+            "stopped": sum(1 for m in modules if m.status == "stopped"),
+            "unknown": sum(1 for m in modules if m.status not in ("running", "stopped")),
+        }
+
 
 # ==================== 默认模块配置 ====================
 
@@ -270,5 +549,6 @@ class ModuleStatus:
     STOPPED = "stopped"
     ERROR = "error"
 
-# ModuleClient 兼容（指向 ModuleRegistry）
-ModuleClient = ModuleRegistry
+# 注意：ModuleClient 现已是独立的 httpx 客户端类（见上方定义），
+# 不再作为 ModuleRegistry 的别名。需要模块注册信息请使用 ModuleRegistry，
+# 需要发起 HTTP 请求请使用 ModuleClient / registry.get_client(key)。

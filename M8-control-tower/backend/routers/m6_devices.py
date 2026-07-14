@@ -7,6 +7,7 @@ M6 穿戴设备代理路由
 确保在 M6 未启动时接口也能正常工作。
 """
 
+import os
 import sys
 import uuid
 import time
@@ -15,8 +16,17 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query, Body
+from fastapi import APIRouter, Depends, Query, Body, HTTPException
 from pydantic import BaseModel, Field
+
+try:
+    import structlog
+
+    _slog = structlog.get_logger("m8.m6_devices")
+except Exception:  # pragma: no cover
+    import logging
+
+    _slog = logging.getLogger("m8.m6_devices")
 
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -27,6 +37,25 @@ from shared.module_client import get_module_registry
 from shared.logger import get_logger
 
 logger = get_logger("m8.m6_devices")
+
+
+def _is_dev_env() -> bool:
+    """判断是否为开发环境（mock 回退仅在开发环境生效）。"""
+    env = (
+        os.getenv("YUNXI_ENV")
+        or os.getenv("M8_ENV")
+        or os.getenv("APP_ENV")
+        or "development"
+    )
+    return env.lower() != "production"
+
+
+def _m6_unavailable_error(detail: str) -> "HTTPException":
+    """生产环境下 M6 不可用时抛出的 503 错误（禁止静默 mock）。"""
+    return HTTPException(
+        status_code=503,
+        detail=f"M6 硬件外设模块不可用：{detail}",
+    )
 
 router = APIRouter()
 registry = get_module_registry()
@@ -213,59 +242,114 @@ def _generate_mock_history(device_id: str, hours: int = 1, limit: int = 60) -> l
 # ==================== 内部工具函数 ====================
 
 async def _check_m6_available() -> bool:
-    """检查 M6 模块是否可用"""
+    """检查 M6 模块是否可用。
+
+    - 可用：返回 True；
+    - 不可用且开发环境：记录 structlog 警告并返回 False（由调用方走 mock）；
+    - 不可用且生产环境：抛出 503，禁止静默 mock。
+    """
     try:
         client = registry.get_client("m6")
-        return await client.health_check()
-    except Exception:
+        ok = await client.health_check()
+        if ok:
+            return True
+        _slog.warning(
+            "m6_unavailable",
+            reason="health_check_false",
+            dev=_is_dev_env(),
+        )
+        if not _is_dev_env():
+            raise _m6_unavailable_error("health check 失败")
+        return False
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _slog.warning(
+            "m6_unavailable",
+            reason="exception",
+            error=str(exc),
+            dev=_is_dev_env(),
+        )
+        if not _is_dev_env():
+            raise _m6_unavailable_error(str(exc))
         return False
 
 
 async def _proxy_m6_get(path: str, params: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
     """
     代理 GET 请求到 M6 模块
-    
+
     Returns:
-        成功返回解析后的 JSON，失败返回 None
+        成功返回解析后的 JSON；开发环境失败返回 None（走 mock），生产环境失败抛出 503。
     """
     try:
         client = registry.get_client("m6")
         result = await client.get(path, params=params)
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.warning(f"Proxy GET m6{path} failed: {exc}")
+        _slog.warning(
+            "m6_proxy_failed",
+            method="GET",
+            path=path,
+            error=str(exc),
+            dev=_is_dev_env(),
+        )
+        if not _is_dev_env():
+            raise _m6_unavailable_error(f"GET {path} 失败: {exc}")
         return None
 
 
 async def _proxy_m6_post(path: str, json_data: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
     """
     代理 POST 请求到 M6 模块
-    
+
     Returns:
-        成功返回解析后的 JSON，失败返回 None
+        成功返回解析后的 JSON；开发环境失败返回 None（走 mock），生产环境失败抛出 503。
     """
     try:
         client = registry.get_client("m6")
-        result = await client.post(path, json_data=json_data)
+        result = await client.post(path, json=json_data)
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.warning(f"Proxy POST m6{path} failed: {exc}")
+        _slog.warning(
+            "m6_proxy_failed",
+            method="POST",
+            path=path,
+            error=str(exc),
+            dev=_is_dev_env(),
+        )
+        if not _is_dev_env():
+            raise _m6_unavailable_error(f"POST {path} 失败: {exc}")
         return None
 
 
 async def _proxy_m6_put(path: str, json_data: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
     """
     代理 PUT 请求到 M6 模块
-    
+
     Returns:
-        成功返回解析后的 JSON，失败返回 None
+        成功返回解析后的 JSON；开发环境失败返回 None（走 mock），生产环境失败抛出 503。
     """
     try:
         client = registry.get_client("m6")
-        result = await client.put(path, json_data=json_data)
+        result = await client.put(path, json=json_data)
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.warning(f"Proxy PUT m6{path} failed: {exc}")
+        _slog.warning(
+            "m6_proxy_failed",
+            method="PUT",
+            path=path,
+            error=str(exc),
+            dev=_is_dev_env(),
+        )
+        if not _is_dev_env():
+            raise _m6_unavailable_error(f"PUT {path} 失败: {exc}")
         return None
 
 

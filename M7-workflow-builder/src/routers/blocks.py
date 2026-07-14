@@ -11,7 +11,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Request
 
 from ..models import ApiResponse, BlockCategory, BlockInfo
-from ..services.engine import BUILTIN_BLOCKS, M2SkillClient
+from ..services.executor import BUILTIN_BLOCKS, M2SkillClient
 from ..m8_api.m8_auth_middleware import get_current_user
 
 
