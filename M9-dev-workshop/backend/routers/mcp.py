@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import json
 
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/v1/mcp", tags=["MCP 桥接"])
 
 class ToolCallRequest(BaseModel):
     """工具调用请求"""
-    tool_name: str
+    tool_name: str = Field(..., min_length=1, max_length=255, description="工具名称")
     arguments: Dict[str, Any] = {}
 
 

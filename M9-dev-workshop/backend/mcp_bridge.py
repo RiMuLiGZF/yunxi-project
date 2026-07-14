@@ -6,6 +6,7 @@
 
 import json
 import uuid
+import threading
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Callable, Any
@@ -18,6 +19,11 @@ try:
 except ImportError:
     from config import get_settings
     from models import SessionLocal, MCPTool
+
+try:
+    from .core.logging_config import get_logger
+except ImportError:
+    from core.logging_config import get_logger
 
 
 @dataclass
@@ -55,6 +61,8 @@ class MCPToolRegistry:
         self.settings = get_settings()
         self._tools: Dict[str, Callable] = {}  # 内存中的工具函数映射
         self._db = SessionLocal()
+        self._lock = threading.RLock()
+        self.logger = get_logger("mcp_bridge")
         # 启动时注册内置工具
         self._register_builtin_tools()
 
@@ -174,48 +182,50 @@ class MCPToolRegistry:
         :param input_schema: 输入参数 Schema
         :return: 是否注册成功
         """
-        if name in self._tools:
-            return False
+        with self._lock:
+            if name in self._tools:
+                return False
 
-        # 注册到内存
-        self._tools[name] = handler
+            # 注册到内存
+            self._tools[name] = handler
 
-        # 注册到数据库（如果不存在）
-        existing = self._db.query(MCPTool).filter(MCPTool.name == name).first()
-        if not existing:
-            tool = MCPTool(
-                name=name,
-                description=description,
-                endpoint=endpoint,
-                category=category,
-                enabled=True,
-                input_schema=input_schema or {},
-            )
-            self._db.add(tool)
-            self._db.commit()
-        else:
-            # 更新已有记录
-            existing.description = description
-            existing.endpoint = endpoint
-            existing.category = category
-            existing.input_schema = input_schema or {}
-            existing.enabled = True
-            self._db.commit()
+            # 注册到数据库（如果不存在）
+            existing = self._db.query(MCPTool).filter(MCPTool.name == name).first()
+            if not existing:
+                tool = MCPTool(
+                    name=name,
+                    description=description,
+                    endpoint=endpoint,
+                    category=category,
+                    enabled=True,
+                    input_schema=input_schema or {},
+                )
+                self._db.add(tool)
+                self._db.commit()
+            else:
+                # 更新已有记录
+                existing.description = description
+                existing.endpoint = endpoint
+                existing.category = category
+                existing.input_schema = input_schema or {}
+                existing.enabled = True
+                self._db.commit()
 
-        return True
+            return True
 
     def unregister_tool(self, name: str) -> bool:
         """注销工具"""
-        if name not in self._tools:
-            return False
-        del self._tools[name]
+        with self._lock:
+            if name not in self._tools:
+                return False
+            del self._tools[name]
 
-        # 标记数据库中为禁用
-        tool = self._db.query(MCPTool).filter(MCPTool.name == name).first()
-        if tool:
-            tool.enabled = False
-            self._db.commit()
-        return True
+            # 标记数据库中为禁用
+            tool = self._db.query(MCPTool).filter(MCPTool.name == name).first()
+            if tool:
+                tool.enabled = False
+                self._db.commit()
+            return True
 
     # ===== 工具发现 =====
 
@@ -249,54 +259,55 @@ class MCPToolRegistry:
         :param arguments: 调用参数
         :return: MCP 响应
         """
-        arguments = arguments or {}
-        request_id = str(uuid.uuid4())[:8]
+        with self._lock:
+            arguments = arguments or {}
+            request_id = str(uuid.uuid4())[:8]
 
-        # 检查工具是否存在且已启用
-        tool_info = self.get_tool(name)
-        if not tool_info or not tool_info.get("enabled"):
-            return MCPResponse(
-                id=request_id,
-                error={
-                    "code": -32601,
-                    "message": f"工具不存在或已禁用: {name}",
-                }
-            )
+            # 检查工具是否存在且已启用
+            tool_info = self.get_tool(name)
+            if not tool_info or not tool_info.get("enabled"):
+                return MCPResponse(
+                    id=request_id,
+                    error={
+                        "code": -32601,
+                        "message": f"工具不存在或已禁用: {name}",
+                    }
+                )
 
-        # 检查是否有处理函数
-        handler = self._tools.get(name)
-        if not handler:
-            return MCPResponse(
-                id=request_id,
-                error={
-                    "code": -32601,
-                    "message": f"工具处理函数未注册: {name}",
-                }
-            )
+            # 检查是否有处理函数
+            handler = self._tools.get(name)
+            if not handler:
+                return MCPResponse(
+                    id=request_id,
+                    error={
+                        "code": -32601,
+                        "message": f"工具处理函数未注册: {name}",
+                    }
+                )
 
-        try:
-            # 执行工具
-            result = handler(**arguments)
-            return MCPResponse(
-                id=request_id,
-                result=result,
-            )
-        except TypeError as e:
-            return MCPResponse(
-                id=request_id,
-                error={
-                    "code": -32602,
-                    "message": f"参数错误: {str(e)}",
-                }
-            )
-        except Exception as e:
-            return MCPResponse(
-                id=request_id,
-                error={
-                    "code": -32603,
-                    "message": f"工具执行错误: {str(e)}",
-                }
-            )
+            try:
+                # 执行工具
+                result = handler(**arguments)
+                return MCPResponse(
+                    id=request_id,
+                    result=result,
+                )
+            except TypeError as e:
+                return MCPResponse(
+                    id=request_id,
+                    error={
+                        "code": -32602,
+                        "message": f"参数错误: {str(e)}",
+                    }
+                )
+            except Exception as e:
+                return MCPResponse(
+                    id=request_id,
+                    error={
+                        "code": -32603,
+                        "message": f"工具执行错误: {str(e)}",
+                    }
+                )
 
     # ===== 内置工具实现 =====
 
@@ -439,13 +450,13 @@ def get_mcp_registry() -> MCPToolRegistry:
 # 兼容直接运行测试
 if __name__ == "__main__":
     registry = get_mcp_registry()
-    print("已注册的 MCP 工具:")
+    logger.info("已注册的 MCP 工具:")
     for tool in registry.list_tools():
-        print(f"  - [{tool['category']}] {tool['name']}: {tool['description'][:50]}...")
+        logger.info(f"  - [{tool['category']}] {tool['name']}: {tool['description'][:50]}...")
 
     # 测试调用
-    print("\n测试调用 yunxi_memory_query:")
+    logger.info("测试调用 yunxi_memory_query:")
     resp = registry.call_tool("yunxi_memory_query", {"query": "云汐", "top_k": 2})
-    print(json.dumps(resp.to_dict(), ensure_ascii=False, indent=2))
+    logger.info(json.dumps(resp.to_dict(), ensure_ascii=False, indent=2))
 
     registry.close()

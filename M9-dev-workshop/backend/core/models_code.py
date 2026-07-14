@@ -8,9 +8,9 @@ from typing import Optional, List, Dict, Any
 
 class CodeExecutionRequest(BaseModel):
     """代码执行请求"""
-    language: str = Field(..., description="编程语言")
-    code: str = Field(..., description="要执行的代码")
-    timeout: int = Field(30, description="超时时间(秒)")
+    language: str = Field(..., min_length=1, max_length=50, description="编程语言")
+    code: str = Field(..., min_length=1, max_length=102400, description="要执行的代码")
+    timeout: int = Field(30, ge=1, le=300, description="超时时间(秒)")
     args: Optional[List[str]] = None
     env: Optional[Dict[str, str]] = None
 

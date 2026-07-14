@@ -33,24 +33,35 @@ from routers.code import router as code_router
 # 导入中间件
 from core.auth_middleware import AuthMiddleware, RateLimitMiddleware
 
+# 导入日志和错误处理
+from core.logging_config import setup_logging, get_logger
+from core.error_handler import global_exception_handler
+
 
 # ===== 初始化配置 =====
 settings = get_settings()
 
 # ===== 版本号 =====
-# P0优化后版本
-APP_VERSION = "1.1.0"
+# P1优化后版本 - 日志/错误处理/并发安全/输入验证
+APP_VERSION = "1.2.0"
 
 # ===== M8 标准接口启动时间（用于 uptime 计算） =====
 _start_time_m8 = time.time()
 
 # ===== 创建 FastAPI 应用 =====
+# 初始化日志系统
+setup_logging(level="DEBUG" if settings.debug else "INFO", log_dir=str(settings.data_dir), log_file="m9.log")
+logger = get_logger("main")
+
 app = FastAPI(
     title="云汐 M9 开发者工坊 API",
     description="M9 开发者工坊后端服务 - VS Code 管理、工作区管理、MCP 桥接",
     version=APP_VERSION,
     debug=settings.debug,
 )
+
+# 注册全局异常处理器
+app.add_exception_handler(Exception, global_exception_handler)
 
 # ===== 配置 CORS 中间件 =====
 app.add_middleware(
@@ -411,38 +422,38 @@ async def startup_event():
     """应用启动时的初始化操作"""
     # 1. 初始化数据库
     init_db()
-    print("[M9] 数据库初始化完成")
+    logger.info("数据库初始化完成")
 
     # 2. 自动检测 VS Code
     vscode_path = settings.vscode_path
     if vscode_path:
-        print(f"[M9] VS Code 已检测: {vscode_path}")
+        logger.info(f"VS Code 已检测: {vscode_path}")
     else:
-        print("[M9] 警告: 未检测到 VS Code 安装")
+        logger.warning("未检测到 VS Code 安装")
 
     # 3. 初始化 MCP 注册中心（触发内置工具注册）
     try:
         from mcp_bridge import get_mcp_registry
         registry = get_mcp_registry()
         tools = registry.list_tools()
-        print(f"[M9] MCP 工具注册完成，共 {len(tools)} 个工具")
+        logger.info(f"MCP 工具注册完成，共 {len(tools)} 个工具")
     except Exception as e:
-        print(f"[M9] MCP 初始化警告: {e}")
+        logger.warning(f"MCP 初始化警告: {e}")
 
     # 4. 初始化工作区
     try:
         from workspace_manager import get_workspace_manager
         ws_mgr = get_workspace_manager()
         stats = ws_mgr.get_statistics()
-        print(f"[M9] 工作区管理就绪，共 {stats['total_projects']} 个项目")
+        logger.info(f"工作区管理就绪，共 {stats['total_projects']} 个项目")
     except Exception as e:
-        print(f"[M9] 工作区初始化警告: {e}")
+        logger.warning(f"工作区初始化警告: {e}")
 
     # 5. 认证中间件已启用（全环境生效）
-    print("[M9] 认证中间件已启用（全环境生效）")
-    print(f"[M9] 速率限制中间件已启用（默认 100次/分钟/IP）")
+    logger.info("认证中间件已启用（全环境生效）")
+    logger.info(f"速率限制中间件已启用（默认 100次/分钟/IP）")
 
-    print(f"[M9] 开发者工坊服务启动完成，版本: {APP_VERSION}，监听端口: {settings.port}")
+    logger.info(f"开发者工坊服务启动完成，版本: {APP_VERSION}，监听端口: {settings.port}")
 
 
 @app.on_event("shutdown")
@@ -461,7 +472,7 @@ async def shutdown_event():
             _mcp_registry.close()
     except Exception:
         pass
-    print("[M9] 服务已关闭")
+    logger.info("服务已关闭")
 
 
 # ===== 健康检查接口 =====

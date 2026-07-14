@@ -4,7 +4,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 # 兼容相对导入和直接运行
@@ -23,11 +23,11 @@ router = APIRouter(prefix="/api/v1/workspace", tags=["工作区管理"])
 
 class ProjectCreateRequest(BaseModel):
     """创建项目请求"""
-    name: str
-    path: str
-    description: str = ""
-    icon: str = "folder"
-    tags: List[str] = []
+    name: str = Field(..., min_length=1, max_length=255, description="项目名称")
+    path: str = Field(..., min_length=1, max_length=1024, description="项目路径")
+    description: str = Field("", max_length=5000, description="项目描述")
+    icon: str = Field("folder", max_length=100, description="项目图标")
+    tags: List[str] = Field(default_factory=list, max_length=20, description="项目标签")
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -46,13 +46,13 @@ class ScanRequest(BaseModel):
 
 class TagRequest(BaseModel):
     """标签操作请求"""
-    tag: str
+    tag: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-z0-9_\-]+$", description="标签名称")
 
 
 class ActivityRequest(BaseModel):
     """活动记录请求"""
-    project: str
-    activity_type: str
+    project: str = Field(..., max_length=255, description="项目名称")
+    activity_type: str = Field(..., max_length=100, description="活动类型")
     duration: float = 0
     description: str = ""
     meta_data: dict = {}

@@ -5,6 +5,7 @@
 
 import os
 import json
+import threading
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from pathlib import Path
@@ -22,6 +23,11 @@ try:
 except ImportError:
     from config import get_settings
     from models import SessionLocal, WorkspaceProject, DevActivity
+
+try:
+    from .core.logging_config import get_logger
+except ImportError:
+    from core.logging_config import get_logger
 
 
 class WorkspaceManager:
@@ -48,6 +54,8 @@ class WorkspaceManager:
         """初始化工作区管理器"""
         self.settings = get_settings()
         self._db = SessionLocal()
+        self._lock = threading.Lock()
+        self.logger = get_logger("workspace_manager")
         # 确保工作区根目录存在
         os.makedirs(self.settings.workspace_root, exist_ok=True)
 
@@ -65,32 +73,33 @@ class WorkspaceManager:
         创建新项目记录
         :return: 创建结果
         """
-        # 路径安全校验：确保路径在 workspace_root 内，防止路径遍历攻击
-        try:
-            assert_path_safe(self.settings.workspace_root, path, "create_project")
-        except PathSecurityError as e:
-            return {"success": False, "message": f"路径安全校验失败: {str(e)}", "project": None}
+        with self._lock:
+            # 路径安全校验：确保路径在 workspace_root 内，防止路径遍历攻击
+            try:
+                assert_path_safe(self.settings.workspace_root, path, "create_project")
+            except PathSecurityError as e:
+                return {"success": False, "message": f"路径安全校验失败: {str(e)}", "project": None}
 
-        # 检查路径是否已存在
-        existing = self._db.query(WorkspaceProject).filter(WorkspaceProject.path == path).first()
-        if existing:
-            return {"success": False, "message": f"项目路径已存在: {path}", "project": existing.to_dict()}
+            # 检查路径是否已存在
+            existing = self._db.query(WorkspaceProject).filter(WorkspaceProject.path == path).first()
+            if existing:
+                return {"success": False, "message": f"项目路径已存在: {path}", "project": existing.to_dict()}
 
-        # 确保目录存在
-        os.makedirs(path, exist_ok=True)
+            # 确保目录存在
+            os.makedirs(path, exist_ok=True)
 
-        project = WorkspaceProject(
-            name=name,
-            path=path,
-            description=description,
-            icon=icon,
-            tags=tags or [],
-        )
-        self._db.add(project)
-        self._db.commit()
-        self._db.refresh(project)
+            project = WorkspaceProject(
+                name=name,
+                path=path,
+                description=description,
+                icon=icon,
+                tags=tags or [],
+            )
+            self._db.add(project)
+            self._db.commit()
+            self._db.refresh(project)
 
-        return {"success": True, "message": "项目创建成功", "project": project.to_dict()}
+            return {"success": True, "message": "项目创建成功", "project": project.to_dict()}
 
     def get_project(self, project_id: int) -> Optional[Dict]:
         """根据 ID 获取项目"""
@@ -138,21 +147,22 @@ class WorkspaceManager:
 
     def update_project(self, project_id: int, **kwargs) -> Dict:
         """更新项目信息"""
-        project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
-        if not project:
-            return {"success": False, "message": "项目不存在"}
+        with self._lock:
+            project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
+            if not project:
+                return {"success": False, "message": "项目不存在"}
 
-        # 更新允许的字段
-        allowed_fields = ["name", "description", "icon", "tags"]
-        for field in allowed_fields:
-            if field in kwargs and kwargs[field] is not None:
-                setattr(project, field, kwargs[field])
+            # 更新允许的字段
+            allowed_fields = ["name", "description", "icon", "tags"]
+            for field in allowed_fields:
+                if field in kwargs and kwargs[field] is not None:
+                    setattr(project, field, kwargs[field])
 
-        project.updated_at = datetime.now()
-        self._db.commit()
-        self._db.refresh(project)
+            project.updated_at = datetime.now()
+            self._db.commit()
+            self._db.refresh(project)
 
-        return {"success": True, "message": "更新成功", "project": project.to_dict()}
+            return {"success": True, "message": "更新成功", "project": project.to_dict()}
 
     def delete_project(self, project_id: int, delete_files: bool = False) -> Dict:
         """
@@ -160,46 +170,48 @@ class WorkspaceManager:
         :param project_id: 项目 ID
         :param delete_files: 是否同时删除文件（默认只删除记录）
         """
-        project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
-        if not project:
-            return {"success": False, "message": "项目不存在"}
+        with self._lock:
+            project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
+            if not project:
+                return {"success": False, "message": "项目不存在"}
 
-        project_path = project.path
-        self._db.delete(project)
-        self._db.commit()
+            project_path = project.path
+            self._db.delete(project)
+            self._db.commit()
 
-        # 路径安全校验：删除文件前确保路径在 workspace_root 内
-        if delete_files:
-            try:
-                assert_path_safe(self.settings.workspace_root, project_path, "delete_project")
-            except PathSecurityError as e:
-                return {"success": False, "message": f"路径安全校验失败: {str(e)}"}
+            # 路径安全校验：删除文件前确保路径在 workspace_root 内
+            if delete_files:
+                try:
+                    assert_path_safe(self.settings.workspace_root, project_path, "delete_project")
+                except PathSecurityError as e:
+                    return {"success": False, "message": f"路径安全校验失败: {str(e)}"}
 
-        # 如果需要删除文件
-        if delete_files and os.path.exists(project_path):
-            import shutil
-            try:
-                shutil.rmtree(project_path)
-            except Exception as e:
-                return {"success": True, "message": f"记录已删除，但文件删除失败: {str(e)}"}
+            # 如果需要删除文件
+            if delete_files and os.path.exists(project_path):
+                import shutil
+                try:
+                    shutil.rmtree(project_path)
+                except Exception as e:
+                    return {"success": True, "message": f"记录已删除，但文件删除失败: {str(e)}"}
 
-        return {"success": True, "message": "项目已删除"}
+            return {"success": True, "message": "项目已删除"}
 
     # ===== 项目打开/最近项目 =====
 
     def open_project(self, project_id: int) -> Dict:
         """记录项目打开（更新最后打开时间、打开次数+1）"""
-        project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
-        if not project:
-            return {"success": False, "message": "项目不存在"}
+        with self._lock:
+            project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
+            if not project:
+                return {"success": False, "message": "项目不存在"}
 
-        project.last_opened = datetime.now()
-        project.open_count += 1
-        project.updated_at = datetime.now()
-        self._db.commit()
-        self._db.refresh(project)
+            project.last_opened = datetime.now()
+            project.open_count += 1
+            project.updated_at = datetime.now()
+            self._db.commit()
+            self._db.refresh(project)
 
-        return {"success": True, "project": project.to_dict()}
+            return {"success": True, "project": project.to_dict()}
 
     def get_recent_projects(self, limit: int = 10) -> List[Dict]:
         """获取最近打开的项目"""
@@ -264,7 +276,8 @@ class WorkspaceManager:
                         self._db.add(project)
                         added_count += 1
 
-        self._db.commit()
+        with self._lock:
+            self._db.commit()
 
         return {
             "found": len(found_projects),
@@ -339,33 +352,35 @@ class WorkspaceManager:
 
     def add_tag(self, project_id: int, tag: str) -> Dict:
         """为项目添加标签"""
-        project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
-        if not project:
-            return {"success": False, "message": "项目不存在"}
+        with self._lock:
+            project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
+            if not project:
+                return {"success": False, "message": "项目不存在"}
 
-        tags = list(project.tags or [])
-        if tag not in tags:
-            tags.append(tag)
-            project.tags = tags
-            project.updated_at = datetime.now()
-            self._db.commit()
+            tags = list(project.tags or [])
+            if tag not in tags:
+                tags.append(tag)
+                project.tags = tags
+                project.updated_at = datetime.now()
+                self._db.commit()
 
-        return {"success": True, "tags": tags}
+            return {"success": True, "tags": tags}
 
     def remove_tag(self, project_id: int, tag: str) -> Dict:
         """移除项目标签"""
-        project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
-        if not project:
-            return {"success": False, "message": "项目不存在"}
+        with self._lock:
+            project = self._db.query(WorkspaceProject).filter(WorkspaceProject.id == project_id).first()
+            if not project:
+                return {"success": False, "message": "项目不存在"}
 
-        tags = list(project.tags or [])
-        if tag in tags:
-            tags.remove(tag)
-            project.tags = tags
-            project.updated_at = datetime.now()
-            self._db.commit()
+            tags = list(project.tags or [])
+            if tag in tags:
+                tags.remove(tag)
+                project.tags = tags
+                project.updated_at = datetime.now()
+                self._db.commit()
 
-        return {"success": True, "tags": tags}
+            return {"success": True, "tags": tags}
 
     # ===== 项目统计 =====
 
@@ -433,7 +448,8 @@ class WorkspaceManager:
         meta_data: Optional[Dict] = None,
     ) -> Dict:
         """记录开发活动"""
-        activity = DevActivity(
+        with self._lock:
+            activity = DevActivity(
             project=project,
             activity_type=activity_type,
             duration=duration,
@@ -488,8 +504,8 @@ def get_workspace_manager() -> WorkspaceManager:
 if __name__ == "__main__":
     mgr = get_workspace_manager()
     stats = mgr.get_statistics()
-    print("工作区统计:")
+    logger.info("工作区统计:")
     for k, v in stats.items():
-        print(f"  {k}: {v}")
-    print(f"\n最近项目: {len(mgr.get_recent_projects())} 个")
+        logger.info(f"  {k}: {v}")
+    logger.info(f"最近项目: {len(mgr.get_recent_projects())} 个")
     mgr.close()

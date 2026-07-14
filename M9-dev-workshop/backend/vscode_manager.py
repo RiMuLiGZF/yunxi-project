@@ -6,6 +6,7 @@
 import os
 import sys
 import subprocess
+import threading
 import time
 from datetime import datetime
 from typing import Optional, List, Dict
@@ -25,6 +26,11 @@ except ImportError:
     from config import get_settings
     from models import SessionLocal, VSCodeSession
 
+try:
+    from .core.logging_config import get_logger
+except ImportError:
+    from core.logging_config import get_logger
+
 
 class VSCodeManager:
     """VS Code 管理器类"""
@@ -34,6 +40,8 @@ class VSCodeManager:
         self.settings = get_settings()
         self.vscode_path = self.settings.vscode_path
         self._db = SessionLocal()
+        self._lock = threading.Lock()
+        self.logger = get_logger("vscode_manager")
 
     # ===== 基础检测功能 =====
 
@@ -123,70 +131,71 @@ class VSCodeManager:
         :param new_window: 是否在新窗口打开
         :return: 启动结果 {"success": bool, "pid": int, "message": str}
         """
-        if not self.is_installed():
-            return {
-                "success": False,
-                "pid": None,
-                "message": "VS Code 未安装或路径未配置"
-            }
-
-        # 路径安全校验：确保项目路径在 workspace_root 内，防止路径遍历攻击
-        if project_path:
-            try:
-                assert_path_safe(self.settings.workspace_root, project_path, "vscode_start")
-            except PathSecurityError as e:
+        with self._lock:
+            if not self.is_installed():
                 return {
                     "success": False,
                     "pid": None,
-                    "message": f"路径安全校验失败: {str(e)}"
+                    "message": "VS Code 未安装或路径未配置"
                 }
 
-        try:
-            # 构建命令参数
-            args = [self.vscode_path]
-            if new_window:
-                args.append("-n")
-            if project_path and os.path.exists(project_path):
-                args.append(project_path)
+            # 路径安全校验：确保项目路径在 workspace_root 内，防止路径遍历攻击
+            if project_path:
+                try:
+                    assert_path_safe(self.settings.workspace_root, project_path, "vscode_start")
+                except PathSecurityError as e:
+                    return {
+                        "success": False,
+                        "pid": None,
+                        "message": f"路径安全校验失败: {str(e)}"
+                    }
 
-            # 启动进程（不等待，使用 DETACHED_PROCESS 让进程独立）
-            DETACHED_PROCESS = 0x00000008
-            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            try:
+                # 构建命令参数
+                args = [self.vscode_path]
+                if new_window:
+                    args.append("-n")
+                if project_path and os.path.exists(project_path):
+                    args.append(project_path)
 
-            proc = subprocess.Popen(
-                args,
-                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-                cwd=os.path.dirname(self.vscode_path),
-            )
+                # 启动进程（不等待，使用 DETACHED_PROCESS 让进程独立）
+                DETACHED_PROCESS = 0x00000008
+                CREATE_NEW_PROCESS_GROUP = 0x00000200
 
-            # 等待一下让进程完全启动
-            time.sleep(1.5)
+                proc = subprocess.Popen(
+                    args,
+                    creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                    cwd=os.path.dirname(self.vscode_path),
+                )
 
-            # 记录会话
-            session = VSCodeSession(
-                pid=proc.pid,
-                project_path=project_path,
-                start_time=datetime.now(),
-                status="running",
-                window_title=os.path.basename(project_path) if project_path else "VS Code",
-            )
-            self._db.add(session)
-            self._db.commit()
-            self._db.refresh(session)
+                # 等待一下让进程完全启动
+                time.sleep(1.5)
 
-            return {
-                "success": True,
-                "pid": proc.pid,
-                "session_id": session.id,
-                "message": f"VS Code 已启动，PID: {proc.pid}"
-            }
+                # 记录会话
+                session = VSCodeSession(
+                    pid=proc.pid,
+                    project_path=project_path,
+                    start_time=datetime.now(),
+                    status="running",
+                    window_title=os.path.basename(project_path) if project_path else "VS Code",
+                )
+                self._db.add(session)
+                self._db.commit()
+                self._db.refresh(session)
 
-        except Exception as e:
-            return {
-                "success": False,
-                "pid": None,
-                "message": f"启动失败: {str(e)}"
-            }
+                return {
+                    "success": True,
+                    "pid": proc.pid,
+                    "session_id": session.id,
+                    "message": f"VS Code 已启动，PID: {proc.pid}"
+                }
+
+            except Exception as e:
+                return {
+                    "success": False,
+                    "pid": None,
+                    "message": f"启动失败: {str(e)}"
+                }
 
     def close(self, pid: Optional[int] = None, force: bool = False) -> Dict:
         """
@@ -195,55 +204,56 @@ class VSCodeManager:
         :param force: 是否强制关闭
         :return: 关闭结果 {"success": bool, "closed_count": int}
         """
-        closed_count = 0
-        processes = self.get_running_processes()
+        with self._lock:
+            closed_count = 0
+            processes = self.get_running_processes()
 
-        if not processes:
-            return {"success": True, "closed_count": 0, "message": "没有运行中的 VS Code 进程"}
+            if not processes:
+                return {"success": True, "closed_count": 0, "message": "没有运行中的 VS Code 进程"}
 
-        try:
-            import psutil
-            for proc_info in processes:
-                if pid is not None and proc_info["pid"] != pid:
-                    continue
-                try:
-                    proc = psutil.Process(proc_info["pid"])
-                    if force:
-                        proc.kill()
-                    else:
-                        proc.terminate()
-                    closed_count += 1
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-        except ImportError:
-            # 使用 taskkill 命令
-            for proc_info in processes:
-                if pid is not None and proc_info["pid"] != pid:
-                    continue
-                try:
-                    cmd = ["taskkill", "/PID", str(proc_info["pid"])]
-                    if force:
-                        cmd.append("/F")
-                    subprocess.run(cmd, capture_output=True, timeout=5)
-                    closed_count += 1
-                except Exception:
-                    continue
+            try:
+                import psutil
+                for proc_info in processes:
+                    if pid is not None and proc_info["pid"] != pid:
+                        continue
+                    try:
+                        proc = psutil.Process(proc_info["pid"])
+                        if force:
+                            proc.kill()
+                        else:
+                            proc.terminate()
+                        closed_count += 1
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+            except ImportError:
+                # 使用 taskkill 命令
+                for proc_info in processes:
+                    if pid is not None and proc_info["pid"] != pid:
+                        continue
+                    try:
+                        cmd = ["taskkill", "/PID", str(proc_info["pid"])]
+                        if force:
+                            cmd.append("/F")
+                        subprocess.run(cmd, capture_output=True, timeout=5)
+                        closed_count += 1
+                    except Exception:
+                        continue
 
-        # 更新会话状态
-        if closed_count > 0:
-            self._db.query(VSCodeSession).filter(
-                VSCodeSession.status == "running"
-            ).update({
-                VSCodeSession.status: "closed",
-                VSCodeSession.end_time: datetime.now(),
-            })
-            self._db.commit()
+            # 更新会话状态
+            if closed_count > 0:
+                self._db.query(VSCodeSession).filter(
+                    VSCodeSession.status == "running"
+                ).update({
+                    VSCodeSession.status: "closed",
+                    VSCodeSession.end_time: datetime.now(),
+                })
+                self._db.commit()
 
-        return {
-            "success": True,
-            "closed_count": closed_count,
-            "message": f"已关闭 {closed_count} 个 VS Code 进程"
-        }
+            return {
+                "success": True,
+                "closed_count": closed_count,
+                "message": f"已关闭 {closed_count} 个 VS Code 进程"
+            }
 
     # ===== 打开文件/项目 =====
 
@@ -441,9 +451,9 @@ def get_vscode_manager() -> VSCodeManager:
 if __name__ == "__main__":
     mgr = get_vscode_manager()
     status = mgr.get_status()
-    print("VS Code 状态:")
+    logger.info("VS Code 状态:")
     for k, v in status.items():
         if k != "processes":
-            print(f"  {k}: {v}")
-    print(f"  进程数: {status['process_count']}")
+            logger.info(f"  {k}: {v}")
+    logger.info(f"  进程数: {status['process_count']}")
     mgr.close_db()

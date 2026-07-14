@@ -4,7 +4,7 @@
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 # 兼容相对导入和直接运行
@@ -23,19 +23,19 @@ router = APIRouter(prefix="/api/v1/vscode", tags=["VS Code 管理"])
 
 class StartRequest(BaseModel):
     """启动 VS Code 请求"""
-    project_path: Optional[str] = None
+    project_path: Optional[str] = Field(None, max_length=1024, description="项目路径")
     new_window: bool = False
 
 
 class OpenPathRequest(BaseModel):
     """打开路径请求"""
-    path: str
+    path: str = Field(..., max_length=1024, description="文件或文件夹路径")
     new_window: bool = False
 
 
 class OpenFileRequest(BaseModel):
     """打开文件请求"""
-    file_path: str
+    file_path: str = Field(..., max_length=1024, description="文件路径")
     line: Optional[int] = None
 
 
@@ -47,7 +47,7 @@ class CloseRequest(BaseModel):
 
 class ExtensionRequest(BaseModel):
     """扩展操作请求"""
-    extension_id: str
+    extension_id: str = Field(..., max_length=255, pattern=r"^[a-z0-9]+\.[a-z0-9\-]+$", description="扩展ID")
 
 
 # ===== 接口定义 =====
