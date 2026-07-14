@@ -1,23 +1,29 @@
 """M9 Programming Dev - FastAPI 入口"""
 
+import logging
 from fastapi import FastAPI
 from .config import settings
 from .routers import vscode, code, projects
 from .auth_middleware import AuthMiddleware, RateLimitMiddleware
+from . import __version__
+from .vscode_manager import vscode_manager
+from .project_manager import project_manager
+
+logger = logging.getLogger("m9.main")
 
 app = FastAPI(
     title="M9 Programming Dev API",
     description="云汐系统编程开发模块 - VSCode管理、代码执行、项目管理",
-    version="0.1.0"
+    version=__version__
 )
 
-# P2-23: 注册安全中间件（生产环境启用认证）
+# 注册安全中间件（生产环境启用认证）
 import os
 import hmac
 if os.environ.get("YUNXI_ENV", "development") == "production":
     app.add_middleware(AuthMiddleware)
 
-# P2-23: 速率限制中间件
+# 速率限制中间件
 app.add_middleware(RateLimitMiddleware)
 
 # 注册路由
@@ -61,7 +67,7 @@ async def m8_std_health(x_m8_token: str = Header(default="")):
             "status": "healthy",
             "module": "m9",
             "module_name": "编程开发",
-            "version": "0.1.0",
+            "version": __version__,
             "uptime_seconds": int(time.time() - _start_time_m8),
         },
     }
@@ -78,7 +84,8 @@ async def m8_std_metrics(x_m8_token: str = Header(default="")):
         mem = psutil.virtual_memory()
         mem_usage = mem.percent
         mem_mb = mem.used / (1024 * 1024)
-    except Exception:
+    except Exception as e:
+        logger.warning("获取系统指标失败: %s", e)
         cpu_usage = 0.0
         mem_usage = 0.0
         mem_mb = 0
@@ -89,8 +96,8 @@ async def m8_std_metrics(x_m8_token: str = Header(default="")):
             "cpu_usage": cpu_usage,
             "memory_usage": mem_usage,
             "memory_mb": round(mem_mb, 2),
-            "vscode_instances": 0,
-            "active_projects": 0,
+            "vscode_instances": len(vscode_manager.list_instances()),
+            "active_projects": len(project_manager.list_projects()),
         },
     }
 
@@ -105,11 +112,11 @@ async def m8_std_config(x_m8_token: str = Header(default="")):
         "message": "ok",
         "data": {
             "module": "m9",
-            "version": "0.1.0",
+            "version": __version__,
             "env": os.environ.get("YUNXI_ENV", "development"),
-            "sandbox_enabled": True,
-            "code_exec_timeout": 30,
-            "vscode_port_range_start": 8080,
+            "sandbox_enabled": settings.code_exec_sandbox_enabled,
+            "code_exec_timeout": settings.code_exec_timeout,
+            "vscode_port_range_start": settings.vscode_port_range_start,
         },
     }
 
@@ -119,7 +126,7 @@ async def root():
     return {
         "module": "M9-programming-dev",
         "name": "编程开发模块",
-        "version": "0.1.0",
+        "version": __version__,
         "endpoints": [
             "/api/v1/vscode/*",
             "/api/v1/code/*",

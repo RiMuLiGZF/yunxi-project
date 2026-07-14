@@ -3,17 +3,21 @@
 import os
 import json
 import uuid
+import shutil
+import logging
 from typing import List, Optional, Dict
 from datetime import datetime
 from .config import settings
 from .models import ProjectInfo
 from .path_safety import safe_join, is_path_safe, PathSecurityError
 
+logger = logging.getLogger("m9.project")
+
 
 class ProjectManager:
     """项目管理器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._projects_dir = settings.projects_root_dir
         os.makedirs(self._projects_dir, exist_ok=True)
         self._cache: Dict[str, ProjectInfo] = {}
@@ -33,8 +37,8 @@ class ProjectManager:
                     with open(meta_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                     self._cache[pid] = ProjectInfo(**data)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("加载项目 %s 元数据失败: %s", pid, e)
     
     def list_projects(self) -> List[ProjectInfo]:
         """列出所有项目"""
@@ -75,14 +79,14 @@ class ProjectManager:
 
         project = self._cache[project_id]
 
-        # P2-23: 路径安全检查，确保要删除的路径在项目根目录内
+        # 路径安全检查，确保要删除的路径在项目根目录内
         if not is_path_safe(self._projects_dir, project.path):
             return False
 
-        import shutil
         try:
             shutil.rmtree(project.path)
-        except Exception:
+        except Exception as e:
+            logger.error("删除项目 %s 失败: %s", project_id, e)
             return False
         
         del self._cache[project_id]

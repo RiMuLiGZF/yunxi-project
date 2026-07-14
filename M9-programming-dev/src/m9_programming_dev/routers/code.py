@@ -14,7 +14,7 @@ async def execute_code(request: CodeExecutionRequest):
         result = code_executor.execute(request)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="代码执行内部错误") from None
 
 
 @router.get("/languages")

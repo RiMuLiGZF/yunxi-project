@@ -4,7 +4,10 @@ import subprocess
 import tempfile
 import os
 import time
+import logging
 from typing import Optional
+
+logger = logging.getLogger("m9.executor")
 from .config import settings
 from .models import CodeExecutionRequest, CodeExecutionResult
 from .sandbox_security import is_code_allowed, get_safe_environ, validate_code_size
@@ -37,7 +40,7 @@ class CodeExecutor:
         start_time = time.time()
 
         try:
-            # P2-23: 代码大小检查
+            # 代码大小检查
             size_ok, size_msg = validate_code_size(request.code, max_size_kb=100)
             if not size_ok:
                 return CodeExecutionResult(
@@ -46,7 +49,7 @@ class CodeExecutor:
                     execution_time=time.time() - start_time
                 )
 
-            # P2-23: 沙箱模式下检查危险代码
+            # 沙箱模式下检查危险代码
             if settings.code_exec_sandbox_enabled:
                 allowed, findings = is_code_allowed(
                     request.code,
@@ -81,18 +84,21 @@ class CodeExecutor:
 
             cmd = cmd_template + [temp_file]
 
-            # P2-23: 使用安全的环境变量（移除敏感信息）
+            # 使用安全的环境变量（移除敏感信息）
             env = get_safe_environ()
-            if request.env and settings.code_exec_sandbox_enabled:
-                # 沙箱模式下只允许设置白名单内的环境变量
-                allowed_env_vars = {"LANG", "LC_ALL", "TZ", "PATH"}
+            if request.env:
+                # 无论沙箱是否启用，都使用白名单过滤用户环境变量
+                allowed_env_vars = {"LANG", "LC_ALL", "LC_CTYPE", "TZ", "TERM", "HOME", "TMPDIR", "TEMP"}
+                filtered = 0
                 for k, v in request.env.items():
-                    if k.upper() in allowed_env_vars or k.upper().startswith("PYTHON"):
+                    if k.upper() in allowed_env_vars:
                         env[k] = v
-            elif request.env:
-                env.update(request.env)
+                    else:
+                        filtered += 1
+                if filtered and not settings.code_exec_sandbox_enabled:
+                    logger.warning("非沙箱模式过滤了 %d 个非白名单环境变量", filtered)
 
-            # P2-23: 确保超时在限制内
+            # 确保超时在限制内
             timeout = min(request.timeout, settings.code_exec_timeout)
 
             # 执行代码
@@ -120,9 +126,10 @@ class CodeExecutor:
                 )
         
         except Exception as e:
+            logger.error("代码执行异常: %s", e, exc_info=True)
             return CodeExecutionResult(
                 success=False,
-                stderr=str(e),
+                stderr="代码执行内部错误",
                 execution_time=time.time() - start_time
             )
         finally:

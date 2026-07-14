@@ -3,9 +3,13 @@
 import subprocess
 import os
 import uuid
+import time
+import logging
 from typing import Optional, List, Dict
 from .config import settings
 from .models import VSCodeInstance, VSCodeStatus
+
+logger = logging.getLogger("m9.vscode")
 
 
 class VSCodeManager:
@@ -32,7 +36,7 @@ class VSCodeManager:
             name=name,
             status=VSCodeStatus.STARTING,
             workspace=ws,
-            created_at=str(uuid.uuid4())  # placeholder
+            created_at=time.strftime("%Y-%m-%dT%H:%M:%S")
         )
         
         try:
@@ -47,7 +51,7 @@ class VSCodeManager:
             instance.status = VSCodeStatus.RUNNING
         except Exception as e:
             instance.status = VSCodeStatus.ERROR
-            print(f"启动VSCode失败: {e}")
+            logger.error("启动VSCode实例 %s 失败: %s", instance_id, e)
         
         self._instances[instance_id] = instance
         return instance
@@ -57,15 +61,20 @@ class VSCodeManager:
         instance = self._instances.get(instance_id)
         if not instance:
             return False
-        
+
         if instance.pid:
             try:
                 import psutil
                 process = psutil.Process(instance.pid)
                 process.terminate()
-            except Exception:
-                pass
-        
+                try:
+                    process.wait(timeout=2)
+                except psutil.TimeoutExpired:
+                    logger.warning("VSCode实例 %s 未响应terminate，执行kill", instance_id)
+                    process.kill()
+            except Exception as e:
+                logger.warning("停止VSCode实例 %s 异常: %s", instance_id, e)
+
         instance.status = VSCodeStatus.STOPPED
         return True
     
