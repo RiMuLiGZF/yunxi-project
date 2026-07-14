@@ -699,6 +699,35 @@ class M5GrowthClient:
             fallback_data=_mock_talent_stats(),
         )
 
+    async def add_talent_points(
+        self,
+        amount: int = 1,
+        source: str = "m4",
+        source_id: str = "",
+        reason: str = "",
+    ) -> bool:
+        """调用 M5 增加天赋点数.
+
+        Args:
+            amount: 增加的点数（正整数，>=1）
+            source: 来源标识
+            source_id: 来源ID
+            reason: 原因说明
+
+        Returns:
+            是否成功
+        """
+        try:
+            result = await self._request(
+                "POST",
+                "/api/v1/growth/talents/points/add",
+                params={"amount": amount, "source": source, "source_id": source_id, "reason": reason},
+                fallback_data={"available_points": amount, "added": amount},
+            )
+            return isinstance(result, dict) and result.get("added") == amount
+        except Exception:
+            return False
+
     # -----------------------------------------------------------------------
     # 潮汐历法 API
     # -----------------------------------------------------------------------

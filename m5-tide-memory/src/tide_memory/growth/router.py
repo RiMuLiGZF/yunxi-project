@@ -78,6 +78,7 @@ class GrowthAPIRouter:
             {"method": "POST", "path": "/api/v1/growth/talents/reset", "handler": self.reset_talents},
             {"method": "GET", "path": "/api/v1/growth/talents/points", "handler": self.get_talent_points},
             {"method": "GET", "path": "/api/v1/growth/talents/stats", "handler": self.get_talent_stats},
+            {"method": "POST", "path": "/api/v1/growth/talents/points/add", "handler": self.add_talent_points},
 
             # 潮汐历法
             {"method": "GET", "path": "/api/v1/growth/calendar/{year}/{month}",
@@ -208,6 +209,45 @@ class GrowthAPIRouter:
         """获取天赋统计"""
         stats = self._talent_manager.get_stats()
         return self._success(stats)
+
+    def add_talent_points(self, request: Optional[Dict] = None) -> Dict:
+        """
+        M4 场景引擎调用：增加天赋点数
+
+        查询参数：
+        - amount: 增加的点数（正整数，>=1）
+        - source: 来源标识，默认 "system"
+        - source_id: 来源ID，默认 ""
+        - reason: 原因说明，默认 ""
+        """
+        request = request or {}
+        amount = request.get("amount", 1)
+        source = request.get("source", "system")
+        source_id = request.get("source_id", "")
+        reason = request.get("reason", "")
+
+        # 参数校验
+        try:
+            amount = int(amount)
+        except (ValueError, TypeError):
+            return self._error(400, "amount 必须为整数")
+
+        if amount < 1:
+            return self._error(400, "amount 必须 >= 1")
+
+        new_points = self._talent_manager.add_points(
+            amount=amount,
+            source=source,
+            source_id=str(source_id),
+            reason=str(reason),
+        )
+        return self._success({
+            "available_points": new_points,
+            "added": amount,
+            "source": source,
+            "source_id": source_id,
+            "reason": reason,
+        })
 
     # ============================================================
     # 潮汐历法 API

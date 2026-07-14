@@ -21,7 +21,7 @@ from ..m4_proxy import proxy_to_m4, strip_proxy_flag
 router = APIRouter(tags=["模式管理"])
 
 # M4 场景引擎模式管理接口前缀
-M4_MODES_PREFIX = "/api/v1/scene"
+M4_MODES_PREFIX = "/api/v1/modes"
 
 
 # ========== 数据模型 ==========
