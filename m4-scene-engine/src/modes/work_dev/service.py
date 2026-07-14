@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import subprocess
@@ -932,7 +933,8 @@ class WorkDevService:
     ) -> dict[str, Any]:
         """AI 代码操作（生成/审查/调试/优化/重构/解释/测试生成）.
 
-        当前为简化版（模板匹配 fallback），预留 LLM 接入点。
+        支持 LLM 动态生成与模板匹配两种模式。
+        当 M4_ENABLE_LLM=true 时优先调用 LLM，失败时回退到模板匹配。
 
         Args:
             prompt: 需求描述
@@ -945,16 +947,29 @@ class WorkDevService:
         if operation_type not in VALID_OPERATIONS:
             operation_type = "generate"
 
-        # Fallback: 模板匹配生成代码
-        code = self._fallback_generate_code(prompt, language, operation_type)
+        # 判断是否启用 LLM
+        enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
+        is_fallback = True
+        model_name = "template-matching"
+
+        if enable_llm:
+            try:
+                code = asyncio.run(self._call_llm_for_codegen(prompt, language))
+                is_fallback = False
+                model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
+            except Exception as e:
+                logger.warning("LLM codegen failed, falling back to template", error=str(e))
+                code = self._fallback_generate_code(prompt, language, operation_type)
+        else:
+            code = self._fallback_generate_code(prompt, language, operation_type)
 
         # 记录使用统计
         self.repo.record_usage(
             action_type="generate",
             operation_type=operation_type,
             language=language,
-            tokens_used=len(prompt) + len(code),
-            is_fallback=True,
+            tokens_used=len(prompt) + len(code) if enable_llm else len(prompt) + len(code),
+            is_fallback=is_fallback,
         )
 
         lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
@@ -969,22 +984,32 @@ class WorkDevService:
         }
         op_name = op_names.get(operation_type, "操作")
 
-        content = (
-            f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
-            f"```{language}\n{code}\n```\n\n"
-            f"**说明：**\n"
-            f"- 代码包含基本的输入验证\n"
-            f"- 已添加必要的注释说明\n\n"
-            f"（当前为模板匹配模式，接入大模型后可获得更智能的回复）"
-        )
+        if enable_llm and not is_fallback:
+            content = (
+                f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
+                f"```{language}\n{code}\n```\n\n"
+                f"**说明：**\n"
+                f"- 代码由大模型动态生成（{model_name}）\n"
+                f"- 请仔细审查代码后再使用\n"
+                f"- 如需修改，请提供更详细的描述"
+            )
+        else:
+            content = (
+                f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
+                f"```{language}\n{code}\n```\n\n"
+                f"**说明：**\n"
+                f"- 代码包含基本的输入验证\n"
+                f"- 已添加必要的注释说明\n\n"
+                f"（当前为模板匹配模式，接入大模型后可获得更智能的回复）"
+            )
 
         return {
             "language": language,
             "operation": operation_type,
             "content": content,
             "code": code,
-            "is_fallback": True,
-            "model": "template-matching",
+            "is_fallback": is_fallback,
+            "model": model_name,
         }
 
     def _fallback_generate_code(
@@ -1122,7 +1147,8 @@ fn main() {{
     ) -> dict[str, Any]:
         """代码对话（多轮）.
 
-        当前为简化版（模板匹配 fallback），预留 LLM 接入点。
+        支持 LLM 动态生成与模板匹配两种模式。
+        当 M4_ENABLE_LLM=true 时优先调用 LLM，失败时回退到模板匹配。
 
         Args:
             message: 用户消息
@@ -1143,15 +1169,38 @@ fn main() {{
         # 添加用户消息
         self.repo.append_message(conversation_id, "user", message)
 
-        # Fallback: 模板回复
-        code = self._fallback_generate_code(message, language, "generate")
+        # 判断是否启用 LLM
+        enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
+        is_fallback = True
+        model_name = "template-matching"
+
+        if enable_llm:
+            try:
+                code = asyncio.run(self._call_llm_for_codegen(message, language, context_code))
+                is_fallback = False
+                model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
+            except Exception as e:
+                logger.warning("LLM code chat failed, falling back to template", error=str(e))
+                code = self._fallback_generate_code(message, language, "generate")
+        else:
+            code = self._fallback_generate_code(message, language, "generate")
+
         lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
-        reply = (
-            f"好的，我来帮你处理这个问题。\n\n"
-            f"这是一个{lang_name}示例：\n\n"
-            f"```{language}\n{code}\n```\n\n"
-            f"（当前为模板模式，接入大模型后可获得更智能的对话体验）"
-        )
+
+        if enable_llm and not is_fallback:
+            reply = (
+                f"好的，我来帮你处理这个问题。\n\n"
+                f"这是一个{lang_name}示例：\n\n"
+                f"```{language}\n{code}\n```\n\n"
+                f"（由 {model_name} 动态生成，请仔细审查后再使用）"
+            )
+        else:
+            reply = (
+                f"好的，我来帮你处理这个问题。\n\n"
+                f"这是一个{lang_name}示例：\n\n"
+                f"```{language}\n{code}\n```\n\n"
+                f"（当前为模板模式，接入大模型后可获得更智能的对话体验）"
+            )
 
         # 添加 AI 回复
         self.repo.append_message(conversation_id, "assistant", reply)
@@ -1162,7 +1211,7 @@ fn main() {{
             operation_type="chat",
             language=language,
             tokens_used=len(message) + len(reply),
-            is_fallback=True,
+            is_fallback=is_fallback,
         )
 
         return {
@@ -1171,8 +1220,8 @@ fn main() {{
             "message_id": f"msg_{uuid.uuid4().hex[:12]}",
             "language": language,
             "message_count": session.message_count + 2 if session else 2,
-            "is_fallback": True,
-            "model": "template-matching",
+            "is_fallback": is_fallback,
+            "model": model_name,
         }
 
     def list_chat_sessions(self) -> list[dict[str, Any]]:
@@ -1400,6 +1449,7 @@ fn main() {{
 
         通过 httpx.AsyncClient 调用已配置的 LLM 服务端点，
         根据 prompt、语言和上下文代码生成目标代码。
+        优先使用专用代码生成配置，回退到全局 LLM 配置。
 
         Args:
             prompt: 用户需求描述
@@ -1412,12 +1462,16 @@ fn main() {{
         Raises:
             httpx.HTTPError: 网络或服务端错误时抛出
         """
+        # 优先使用专用配置，回退到全局配置
         llm_url = os.environ.get(
             "LLM_CODEGEN_URL",
-            "http://localhost:11434/v1/completions",
+            os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1") + "/chat/completions",
         )
         llm_api_key = os.environ.get("LLM_API_KEY", "")
-        model = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
+        model = os.environ.get(
+            "LLM_CODEGEN_MODEL",
+            os.environ.get("LLM_MODEL", "qwen2.5-coder:7b"),
+        )
 
         # 构建系统提示词
         system_prompt = (
@@ -1428,22 +1482,24 @@ fn main() {{
         if context:
             system_prompt += f"\n参考已有上下文代码：\n{context}"
 
-        # 构建请求体（兼容 OpenAI 接口格式）
+        # 构建请求体（兼容 OpenAI 聊天补全格式）
         payload = {
             "model": model,
-            "prompt": f"{system_prompt}\n\n用户需求：{prompt}\n\n请生成{language}代码：",
-            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"请生成{language}代码：{prompt}"},
+            ],
+            "max_tokens": 4096,
             "temperature": 0.3,
-            "stop": ["```", "---"],
         }
 
         headers = {
             "Content-Type": "application/json",
         }
-        if llm_api_key:
+        if llm_api_key and llm_api_key not in ("", "ollama"):
             headers["Authorization"] = f"Bearer {llm_api_key}"
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 llm_url,
                 json=payload,
@@ -1456,10 +1512,10 @@ fn main() {{
         raw_code = ""
         if "choices" in result:
             choice = result["choices"][0]
-            if "text" in choice:
+            if "message" in choice and "content" in choice["message"]:
+                raw_code = choice["message"]["content"]
+            elif "text" in choice:
                 raw_code = choice["text"]
-            elif "message" in choice:
-                raw_code = choice["message"].get("content", "")
         elif "response" in result:
             raw_code = result["response"]
         else:

@@ -11,6 +11,15 @@ from pathlib import Path
 from typing import Optional, Callable
 from contextlib import asynccontextmanager
 
+# 加载环境变量（优先从项目根目录加载）
+_env_path = Path(__file__).resolve().parent.parent.parent / "config" / "yunxi.env"
+if _env_path.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=_env_path, override=False)
+    except ImportError:
+        pass
+
 # 兼容相对导入和直接运行
 try:
     from .config import get_settings
@@ -215,7 +224,7 @@ if __name__ == "__main__":
     settings = get_settings()
     app = create_app()
     uvicorn.run(
-        "main:app",
+        app,
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
