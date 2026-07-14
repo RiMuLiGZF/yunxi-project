@@ -586,6 +586,7 @@ class AuditService:
 # ===========================================================================
 
 _audit_service: Optional[AuditService] = None
+_audit_service_lock = threading.Lock()
 
 
 def get_audit_service() -> AuditService:
@@ -596,7 +597,9 @@ def get_audit_service() -> AuditService:
     """
     global _audit_service
     if _audit_service is None:
-        _audit_service = AuditService()
+        with _audit_service_lock:
+            if _audit_service is None:
+                _audit_service = AuditService()
     return _audit_service
 
 

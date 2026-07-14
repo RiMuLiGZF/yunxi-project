@@ -283,28 +283,29 @@ class IpFilter:
         Returns:
             (是否在黑名单, 匹配的条目)
         """
-        self._maybe_cleanup()
+        with self._lock:
+            self._maybe_cleanup()
 
-        # 快速匹配：单 IP
-        if ip_address in self._black_ips:
-            entry = self._blacklist.get(ip_address)
-            if entry and entry.is_active and not self._is_expired(entry):
-                self._record_hit(entry)
-                return True, entry
-
-        # CIDR 匹配
-        try:
-            ip_obj = ipaddress.ip_address(ip_address)
-            for entry in self._black_cidrs:
-                if not entry.is_active or self._is_expired(entry):
-                    continue
-                if entry._network and ip_obj in entry._network:
+            # 快速匹配：单 IP
+            if ip_address in self._black_ips:
+                entry = self._blacklist.get(ip_address)
+                if entry and entry.is_active and not self._is_expired(entry):
                     self._record_hit(entry)
                     return True, entry
-        except ValueError:
-            pass
 
-        return False, None
+            # CIDR 匹配
+            try:
+                ip_obj = ipaddress.ip_address(ip_address)
+                for entry in self._black_cidrs:
+                    if not entry.is_active or self._is_expired(entry):
+                        continue
+                    if entry._network and ip_obj in entry._network:
+                        self._record_hit(entry)
+                        return True, entry
+            except ValueError:
+                pass
+
+            return False, None
 
     def is_whitelisted(self, ip_address: str) -> Tuple[bool, Optional[IpEntry]]:
         """检查 IP 是否在白名单中
@@ -315,26 +316,27 @@ class IpFilter:
         Returns:
             (是否在白名单, 匹配的条目)
         """
-        self._maybe_cleanup()
+        with self._lock:
+            self._maybe_cleanup()
 
-        # 快速匹配：单 IP
-        if ip_address in self._white_ips:
-            entry = self._whitelist.get(ip_address)
-            if entry and entry.is_active and not self._is_expired(entry):
-                return True, entry
-
-        # CIDR 匹配
-        try:
-            ip_obj = ipaddress.ip_address(ip_address)
-            for entry in self._white_cidrs:
-                if not entry.is_active or self._is_expired(entry):
-                    continue
-                if entry._network and ip_obj in entry._network:
+            # 快速匹配：单 IP
+            if ip_address in self._white_ips:
+                entry = self._whitelist.get(ip_address)
+                if entry and entry.is_active and not self._is_expired(entry):
                     return True, entry
-        except ValueError:
-            pass
 
-        return False, None
+            # CIDR 匹配
+            try:
+                ip_obj = ipaddress.ip_address(ip_address)
+                for entry in self._white_cidrs:
+                    if not entry.is_active or self._is_expired(entry):
+                        continue
+                    if entry._network and ip_obj in entry._network:
+                        return True, entry
+            except ValueError:
+                pass
+
+            return False, None
 
     def check_ip(self, ip_address: str) -> Dict:
         """综合检查 IP 状态
@@ -363,8 +365,8 @@ class IpFilter:
             "ip_address": ip_address,
             "is_blacklisted": blacklisted,
             "is_whitelisted": whitelisted,
-            "blacklist_info": bl_entry.__dict__ if bl_entry else None,
-            "whitelist_info": wl_entry.__dict__ if wl_entry else None,
+            "blacklist_info": {k: v for k, v in bl_entry.__dict__.items() if not k.startswith('_')} if bl_entry else None,
+            "whitelist_info": {k: v for k, v in wl_entry.__dict__.items() if not k.startswith('_')} if wl_entry else None,
             "risk_level": risk_level,
             "recommendation": recommendation,
         }
@@ -583,6 +585,7 @@ class IpFilter:
 # ===========================================================================
 
 _ip_filter: Optional[IpFilter] = None
+_ip_filter_lock = threading.Lock()
 
 
 def get_ip_filter() -> IpFilter:
@@ -593,7 +596,9 @@ def get_ip_filter() -> IpFilter:
     """
     global _ip_filter
     if _ip_filter is None:
-        _ip_filter = IpFilter()
+        with _ip_filter_lock:
+            if _ip_filter is None:
+                _ip_filter = IpFilter()
     return _ip_filter
 
 

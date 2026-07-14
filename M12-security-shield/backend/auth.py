@@ -10,7 +10,7 @@
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 # 兼容相对导入和直接运行
@@ -123,15 +123,15 @@ def generate_api_key(prefix: str = "m12-") -> str:
 
 
 def hash_api_key(api_key: str) -> str:
-    """哈希 API Key（用于存储）
-
+    """哈希 API Key（用于存储，使用 bcrypt 慢哈希）
+    
     Args:
         api_key: 明文 API Key
-
+    
     Returns:
-        SHA256 哈希值
+        bcrypt 哈希值
     """
-    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    return pwd_context.hash(api_key)
 
 
 def get_api_key_prefix(api_key: str) -> str:
@@ -149,29 +149,21 @@ def get_api_key_prefix(api_key: str) -> str:
 
 
 def validate_api_key(db: Session, api_key: str) -> Optional[ApiKey]:
-    """验证 API Key 是否有效
-
-    Args:
-        db: 数据库会话
-        api_key: 明文 API Key
-
-    Returns:
-        有效的 API Key 记录，无效返回 None
-    """
-    key_hash = hash_api_key(api_key)
-    key_record = db.query(ApiKey).filter(
-        ApiKey.key_hash == key_hash,
-        ApiKey.is_active == True,
-    ).first()
-
-    if not key_record:
-        return None
-
-    # 检查是否过期
-    if key_record.expires_at and key_record.expires_at < datetime.now():
-        return None
-
-    return key_record
+    """验证 API Key 是否有效"""
+    # 获取所有活跃的 API Key 记录
+    active_keys = db.query(ApiKey).filter(ApiKey.is_active == True).all()
+    
+    for key_record in active_keys:
+        try:
+            if pwd_context.verify(api_key, key_record.key_hash):
+                # 检查是否过期
+                if key_record.expires_at and key_record.expires_at < datetime.now(tz=timezone.utc):
+                    return None
+                return key_record
+        except Exception:
+            continue
+    
+    return None
 
 
 # ===========================================================================
@@ -195,13 +187,13 @@ def create_access_token(
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(tz=timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
+        expire = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
 
     to_encode.update({
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(tz=timezone.utc),
         "type": "access",
         "jti": uuid.uuid4().hex,
     })
@@ -225,11 +217,11 @@ def create_refresh_token(data: dict) -> str:
     """
     settings = get_settings()
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.jwt_refresh_expire_days)
+    expire = datetime.now(tz=timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
 
     to_encode.update({
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(tz=timezone.utc),
         "type": "refresh",
         "jti": uuid.uuid4().hex,
     })
@@ -321,7 +313,7 @@ def clean_expired_blacklist_tokens(db: Session) -> int:
     Returns:
         清理的记录数量
     """
-    now = datetime.utcnow()
+    now = datetime.now(tz=timezone.utc)
     result = db.query(TokenBlacklist).filter(
         TokenBlacklist.expired_at < now,
     ).delete(synchronize_session=False)
@@ -344,7 +336,7 @@ def blacklist_token(db: Session, token: str) -> bool:
         return False
     jti = payload.get("jti")
     exp_timestamp = payload.get("exp")
-    expired_at = datetime.fromtimestamp(exp_timestamp) if exp_timestamp else datetime.utcnow()
+    expired_at = datetime.fromtimestamp(exp_timestamp) if exp_timestamp else datetime.now(tz=timezone.utc)
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     add_token_to_blacklist(db, jti, token_hash, expired_at)
     return True

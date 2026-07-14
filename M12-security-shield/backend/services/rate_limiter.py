@@ -344,6 +344,7 @@ class RateLimiter:
 # ===========================================================================
 
 _rate_limiter: Optional[RateLimiter] = None
+_rate_limiter_lock = threading.Lock()
 
 
 def get_rate_limiter() -> RateLimiter:
@@ -354,17 +355,19 @@ def get_rate_limiter() -> RateLimiter:
     """
     global _rate_limiter
     if _rate_limiter is None:
-        # 延迟导入配置以避免循环引用
-        try:
-            from ..config import get_settings
-            settings = get_settings()
-            _rate_limiter = RateLimiter(
-                default_rate_per_minute=settings.default_rate_per_minute,
-                burst_size=settings.rate_limit_burst,
-                enabled=settings.rate_limit_enabled,
-            )
-        except ImportError:
-            _rate_limiter = RateLimiter()
+        with _rate_limiter_lock:
+            if _rate_limiter is None:
+                # 延迟导入配置以避免循环引用
+                try:
+                    from ..config import get_settings
+                    settings = get_settings()
+                    _rate_limiter = RateLimiter(
+                        default_rate_per_minute=settings.default_rate_per_minute,
+                        burst_size=settings.rate_limit_burst,
+                        enabled=settings.rate_limit_enabled,
+                    )
+                except ImportError:
+                    _rate_limiter = RateLimiter()
     return _rate_limiter
 
 

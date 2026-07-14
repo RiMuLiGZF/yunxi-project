@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
+import threading
 
 # 兼容相对导入和直接运行
 try:
@@ -55,6 +56,7 @@ router = APIRouter(prefix="/api/m12/auth", tags=["M12-鉴权管理"])
 # 模拟 API Key 存储（实际应使用数据库）
 _api_keys_storage = []
 _api_key_id_counter = 0
+_api_key_lock = threading.Lock()
 
 
 # ===========================================================================
@@ -205,9 +207,10 @@ def list_api_keys(
     获取 API 密钥列表
     """
     try:
-        global _api_keys_storage
+        with _api_key_lock:
+            global _api_keys_storage
 
-        keys = list(_api_keys_storage)
+            keys = list(_api_keys_storage)
 
         # 筛选
         if owner:
@@ -253,31 +256,32 @@ def create_api_key(
     try:
         global _api_keys_storage, _api_key_id_counter
 
-        # 生成密钥
+        # 生成密钥（可在锁外，不涉及共享状态）
         api_key = generate_api_key(prefix=get_settings().api_key_prefix)
         key_hash = hash_api_key(api_key)
         key_prefix = get_api_key_prefix(api_key)
 
-        _api_key_id_counter += 1
-        key_record = {
-            "id": _api_key_id_counter,
-            "key_name": key_name,
-            "key_hash": key_hash,
-            "key_prefix": key_prefix,
-            "owner": owner,
-            "roles": roles.split(",") if roles else [],
-            "scopes": scopes.split(",") if scopes else [],
-            "rate_limit": rate_limit,
-            "call_count": 0,
-            "last_used_at": None,
-            "expires_at": None,
-            "is_active": True,
-            "created_by": "system",
-            "created_at": __import__("datetime").datetime.now().isoformat(),
-            "description": description,
-        }
+        with _api_key_lock:
+            _api_key_id_counter += 1
+            key_record = {
+                "id": _api_key_id_counter,
+                "key_name": key_name,
+                "key_hash": key_hash,
+                "key_prefix": key_prefix,
+                "owner": owner,
+                "roles": roles.split(",") if roles else [],
+                "scopes": scopes.split(",") if scopes else [],
+                "rate_limit": rate_limit,
+                "call_count": 0,
+                "last_used_at": None,
+                "expires_at": None,
+                "is_active": True,
+                "created_by": "system",
+                "created_at": __import__("datetime").datetime.now().isoformat(),
+                "description": description,
+            }
 
-        _api_keys_storage.append(key_record)
+            _api_keys_storage.append(key_record)
 
         # 返回时包含完整密钥（仅这一次）
         result = key_record.copy()

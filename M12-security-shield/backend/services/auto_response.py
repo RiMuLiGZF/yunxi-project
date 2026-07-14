@@ -18,10 +18,13 @@
 import time
 import threading
 import json
+import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from collections import deque
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================
@@ -707,7 +710,8 @@ class AutoResponseEngine:
             with open(self._persist_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             return True
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to save auto-response state to disk: %s", e, exc_info=True)
             return False
 
     def _load_from_disk(self) -> bool:
@@ -775,7 +779,8 @@ class AutoResponseEngine:
                         self._rules[rid] = rule
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to load auto-response state from disk: %s", e, exc_info=True)
             return False
 
     # -----------------------------------------------------------------------
@@ -830,6 +835,7 @@ class AutoResponseEngine:
 # ===========================================================================
 
 _auto_response_engine: Optional[AutoResponseEngine] = None
+_auto_response_engine_lock = threading.Lock()
 
 
 def get_auto_response_engine() -> AutoResponseEngine:
@@ -840,21 +846,23 @@ def get_auto_response_engine() -> AutoResponseEngine:
     """
     global _auto_response_engine
     if _auto_response_engine is None:
-        engine = AutoResponseEngine(response_level=RESPONSE_LEVEL_DETECT)
+        with _auto_response_engine_lock:
+            if _auto_response_engine is None:
+                engine = AutoResponseEngine(response_level=RESPONSE_LEVEL_DETECT)
 
-        # 尝试设置持久化路径
-        try:
-            try:
-                from ..config import get_settings
-            except ImportError:
-                from config import get_settings
-            settings = get_settings()
-            persist_path = settings.data_dir / "auto_response.json"
-            engine.set_persist_path(str(persist_path))
-        except Exception:
-            pass
+                # 尝试设置持久化路径
+                try:
+                    try:
+                        from ..config import get_settings
+                    except ImportError:
+                        from config import get_settings
+                    settings = get_settings()
+                    persist_path = settings.data_dir / "auto_response.json"
+                    engine.set_persist_path(str(persist_path))
+                except Exception:
+                    pass
 
-        _auto_response_engine = engine
+                _auto_response_engine = engine
     return _auto_response_engine
 
 

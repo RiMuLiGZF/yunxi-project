@@ -14,8 +14,12 @@
 
 import re
 import time
+import threading
+import logging
 from typing import Dict, List, Optional, Any
 from urllib.parse import unquote
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================
@@ -110,6 +114,7 @@ class WafEngine:
 
     def __init__(self):
         """初始化 WAF 引擎"""
+        self._lock = threading.RLock()
         self.enabled = True
         self._rules: List[Dict[str, Any]] = []
         # 预编译正则缓存：rule_id -> compiled_pattern
@@ -154,16 +159,18 @@ class WafEngine:
                 # 预编译正则表达式
                 try:
                     self._compiled_patterns[rule_id] = re.compile(pattern, re.IGNORECASE)
-                except re.error:
-                    pass
+                except re.error as e:
+                    logger.warning("WAF rule %s has invalid regex pattern: %s", rule.get("name", rule_id), e)
 
     def enable(self) -> None:
         """启用 WAF"""
-        self.enabled = True
+        with self._lock:
+            self.enabled = True
 
     def disable(self) -> None:
         """禁用 WAF"""
-        self.enabled = False
+        with self._lock:
+            self.enabled = False
 
     def toggle(self) -> bool:
         """切换 WAF 开关状态
@@ -171,8 +178,9 @@ class WafEngine:
         Returns:
             切换后的状态
         """
-        self.enabled = not self.enabled
-        return self.enabled
+        with self._lock:
+            self.enabled = not self.enabled
+            return self.enabled
 
     def get_rule_count(self) -> int:
         """获取规则总数
@@ -196,22 +204,23 @@ class WafEngine:
         Returns:
             状态字典
         """
-        rules_by_type: Dict[str, int] = {}
-        for rule in self._rules:
-            rtype = rule["type"]
-            rules_by_type[rtype] = rules_by_type.get(rtype, 0) + 1
+        with self._lock:
+            rules_by_type: Dict[str, int] = {}
+            for rule in self._rules:
+                rtype = rule["type"]
+                rules_by_type[rtype] = rules_by_type.get(rtype, 0) + 1
 
-        return {
-            "enabled": self.enabled,
-            "total_rules": len(self._rules),
-            "active_rules": self.get_active_rule_count(),
-            "builtin_rules": sum(1 for r in self._rules if r["is_builtin"]),
-            "custom_rules": sum(1 for r in self._rules if not r["is_builtin"]),
-            "rules_by_type": rules_by_type,
-            "today_blocks": self._stats["today_blocks"],
-            "total_blocks": self._stats["total_blocks"],
-            "total_checks": self._stats["total_checks"],
-        }
+            return {
+                "enabled": self.enabled,
+                "total_rules": len(self._rules),
+                "active_rules": self.get_active_rule_count(),
+                "builtin_rules": sum(1 for r in self._rules if r["is_builtin"]),
+                "custom_rules": sum(1 for r in self._rules if not r["is_builtin"]),
+                "rules_by_type": rules_by_type,
+                "today_blocks": self._stats["today_blocks"],
+                "total_blocks": self._stats["total_blocks"],
+                "total_checks": self._stats["total_checks"],
+            }
 
     def get_rules(
         self,
@@ -227,12 +236,13 @@ class WafEngine:
         Returns:
             规则列表
         """
-        rules = self._rules
-        if rule_type:
-            rules = [r for r in rules if r["type"] == rule_type]
-        if is_active is not None:
-            rules = [r for r in rules if r["is_active"] == is_active]
-        return rules
+        with self._lock:
+            rules = self._rules
+            if rule_type:
+                rules = [r for r in rules if r["type"] == rule_type]
+            if is_active is not None:
+                rules = [r for r in rules if r["is_active"] == is_active]
+            return rules
 
     def add_rule(self, rule: Dict[str, Any]) -> Dict[str, Any]:
         """添加自定义规则
@@ -243,27 +253,28 @@ class WafEngine:
         Returns:
             添加后的规则（含 ID）
         """
-        new_id = max(r["id"] for r in self._rules) + 1 if self._rules else 1
-        new_rule = {
-            "id": new_id,
-            "name": rule.get("name", f"custom_rule_{new_id}"),
-            "type": rule.get("type", "custom"),
-            "pattern": rule.get("pattern", ""),
-            "severity": rule.get("severity", "medium"),
-            "action": rule.get("action", "block"),
-            "match_target": rule.get("match_target", "all"),
-            "description": rule.get("description", ""),
-            "is_builtin": False,
-            "is_active": rule.get("is_active", True),
-            "hit_count": 0,
-        }
-        self._rules.append(new_rule)
-        # 预编译自定义规则的正则
-        try:
-            self._compiled_patterns[new_id] = re.compile(rule.get("pattern", ""), re.IGNORECASE)
-        except re.error:
-            pass
-        return new_rule
+        with self._lock:
+            new_id = max(r["id"] for r in self._rules) + 1 if self._rules else 1
+            new_rule = {
+                "id": new_id,
+                "name": rule.get("name", f"custom_rule_{new_id}"),
+                "type": rule.get("type", "custom"),
+                "pattern": rule.get("pattern", ""),
+                "severity": rule.get("severity", "medium"),
+                "action": rule.get("action", "block"),
+                "match_target": rule.get("match_target", "all"),
+                "description": rule.get("description", ""),
+                "is_builtin": False,
+                "is_active": rule.get("is_active", True),
+                "hit_count": 0,
+            }
+            self._rules.append(new_rule)
+            # 预编译自定义规则的正则
+            try:
+                self._compiled_patterns[new_id] = re.compile(rule.get("pattern", ""), re.IGNORECASE)
+            except re.error as e:
+                logger.warning("WAF rule %s has invalid regex pattern: %s", rule.get("name", new_id), e)
+            return new_rule
 
     def update_rule(self, rule_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """更新规则
@@ -275,19 +286,21 @@ class WafEngine:
         Returns:
             更新后的规则，不存在返回 None
         """
-        for rule in self._rules:
-            if rule["id"] == rule_id:
-                for key, value in updates.items():
-                    if key in rule and key not in ("id", "is_builtin"):
-                        rule[key] = value
-                # 如果 pattern 更新了，重新编译
-                if "pattern" in updates:
-                    try:
-                        self._compiled_patterns[rule_id] = re.compile(updates["pattern"], re.IGNORECASE)
-                    except re.error:
-                        self._compiled_patterns.pop(rule_id, None)
-                return rule
-        return None
+        with self._lock:
+            for rule in self._rules:
+                if rule["id"] == rule_id:
+                    for key, value in updates.items():
+                        if key in rule and key not in ("id", "is_builtin"):
+                            rule[key] = value
+                    # 如果 pattern 更新了，重新编译
+                    if "pattern" in updates:
+                        try:
+                            self._compiled_patterns[rule_id] = re.compile(updates["pattern"], re.IGNORECASE)
+                        except re.error as e:
+                            logger.warning("WAF rule %s has invalid regex pattern: %s", rule.get("name", rule_id), e)
+                            self._compiled_patterns.pop(rule_id, None)
+                    return rule
+            return None
 
     def delete_rule(self, rule_id: int) -> bool:
         """删除规则（仅自定义规则可删除）
@@ -298,12 +311,13 @@ class WafEngine:
         Returns:
             是否删除成功
         """
-        for i, rule in enumerate(self._rules):
-            if rule["id"] == rule_id and not rule["is_builtin"]:
-                self._rules.pop(i)
-                self._compiled_patterns.pop(rule_id, None)
-                return True
-        return False
+        with self._lock:
+            for i, rule in enumerate(self._rules):
+                if rule["id"] == rule_id and not rule["is_builtin"]:
+                    self._rules.pop(i)
+                    self._compiled_patterns.pop(rule_id, None)
+                    return True
+            return False
 
     def check_request(
         self,
@@ -351,92 +365,94 @@ class WafEngine:
                 "match_target": "", "detection_time_ns": elapsed,
             }
 
-        self._stats["total_checks"] += 1
-        self._check_day_reset()
+        with self._lock:
+            self._stats["total_checks"] += 1
+            self._check_day_reset()
 
-        # URL 解码查询参数
-        decoded_query = unquote(query) if query else ""
-        decoded_path = unquote(path) if path else ""
-        decoded_body = unquote(body) if body else ""
+            # URL 解码查询参数
+            decoded_query = unquote(query) if query else ""
+            decoded_path = unquote(path) if path else ""
+            decoded_body = unquote(body) if body else ""
 
-        # 拼接所有待检测内容
-        check_targets = {
-            "path": decoded_path,
-            "query": decoded_query,
-            "body": decoded_body,
-            "header": " ".join(f"{k}:{v}" for k, v in (headers or {}).items()),
-        }
+            # 拼接所有待检测内容
+            check_targets = {
+                "path": decoded_path,
+                "query": decoded_query,
+                "body": decoded_body,
+                "header": " ".join(f"{k}:{v}" for k, v in (headers or {}).items()),
+            }
 
-        # 遍历规则进行检测（使用预编译正则）
-        for rule in self._rules:
-            if not rule["is_active"]:
-                continue
-
-            rule_id = rule["id"]
-            match_target = rule["match_target"]
-            compiled = self._compiled_patterns.get(rule_id)
-
-            # 如果没有预编译的正则，跳过（规则无效）
-            if compiled is None:
-                continue
-
-            # 确定需要检测的目标
-            targets_to_check = []
-            if match_target == "all":
-                targets_to_check = list(check_targets.items())
-            else:
-                if match_target in check_targets:
-                    targets_to_check = [(match_target, check_targets[match_target])]
-
-            # 执行检测
-            for target_name, target_content in targets_to_check:
-                if not target_content:
+            # 遍历规则进行检测（使用预编译正则）
+            for rule in self._rules:
+                if not rule["is_active"]:
                     continue
 
-                match = compiled.search(target_content)
-                if match:
-                    # 命中规则
-                    rule["hit_count"] += 1
-                    self._stats["total_blocks"] += 1
-                    self._stats["today_blocks"] += 1
+                rule_id = rule["id"]
+                match_target = rule["match_target"]
+                compiled = self._compiled_patterns.get(rule_id)
 
-                    elapsed = time.perf_counter_ns() - start_ns
-                    self._stats["total_detection_time_ns"] += elapsed
+                # 如果没有预编译的正则，跳过（规则无效）
+                if compiled is None:
+                    continue
 
-                    matched_text = match.group(0)
+                # 确定需要检测的目标
+                targets_to_check = []
+                if match_target == "all":
+                    targets_to_check = list(check_targets.items())
+                else:
+                    if match_target in check_targets:
+                        targets_to_check = [(match_target, check_targets[match_target])]
 
-                    return {
-                        "passed": False,
-                        "rule_name": rule["name"],
-                        "rule_type": rule["type"],
-                        "severity": rule["severity"],
-                        "action": rule["action"],
-                        "matched_content": matched_text[:200],
-                        "match_target": target_name,
-                        "detection_time_ns": elapsed,
-                    }
+                # 执行检测
+                for target_name, target_content in targets_to_check:
+                    if not target_content:
+                        continue
 
-        # 未命中任何规则，请求通过
-        elapsed = time.perf_counter_ns() - start_ns
-        self._stats["total_detection_time_ns"] += elapsed
-        return {
-            "passed": True,
-            "rule_name": "",
-            "rule_type": "",
-            "severity": "",
-            "action": "",
-            "matched_content": "",
-            "match_target": "",
-            "detection_time_ns": elapsed,
-        }
+                    match = compiled.search(target_content)
+                    if match:
+                        # 命中规则
+                        rule["hit_count"] += 1
+                        self._stats["total_blocks"] += 1
+                        self._stats["today_blocks"] += 1
+
+                        elapsed = time.perf_counter_ns() - start_ns
+                        self._stats["total_detection_time_ns"] += elapsed
+
+                        matched_text = match.group(0)
+
+                        return {
+                            "passed": False,
+                            "rule_name": rule["name"],
+                            "rule_type": rule["type"],
+                            "severity": rule["severity"],
+                            "action": rule["action"],
+                            "matched_content": matched_text[:200],
+                            "match_target": target_name,
+                            "detection_time_ns": elapsed,
+                        }
+
+            # 未命中任何规则，请求通过
+            elapsed = time.perf_counter_ns() - start_ns
+            self._stats["total_detection_time_ns"] += elapsed
+            return {
+                "passed": True,
+                "rule_name": "",
+                "rule_type": "",
+                "severity": "",
+                "action": "",
+                "matched_content": "",
+                "match_target": "",
+                "detection_time_ns": elapsed,
+            }
 
     def _check_day_reset(self) -> None:
         """检查并重置每日统计"""
-        now = time.time()
-        # 判断是否过了一天（86400秒）
-        if now - self._stats["start_of_day"] >= 86400:
-            self._stats["today_blocks"] = 0
-            self._stats["start_of_day"] = now
+        with self._lock:
+            now = time.time()
+            # 判断是否过了一天（86400秒）
+            if now - self._stats["start_of_day"] >= 86400:
+                self._stats["today_blocks"] = 0
+                self._stats["start_of_day"] = now
 
     # -----------------------------------------------------------------------
     # 网关专用检测接口（高性能）
@@ -555,16 +571,17 @@ class WafEngine:
         Returns:
             性能统计字典
         """
-        total_checks = self._stats["total_checks"]
-        total_time_ns = self._stats.get("total_detection_time_ns", 0)
-        avg_time_ns = total_time_ns / total_checks if total_checks > 0 else 0
+        with self._lock:
+            total_checks = self._stats["total_checks"]
+            total_time_ns = self._stats.get("total_detection_time_ns", 0)
+            avg_time_ns = total_time_ns / total_checks if total_checks > 0 else 0
 
-        return {
-            "total_checks": total_checks,
-            "total_detection_time_ms": total_time_ns / 1_000_000.0,
-            "avg_detection_time_ms": avg_time_ns / 1_000_000.0,
-            "avg_detection_time_us": avg_time_ns / 1_000.0,
-        }
+            return {
+                "total_checks": total_checks,
+                "total_detection_time_ms": total_time_ns / 1_000_000.0,
+                "avg_detection_time_ms": avg_time_ns / 1_000_000.0,
+                "avg_detection_time_us": avg_time_ns / 1_000.0,
+            }
 
 
 # ===========================================================================
@@ -572,7 +589,7 @@ class WafEngine:
 # ===========================================================================
 
 _waf_engine: Optional[WafEngine] = None
-
+_waf_engine_lock = threading.Lock()
 
 def get_waf_engine() -> WafEngine:
     """获取 WAF 引擎单例
@@ -582,7 +599,9 @@ def get_waf_engine() -> WafEngine:
     """
     global _waf_engine
     if _waf_engine is None:
-        _waf_engine = WafEngine()
+        with _waf_engine_lock:
+            if _waf_engine is None:
+                _waf_engine = WafEngine()
     return _waf_engine
 
 

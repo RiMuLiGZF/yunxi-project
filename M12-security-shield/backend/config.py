@@ -239,6 +239,7 @@ class Settings(BaseSettings):
 
 # 全局配置单例
 _settings: Optional[Settings] = None
+_settings_lock = threading.Lock()
 
 
 def get_settings() -> Settings:
@@ -252,10 +253,12 @@ def get_settings() -> Settings:
     """
     global _settings
     if _settings is None:
-        _settings = Settings()
-        _settings.ensure_dirs()
-        # 验证密钥安全性
-        _settings.validate_secret_security()
+        with _settings_lock:
+            if _settings is None:
+                _settings = Settings()
+                _settings.ensure_dirs()
+                # 验证密钥安全性
+                _settings.validate_secret_security()
     return _settings
 
 

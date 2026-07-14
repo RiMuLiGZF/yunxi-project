@@ -13,12 +13,15 @@ M12 安全盾服务 - FastAPI 启动入口
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import time
 import uuid
 from pathlib import Path
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 import uvicorn
 from fastapi import FastAPI, Request, Header, HTTPException
@@ -171,49 +174,55 @@ async def security_middleware(request: Request, call_next):
 
     # 速率限制检查（仅对 API 路径）
     if request.url.path.startswith("/api/"):
-        rl = get_rate_limiter()
-        if not rl.allow_request(client_ip):
-            from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "code": 429,
-                    "message": "请求过于频繁，请稍后再试",
-                    "data": {"retry_after": rl.get_retry_after(client_ip)},
-                    "request_id": request_id,
-                },
-            )
+        try:
+            rl = get_rate_limiter()
+            if not rl.allow_request(client_ip):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "code": 429,
+                        "message": "请求过于频繁，请稍后再试",
+                        "data": {"retry_after": rl.get_retry_after(client_ip)},
+                        "request_id": request_id,
+                    },
+                )
+        except Exception as e:
+            logger.error("Rate limiter error, fail-open: %s", e, exc_info=True)
 
     # WAF 检测（仅对 API 路径）
     if request.url.path.startswith("/api/"):
-        waf = get_waf_engine()
-        check_result = waf.check_request(
-            method=request.method,
-            path=request.url.path,
-            query=request.url.query,
-            headers=dict(request.headers),
-            client_ip=client_ip,
-        )
-        if not check_result["passed"]:
-            # 记录安全事件
-            audit = get_audit_service()
-            audit.log_security_event(
-                event_type="waf_block",
-                severity="high",
-                source_ip=client_ip,
-                description=f"WAF拦截: {check_result['rule_name']}",
-                details=check_result,
+        try:
+            waf = get_waf_engine()
+            check_result = waf.check_request(
+                method=request.method,
+                path=request.url.path,
+                query=request.url.query,
+                headers=dict(request.headers),
+                client_ip=client_ip,
             )
-            from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "code": 403,
-                    "message": f"请求被安全策略拦截: {check_result['rule_name']}",
-                    "data": check_result,
-                    "request_id": request_id,
-                },
-            )
+            if not check_result["passed"]:
+                # 记录安全事件
+                audit = get_audit_service()
+                audit.log_security_event(
+                    event_type="waf_block",
+                    severity="high",
+                    source_ip=client_ip,
+                    description=f"WAF拦截: {check_result['rule_name']}",
+                    details=check_result,
+                )
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "code": 403,
+                        "message": f"请求被安全策略拦截: {check_result['rule_name']}",
+                        "data": check_result,
+                        "request_id": request_id,
+                    },
+                )
+        except Exception as e:
+            logger.error("WAF check error, fail-open: %s", e, exc_info=True)
 
     response = await call_next(request)
 
