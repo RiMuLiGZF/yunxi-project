@@ -5,11 +5,14 @@
 提供 create_app() 工厂函数，支持灵活的应用创建和测试。
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Optional, Callable
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 # 加载环境变量（优先从项目根目录加载）
 _env_path = Path(__file__).resolve().parent.parent.parent / "config" / "yunxi.env"
@@ -76,69 +79,69 @@ async def _default_lifespan(app: FastAPI):
 
     启动时初始化数据库和各服务组件，关闭时执行清理。
     """
-    print("[M12] 正在初始化...")
+    logger.info("[M12] 正在初始化...")
 
     # 0. 检查密钥安全性
     try:
         settings.validate_secret_security()
     except ValueError as e:
-        print(f"[M12] {e}")
+        logger.error("[M12] %s", e)
         raise SystemExit(1)
 
     # 1. 初始化数据库
     init_db()
-    print("[M12] 数据库初始化完成")
+    logger.info("[M12] 数据库初始化完成")
 
     # 2. 初始化 WAF 引擎
     try:
         from .services.waf_engine import get_waf_engine
         waf = get_waf_engine()
         rule_count = waf.get_rule_count()
-        print(f"[M12] WAF 引擎初始化完成 ({rule_count} 条规则)")
+        logger.info("[M12] WAF 引擎初始化完成 (%d 条规则)", rule_count)
     except Exception as e:
-        print(f"[M12] WAF 引擎初始化警告: {e}")
+        logger.warning("[M12] WAF 引擎初始化警告: %s", e)
 
     # 3. 初始化速率限制器
     try:
         from .services.rate_limiter import get_rate_limiter
         rl = get_rate_limiter()
-        print(f"[M12] 速率限制器初始化完成")
+        logger.info("[M12] 速率限制器初始化完成")
     except Exception as e:
-        print(f"[M12] 速率限制器初始化警告: {e}")
+        logger.warning("[M12] 速率限制器初始化警告: %s", e)
 
     # 4. 初始化 IP 过滤器
     try:
         from .services.ip_filter import get_ip_filter
         ipf = get_ip_filter()
         bl, wl = ipf.get_counts()
-        print(f"[M12] IP 过滤器初始化完成 (黑名单:{bl}, 白名单:{wl})")
+        logger.info("[M12] IP 过滤器初始化完成 (黑名单:%d, 白名单:%d)", bl, wl)
     except Exception as e:
-        print(f"[M12] IP 过滤器初始化警告: {e}")
+        logger.warning("[M12] IP 过滤器初始化警告: %s", e)
 
     # 5. 初始化审计服务
     try:
         from .services.audit_service import get_audit_service
         audit = get_audit_service()
-        print("[M12] 审计服务初始化完成")
+        logger.info("[M12] 审计服务初始化完成")
     except Exception as e:
-        print(f"[M12] 审计服务初始化警告: {e}")
+        logger.warning("[M12] 审计服务初始化警告: %s", e)
 
     # 6. 初始化自动响应引擎
     try:
         from .services.auto_response import get_auto_response_engine
         ar_engine = get_auto_response_engine()
         level = ar_engine.get_response_level()
-        print(f"[M12] 自动响应引擎初始化完成 (级别: {level})")
+        logger.info("[M12] 自动响应引擎初始化完成 (级别: %s)", level)
     except Exception as e:
-        print(f"[M12] 自动响应引擎初始化警告: {e}")
+        logger.warning("[M12] 自动响应引擎初始化警告: %s", e)
 
-    print(f"[M12] 安全盾启动完成 - 端口 {get_settings().port}")
+    logger.info("[M12] 安全盾启动完成 - 端口 %d", get_settings().port)
 
     yield
 
     # 关闭时清理
-    print("[M12] 服务正在关闭...")
-    print("[M12] 服务已关闭")
+    logger.info("[M12] 服务正在关闭...")
+    logger.info("[M12] 服务已关闭")
 
 
 # ===========================================================================

@@ -92,8 +92,8 @@ def init_db() -> None:
 # 兼容直接运行：测试数据库连接
 if __name__ == "__main__":
     init_db()
-    print(f"数据库已初始化: {settings.db_path}")
-    print("数据库连接测试通过")
-    print("已创建表:")
+    logger.info("数据库已初始化: %s", settings.db_path)
+    logger.info("数据库连接测试通过")
+    logger.info("已创建表:")
     for table in Base.metadata.tables:
-        print(f"  - {table}")
+        logger.info("  - %s", table)

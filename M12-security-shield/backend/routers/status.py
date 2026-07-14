@@ -9,7 +9,7 @@ from typing import Optional
 
 # 兼容相对导入和直接运行
 try:
-    from ..models import make_response, make_error_response
+    from ..schemas.common import make_response, make_error_response
     from ..services.waf_engine import get_waf_engine
     from ..services.rate_limiter import get_rate_limiter
     from ..services.ip_filter import get_ip_filter
@@ -20,7 +20,7 @@ except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from models import make_response, make_error_response
+    from schemas.common import make_response, make_error_response
     from services.waf_engine import get_waf_engine
     from services.rate_limiter import get_rate_limiter
     from services.ip_filter import get_ip_filter

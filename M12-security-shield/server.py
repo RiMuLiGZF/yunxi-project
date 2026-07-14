@@ -107,38 +107,38 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理."""
-    print("\n" + "=" * 60)
-    print("  M12 安全盾服务 - 启动中...")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("  M12 安全盾服务 - 启动中...")
+    logger.info("=" * 60)
 
     # 初始化 WAF 引擎
     waf = get_waf_engine()
     rule_count = waf.get_rule_count()
-    print(f"  WAF 引擎: 已就绪 (防护规则 {rule_count} 条)")
+    logger.info("  WAF 引擎: 已就绪 (防护规则 %d 条)", rule_count)
 
     # 初始化速率限制器
     rl = get_rate_limiter()
-    print(f"  速率限制: 已就绪 (默认 {rl.default_rate} 次/分钟)")
+    logger.info("  速率限制: 已就绪 (默认 %d 次/分钟)", rl.default_rate)
 
     # 初始化 IP 过滤器
     ipf = get_ip_filter()
     bl_count, wl_count = ipf.get_counts()
-    print(f"  IP 过滤: 已就绪 (黑名单 {bl_count} 条, 白名单 {wl_count} 条)")
+    logger.info("  IP 过滤: 已就绪 (黑名单 %d 条, 白名单 %d 条)", bl_count, wl_count)
 
     # 初始化审计服务
     audit = get_audit_service()
-    print(f"  审计服务: 已就绪")
+    logger.info("  审计服务: 已就绪")
 
-    print("-" * 60)
-    print(f"  服务端口: {settings.port}")
-    print(f"  数据库:   {settings.db_path}")
-    print("=" * 60 + "\n")
+    logger.info("-" * 60)
+    logger.info("  服务端口: %d", settings.port)
+    logger.info("  数据库:   %s", settings.db_path)
+    logger.info("=" * 60)
 
     yield
 
     # 关闭时清理
-    print("\n正在关闭 M12 安全盾服务...")
-    print("M12 安全盾服务已关闭\n")
+    logger.info("正在关闭 M12 安全盾服务...")
+    logger.info("M12 安全盾服务已关闭")
 
 
 # ---------------------------------------------------------------------------
@@ -372,19 +372,18 @@ def main() -> None:
     port = settings.port
     host = settings.host
 
-    print("\n" + "=" * 60)
-    print("  M12 安全盾服务")
-    print("  M12 Security Shield Service")
-    print("=" * 60)
-    print(f"  版本:        {settings.version}")
-    print(f"  模块名:      {settings.module_name}")
-    print(f"  监听地址:    {host}:{port}")
-    print(f"  WAF 防护:    {'开启' if settings.waf_enabled else '关闭'}")
-    print(f"  速率限制:    {'开启' if settings.rate_limit_enabled else '关闭'}")
-    print(f"  文档地址:    http://localhost:{port}/docs")
-    print(f"  健康检查:    http://localhost:{port}/health")
-    print("=" * 60)
-    print()
+    logger.info("=" * 60)
+    logger.info("  M12 安全盾服务")
+    logger.info("  M12 Security Shield Service")
+    logger.info("=" * 60)
+    logger.info("  版本:        %s", settings.version)
+    logger.info("  模块名:      %s", settings.module_name)
+    logger.info("  监听地址:    %s:%d", host, port)
+    logger.info("  WAF 防护:    %s", "开启" if settings.waf_enabled else "关闭")
+    logger.info("  速率限制:    %s", "开启" if settings.rate_limit_enabled else "关闭")
+    logger.info("  文档地址:    http://localhost:%d/docs", port)
+    logger.info("  健康检查:    http://localhost:%d/health", port)
+    logger.info("=" * 60)
 
     uvicorn.run(
         app,

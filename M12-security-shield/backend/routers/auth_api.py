@@ -11,7 +11,7 @@ import threading
 
 # 兼容相对导入和直接运行
 try:
-    from ..models import make_response, make_error_response
+    from ..schemas.common import make_response, make_error_response
     from ..auth import (
         generate_api_key,
         hash_api_key,
@@ -32,7 +32,7 @@ except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from models import make_response, make_error_response
+    from schemas.common import make_response, make_error_response
     from auth import (
         generate_api_key,
         hash_api_key,

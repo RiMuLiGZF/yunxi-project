@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 
 # 兼容相对导入和直接运行
 try:
-    from ..models import make_response, make_error_response
+    from ..schemas.common import make_response, make_error_response
     from ..services.audit_service import get_audit_service
     from ..services.waf_engine import get_waf_engine
     from ..services.ip_filter import get_ip_filter
@@ -17,7 +17,7 @@ except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from models import make_response, make_error_response
+    from schemas.common import make_response, make_error_response
     from services.audit_service import get_audit_service
     from services.waf_engine import get_waf_engine
     from services.ip_filter import get_ip_filter
@@ -25,6 +25,39 @@ except ImportError:
     from auth import require_role, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/dashboard", tags=["M12-安全仪表盘"])
+
+
+# ===========================================================================
+# 仪表盘常量
+# ===========================================================================
+
+# 攻击趋势统计窗口（小时）
+TREND_RECENT_HOURS = 6
+TREND_EARLIER_HOURS = 12
+# 趋势变化率阈值（20%）
+TREND_CHANGE_THRESHOLD = 0.2
+
+# 攻击来源默认返回数量
+DEFAULT_SOURCE_LIMIT = 10
+
+# 安全评分计算常量
+SCORE_MAX = 100
+SCORE_HIGH_PENALTY = 10
+SCORE_HIGH_MAX = 40
+SCORE_MEDIUM_PENALTY = 3
+SCORE_MEDIUM_MAX = 20
+SCORE_LOW_PENALTY = 0.5
+SCORE_LOW_MAX = 10
+
+# 安全等级阈值
+LEVEL_EXCELLENT = 90
+LEVEL_GOOD = 75
+LEVEL_FAIR = 60
+LEVEL_POOR = 40
+
+# 趋势事件数阈值
+TREND_STABLE_MAX = 5
+TREND_RISING_MAX = 20
 
 
 # ===========================================================================
@@ -117,15 +150,15 @@ def attack_trend(
 
         # 计算趋势方向
         if len(trend_data) >= 2:
-            recent = sum(d["count"] for d in trend_data[-6:])  # 最近 6 小时
-            earlier = sum(d["count"] for d in trend_data[-12:-6])  # 前 6 小时
+            recent = sum(d["count"] for d in trend_data[-TREND_RECENT_HOURS:])
+            earlier = sum(d["count"] for d in trend_data[-TREND_EARLIER_HOURS:-TREND_RECENT_HOURS])
             if earlier == 0:
                 trend = "stable" if recent == 0 else "rising"
             else:
                 change_rate = (recent - earlier) / earlier
-                if change_rate > 0.2:
+                if change_rate > TREND_CHANGE_THRESHOLD:
                     trend = "rising"
-                elif change_rate < -0.2:
+                elif change_rate < -TREND_CHANGE_THRESHOLD:
                     trend = "falling"
                 else:
                     trend = "stable"
@@ -188,7 +221,7 @@ def threat_distribution(
 
 @router.get("/attack-sources", summary="攻击来源")
 def attack_sources(
-    limit: int = 10,
+    limit: int = DEFAULT_SOURCE_LIMIT,
     current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
@@ -272,31 +305,31 @@ def calculate_security_score(stats: dict) -> dict:
     Returns:
         包含评分、等级、趋势的字典
     """
-    score = 100
+    score = SCORE_MAX
 
     # 高危事件扣分
     high_count = stats.get("high_severity_count", 0)
-    score -= min(high_count * 10, 40)  # 最多扣 40 分
+    score -= min(high_count * SCORE_HIGH_PENALTY, SCORE_HIGH_MAX)
 
     # 中危事件扣分
     medium_count = stats.get("medium_severity_count", 0)
-    score -= min(medium_count * 3, 20)  # 最多扣 20 分
+    score -= min(medium_count * SCORE_MEDIUM_PENALTY, SCORE_MEDIUM_MAX)
 
     # 低危事件扣分
     low_count = stats.get("low_severity_count", 0)
-    score -= min(low_count * 0.5, 10)  # 最多扣 10 分
+    score -= min(low_count * SCORE_LOW_PENALTY, SCORE_LOW_MAX)
 
-    # 确保分数在 0-100 之间
-    score = max(0, min(100, int(score)))
+    # 确保分数在有效范围内
+    score = max(0, min(SCORE_MAX, int(score)))
 
     # 等级划分
-    if score >= 90:
+    if score >= LEVEL_EXCELLENT:
         level = "excellent"  # 优秀
-    elif score >= 75:
+    elif score >= LEVEL_GOOD:
         level = "good"  # 良好
-    elif score >= 60:
+    elif score >= LEVEL_FAIR:
         level = "fair"  # 一般
-    elif score >= 40:
+    elif score >= LEVEL_POOR:
         level = "poor"  # 较差
     else:
         level = "critical"  # 危险
@@ -305,9 +338,9 @@ def calculate_security_score(stats: dict) -> dict:
     today_events = stats.get("events_today", 0)
     if today_events == 0:
         trend = "stable"
-    elif today_events < 5:
+    elif today_events < TREND_STABLE_MAX:
         trend = "stable"
-    elif today_events < 20:
+    elif today_events < TREND_RISING_MAX:
         trend = "rising"
     else:
         trend = "alert"
