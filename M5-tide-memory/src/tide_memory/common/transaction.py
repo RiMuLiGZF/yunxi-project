@@ -99,7 +99,7 @@ class MemoryTransaction:
             tx.rollback()
     """
 
-    def __init__(self, name: str = ""):
+    def __init__(self, name: str = "") -> None:
         self._tx_id: str = f"tx_{uuid.uuid4().hex[:16]}"
         self._name: str = name or self._tx_id
         self._state: TransactionState = TransactionState.PENDING

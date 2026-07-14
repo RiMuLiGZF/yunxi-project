@@ -23,7 +23,7 @@ class TalentManager:
     负责天赋节点的查询、升级、重置，以及天赋点数的管理。
     """
 
-    def __init__(self, db: GrowthDatabase = None):
+    def __init__(self, db: GrowthDatabase = None) -> None:
         """
         初始化天赋管理器
 

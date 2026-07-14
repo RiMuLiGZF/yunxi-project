@@ -21,7 +21,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from tide_memory.errors import ErrorCode, error_response
+from tide_memory.common.errors import ErrorCode, error_response
 
 logger = structlog.get_logger(__name__)
 
@@ -66,7 +66,7 @@ class TokenBucket:
         capacity: 桶容量（最大令牌数）
     """
 
-    def __init__(self, rate: float, capacity: float):
+    def __init__(self, rate: float, capacity: float) -> None:
         if rate <= 0:
             raise ValueError("rate must be > 0")
         if capacity <= 0:
@@ -148,7 +148,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     - M5_RATE_LIMIT_BURST: 突发请求上限（桶容量倍数），默认 2.0
     """
 
-    def __init__(self, app):
+    def __init__(self, app) -> None:
         super().__init__(app)
 
         # 读取环境变量配置

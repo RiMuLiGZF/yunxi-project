@@ -10,43 +10,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 import uuid
 
-# 延迟加载的版本号
-_module_version: Optional[str] = None
-
-
-def _get_module_version() -> str:
-    """
-    获取模块版本号
-
-    优先从 shared.version 导入，导入失败则回退到 tide_memory.__version__
-    """
-    global _module_version
-    if _module_version is not None:
-        return _module_version
-
-    try:
-        from pathlib import Path
-        current = Path(__file__).resolve()
-        for _ in range(10):
-            current = current.parent
-            if (current / "shared" / "version.py").exists():
-                import sys
-                if str(current) not in sys.path:
-                    sys.path.insert(0, str(current))
-                from shared.version import SYSTEM_VERSION
-                _module_version = SYSTEM_VERSION
-                return _module_version
-    except Exception:
-        pass
-
-    # 回退到本模块的 __version__
-    try:
-        from tide_memory import __version__
-        _module_version = __version__
-    except Exception:
-        _module_version = "2.4.0-REV2"
-
-    return _module_version
+from ..core.version import get_module_version
 
 
 class MemoryAPIRouter:
@@ -67,11 +31,11 @@ class MemoryAPIRouter:
     - GET    /api/v1/memory/list         分页查询
     """
 
-    def __init__(self, app_context: dict = None):
+    def __init__(self, app_context: dict = None) -> None:
         self._app = app_context or {}
         self._request_count = 0
 
-    def get_routes(self) -> List[Dict]:
+    def get_routes(self) -> List[Dict[str, Any]]:
         """获取所有路由定义"""
         return [
             {"method": "POST", "path": "/api/v1/memory/recall", "handler": self.recall},
@@ -150,7 +114,7 @@ class MemoryAPIRouter:
 
         return self._success({"archive_id": f"mem_{uuid.uuid4().hex[:16]}"})
 
-    def get_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
+    def get_memory(self, memory_id: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """获取单条记忆（返回元数据，不含原文）"""
         request = request or {}
         domain = request.get("domain", "private")
@@ -171,7 +135,7 @@ class MemoryAPIRouter:
 
         return self._error(404, "memory not found")
 
-    def delete_memory(self, memory_id: str, request: Optional[Dict] = None) -> Dict:
+    def delete_memory(self, memory_id: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """删除记忆"""
         request = request or {}
         domain = request.get("domain", "private")
@@ -274,7 +238,7 @@ class MemoryAPIRouter:
             "total": 0,
         })
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """获取统计"""
         skill_if = self._app.get("skill_interface")
         if skill_if:
@@ -290,7 +254,7 @@ class MemoryAPIRouter:
             return self._success(result)
         return self._success({"mode": mode, "promoted": 0})
 
-    def get_layers(self) -> Dict:
+    def get_layers(self) -> Dict[str, Any]:
         """获取层级信息"""
         return self._success({
             "layers": [
@@ -320,7 +284,7 @@ class MemoryAPIRouter:
             "phase_controller": "not_available",
         })
 
-    def switch_phase(self, request: Dict) -> Dict:
+    def switch_phase(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """手动切换潮汐相位"""
         phase_controller = self._app.get("phase_controller")
         if not phase_controller:
@@ -342,7 +306,7 @@ class MemoryAPIRouter:
 
     def health_check(self) -> Dict:
         """健康检查"""
-        version = _get_module_version()
+        version = get_module_version()
         return self._success({
             "status": "healthy",
             "version": version,
@@ -360,7 +324,7 @@ class MemoryAPIRouter:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _error(self, code: int, message: str) -> Dict:
+    def _error(self, code: int, message: str) -> Dict[str, Any]:
         self._request_count += 1
         return {
             "code": code,

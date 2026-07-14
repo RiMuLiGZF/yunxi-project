@@ -33,7 +33,7 @@ class IdempotencyManager:
         max_keys: 最大缓存键数量，默认 10000
     """
 
-    def __init__(self, ttl: int = 86400, max_keys: int = 10000):
+    def __init__(self, ttl: int = 86400, max_keys: int = 10000) -> None:
         self._ttl = ttl
         self._max_keys = max_keys
         # OrderedDict: key -> (result, expire_timestamp)

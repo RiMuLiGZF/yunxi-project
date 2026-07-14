@@ -477,7 +477,7 @@ class TidePhaseController:
             "seconds_until": int((switch_time - now).total_seconds()),
         }
 
-    def __del__(self):
+    def __del__(self) -> None:
         """析构时停止"""
         try:
             self.stop()

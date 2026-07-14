@@ -33,7 +33,7 @@ class GrowthAPIRouter:
     - 赛季征程系统 (season)
     """
 
-    def __init__(self, app_context: dict = None, db: GrowthDatabase = None):
+    def __init__(self, app_context: dict = None, db: GrowthDatabase = None) -> None:
         """
         初始化成长系统 API 路由
 
@@ -533,17 +533,17 @@ class GrowthAPIRouter:
         return self._calendar_manager
 
     @property
-    def chronicle_manager(self):
+    def chronicle_manager(self) -> Any:
         """编年史管理器"""
         return self._chronicle_manager
 
     @property
-    def echo_manager(self):
+    def echo_manager(self) -> Any:
         """记忆回响管理器"""
         return self._echo_manager
 
     @property
-    def season_manager(self):
+    def season_manager(self) -> Any:
         """赛季征程管理器"""
         return self._season_manager
 

@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
+
+from ..common.text_utils import tokenize
 
 
 class KeywordSearch:
@@ -21,7 +22,7 @@ class KeywordSearch:
     - 支持权重排序（TF-IDF简化版）
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self._inverted_index: Dict[str, Set[str]] = defaultdict(set)  # term -> set of memory_ids
         self._doc_freq: Dict[str, int] = defaultdict(int)  # term -> doc count
@@ -40,7 +41,7 @@ class KeywordSearch:
             self._remove_from_index(memory_id)
 
         # 分词
-        terms = self._tokenize(text)
+        terms = tokenize(text)
         
         # 更新倒排索引
         for term in set(terms):  # 去重
@@ -69,11 +70,11 @@ class KeywordSearch:
         
         返回: [{memory_id, score, matched_terms, matched_tags}]
         """
-        query_terms = self._tokenize(query)
+        query_terms = tokenize(query)
         if not query_terms and not tags:
             return []
 
-        candidate_scores: Dict[str, Dict] = defaultdict(lambda: {
+        candidate_scores: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
             "score": 0.0, "matched_terms": [], "matched_tags": []
         })
 
@@ -114,21 +115,6 @@ class KeywordSearch:
         df = self._doc_freq.get(term, 1)
         return math.log((self._total_docs + 1) / (df + 1)) + 1.0
 
-    def _tokenize(self, text: str) -> List[str]:
-        """简单分词"""
-        if not text:
-            return []
-        # 英文小写
-        text = text.lower()
-        # 提取英文单词
-        en_words = re.findall(r'[a-zA-Z]{2,}', text)
-        # 中文2字词
-        cn_words = []
-        for i in range(len(text) - 1):
-            if '\u4e00' <= text[i] <= '\u9fff' and '\u4e00' <= text[i+1] <= '\u9fff':
-                cn_words.append(text[i:i+2])
-        return en_words + cn_words
-
     def _remove_from_index(self, memory_id: str) -> None:
         """从索引中移除"""
         for term, ids in list(self._inverted_index.items()):
@@ -156,7 +142,7 @@ class KeywordSearch:
             return True
         return False
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         return {
             "total_docs": self._total_docs,
             "total_terms": len(self._inverted_index),

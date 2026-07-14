@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Dict, Optional
+
 from ..core.models import MemoryLayer
 from ..common.constants import (
     L1_MAX_ITEMS,
@@ -22,7 +24,7 @@ class ShallowLayer(BaseSQLLayer):
 
     _layer_enum = MemoryLayer.L1_SHALLOW
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         # L1 默认配置
         config.setdefault("max_items", L1_MAX_ITEMS)

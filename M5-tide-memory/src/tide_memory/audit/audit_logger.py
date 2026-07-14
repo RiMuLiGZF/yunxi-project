@@ -212,7 +212,7 @@ class AuditLogger:
 
         return stats
 
-    def __del__(self):
+    def __del__(self) -> None:
         """析构时刷盘"""
         try:
             self.flush()

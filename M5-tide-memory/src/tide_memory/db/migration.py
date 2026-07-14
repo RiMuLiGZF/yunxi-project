@@ -32,6 +32,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 
+from .connection import get_connection
+
 logger = structlog.get_logger(__name__)
 
 
@@ -178,8 +180,7 @@ class DatabaseMigrator:
             当前版本号，新数据库或版本表不存在时返回 0
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            try:
+            with get_connection(self.db_path, apply_pragmas=False) as conn:
                 # 检查表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -194,8 +195,6 @@ class DatabaseMigrator:
                 )
                 row = cursor.fetchone()
                 return row[0] if row else 0
-            finally:
-                conn.close()
         except sqlite3.Error as e:
             logger.warning(
                 "migration.get_version_failed",
@@ -339,8 +338,7 @@ class DatabaseMigrator:
 
         # 按版本号升序执行迁移
         applied: List[Dict[str, Any]] = []
-        conn = sqlite3.connect(self.db_path)
-        try:
+        with get_connection(self.db_path, apply_pragmas=False) as conn:
             self._ensure_version_table(conn)
             self._ensure_migration_log_table(conn)
 
@@ -414,9 +412,6 @@ class DatabaseMigrator:
                 "status": "success",
             }
 
-        finally:
-            conn.close()
-
     # ============================================================
     # 迁移历史
     # ============================================================
@@ -429,8 +424,7 @@ class DatabaseMigrator:
             迁移历史列表，按版本号升序排列
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            try:
+            with get_connection(self.db_path, apply_pragmas=False) as conn:
                 # 检查表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -454,8 +448,6 @@ class DatabaseMigrator:
                     }
                     for row in rows
                 ]
-            finally:
-                conn.close()
         except sqlite3.Error:
             return []
 
@@ -495,16 +487,13 @@ class DatabaseMigrator:
             如果版本表存在则返回 True，否则返回 False
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            try:
+            with get_connection(self.db_path, apply_pragmas=False) as conn:
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
                     "WHERE type='table' AND name=?",
                     (self.VERSION_TABLE,),
                 )
                 return cursor.fetchone() is not None
-            finally:
-                conn.close()
         except sqlite3.Error:
             return False
 

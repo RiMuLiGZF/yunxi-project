@@ -160,7 +160,7 @@ class EchoManager:
     使用模板化 + 随机化策略生成成长感悟内容。
     """
 
-    def __init__(self, db: GrowthDatabase = None):
+    def __init__(self, db: GrowthDatabase = None) -> None:
         """
         初始化记忆回响管理器
 

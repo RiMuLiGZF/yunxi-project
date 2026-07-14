@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..core.models import MemoryItem, MemoryLayer
 from ..common.constants import (
@@ -23,7 +23,7 @@ class BeachLayer:
     - 内存存储
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self.max_items = config.get("max_items", L0_MAX_ITEMS)
         self.retention_hours = config.get("retention_hours", L0_RETENTION_HOURS)

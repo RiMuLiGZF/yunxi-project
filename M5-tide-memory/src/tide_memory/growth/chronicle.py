@@ -62,7 +62,7 @@ class ChronicleManager:
     负责纪事的增删改查、分页查询、分类筛选等功能。
     """
 
-    def __init__(self, db: GrowthDatabase = None):
+    def __init__(self, db: GrowthDatabase = None) -> None:
         """
         初始化编年史管理器
 

@@ -37,7 +37,7 @@ class ConsolidationScheduler:
     - 每次触发默认执行 full 模式的巩固
     """
 
-    def __init__(self, consolidation_engine, cron_expr: str = "0 3 * * *", mode: str = "full"):
+    def __init__(self, consolidation_engine, cron_expr: str = "0 3 * * *", mode: str = "full") -> None:
         """
         初始化调度器
 

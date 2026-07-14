@@ -58,7 +58,7 @@ class TransactionalLayer:
             # 退出 with 块时一起提交
     """
 
-    def __init__(self, layer):
+    def __init__(self, layer) -> None:
         """
         Args:
             layer: 被包装的记忆层对象（BeachLayer / ShallowLayer 等）
@@ -161,7 +161,7 @@ class TransactionalLayer:
         """获取所有记忆（直接透传）"""
         return self._layer.items()
 
-    def search(self, *args, **kwargs):
+    def search(self, *args, **kwargs) -> Any:
         """搜索（直接透传）"""
         return self._layer.search(*args, **kwargs)
 
@@ -173,7 +173,7 @@ class TransactionalLayer:
         """批量删除（直接透传，非事务）"""
         return self._layer.batch_remove(memory_ids)
 
-    def list_items(self, *args, **kwargs) -> Dict:
+    def list_items(self, *args, **kwargs) -> Dict[str, Any]:
         """分页查询（直接透传）"""
         return self._layer.list_items(*args, **kwargs)
 
@@ -198,7 +198,7 @@ class TransactionalLayer:
         return getattr(self._layer, name)
 
     @property
-    def layer(self):
+    def layer(self) -> Any:
         """获取被包装的原层对象"""
         return self._layer
 

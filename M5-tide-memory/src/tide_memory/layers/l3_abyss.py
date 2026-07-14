@@ -5,9 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import sqlite3
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import structlog
 
@@ -19,6 +18,7 @@ from ..core.models import (
     MemoryLayer,
 )
 from ..db import DatabaseMigrator
+from ..db.connection import get_connection
 from ..common.constants import (
     L3_MAX_ITEMS,
     L3_RETENTION_DAYS,
@@ -56,7 +56,7 @@ class AbyssLayer:
     - 支持主密钥用用户密码加密存储（可选）
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         self.max_items = config.get("max_items", L3_MAX_ITEMS)
         self.retention_days = config.get("retention_days", L3_RETENTION_DAYS)  # 永久
@@ -267,8 +267,7 @@ class AbyssLayer:
             是否成功引导
         """
         try:
-            conn = sqlite3.connect(self._db_path)
-            try:
+            with get_connection(self._db_path, apply_pragmas=False) as conn:
                 # 检查 memories 表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -301,8 +300,6 @@ class AbyssLayer:
                     detected_version=detected_version,
                 )
                 return True
-            finally:
-                conn.close()
         except Exception as e:
             logger.warning("migration.bootstrap_failed", layer="L3_ABYSS", error=str(e))
             return False
@@ -347,39 +344,38 @@ class AbyssLayer:
 
     def _ensure_db_legacy(self) -> None:
         """旧模式：直接创建表和索引（向后兼容）"""
-        conn = sqlite3.connect(self._db_path)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS memories (
-                memory_id TEXT PRIMARY KEY,
-                content_hash TEXT,
-                file_name TEXT,           -- 加密文件名
-                layer TEXT,
-                domain TEXT,
-                owner_agent TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                last_accessed_at TEXT,
-                access_count INTEGER DEFAULT 0,
-                quality_score REAL DEFAULT 50,
-                quality_level TEXT DEFAULT 'normal',
-                retention_days INTEGER DEFAULT -1,
-                tags TEXT DEFAULT '[]',
-                metadata TEXT DEFAULT '{}',
-                sync_version INTEGER DEFAULT 0,
-                emotion_valence REAL DEFAULT 0,
-                emotion_arousal REAL DEFAULT 0,
-                emotion_ei REAL DEFAULT 0,
-                emotion_label TEXT DEFAULT 'neutral',
-                classification TEXT DEFAULT 'TOP_SECRET',
-                encryption_salt TEXT        -- 用于派生密钥的 salt（每条记忆不同）
-            )
-        """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash)")
-        conn.commit()
-        conn.close()
+        with get_connection(self._db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS memories (
+                    memory_id TEXT PRIMARY KEY,
+                    content_hash TEXT,
+                    file_name TEXT,           -- 加密文件名
+                    layer TEXT,
+                    domain TEXT,
+                    owner_agent TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    last_accessed_at TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    quality_score REAL DEFAULT 50,
+                    quality_level TEXT DEFAULT 'normal',
+                    retention_days INTEGER DEFAULT -1,
+                    tags TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    sync_version INTEGER DEFAULT 0,
+                    emotion_valence REAL DEFAULT 0,
+                    emotion_arousal REAL DEFAULT 0,
+                    emotion_ei REAL DEFAULT 0,
+                    emotion_label TEXT DEFAULT 'neutral',
+                    classification TEXT DEFAULT 'TOP_SECRET',
+                    encryption_salt TEXT        -- 用于派生密钥的 salt（每条记忆不同）
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_domain ON memories(domain)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON memories(created_at)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_content_hash ON memories(content_hash)")
+            conn.commit()
 
     # ============================================================
     # 密钥派生
@@ -638,33 +634,32 @@ class AbyssLayer:
                 f.write(encrypted_data)
 
             # 写入 SQLite 索引
-            conn = sqlite3.connect(self._db_path)
-            conn.execute("""
-                INSERT OR REPLACE INTO memories
-                (memory_id, content_hash, file_name, layer, domain, owner_agent,
-                 created_at, updated_at, last_accessed_at, access_count,
-                 quality_score, quality_level, retention_days,
-                 tags, metadata, sync_version,
-                 emotion_valence, emotion_arousal, emotion_ei, emotion_label,
-                 classification, encryption_salt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                item.memory_id, item.content_hash, file_name,
-                item.layer.value, item.domain.value, item.owner_agent,
-                item.created_at.isoformat(), item.updated_at.isoformat(),
-                item.last_accessed_at.isoformat() if item.last_accessed_at else None,
-                item.access_count, item.quality_score, item.quality_level,
-                item.retention_days,
-                json.dumps(item.tags, ensure_ascii=False),
-                json.dumps(item.metadata, ensure_ascii=False),
-                item.sync_version,
-                item.emotion.valence, item.emotion.arousal,
-                item.emotion.ei_score, item.emotion.dominant_emotion,
-                item.classification.value,
-                salt_hex,
-            ))
-            conn.commit()
-            conn.close()
+            with get_connection(self._db_path) as conn:
+                conn.execute("""
+                    INSERT OR REPLACE INTO memories
+                    (memory_id, content_hash, file_name, layer, domain, owner_agent,
+                     created_at, updated_at, last_accessed_at, access_count,
+                     quality_score, quality_level, retention_days,
+                     tags, metadata, sync_version,
+                     emotion_valence, emotion_arousal, emotion_ei, emotion_label,
+                     classification, encryption_salt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    item.memory_id, item.content_hash, file_name,
+                    item.layer.value, item.domain.value, item.owner_agent,
+                    item.created_at.isoformat(), item.updated_at.isoformat(),
+                    item.last_accessed_at.isoformat() if item.last_accessed_at else None,
+                    item.access_count, item.quality_score, item.quality_level,
+                    item.retention_days,
+                    json.dumps(item.tags, ensure_ascii=False),
+                    json.dumps(item.metadata, ensure_ascii=False),
+                    item.sync_version,
+                    item.emotion.valence, item.emotion.arousal,
+                    item.emotion.ei_score, item.emotion.dominant_emotion,
+                    item.classification.value,
+                    salt_hex,
+                ))
+                conn.commit()
 
             return True
         except Exception as e:
@@ -682,12 +677,11 @@ class AbyssLayer:
             MemoryItem，不存在返回 None
         """
         try:
-            conn = sqlite3.connect(self._db_path)
-            row = conn.execute(
-                "SELECT content_hash, file_name, encryption_salt FROM memories WHERE memory_id = ?",
-                (memory_id,),
-            ).fetchone()
-            conn.close()
+            with get_connection(self._db_path) as conn:
+                row = conn.execute(
+                    "SELECT content_hash, file_name, encryption_salt FROM memories WHERE memory_id = ?",
+                    (memory_id,),
+                ).fetchone()
 
             if not row:
                 return None
@@ -719,13 +713,12 @@ class AbyssLayer:
     def _touch(self, memory_id: str) -> None:
         """更新访问时间和计数"""
         try:
-            conn = sqlite3.connect(self._db_path)
-            conn.execute(
-                "UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? WHERE memory_id = ?",
-                (datetime.now().isoformat(), memory_id),
-            )
-            conn.commit()
-            conn.close()
+            with get_connection(self._db_path) as conn:
+                conn.execute(
+                    "UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? WHERE memory_id = ?",
+                    (datetime.now().isoformat(), memory_id),
+                )
+                conn.commit()
         except Exception as e:
             logger.warning(f"更新访问计数失败 [{memory_id}]: {e}")
 
@@ -740,20 +733,18 @@ class AbyssLayer:
             是否成功
         """
         try:
-            conn = sqlite3.connect(self._db_path)
-            row = conn.execute(
-                "SELECT file_name FROM memories WHERE memory_id = ?",
-                (memory_id,),
-            ).fetchone()
+            with get_connection(self._db_path) as conn:
+                row = conn.execute(
+                    "SELECT file_name FROM memories WHERE memory_id = ?",
+                    (memory_id,),
+                ).fetchone()
 
-            if not row:
-                conn.close()
-                return False
+                if not row:
+                    return False
 
-            file_name = row[0]
-            conn.execute("DELETE FROM memories WHERE memory_id = ?", (memory_id,))
-            conn.commit()
-            conn.close()
+                file_name = row[0]
+                conn.execute("DELETE FROM memories WHERE memory_id = ?", (memory_id,))
+                conn.commit()
 
             # 删除加密文件
             file_path = self._get_file_path(file_name)
@@ -783,21 +774,20 @@ class AbyssLayer:
             [{memory_id, content_preview, layer, domain, similarity, created_at, emotion_tags, encrypted}]
         """
         try:
-            conn = sqlite3.connect(self._db_path)
-            query_cond = ""
-            params: list = []
-            if domain:
-                query_cond = "AND domain = ?"
-                params.append(domain)
+            with get_connection(self._db_path) as conn:
+                query_cond = ""
+                params: list = []
+                if domain:
+                    query_cond = "AND domain = ?"
+                    params.append(domain)
 
-            rows = conn.execute(f"""
-                SELECT memory_id, layer, domain, created_at, tags, quality_score,
-                       emotion_ei, emotion_label
-                FROM memories WHERE 1=1 {query_cond}
-                ORDER BY quality_score DESC
-                LIMIT ?
-            """, params + [top_k * FILTER_EXPAND_MULTIPLIER]).fetchall()
-            conn.close()
+                rows = conn.execute(f"""
+                    SELECT memory_id, layer, domain, created_at, tags, quality_score,
+                           emotion_ei, emotion_label
+                    FROM memories WHERE 1=1 {query_cond}
+                    ORDER BY quality_score DESC
+                    LIMIT ?
+                """, params + [top_k * FILTER_EXPAND_MULTIPLIER]).fetchall()
 
             results = []
             for row in rows:
@@ -831,11 +821,10 @@ class AbyssLayer:
         """
         result = []
         try:
-            conn = sqlite3.connect(self._db_path)
-            rows = conn.execute(
-                "SELECT memory_id, content_hash, file_name, encryption_salt FROM memories"
-            ).fetchall()
-            conn.close()
+            with get_connection(self._db_path) as conn:
+                rows = conn.execute(
+                    "SELECT memory_id, content_hash, file_name, encryption_salt FROM memories"
+                ).fetchall()
 
             for row in rows:
                 memory_id, content_hash, file_name, salt_hex = row
@@ -858,26 +847,25 @@ class AbyssLayer:
     def count(self) -> int:
         """获取记忆数量"""
         try:
-            conn = sqlite3.connect(self._db_path)
-            row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
-            conn.close()
+            with get_connection(self._db_path) as conn:
+                row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
             return row[0] if row else 0
         except Exception:
             return 0
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         try:
-            conn = sqlite3.connect(self._db_path)
-            total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+            with get_connection(self._db_path) as conn:
+                total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
 
-            # 按域统计
-            by_domain = {}
-            rows = conn.execute(
-                "SELECT domain, COUNT(*) FROM memories GROUP BY domain"
-            ).fetchall()
-            for domain, cnt in rows:
-                by_domain[domain] = cnt
+                # 按域统计
+                by_domain = {}
+                rows = conn.execute(
+                    "SELECT domain, COUNT(*) FROM memories GROUP BY domain"
+                ).fetchall()
+                for domain, cnt in rows:
+                    by_domain[domain] = cnt
 
             # 加密文件总大小
             total_size = 0
@@ -886,8 +874,6 @@ class AbyssLayer:
                     fpath = os.path.join(self._vault_path, fname)
                     if os.path.isfile(fpath):
                         total_size += os.path.getsize(fpath)
-
-            conn.close()
 
             return {
                 "total_memories": total,

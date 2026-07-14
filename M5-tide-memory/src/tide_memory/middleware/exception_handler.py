@@ -20,7 +20,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = structlog.get_logger(__name__)
 
-from tide_memory.errors import (
+from tide_memory.common.errors import (
     ErrorCode,
     TideMemoryError,
     error_response,

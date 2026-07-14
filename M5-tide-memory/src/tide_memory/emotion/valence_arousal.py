@@ -13,8 +13,9 @@ P2-3 增强：
 
 from __future__ import annotations
 
-import re
 from typing import Dict, List, Tuple
+
+from ..common.text_utils import tokenize as _base_tokenize
 
 
 class ValenceArousalModel:
@@ -558,16 +559,13 @@ class ValenceArousalModel:
     # ============================================================
 
     def _tokenize(self, text: str) -> List[str]:
-        """简单分词（中英文混合），兼容旧 API"""
-        tokens = []
-        # 英文单词
-        en_words = re.findall(r'[a-zA-Z]+', text.lower())
-        tokens.extend(en_words)
-        # 中文2字词（简单滑窗）
-        for i in range(len(text) - 1):
-            if '\u4e00' <= text[i] <= '\u9fff' and '\u4e00' <= text[i+1] <= '\u9fff':
-                tokens.append(text[i:i+2])
-        # 单字词（高权重词）
+        """简单分词（中英文混合），兼容旧 API
+
+        在统一 tokenize 基础上额外追加中文单字词，
+        以保持与原始实现完全一致的行为。
+        """
+        tokens = _base_tokenize(text)
+        # 追加中文单字词（高权重词），保持原始行为
         for ch in text:
             if '\u4e00' <= ch <= '\u9fff':
                 tokens.append(ch)

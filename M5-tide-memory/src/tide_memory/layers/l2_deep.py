@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import sqlite3
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.models import MemoryLayer
 from ..common.constants import (
@@ -17,6 +16,7 @@ from ..common.constants import (
     QUALITY_LEVEL_COMPRESSED,
     CONTENT_SANITIZED,
 )
+from ..db.connection import get_connection
 from .base import BaseSQLLayer
 
 
@@ -31,7 +31,7 @@ class DeepLayer(BaseSQLLayer):
 
     _layer_enum = MemoryLayer.L2_DEEP
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or {}
         # L2 默认配置
         config.setdefault("max_items", L2_MAX_ITEMS)
@@ -57,7 +57,7 @@ class DeepLayer(BaseSQLLayer):
             "quality_score", "emotion_ei", "emotion_label",
         ]
 
-    def _build_search_result(self, row: Tuple, tags: list, score: int) -> Dict:
+    def _build_search_result(self, row: Tuple, tags: list, score: int) -> Dict[str, Any]:
         """L2 搜索结果额外包含 quality_score 字段"""
         return {
             "memory_id": row[0],
@@ -79,15 +79,14 @@ class DeepLayer(BaseSQLLayer):
     # L2 独有方法
     # ============================================================
 
-    def compress(self) -> Dict:
+    def compress(self) -> Dict[str, Any]:
         """
         执行语义蒸馏（简化版：标记低质量记忆为可压缩）
 
         Returns:
             {"compressed_count": n, "remaining_count": m}
         """
-        conn = sqlite3.connect(self._db_path)
-        try:
+        with get_connection(self._db_path) as conn:
             low_quality_rows = conn.execute(
                 "SELECT memory_id FROM memories WHERE quality_score < ?",
                 (LOW_QUALITY_THRESHOLD,),
@@ -100,8 +99,6 @@ class DeepLayer(BaseSQLLayer):
                 )
             conn.commit()
             total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        finally:
-            conn.close()
         return {
             "compressed_count": compressed,
             "remaining_count": total - compressed,

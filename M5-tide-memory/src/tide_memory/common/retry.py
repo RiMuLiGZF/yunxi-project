@@ -78,7 +78,7 @@ class RetryPolicy:
         jitter: bool = True,
         retry_on_exceptions: Tuple[Type[BaseException], ...] = (Exception,),
         retry_on_result: Optional[Callable[[Any], bool]] = None,
-    ):
+    ) -> None:
         if max_attempts < 1:
             raise ValueError("max_attempts must be >= 1")
         if initial_delay < 0:
@@ -349,7 +349,7 @@ class RetryCoordinator:
         default_policy: 默认重试策略
     """
 
-    def __init__(self, default_policy: Optional[RetryPolicy] = None):
+    def __init__(self, default_policy: Optional[RetryPolicy] = None) -> None:
         self._default_policy = default_policy or RetryPolicy()
         self._circuit_breakers: Dict[str, CircuitBreaker] = {}
         self._lock = threading.Lock()
@@ -708,7 +708,7 @@ class CircuitBreakerOpenError(Exception):
     当熔断器处于 OPEN 状态时抛出，表示请求被熔断拒绝。
     """
 
-    def __init__(self, circuit_key: str = "", message: str = ""):
+    def __init__(self, circuit_key: str = "", message: str = "") -> None:
         self.circuit_key = circuit_key
         self.message = message or f"熔断器 {circuit_key} 已打开"
         super().__init__(self.message)

@@ -21,6 +21,7 @@ from .transaction import (
     TransactionLogEntry,
     migrate_memory,
 )
+from .text_utils import tokenize
 from .constants import (
     # 记忆层常量
     L0_MAX_ITEMS,
@@ -147,7 +148,6 @@ from .constants import (
     # 安全常量
     ENCRYPTION_AES_256_GCM,
     DEFAULT_ENCRYPTION_ALGORITHM,
-    ENCRYPTION_ALGORITHM,
     ENCRYPTION_KEY_SIZE,
     ENCRYPTION_SALT_SIZE,
     ENCRYPTION_NONCE_SIZE,
@@ -160,11 +160,6 @@ from .constants import (
     CHECKSUM_BYTE_LENGTH,
     PBKDF2_ITERATIONS,
     PBKDF2_DKLEN,
-    RETENTION_TOP_SECRET_DAYS,
-    RETENTION_CONFIDENTIAL_DAYS,
-    RETENTION_INTERNAL_DAYS,
-    RETENTION_PUBLIC_DAYS,
-    RETENTION_FOREVER,
     CLASSIFICATION_TOP_SECRET_DAYS,
     CLASSIFICATION_CONFIDENTIAL_DAYS,
     CLASSIFICATION_INTERNAL_DAYS,
@@ -264,7 +259,6 @@ from .constants import (
     EBB_WRITE_BATCH_SIZE,
 
     # 数据库常量
-    SQLITE_TIMEOUT,
     SQLITE_BUSY_TIMEOUT,
     SQLITE_CACHE_SIZE_KB,
     SQLITE_MMAP_SIZE,
@@ -291,8 +285,6 @@ from .constants import (
     # 系统常量
     MODULE_NAME,
     MODULE_VERSION,
-    SERVICE_NAME,
-    SERVICE_VERSION,
     DEFAULT_PORT,
     DEFAULT_LOG_LEVEL,
     DEFAULT_ENV,
@@ -316,6 +308,8 @@ __all__ = [
     "TransactionState",
     "TransactionLogEntry",
     "migrate_memory",
+    # 文本工具
+    "tokenize",
 
     # 记忆层常量
     "L0_MAX_ITEMS",
@@ -442,7 +436,6 @@ __all__ = [
     # 安全常量
     "ENCRYPTION_AES_256_GCM",
     "DEFAULT_ENCRYPTION_ALGORITHM",
-    "ENCRYPTION_ALGORITHM",
     "ENCRYPTION_KEY_SIZE",
     "ENCRYPTION_SALT_SIZE",
     "ENCRYPTION_NONCE_SIZE",
@@ -455,11 +448,6 @@ __all__ = [
     "CHECKSUM_BYTE_LENGTH",
     "PBKDF2_ITERATIONS",
     "PBKDF2_DKLEN",
-    "RETENTION_TOP_SECRET_DAYS",
-    "RETENTION_CONFIDENTIAL_DAYS",
-    "RETENTION_INTERNAL_DAYS",
-    "RETENTION_PUBLIC_DAYS",
-    "RETENTION_FOREVER",
     "CLASSIFICATION_TOP_SECRET_DAYS",
     "CLASSIFICATION_CONFIDENTIAL_DAYS",
     "CLASSIFICATION_INTERNAL_DAYS",
@@ -559,7 +547,6 @@ __all__ = [
     "EBB_WRITE_BATCH_SIZE",
 
     # 数据库常量
-    "SQLITE_TIMEOUT",
     "SQLITE_BUSY_TIMEOUT",
     "SQLITE_CACHE_SIZE_KB",
     "SQLITE_MMAP_SIZE",
@@ -586,8 +573,6 @@ __all__ = [
     # 系统常量
     "MODULE_NAME",
     "MODULE_VERSION",
-    "SERVICE_NAME",
-    "SERVICE_VERSION",
     "DEFAULT_PORT",
     "DEFAULT_LOG_LEVEL",
     "DEFAULT_ENV",

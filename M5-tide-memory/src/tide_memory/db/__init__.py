@@ -13,6 +13,12 @@
 
     # 检查迁移状态
     status = migrator.validate()
+
+    # 统一连接管理
+    from tide_memory.db import get_connection, execute_sql
+
+    with get_connection("./data/memory/l1_shallow.db") as conn:
+        rows = conn.execute("SELECT * FROM memories").fetchall()
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ import threading
 from typing import Dict, Optional
 
 from .migration import DatabaseMigrator, Migration
+from .connection import get_connection, execute_sql
 
 # 全局 migrator 缓存（按 db_path 索引）
 _migrators: Dict[str, DatabaseMigrator] = {}
@@ -73,4 +80,6 @@ __all__ = [
     "Migration",
     "get_migrator",
     "clear_migrators",
+    "get_connection",
+    "execute_sql",
 ]

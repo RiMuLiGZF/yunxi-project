@@ -64,7 +64,7 @@ __version__ = _load_version()
 
 from .core.config import TideConfig
 from .core.models import MemoryItem, MemoryLayer, MemoryDomain, ClassificationLevel
-from .errors import (
+from .common.errors import (
     ErrorCode,
     TideMemoryError,
     MemoryNotFoundError,

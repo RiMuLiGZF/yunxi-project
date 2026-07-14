@@ -26,7 +26,7 @@ class AchievementManager:
     与天赋点系统联动：解锁成就奖励天赋点数。
     """
 
-    def __init__(self, db: GrowthDatabase = None, talent_manager=None):
+    def __init__(self, db: GrowthDatabase = None, talent_manager=None) -> None:
         """
         初始化成就管理器
 

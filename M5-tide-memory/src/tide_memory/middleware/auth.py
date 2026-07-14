@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from tide_memory.errors import ErrorCode, error_response
+from tide_memory.common.errors import ErrorCode, error_response
 
 logger = structlog.get_logger(__name__)
 
@@ -258,7 +258,7 @@ class FastAPIAuthMiddleware(BaseHTTPMiddleware):
     - M5_API_KEY: API Key 认证密钥（可选）
     """
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
         self._enabled = self._read_bool_env("M5_AUTH_ENABLED", default=False)
         self._secret_key = os.environ.get("M5_JWT_SECRET", "")
@@ -295,7 +295,7 @@ class FastAPIAuthMiddleware(BaseHTTPMiddleware):
             return False
         return default
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Any:
         """
         中间件核心逻辑
 

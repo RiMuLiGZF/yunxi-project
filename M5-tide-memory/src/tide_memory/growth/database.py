@@ -15,6 +15,185 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..db import DatabaseMigrator
+from ..db.connection import get_connection, get_pooled_connection
+
+import structlog
+
+log = structlog.get_logger(__name__)
+
+
+# ============================================================
+# 建表 SQL（单一来源，消除 _create_tables 与 _get_all_create_table_sql 重复）
+# ============================================================
+
+GROWTH_CREATE_TABLE_SQL: List[str] = [
+    # 成就定义表
+    """
+    CREATE TABLE IF NOT EXISTS growth_achievements (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        rarity TEXT NOT NULL,
+        rarity_text TEXT NOT NULL,
+        condition TEXT NOT NULL,
+        description TEXT NOT NULL,
+        point_reward INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """,
+    # 用户成就表
+    """
+    CREATE TABLE IF NOT EXISTS growth_user_achievements (
+        achievement_id TEXT PRIMARY KEY,
+        unlocked INTEGER DEFAULT 0,
+        unlock_date TEXT DEFAULT '',
+        unlocked_at TEXT DEFAULT '',
+        FOREIGN KEY (achievement_id) REFERENCES growth_achievements(id)
+    )
+    """,
+    # 天赋定义表
+    """
+    CREATE TABLE IF NOT EXISTS growth_talents (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        tree TEXT NOT NULL,
+        description TEXT NOT NULL,
+        max_level INTEGER DEFAULT 1,
+        parent_id TEXT DEFAULT '',
+        children_ids TEXT DEFAULT '[]',
+        point_cost INTEGER DEFAULT 1,
+        layer INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """,
+    # 用户天赋状态表
+    """
+    CREATE TABLE IF NOT EXISTS growth_user_talents (
+        talent_id TEXT PRIMARY KEY,
+        level INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'locked',
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (talent_id) REFERENCES growth_talents(id)
+    )
+    """,
+    # 天赋点数表
+    """
+    CREATE TABLE IF NOT EXISTS growth_points (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        amount INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        source_id TEXT DEFAULT '',
+        reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """,
+    # 日历打卡表
+    """
+    CREATE TABLE IF NOT EXISTS growth_calendar (
+        date TEXT PRIMARY KEY,
+        mood INTEGER DEFAULT 0,
+        energy INTEGER DEFAULT 0,
+        checked_in INTEGER DEFAULT 0,
+        summary TEXT DEFAULT '',
+        tags TEXT DEFAULT '[]',
+        tide_phase TEXT DEFAULT '小潮',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    )
+    """,
+    # 索引
+    "CREATE INDEX IF NOT EXISTS idx_ach_category ON growth_achievements(category)",
+    "CREATE INDEX IF NOT EXISTS idx_ach_rarity ON growth_achievements(rarity)",
+    "CREATE INDEX IF NOT EXISTS idx_user_ach_unlocked ON growth_user_achievements(unlocked)",
+    "CREATE INDEX IF NOT EXISTS idx_talent_branch ON growth_talents(branch)",
+    "CREATE INDEX IF NOT EXISTS idx_talent_tree ON growth_talents(tree)",
+    "CREATE INDEX IF NOT EXISTS idx_calendar_checked ON growth_calendar(checked_in)",
+    "CREATE INDEX IF NOT EXISTS idx_calendar_date ON growth_calendar(date)",
+    # 编年史表
+    """
+    CREATE TABLE IF NOT EXISTS growth_chronicle (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'main-quest',
+        category_text TEXT NOT NULL DEFAULT '主线任务',
+        difficulty TEXT NOT NULL DEFAULT '普通',
+        content TEXT NOT NULL DEFAULT '',
+        tags TEXT NOT NULL DEFAULT '[]',
+        has_git INTEGER NOT NULL DEFAULT 0,
+        git_commits TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_chronicle_date ON growth_chronicle(date)",
+    "CREATE INDEX IF NOT EXISTS idx_chronicle_category ON growth_chronicle(category)",
+    # 记忆回响表
+    """
+    CREATE TABLE IF NOT EXISTS growth_memory_echoes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'growth',
+        category_text TEXT NOT NULL DEFAULT '成长',
+        before_json TEXT NOT NULL DEFAULT '{}',
+        after_json TEXT NOT NULL DEFAULT '{}',
+        growth TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_echo_category ON growth_memory_echoes(category)",
+    "CREATE INDEX IF NOT EXISTS idx_echo_created_at ON growth_memory_echoes(created_at)",
+    # 赛季表
+    """
+    CREATE TABLE IF NOT EXISTS growth_seasons (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        period TEXT NOT NULL DEFAULT '',
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'locked',
+        created_at TEXT NOT NULL
+    )
+    """,
+    # 赛季阶段表
+    """
+    CREATE TABLE IF NOT EXISTS growth_season_phases (
+        id TEXT PRIMARY KEY,
+        season_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phase_index INTEGER NOT NULL DEFAULT 0,
+        reward TEXT NOT NULL DEFAULT '',
+        reward_points INTEGER NOT NULL DEFAULT 0,
+        reward_claimed INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_phase_season ON growth_season_phases(season_id)",
+    # 赛季任务表
+    """
+    CREATE TABLE IF NOT EXISTS growth_season_tasks (
+        id TEXT PRIMARY KEY,
+        season_id TEXT NOT NULL,
+        phase_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL DEFAULT 'seasonal',
+        status TEXT NOT NULL DEFAULT 'pending',
+        points INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT,
+        FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE,
+        FOREIGN KEY (phase_id) REFERENCES growth_season_phases(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_task_season ON growth_season_tasks(season_id)",
+    "CREATE INDEX IF NOT EXISTS idx_task_phase ON growth_season_tasks(phase_id)",
+    "CREATE INDEX IF NOT EXISTS idx_task_type ON growth_season_tasks(type)",
+    "CREATE INDEX IF NOT EXISTS idx_task_status ON growth_season_tasks(status)",
+]
 
 
 class GrowthDatabase:
@@ -28,7 +207,7 @@ class GrowthDatabase:
     _instance: Optional["GrowthDatabase"] = None
     _lock = threading.Lock()
 
-    def __init__(self, db_path: str = None, use_migration: bool = True):
+    def __init__(self, db_path: str = None, use_migration: bool = True) -> None:
         """
         初始化数据库连接
 
@@ -62,9 +241,13 @@ class GrowthDatabase:
 
     def _get_connection(self) -> sqlite3.Connection:
         """获取数据库连接（线程安全，每次返回新连接以避免多线程问题）"""
-        conn = sqlite3.connect(self._db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
+        conn = get_pooled_connection(
+            self._db_path,
+            check_same_thread=False,
+            row_factory=sqlite3.Row,
+            apply_pragmas=True,
+        )
+        # growth 额外需要 foreign_keys
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
@@ -117,175 +300,8 @@ class GrowthDatabase:
         return migrator
 
     def _get_all_create_table_sql(self) -> List[str]:
-        """获取所有建表和建索引的 SQL 语句列表"""
-        return [
-            # 成就定义表
-            """
-            CREATE TABLE IF NOT EXISTS growth_achievements (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                rarity TEXT NOT NULL,
-                rarity_text TEXT NOT NULL,
-                condition TEXT NOT NULL,
-                description TEXT NOT NULL,
-                point_reward INTEGER DEFAULT 1,
-                sort_order INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-            """,
-            # 用户成就表
-            """
-            CREATE TABLE IF NOT EXISTS growth_user_achievements (
-                achievement_id TEXT PRIMARY KEY,
-                unlocked INTEGER DEFAULT 0,
-                unlock_date TEXT DEFAULT '',
-                unlocked_at TEXT DEFAULT '',
-                FOREIGN KEY (achievement_id) REFERENCES growth_achievements(id)
-            )
-            """,
-            # 天赋定义表
-            """
-            CREATE TABLE IF NOT EXISTS growth_talents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                branch TEXT NOT NULL,
-                tree TEXT NOT NULL,
-                description TEXT NOT NULL,
-                max_level INTEGER DEFAULT 1,
-                parent_id TEXT DEFAULT '',
-                children_ids TEXT DEFAULT '[]',
-                point_cost INTEGER DEFAULT 1,
-                layer INTEGER DEFAULT 1,
-                sort_order INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-            """,
-            # 用户天赋状态表
-            """
-            CREATE TABLE IF NOT EXISTS growth_user_talents (
-                talent_id TEXT PRIMARY KEY,
-                level INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'locked',
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (talent_id) REFERENCES growth_talents(id)
-            )
-            """,
-            # 天赋点数表
-            """
-            CREATE TABLE IF NOT EXISTS growth_points (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                amount INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                source_id TEXT DEFAULT '',
-                reason TEXT DEFAULT '',
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-            """,
-            # 日历打卡表
-            """
-            CREATE TABLE IF NOT EXISTS growth_calendar (
-                date TEXT PRIMARY KEY,
-                mood INTEGER DEFAULT 0,
-                energy INTEGER DEFAULT 0,
-                checked_in INTEGER DEFAULT 0,
-                summary TEXT DEFAULT '',
-                tags TEXT DEFAULT '[]',
-                tide_phase TEXT DEFAULT '小潮',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-            """,
-            # 索引
-            "CREATE INDEX IF NOT EXISTS idx_ach_category ON growth_achievements(category)",
-            "CREATE INDEX IF NOT EXISTS idx_ach_rarity ON growth_achievements(rarity)",
-            "CREATE INDEX IF NOT EXISTS idx_user_ach_unlocked ON growth_user_achievements(unlocked)",
-            "CREATE INDEX IF NOT EXISTS idx_talent_branch ON growth_talents(branch)",
-            "CREATE INDEX IF NOT EXISTS idx_talent_tree ON growth_talents(tree)",
-            "CREATE INDEX IF NOT EXISTS idx_calendar_checked ON growth_calendar(checked_in)",
-            "CREATE INDEX IF NOT EXISTS idx_calendar_date ON growth_calendar(date)",
-            # 编年史表
-            """
-            CREATE TABLE IF NOT EXISTS growth_chronicle (
-                id TEXT PRIMARY KEY,
-                date TEXT NOT NULL,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT 'main-quest',
-                category_text TEXT NOT NULL DEFAULT '主线任务',
-                difficulty TEXT NOT NULL DEFAULT '普通',
-                content TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                has_git INTEGER NOT NULL DEFAULT 0,
-                git_commits TEXT NOT NULL DEFAULT '[]',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_chronicle_date ON growth_chronicle(date)",
-            "CREATE INDEX IF NOT EXISTS idx_chronicle_category ON growth_chronicle(category)",
-            # 记忆回响表
-            """
-            CREATE TABLE IF NOT EXISTS growth_memory_echoes (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT 'growth',
-                category_text TEXT NOT NULL DEFAULT '成长',
-                before_json TEXT NOT NULL DEFAULT '{}',
-                after_json TEXT NOT NULL DEFAULT '{}',
-                growth TEXT NOT NULL DEFAULT '',
-                content TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_echo_category ON growth_memory_echoes(category)",
-            "CREATE INDEX IF NOT EXISTS idx_echo_created_at ON growth_memory_echoes(created_at)",
-            # 赛季表
-            """
-            CREATE TABLE IF NOT EXISTS growth_seasons (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                period TEXT NOT NULL DEFAULT '',
-                start_date TEXT NOT NULL,
-                end_date TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'locked',
-                created_at TEXT NOT NULL
-            )
-            """,
-            # 赛季阶段表
-            """
-            CREATE TABLE IF NOT EXISTS growth_season_phases (
-                id TEXT PRIMARY KEY,
-                season_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                phase_index INTEGER NOT NULL DEFAULT 0,
-                reward TEXT NOT NULL DEFAULT '',
-                reward_points INTEGER NOT NULL DEFAULT 0,
-                reward_claimed INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_phase_season ON growth_season_phases(season_id)",
-            # 赛季任务表
-            """
-            CREATE TABLE IF NOT EXISTS growth_season_tasks (
-                id TEXT PRIMARY KEY,
-                season_id TEXT NOT NULL,
-                phase_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                type TEXT NOT NULL DEFAULT 'seasonal',
-                status TEXT NOT NULL DEFAULT 'pending',
-                points INTEGER NOT NULL DEFAULT 0,
-                completed_at TEXT,
-                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE,
-                FOREIGN KEY (phase_id) REFERENCES growth_season_phases(id) ON DELETE CASCADE
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_task_season ON growth_season_tasks(season_id)",
-            "CREATE INDEX IF NOT EXISTS idx_task_phase ON growth_season_tasks(phase_id)",
-            "CREATE INDEX IF NOT EXISTS idx_task_type ON growth_season_tasks(type)",
-            "CREATE INDEX IF NOT EXISTS idx_task_status ON growth_season_tasks(status)",
-        ]
+        """获取所有建表和建索引的 SQL 语句列表（单一来源）"""
+        return GROWTH_CREATE_TABLE_SQL
 
     def _bootstrap_growth_migration(self) -> bool:
         """
@@ -298,8 +314,7 @@ class GrowthDatabase:
         import time
         log = structlog.get_logger(__name__)
         try:
-            conn = sqlite3.connect(self._db_path)
-            try:
+            with get_connection(self._db_path, apply_pragmas=False) as conn:
                 # 检查核心表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -331,8 +346,6 @@ class GrowthDatabase:
                     detected_version=detected_version,
                 )
                 return True
-            finally:
-                conn.close()
         except Exception as e:
             log.warning("migration.bootstrap_failed", db="growth", error=str(e))
             return False
@@ -383,190 +396,10 @@ class GrowthDatabase:
     # ============================================================
 
     def _create_tables(self, conn: sqlite3.Connection) -> None:
-        """创建所有数据表"""
+        """创建所有数据表（从统一 SQL 常量执行）"""
         cursor = conn.cursor()
-
-        # 成就定义表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_achievements (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                rarity TEXT NOT NULL,
-                rarity_text TEXT NOT NULL,
-                condition TEXT NOT NULL,
-                description TEXT NOT NULL,
-                point_reward INTEGER DEFAULT 1,
-                sort_order INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-        # 用户成就表（解锁状态）
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_user_achievements (
-                achievement_id TEXT PRIMARY KEY,
-                unlocked INTEGER DEFAULT 0,
-                unlock_date TEXT DEFAULT '',
-                unlocked_at TEXT DEFAULT '',
-                FOREIGN KEY (achievement_id) REFERENCES growth_achievements(id)
-            )
-        """)
-
-        # 天赋定义表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_talents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                branch TEXT NOT NULL,
-                tree TEXT NOT NULL,
-                description TEXT NOT NULL,
-                max_level INTEGER DEFAULT 1,
-                parent_id TEXT DEFAULT '',
-                children_ids TEXT DEFAULT '[]',
-                point_cost INTEGER DEFAULT 1,
-                layer INTEGER DEFAULT 1,
-                sort_order INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-        # 用户天赋状态表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_user_talents (
-                talent_id TEXT PRIMARY KEY,
-                level INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'locked',
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (talent_id) REFERENCES growth_talents(id)
-            )
-        """)
-
-        # 天赋点数表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_points (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                amount INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                source_id TEXT DEFAULT '',
-                reason TEXT DEFAULT '',
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-        # 日历打卡表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_calendar (
-                date TEXT PRIMARY KEY,
-                mood INTEGER DEFAULT 0,
-                energy INTEGER DEFAULT 0,
-                checked_in INTEGER DEFAULT 0,
-                summary TEXT DEFAULT '',
-                tags TEXT DEFAULT '[]',
-                tide_phase TEXT DEFAULT '小潮',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-        # 索引
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ach_category ON growth_achievements(category)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ach_rarity ON growth_achievements(rarity)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_ach_unlocked ON growth_user_achievements(unlocked)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_talent_branch ON growth_talents(branch)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_talent_tree ON growth_talents(tree)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_calendar_checked ON growth_calendar(checked_in)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_calendar_date ON growth_calendar(date)")
-
-        # ========================================================
-        # 编年史表
-        # ========================================================
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_chronicle (
-                id TEXT PRIMARY KEY,
-                date TEXT NOT NULL,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT 'main-quest',
-                category_text TEXT NOT NULL DEFAULT '主线任务',
-                difficulty TEXT NOT NULL DEFAULT '普通',
-                content TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                has_git INTEGER NOT NULL DEFAULT 0,
-                git_commits TEXT NOT NULL DEFAULT '[]',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chronicle_date ON growth_chronicle(date)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chronicle_category ON growth_chronicle(category)")
-
-        # ========================================================
-        # 记忆回响表
-        # ========================================================
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_memory_echoes (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT 'growth',
-                category_text TEXT NOT NULL DEFAULT '成长',
-                before_json TEXT NOT NULL DEFAULT '{}',
-                after_json TEXT NOT NULL DEFAULT '{}',
-                growth TEXT NOT NULL DEFAULT '',
-                content TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_echo_category ON growth_memory_echoes(category)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_echo_created_at ON growth_memory_echoes(created_at)")
-
-        # ========================================================
-        # 赛季表
-        # ========================================================
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_seasons (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                period TEXT NOT NULL DEFAULT '',
-                start_date TEXT NOT NULL,
-                end_date TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'locked',
-                created_at TEXT NOT NULL
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_season_phases (
-                id TEXT PRIMARY KEY,
-                season_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                phase_index INTEGER NOT NULL DEFAULT 0,
-                reward TEXT NOT NULL DEFAULT '',
-                reward_points INTEGER NOT NULL DEFAULT 0,
-                reward_claimed INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_phase_season ON growth_season_phases(season_id)")
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS growth_season_tasks (
-                id TEXT PRIMARY KEY,
-                season_id TEXT NOT NULL,
-                phase_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                type TEXT NOT NULL DEFAULT 'seasonal',
-                status TEXT NOT NULL DEFAULT 'pending',
-                points INTEGER NOT NULL DEFAULT 0,
-                completed_at TEXT,
-                FOREIGN KEY (season_id) REFERENCES growth_seasons(id) ON DELETE CASCADE,
-                FOREIGN KEY (phase_id) REFERENCES growth_season_phases(id) ON DELETE CASCADE
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_season ON growth_season_tasks(season_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_phase ON growth_season_tasks(phase_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_type ON growth_season_tasks(type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_status ON growth_season_tasks(status)")
+        for sql in GROWTH_CREATE_TABLE_SQL:
+            cursor.execute(sql)
 
     # ============================================================
     # 预置数据初始化

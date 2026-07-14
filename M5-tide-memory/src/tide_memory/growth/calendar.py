@@ -30,7 +30,7 @@ class CalendarManager:
     SPRING_TIDE_PERIOD = 30  # 大潮周期（天）
     ASTRONOMICAL_INTERVAL = 90  # 天文潮间隔（天）
 
-    def __init__(self, db: GrowthDatabase = None, achievement_manager=None):
+    def __init__(self, db: GrowthDatabase = None, achievement_manager=None) -> None:
         """
         初始化日历管理器
 

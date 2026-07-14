@@ -7,7 +7,7 @@ EI 情绪指数引擎
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..common.constants import (
     VALENCE_DEFAULT,
@@ -45,11 +45,11 @@ class EIEngine:
     EI范围 0-1，值越高表示情绪越强烈（不分正负）。
     """
 
-    def __init__(self, va_model=None):
+    def __init__(self, va_model=None) -> None:
         self._va_model = va_model  # ValenceArousalModel
         self._history = []  # 情绪历史（仅内存，不落盘）
 
-    def infer_from_text(self, text: str) -> Dict:
+    def infer_from_text(self, text: str) -> Dict[str, Any]:
         """
         从文本推断情绪
         

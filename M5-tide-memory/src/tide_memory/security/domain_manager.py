@@ -40,7 +40,7 @@ class DomainManager:
     └─────────┴────────┴────────┴──────┘
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._agents: Dict[str, dict] = {}  # agent_id -> {role, domains}
         self._domain_acls: Dict[str, Dict[str, Set[str]]] = {}  # domain -> agent_id -> permissions
         self._init_default_agents()

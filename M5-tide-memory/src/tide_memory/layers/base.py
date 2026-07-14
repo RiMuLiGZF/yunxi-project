@@ -18,7 +18,7 @@ import os
 import sqlite3
 import threading
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 
@@ -30,6 +30,7 @@ from ..core.models import (
     MemoryLayer,
 )
 from ..db import DatabaseMigrator, Migration
+from ..db.connection import get_connection, get_pooled_connection, release_pooled_connection
 from ..common.constants import (
     L1_MAX_ITEMS,
     L1_RETENTION_DAYS,
@@ -39,15 +40,15 @@ from ..common.constants import (
     QUALITY_SCORE_DIVISOR,
     QUALITY_SCORE_DEFAULT,
     QUALITY_LEVEL_NORMAL,
-    RETENTION_FOREVER,
+    CLASSIFICATION_PUBLIC_DAYS,
     CONTENT_SANITIZED,
     DEFAULT_TOP_K,
     FILTER_EXPAND_MULTIPLIER,
     DEFAULT_PAGE_SIZE,
-    SQLITE_TIMEOUT,
+    SQLITE_BUSY_TIMEOUT,
     SQLITE_CACHE_SIZE_KB,
     SQLITE_MMAP_SIZE,
-    CLASSIFICATION_DEFAULT,
+    DEFAULT_CLASSIFICATION,
     EMOTION_NEUTRAL,
     VALENCE_DEFAULT,
     AROUSAL_DEFAULT,
@@ -110,7 +111,7 @@ class BaseSQLLayer:
         "CREATE INDEX IF NOT EXISTS idx_quality ON memories(quality_score)",
     ]
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """
         初始化记忆层
 
@@ -230,8 +231,7 @@ class BaseSQLLayer:
         """
         log = structlog.get_logger(__name__)
         try:
-            conn = sqlite3.connect(self._db_path)
-            try:
+            with get_connection(self._db_path, apply_pragmas=False) as conn:
                 # 检查 memories 表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -275,8 +275,6 @@ class BaseSQLLayer:
                     detected_version=detected_version,
                 )
                 return True
-            finally:
-                conn.close()
         except Exception as e:
             log.warning(
                 "migration.bootstrap_failed",
@@ -318,7 +316,7 @@ class BaseSQLLayer:
             "emotion_tags": [row[7]] if row[7] else [],
         }
 
-    def _sort_search_results(self, results: List[Dict]) -> List[Dict]:
+    def _sort_search_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         对搜索结果排序（子类可覆盖）
 
@@ -345,19 +343,13 @@ class BaseSQLLayer:
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
 
         with self._conn_lock:
-            # P2-任务3: 使用 check_same_thread=False + 锁的长连接模式
-            self._conn = sqlite3.connect(
+            # P2-任务3: 使用 get_pooled_connection 替代 sqlite3.connect
+            self._conn = get_pooled_connection(
                 self._db_path,
                 check_same_thread=False,
-                timeout=SQLITE_TIMEOUT,
             )
 
-            # P2-任务3: WAL 模式 + 性能优化
-            self._conn.execute("PRAGMA journal_mode=WAL;")
-            self._conn.execute("PRAGMA synchronous=NORMAL;")
-            self._conn.execute(f"PRAGMA cache_size={-SQLITE_CACHE_SIZE_KB};")  # 页缓存
-            self._conn.execute("PRAGMA temp_store=MEMORY;")
-            self._conn.execute(f"PRAGMA mmap_size={SQLITE_MMAP_SIZE};")  # 内存映射
+            # PRAGMA 已在 get_pooled_connection 中通过 _apply_pragmas 设置
 
             if self._use_migration:
                 self._ensure_db_with_migration()
@@ -464,12 +456,12 @@ class BaseSQLLayer:
         with self._conn_lock:
             if self._conn is not None:
                 try:
-                    self._conn.close()
+                    release_pooled_connection(self._db_path)
                 except Exception:
                     pass
                 self._conn = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         """析构时关闭连接"""
         try:
             self.close()
@@ -733,7 +725,7 @@ class BaseSQLLayer:
     # 批量操作
     # ============================================================
 
-    def batch_add(self, items: List[MemoryItem]) -> Dict:
+    def batch_add(self, items: List[MemoryItem]) -> Dict[str, Any]:
         """
         批量添加记忆
 
@@ -826,7 +818,7 @@ class BaseSQLLayer:
         domain: Optional[str] = None,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         游标分页查询记忆列表
 

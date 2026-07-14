@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.models import EmotionState, MemoryItem, MemoryLayer
 from ..common.transaction import MemoryTransaction
@@ -81,7 +81,7 @@ class ConsolidationEngine:
     # 语义蒸馏标签重合度阈值
     _DISTILL_TAG_OVERLAP_THRESHOLD = DISTILL_TAG_OVERLAP_THRESHOLD
 
-    def __init__(self, l0=None, l1=None, l2=None, l3=None, ei_engine=None):
+    def __init__(self, l0=None, l1=None, l2=None, l3=None, ei_engine=None) -> None:
         self._l0 = l0
         self._l1 = l1
         self._l2 = l2
@@ -93,7 +93,7 @@ class ConsolidationEngine:
     # 对外 API
     # ============================================================
 
-    def run_consolidation(self, mode: str = "normal") -> Dict:
+    def run_consolidation(self, mode: str = "normal") -> Dict[str, Any]:
         """
         执行记忆巩固
 
@@ -165,7 +165,7 @@ class ConsolidationEngine:
         """
         return self.run_consolidation(mode=CONSOLIDATION_MODE_QUICK)
 
-    def full_consolidate(self) -> Dict:
+    def full_consolidate(self) -> Dict[str, Any]:
         """
         完整模式巩固（全链路 + 语义蒸馏 + 索引重建）
         适用于低频深度巩固（如每日睡眠模式）
@@ -357,7 +357,7 @@ class ConsolidationEngine:
     # 低质量记忆降级/遗忘（P2-2：多维遗忘得分）
     # ============================================================
 
-    def _demote_low_quality(self) -> Dict:
+    def _demote_low_quality(self) -> Dict[str, Any]:
         """
         低质量记忆降级/遗忘（基于多维遗忘得分）
 
@@ -426,7 +426,7 @@ class ConsolidationEngine:
         layer_name: str,
         lower_layer,
         lower_layer_name: Optional[str],
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         处理单层的遗忘/降级逻辑（事务保障）
 
@@ -546,7 +546,7 @@ class ConsolidationEngine:
     # 语义蒸馏（L2 层）
     # ============================================================
 
-    def _semantic_distill_l2(self) -> Dict:
+    def _semantic_distill_l2(self) -> Dict[str, Any]:
         """
         L2 层语义蒸馏（简单版）
 

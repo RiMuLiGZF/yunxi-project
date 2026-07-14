@@ -85,7 +85,7 @@ class SeasonManager:
     负责赛季查询、任务管理、奖励领取等功能。
     """
 
-    def __init__(self, db: GrowthDatabase = None, talent_manager=None):
+    def __init__(self, db: GrowthDatabase = None, talent_manager=None) -> None:
         """
         初始化赛季管理器
 

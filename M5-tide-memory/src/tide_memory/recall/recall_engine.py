@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import structlog
 
@@ -118,10 +118,10 @@ class RecallEngine:
         self,
         query: str,
         layers: List[str] = None,
-        emotion_context: Dict = None,
+        emotion_context: Dict[str, Any] = None,
         top_k: int = 10,
         domain: str = "private",
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """构建搜索计划：解析并规范化所有检索参数。
 
         将 layers 默认值、域信息（domain_type / domain_owner）、
@@ -154,7 +154,7 @@ class RecallEngine:
             "emotion_context": emotion_context,
         }
 
-    def _do_keyword_search(self, query: str, plan: Dict) -> List[Dict]:
+    def _do_keyword_search(self, query: str, plan: Dict[str, Any]) -> List[Dict[str, Any]]:
         """执行关键词检索，返回候选结果列表。
 
         使用倒排索引快速召回，召回量为 top_k * RECALL_EXPAND_MULTIPLIER。
@@ -169,7 +169,7 @@ class RecallEngine:
         top_k = plan["top_k"]
         return self._keyword.search(query, top_k=top_k * RECALL_EXPAND_MULTIPLIER)
 
-    def _do_vector_search(self, query: str, plan: Dict) -> List[Dict]:
+    def _do_vector_search(self, query: str, plan: Dict[str, Any]) -> List[Dict[str, Any]]:
         """执行向量检索，返回候选结果列表。
 
         向量检索不可用时返回空列表，并记录警告日志。
@@ -192,9 +192,9 @@ class RecallEngine:
 
     def _fuse_results(
         self,
-        keyword_results: List[Dict],
-        vector_results: List[Dict],
-        plan: Dict,
+        keyword_results: List[Dict[str, Any]],
+        vector_results: List[Dict[str, Any]],
+        plan: Dict[str, Any],
     ) -> Dict[str, float]:
         """对关键词和向量两路结果进行 RRF 融合。
 
@@ -214,10 +214,10 @@ class RecallEngine:
     def _rank_and_filter(
         self,
         fused_scores: Dict[str, float],
-        keyword_results: List[Dict],
-        vector_results: List[Dict],
-        plan: Dict,
-    ) -> List[Dict]:
+        keyword_results: List[Dict[str, Any]],
+        vector_results: List[Dict[str, Any]],
+        plan: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         """对融合结果进行层级查找、过滤、排序和补充。
 
         包括以下步骤：
@@ -319,9 +319,9 @@ class RecallEngine:
 
     def _apply_emotion_weighting(
         self,
-        results: List[Dict],
-        emotion_context: Dict,
-    ) -> List[Dict]:
+        results: List[Dict[str, Any]],
+        emotion_context: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         """对搜索结果应用情绪加权重排序。
 
         当情绪引擎可用且提供了情绪上下文时，调用 ``_emotion_rerank``
@@ -343,10 +343,10 @@ class RecallEngine:
         self,
         query: str,
         layers: List[str] = None,
-        emotion_context: Dict = None,
+        emotion_context: Dict[str, Any] = None,
         top_k: int = 10,
         domain: str = "private",
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         执行多层混合检索
 
@@ -398,8 +398,8 @@ class RecallEngine:
 
     def _rrf_fusion(
         self,
-        kw_results: List[Dict],
-        vec_results: List[Dict],
+        kw_results: List[Dict[str, Any]],
+        vec_results: List[Dict[str, Any]],
     ) -> Dict[str, float]:
         """
         Reciprocal Rank Fusion (RRF) 融合算法
@@ -428,7 +428,7 @@ class RecallEngine:
 
         return fused
 
-    def _emotion_rerank(self, results: List[Dict], emotion_context: Dict) -> List[Dict]:
+    def _emotion_rerank(self, results: List[Dict[str, Any]], emotion_context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """情绪一致的记忆加权排序"""
         target_ei = emotion_context.get("ei_score", 0.5)
         target_label = emotion_context.get("dominant_emotion", "neutral")
@@ -458,11 +458,11 @@ class RecallEngine:
         domain: str,
         agent_id: str,
         tags: List[str],
-        emotion_context: Dict = None,
-        metadata: Dict = None,
+        emotion_context: Dict[str, Any] = None,
+        metadata: Dict[str, Any] = None,
         content_text: str = "",
         store_original: bool = False,
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         归档新记忆
 
@@ -564,10 +564,10 @@ class RecallEngine:
 
     def batch_archive(
         self,
-        items: List[Dict],
+        items: List[Dict[str, Any]],
         domain: str = "private",
         agent_id: str = "system",
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         批量归档记忆
 
@@ -609,7 +609,7 @@ class RecallEngine:
         self,
         memory_ids: List[str],
         domain: str = "private",
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         批量删除记忆（跨层）
 
@@ -634,7 +634,7 @@ class RecallEngine:
         sort_by: str = "created_at",
         order: str = "desc",
         layers: List[str] = None,
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         分页查询记忆列表（游标分页）
 
@@ -734,14 +734,14 @@ class RecallEngine:
             "total": total,
         }
 
-    def compress_layer(self, target_layer: str) -> Dict:
+    def compress_layer(self, target_layer: str) -> Dict[str, Any]:
         """压缩指定层"""
         layer = self._layer_map.get(target_layer)
         if hasattr(layer, "compress"):
             return layer.compress()
         return {"compressed_count": 0, "remaining_count": 0}
 
-    def generate_reflection(self, scope: str, domain: str) -> Dict:
+    def generate_reflection(self, scope: str, domain: str) -> Dict[str, Any]:
         """生成反思复盘报告（框架）"""
         total = 0
         for layer_name, layer in self._layer_map.items():
@@ -848,7 +848,7 @@ class RecallEngine:
                 continue
         return deleted
 
-    def get_stats(self, domain: str = None) -> Dict:
+    def get_stats(self, domain: str = None) -> Dict[str, Any]:
         """获取统计信息"""
         stats = {"total": 0, "layers": {}}
         for name, layer in self._layer_map.items():
@@ -976,7 +976,7 @@ class RecallEngine:
 
     def _get_memory_info(
         self, memory_id: str, layers: List[str], domain: str
-    ) -> Optional[Dict]:
+    ) -> Optional[Dict[str, Any]]:
         """根据memory_id获取记忆详细信息."""
         for layer_name in layers:
             layer = self._layer_map.get(layer_name)

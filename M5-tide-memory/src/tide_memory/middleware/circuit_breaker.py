@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from tide_memory.common.retry import CircuitBreaker, CircuitState
-from tide_memory.errors import ErrorCode, error_response
+from tide_memory.common.errors import ErrorCode, error_response
 
 logger = structlog.get_logger(__name__)
 
@@ -83,7 +83,7 @@ class CircuitBreakerMiddleware(BaseHTTPMiddleware):
     - M5_CIRCUIT_BREAKER_HALF_OPEN_CALLS: 半开探测请求数，默认 3
     """
 
-    def __init__(self, app):
+    def __init__(self, app) -> None:
         super().__init__(app)
 
         # 读取环境变量配置
