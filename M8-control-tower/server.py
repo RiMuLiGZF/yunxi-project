@@ -4,7 +4,7 @@ M8 管理工作台启动入口
 运行方式:
     python server.py
 
-默认端口: 8000
+默认端口: 8008
 """
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def main() -> None:
     """启动 FastAPI 服务."""
     from backend.main import app
 
-    port = int(os.environ.get("M8_PORT", "8000"))
+    port = int(os.environ.get("M8_PORT", "8008"))
     host = os.environ.get("M8_HOST", "0.0.0.0")
 
     print("=" * 60)

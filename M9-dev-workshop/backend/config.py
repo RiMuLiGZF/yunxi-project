@@ -66,7 +66,7 @@ class Settings:
     # 服务主机
     host: str = "0.0.0.0"
     # 服务端口
-    port: int = 8000
+    port: int = 8009
     # 调试模式
     debug: bool = True
     # CORS 允许的源
