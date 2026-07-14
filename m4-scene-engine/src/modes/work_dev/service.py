@@ -1052,7 +1052,8 @@ async def create_item(item: Item):
 def main():
     """Main entry point."""
     print("Hello, Yunxi!")
-    # TODO: Implement business logic here
+    # NOTE: 请根据上方 Prompt 实现具体业务逻辑
+    # TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
     pass
 
 
@@ -1071,7 +1072,8 @@ if __name__ == "__main__":
 
 function main() {{
   console.log('Hello, Yunxi!'){semicolon}
-  // TODO: Implement business logic here
+  // NOTE: 请根据上方 Prompt 实现具体业务逻辑
+  // TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
 }}
 
 main(){semicolon}"""
@@ -1088,7 +1090,8 @@ import "fmt"
 
 func main() {{
 \tfmt.Println("Hello, Yunxi!")
-\t// TODO: Implement business logic here
+\t// NOTE: 请根据上方 Prompt 实现具体业务逻辑
+\t// TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
 }}
 '''
 
@@ -1100,7 +1103,8 @@ func main() {{
 
 fn main() {{
     println!("Hello, Yunxi!");
-    // TODO: Implement business logic here
+    // NOTE: 请根据上方 Prompt 实现具体业务逻辑
+    // TODO: 接入 LLM 根据 prompt 动态生成业务代码（当前返回静态模板）
 }}
 '''
 
