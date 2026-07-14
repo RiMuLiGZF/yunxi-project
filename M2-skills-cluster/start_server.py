@@ -291,92 +291,36 @@ def main():
         }
 
     # ---- M8 标准对接接口 ----
-    from fastapi import Header, HTTPException, Request
-
-    def _verify_m8_token(x_m8_token: str = "") -> bool:
-        """验证 M8 管理令牌（P2-改进: 使用 hmac 防时序攻击）"""
-        expected = os.environ.get("M2_ADMIN_TOKEN", "")
-        if not expected:
-            return True  # 未配置时放行
-        import hmac
-        return hmac.compare_digest(x_m8_token, expected)
-
-    @app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
-    async def m8_health(x_m8_token: str = Header(default="")):
-        """M8 标准健康检查接口"""
-        if not _verify_m8_token(x_m8_token):
-            raise HTTPException(status_code=401, detail="Invalid M8 token")
-        return {
-            "code": 0,
-            "message": "ok",
-            "data": {
-                "status": "healthy",
-                "module": "m2",
-                "module_name": "技能集群",
-                "version": "3.10.2",
-                "skills_count": skill_count,
-                "uptime_seconds": int(__import__('time').time() - _start_time),
-            }
-        }
-
-    @app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
-    async def m8_metrics(x_m8_token: str = Header(default="")):
-        """M8 标准性能指标接口（P2-改进: 接入真实系统指标）"""
-        if not _verify_m8_token(x_m8_token):
-            raise HTTPException(status_code=401, detail="Invalid M8 token")
-        # 真实系统指标
-        try:
-            import psutil
-            _cpu = psutil.cpu_percent(interval=0.1)
-            _mem = psutil.virtual_memory()
-            _mem_mb = _mem.used / (1024 * 1024)
-        except Exception:
-            _cpu = 0.0
-            _mem_mb = 0
-        return {
-            "code": 0,
-            "message": "ok",
-            "data": {
-                "cpu_usage": round(_cpu, 1),
-                "memory_mb": int(_mem_mb),
-                "requests_total": 0,
-                "requests_per_second": 0,
-                "avg_latency_ms": 0,
-                "skills_registered": skill_count,
-                "invocations_total": 0,
-            }
-        }
-
-    @app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
-    async def m8_config(x_m8_token: str = Header(default="")):
-        """M8 标准配置查询接口"""
-        if not _verify_m8_token(x_m8_token):
-            raise HTTPException(status_code=401, detail="Invalid M8 token")
-        return {
-            "code": 0,
-            "message": "ok",
-            "data": {
-                "module": "m2",
-                "version": "3.10.2",
-                "env": os.environ.get("YUNXI_ENV", "development"),
-                "skills_count": skill_count,
-                "auth_enabled": bool(os.environ.get("M2_ADMIN_TOKEN", "")),
-                "cors_origins": os.environ.get("M2_CORS_ORIGINS", "*"),
-            }
-        }
+    # 由 skill_cluster.api.m8_api 统一注册，使用独立的 M2_M8_TOKEN / M8_TOKEN
+    # 鉴权（hmac.compare_digest），版本号从 version.py 读取，全程 structlog 日志。
+    # /m8/* 路径已在 M8TokenAuthMiddleware 白名单中放行，避免与 M2_ADMIN_TOKEN 冲突。
+    from skill_cluster.api.m8_api import register_m8_routes
+    register_m8_routes(
+        app=app,
+        registry=registry,
+        start_time=_start_time,
+    )
 
     # 启动服务
     print(f"\nM2 技能集群启动完成！")
     print(f"  服务地址: http://{host}:{port}")
     print(f"  健康检查: http://{host}:{port}/health")
     print(f"  API v2 健康: http://{host}:{port}/api/v2/health")
+    print(f"  M8 健康: http://{host}:{port}/m8/health")
+    print(f"  M8 指标: http://{host}:{port}/m8/metrics")
+    print(f"  M8 配置: http://{host}:{port}/m8/config")
     print(f"  技能列表: http://{host}:{port}/api/v2/skills")
     print(f"  API 文档: http://{host}:{port}/docs")
     print(f"  技能数量: {skill_count}")
+    _m8_token = os.environ.get("M2_M8_TOKEN", "") or os.environ.get("M8_TOKEN", "")
     if admin_token:
-        print(f"  鉴权状态: 已启用 M8 Token 鉴权")
+        print(f"  v2 API 鉴权: 已启用 (M2_ADMIN_TOKEN)")
     else:
-        print(f"  鉴权状态: 未启用（开发模式）")
+        print(f"  v2 API 鉴权: 未启用（开发模式）")
+    if _m8_token:
+        print(f"  M8 接口鉴权: 已启用 (M2_M8_TOKEN/M8_TOKEN)")
+    else:
+        print(f"  M8 接口鉴权: 未启用（开发模式）")
     print("=" * 60)
     print()
 

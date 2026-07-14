@@ -45,6 +45,12 @@ WHITE_LIST_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    # M8 标准对接接口（/m8/*）使用独立的 M2_M8_TOKEN / M8_TOKEN 鉴权
+    # （见 skill_cluster.api.m8_api），此处放行以避免与 v2 API 的
+    # M2_ADMIN_TOKEN 鉴权产生双重校验冲突。
+    "/m8/health",
+    "/m8/metrics",
+    "/m8/config",
 }
 
 
