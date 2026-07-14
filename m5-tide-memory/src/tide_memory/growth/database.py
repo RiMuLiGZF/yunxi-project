@@ -314,8 +314,7 @@ class GrowthDatabase:
         import time
         log = structlog.get_logger(__name__)
         try:
-            conn = sqlite3.connect(self._db_path)
-            try:
+            with get_connection(self._db_path, apply_pragmas=False) as conn:
                 # 检查核心表是否存在
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master "
@@ -347,8 +346,6 @@ class GrowthDatabase:
                     detected_version=detected_version,
                 )
                 return True
-            finally:
-                conn.close()
         except Exception as e:
             log.warning("migration.bootstrap_failed", db="growth", error=str(e))
             return False

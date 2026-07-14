@@ -156,7 +156,6 @@ class M8Interface:
                         ("l2_deep", "./data/memory/l2_deep.db"),
                     ]
 
-                import sqlite3
                 from tide_memory.db.connection import get_connection
                 for layer_name, db_path in layers:
                     if os.path.exists(db_path):
