@@ -14,6 +14,11 @@ from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -349,13 +354,16 @@ def _verify_m8_token(x_m8_token: str = "") -> bool:
 
 def _get_m4_real_metrics():
     """获取真实 M4 性能指标"""
-    import os
-    try:
-        import psutil
-        cpu_usage = psutil.cpu_percent(interval=0.1)
-        memory_mb = int(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
-    except Exception as e:
-        logger.warning("metrics.psutil_failed", error_type=type(e).__name__, error=str(e))
+    if psutil is not None:
+        try:
+            cpu_usage = psutil.cpu_percent(interval=0.1)
+            memory_mb = int(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
+        except Exception as e:
+            logger.warning("metrics.psutil_failed", error_type=type(e).__name__, error=str(e))
+            cpu_usage = 0.0
+            memory_mb = 0
+    else:
+        logger.warning("metrics.psutil_not_installed", message="psutil 未安装，metrics 返回默认值")
         cpu_usage = 0.0
         memory_mb = 0
     try:

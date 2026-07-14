@@ -12,6 +12,9 @@ from unittest.mock import patch, MagicMock
 # 将项目根目录加入路径，确保可以导入 backend 模块
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+# 预先设置安全 JWT 密钥，避免默认空密钥触发启动失败
+os.environ.setdefault("M12_JWT_SECRET", "test-jwt-secret-for-unit-tests-only-do-not-use-in-production")
+
 from backend.auth import (
     # JWT 相关
     create_access_token,

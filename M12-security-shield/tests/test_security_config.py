@@ -181,10 +181,10 @@ class TestSecretSecurityValidation(unittest.TestCase):
 class TestRequireSecureSecretConfig(unittest.TestCase):
     """require_secure_secret 配置项测试"""
 
-    def test_require_secure_secret_default_false(self):
-        """测试：require_secure_secret 默认值为 False"""
-        settings = Settings()
-        self.assertFalse(settings.require_secure_secret)
+    def test_require_secure_secret_default_true(self):
+        """测试：require_secure_secret 默认值为 True"""
+        settings = Settings(jwt_secret=generate_secret_key(32))
+        self.assertTrue(settings.require_secure_secret)
 
     def test_require_secure_secret_can_be_enabled(self):
         """测试：可以通过参数启用 require_secure_secret"""
@@ -204,10 +204,10 @@ class TestRequireSecureSecretConfig(unittest.TestCase):
 class TestSettingsBackwardCompatibility(unittest.TestCase):
     """向后兼容性测试"""
 
-    def test_default_jwt_secret_unchanged(self):
-        """测试：默认 JWT 密钥值保持不变（向后兼容）"""
+    def test_default_jwt_secret_is_empty(self):
+        """测试：默认 JWT 密钥值为空字符串（强制要求环境变量）"""
         settings = Settings()
-        self.assertEqual(settings.jwt_secret, DEFAULT_JWT_SECRET)
+        self.assertEqual(settings.jwt_secret, "")
 
     def test_other_settings_unchanged(self):
         """测试：其他配置项不受影响"""
@@ -219,7 +219,12 @@ class TestSettingsBackwardCompatibility(unittest.TestCase):
     def test_generate_secret_key_does_not_affect_settings(self):
         """测试：密钥生成工具不影响全局配置"""
         key1 = generate_secret_key()
-        settings = get_settings()
+        # 设置安全密钥环境变量，避免默认空密钥触发启动失败
+        with patch.dict(os.environ, {"M12_JWT_SECRET": generate_secret_key()}):
+            # 清除全局缓存，强制重新加载
+            import backend.config as config_module
+            config_module._settings = None
+            settings = get_settings()
         key2 = generate_secret_key()
         # 生成的密钥与配置中的密钥不同
         self.assertNotEqual(key1, settings.jwt_secret)

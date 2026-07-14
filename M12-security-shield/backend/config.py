@@ -6,11 +6,15 @@
 
 import os
 import secrets
+import sys
 import warnings
 from pathlib import Path
 from typing import List, Optional
 
+import structlog
 from pydantic_settings import BaseSettings
+
+logger = structlog.get_logger(__name__)
 
 # 默认 JWT 密钥（用于检测用户是否使用了默认值）
 DEFAULT_JWT_SECRET = "yunxi-m12-security-shield-secret-key-2026"
@@ -62,8 +66,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     # 服务端口
     port: int = 8012
-    # 调试模式
-    debug: bool = True
+    # 调试模式（生产环境必须关闭）
+    debug: bool = False
     # 日志级别
     log_level: str = "info"
     # 运行环境
@@ -112,18 +116,17 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
 
     # ===== JWT 配置 =====
-    # JWT 签名密钥（生产环境请修改！默认密钥存在安全风险）
-    jwt_secret: str = DEFAULT_JWT_SECRET
+    # JWT 签名密钥（必须设置，默认空字符串强制要求环境变量）
+    jwt_secret: str = ""
     # JWT 算法
     jwt_algorithm: str = "HS256"
     # Token 过期时间（分钟）
     jwt_expire_minutes: int = 1440
     # 刷新 Token 过期时间（天）
     jwt_refresh_expire_days: int = 7
-    # 是否强制要求安全密钥（生产环境建议开启）
-    # 开启后，如果使用默认密钥或空密钥，启动时将抛出错误
-    # 默认值：生产环境为 True，开发环境为 False
-    require_secure_secret: bool = False
+    # 是否强制要求安全密钥（安全默认值：True）
+    # 开启后，如果使用默认密钥或空密钥，启动时将抛出错误并退出
+    require_secure_secret: bool = True
 
     # ===== API 密钥配置 =====
     # 默认 API Key 长度
@@ -185,7 +188,7 @@ class Settings(BaseSettings):
         """验证 JWT 密钥安全性
 
         根据环境和 require_secure_secret 配置执行密钥安全检查：
-        - 如果 require_secure_secret=True 且使用默认密钥，抛出 ValueError
+        - 如果 require_secure_secret=True 且使用默认密钥，记录严重错误后抛出 ValueError
         - 如果在生产环境使用默认密钥，发出警告
         - 如果在开发环境使用默认密钥，仅提示
 
@@ -196,29 +199,42 @@ class Settings(BaseSettings):
             return
 
         secret_warning = (
-            "【安全警告】当前使用默认 JWT 密钥，存在严重安全风险！\n"
-            "请通过环境变量 M12_JWT_SECRET 设置自定义密钥，\n"
-            "或在 Python 中调用 generate_secret_key() 生成安全密钥：\n"
-            "    from backend.config import generate_secret_key\n"
-            "    print(generate_secret_key())\n"
-            f"当前环境: {self.env}"
+            "【安全警告】当前 JWT 密钥不安全，存在严重安全风险！"
+            "请通过环境变量 M12_JWT_SECRET 设置自定义密钥，"
+            "或在 Python 中调用 generate_secret_key() 生成安全密钥："
+            "    from backend.config import generate_secret_key; print(generate_secret_key())"
         )
 
         if self.require_secure_secret:
+            logger.critical(
+                "m12.security.jwt_secret_unsafe",
+                message=secret_warning,
+                env=self.env,
+                jwt_secret_length=len(self.jwt_secret) if self.jwt_secret else 0,
+            )
             raise ValueError(
                 f"[M12] 启动失败：JWT 密钥不安全！\n{secret_warning}\n"
-                "如需强制使用默认密钥（仅限开发测试），请设置 "
+                "如需强制跳过检查（仅限开发测试），请设置 "
                 "M12_REQUIRE_SECURE_SECRET=false"
             )
 
         if self.env == "production":
+            logger.warning(
+                "m12.security.jwt_secret_unsafe_production",
+                message=secret_warning,
+                env=self.env,
+            )
             warnings.warn(
                 f"[M12] {secret_warning}",
                 UserWarning,
                 stacklevel=2,
             )
         else:
-            print(f"[M12] {secret_warning}")
+            logger.warning(
+                "m12.security.jwt_secret_unsafe_development",
+                message=secret_warning,
+                env=self.env,
+            )
 
 
 # 全局配置单例

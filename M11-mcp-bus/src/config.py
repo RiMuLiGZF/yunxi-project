@@ -10,8 +10,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+import structlog
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = structlog.get_logger(__name__)
 
 
 class Settings(BaseSettings):
@@ -110,11 +113,19 @@ def get_settings() -> Settings:
     """获取配置单例.
 
     使用 lru_cache 确保整个应用只创建一个 Settings 实例。
+    启动时校验安全密钥配置，若 admin_token 为空则记录警告。
 
     Returns:
         Settings 配置实例
     """
-    return Settings()
+    settings = Settings()
+    if not settings.admin_token:
+        logger.warning(
+            "m11.security.admin_token_not_set",
+            message="M11_ADMIN_TOKEN 未设置，M8 对接鉴权将处于不安全状态，"
+                    "请在环境变量中配置 M11_ADMIN_TOKEN",
+        )
+    return settings
 
 
 def reload_settings() -> Settings:
