@@ -81,3 +81,28 @@ BACKUP_ANCHOR.txt
 
 .coverage
 htmlcov/
+
+# 云汐系统修复过程中发现的残留问题（2026-07-14）
+# M8: 云同步占位符文件（坚果云/OneDrive重解析点，无法被Git读取，待云端同步恢复后重新纳入）
+M8-control-tower/backend/audit_logger.py
+M8-control-tower/backend/inspection_runner.py
+M8-control-tower/backend/inspection_tools.py
+M8-control-tower/backend/key_manager.py
+M8-control-tower/backend/openai_proxy.py
+M8-control-tower/backend/protocol_adapter.py
+M8-control-tower/backend/routers/api_keys.py
+M8-control-tower/backend/routers/dashboard.py
+M8-control-tower/backend/routers/inspection.py
+M8-control-tower/backend/test_e2e.py
+
+# M8: 云同步占位符目录
+M8-control-tower/data/
+
+# 前端历史残留目录（git-temp迁移遗留）
+frontend/m9/
+frontend/master/
+frontend/shared/
+frontend/user/
+
+# M1: 幽灵符号链接（文件系统损坏残留，已用M1-agent-hub替代）
+M1-agent-cluster/
