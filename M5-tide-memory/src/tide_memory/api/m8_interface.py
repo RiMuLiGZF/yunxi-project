@@ -15,11 +15,15 @@ import os
 from typing import Any, Dict, Optional
 from datetime import datetime
 
+import structlog
+
 from ..core.version import get_module_version
 from ..common.errors import ErrorCode
 
 # 向后兼容别名：外部模块可继续通过 M8ErrorCode 引用错误码
 M8ErrorCode = ErrorCode
+
+logger = structlog.get_logger(__name__)
 
 
 class M8Response:
@@ -49,7 +53,7 @@ class M8Response:
 class M8Interface:
     """
     M8 标准接口适配层
-    
+
     提供符合M8规范的统一接口：
     - 标准错误码（统一来源：ErrorCode）
     - 标准响应格式
@@ -75,6 +79,7 @@ class M8Interface:
     def m8_health_check(self) -> Dict:
         """M8标准：健康检查"""
         version = get_module_version()
+        logger.debug("m8_health_check_executed", module="m5-memory", version=version)
         return M8Response.success({
             "module": "m5-memory",
             "version": version,
@@ -94,7 +99,7 @@ class M8Interface:
         """
         M8标准：性能指标
 
-        返回模块运行时的性能指标，包括CPU、内存、存储、条目数等。
+        返回潮汐系统运行时的性能指标，包括记忆条数、各层数量、EI模型状态、潮汐相位等。
         """
         try:
             cpu_usage = 0.0
@@ -106,11 +111,35 @@ class M8Interface:
             except Exception:
                 pass
 
-            memory_entries = 0
-            storage_used_mb = 0
-            vector_dim = 1536
-            cache_hit_rate = 0.0
+            # 通过 skill_interface 获取各层统计
+            layer_counts = {}
+            total_entries = 0
+            keyword_index_stats = {}
+            vector_index_stats = {}
+            cache_stats = {}
+            try:
+                skill_if = self._app.get("skill_interface")
+                if skill_if:
+                    stats = skill_if.get_stats(domain="private")
+                    total_entries = stats.get("total", 0)
+                    layer_stats = stats.get("layers", {})
+                    for layer_name, layer_data in layer_stats.items():
+                        if isinstance(layer_data, dict):
+                            layer_counts[layer_name] = layer_data.get("count", 0)
+                        else:
+                            layer_counts[layer_name] = layer_data
+                    # 补充缺失的层级
+                    for name in ["l0_beach", "l1_shallow", "l2_deep", "l3_abyss"]:
+                        if name not in layer_counts:
+                            layer_counts[name] = 0
+                    keyword_index_stats = stats.get("keyword_index", {})
+                    vector_index_stats = stats.get("vector_index", {})
+                    cache_stats = stats.get("cache", {})
+            except Exception as e:
+                logger.warning("m8_metrics_layer_stats_failed", error=str(e))
 
+            # 存储占用估算
+            storage_used_mb = 0
             try:
                 config = self._app.get("config")
                 if config:
@@ -125,48 +154,109 @@ class M8Interface:
                         ("l2_deep", "./data/memory/l2_deep.db"),
                     ]
 
-                from tide_memory.db.connection import get_connection
                 for layer_name, db_path in layers:
                     if os.path.exists(db_path):
                         try:
                             storage_used_mb += int(os.path.getsize(db_path) / 1024 / 1024)
-                            with get_connection(db_path, apply_pragmas=False) as conn:
-                                cur = conn.execute("SELECT COUNT(*) FROM memories")
-                                memory_entries += cur.fetchone()[0]
                         except Exception:
                             pass
+            except Exception as e:
+                logger.warning("m8_metrics_storage_failed", error=str(e))
 
+            # EI 模型状态
+            ei_status = {"available": False, "history_samples": 0, "trend": "insufficient_data"}
+            try:
+                ei_engine = self._app.get("emotion")
+                if ei_engine and hasattr(ei_engine, "get_history") and hasattr(ei_engine, "get_trend"):
+                    history = ei_engine.get_history()
+                    trend = ei_engine.get_trend()
+                    ei_status = {
+                        "available": True,
+                        "history_samples": len(history),
+                        "trend": trend.get("trend", "insufficient_data"),
+                        "avg_ei": trend.get("avg_ei", 0.0),
+                    }
+            except Exception as e:
+                logger.warning("m8_metrics_ei_status_failed", error=str(e))
+
+            # 潮汐相位状态
+            phase_status = {"current": "unknown", "auto_switch": False}
+            try:
+                phase_controller = self._app.get("phase_controller")
+                if phase_controller and hasattr(phase_controller, "get_stats"):
+                    pstats = phase_controller.get_stats()
+                    phase_status = {
+                        "current": pstats.get("current_phase", "unknown"),
+                        "auto_switch": pstats.get("auto_switch", False),
+                        "switch_count": pstats.get("switch_count", 0),
+                        "current_duration_seconds": pstats.get("current_duration_seconds", 0),
+                    }
+            except Exception as e:
+                logger.warning("m8_metrics_phase_status_failed", error=str(e))
+
+            # 向量维度
+            vector_dim = 1536
+            try:
+                config = self._app.get("config")
                 if config:
                     vector_dim = config.get("vector.dimension", 1536)
             except Exception:
                 pass
 
             return M8Response.success({
+                "module": "m5-memory",
                 "cpu_usage": round(cpu_usage, 1),
                 "memory_mb": memory_mb,
-                "memory_entries": memory_entries,
+                "total_entries": total_entries,
+                "layer_counts": layer_counts,
                 "vector_dim": vector_dim,
-                "cache_hit_rate": round(cache_hit_rate, 3),
                 "storage_used_mb": storage_used_mb,
+                "ei_model": ei_status,
+                "tide_phase": phase_status,
+                "keyword_index": keyword_index_stats,
+                "vector_index": vector_index_stats,
+                "cache": cache_stats,
             })
         except Exception as e:
+            logger.error("m8_metrics_failed", error=str(e))
             return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_config(self, params: Dict = None) -> Dict:
-        """M8标准：配置查询"""
-        version = get_module_version()
-        return M8Response.success({
-            "module": "m5",
-            "module_name": "潮汐记忆系统",
-            "version": version,
-            "levels": ["sensory", "short_term", "long_term"],
-            "vector_enabled": True,
-        })
+        """
+        M8标准：配置查询
+
+        返回潮汐系统的完整配置信息（已脱敏）。
+        """
+        try:
+            version = get_module_version()
+            config_dict = {}
+            try:
+                config = self._app.get("config")
+                if config and hasattr(config, "to_dict"):
+                    config_dict = config.to_dict()
+                elif config and hasattr(config, "_config"):
+                    # 兼容旧版直接访问内部字典
+                    import copy
+                    config_dict = copy.deepcopy(config._config)
+            except Exception as e:
+                logger.warning("m8_config_load_failed", error=str(e))
+
+            return M8Response.success({
+                "module": "m5-memory",
+                "module_name": "潮汐记忆系统",
+                "version": version,
+                "levels": ["sensory", "short_term", "long_term"],
+                "vector_enabled": True,
+                "config": config_dict,
+            })
+        except Exception as e:
+            logger.error("m8_config_failed", error=str(e))
+            return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_recall(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         M8标准：记忆检索
-        
+
         请求格式：
         {
             "query": "检索文本",
@@ -211,12 +301,13 @@ class M8Interface:
             })
 
         except Exception as e:
+            logger.error("m8_recall_failed", error=str(e))
             return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_archive(self, params: Dict) -> Dict:
         """
         M8标准：记忆归档
-        
+
         请求格式：
         {
             "content": "记忆内容（已加密）",
@@ -259,6 +350,7 @@ class M8Interface:
             })
 
         except Exception as e:
+            logger.error("m8_archive_failed", error=str(e))
             return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_get_stats(self, params: Dict = None) -> Dict:
@@ -267,10 +359,11 @@ class M8Interface:
             skill_if = self._app.get("skill_interface")
             if not skill_if:
                 return M8Response.success({"total": 0, "layers": {}})
-            
+
             stats = skill_if.get_stats(params.get("domain", "private") if params else "private")
             return M8Response.success(stats)
         except Exception as e:
+            logger.error("m8_get_stats_failed", error=str(e))
             return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def get_interface_spec(self) -> Dict[str, Any]:

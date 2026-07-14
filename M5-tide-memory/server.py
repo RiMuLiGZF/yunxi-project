@@ -30,6 +30,7 @@ import uvicorn
 from main import create_app
 from tide_memory.api.routes import MemoryAPIRouter
 from tide_memory.api.m8_interface import M8Interface
+from tide_memory.api.m8_routes import create_m8_router
 
 # 导入成长系统
 from tide_memory.growth.router import GrowthAPIRouter
@@ -512,65 +513,13 @@ def create_fastapi_app() -> FastAPI:
             raise HTTPException(status_code=status_code, detail=result.get("message", "error"))
         return result
 
-    # ============ M8 标准接口路由（委托给 M8Interface） ============
+    # ============ M8 标准接口路由（通过 APIRouter 挂载） ============
 
-    @app.get("/m8/health", summary="M8 标准健康检查")
-    async def m8_health():
-        return m8_interface.m8_health_check()
-
-    @app.get("/m8/metrics", summary="M8 标准性能指标")
-    async def m8_metrics(x_m8_token: str = Header(default="")):
-        return m8_interface.m8_metrics()
-
-    @app.get("/m8/config", summary="M8 标准配置查询")
-    async def m8_config(x_m8_token: str = Header(default="")):
-        return m8_interface.m8_config()
-
-    @app.post("/m8/memory/recall", summary="M8 标准记忆检索")
-    async def m8_memory_recall(req: RecallRequest):
-        """M8标准记忆检索接口"""
-        params = {
-            "query": req.query,
-            "top_k": req.top_k,
-            "filters": {
-                "domain": req.domain,
-                "layers": req.layers,
-            },
-            "context": {
-                "agent_id": req.agent_id,
-                "emotion": req.emotion_context,
-            },
-        }
-        result = m8_interface.m8_recall(params)
-        if result.get("code") != 0:
-            raise HTTPException(status_code=500, detail=result.get("message", "error"))
-        return result
-
-    @app.post("/m8/memory/archive", summary="M8 标准记忆归档")
-    async def m8_memory_archive(req: ArchiveRequest):
-        """M8标准记忆归档接口"""
-        params = {
-            "content": req.content,
-            "source": req.source,
-            "metadata": {
-                "domain": req.domain,
-                "tags": req.tags,
-                "emotion": req.emotion_context,
-                "extra": req.metadata,
-            },
-            "context": {
-                "agent_id": req.agent_id,
-            },
-        }
-        result = m8_interface.m8_archive(params)
-        if result.get("code") != 0:
-            raise HTTPException(status_code=500, detail=result.get("message", "error"))
-        return result
-
-    @app.get("/m8/memory/stats", summary="M8 标准记忆统计")
-    async def m8_memory_stats():
-        """M8标准记忆统计接口"""
-        return m8_interface.m8_get_stats()
+    app.include_router(create_m8_router(m8_interface))
+    logger.info("m8_router_mounted", prefix="/m8", endpoints=[
+        "/m8/health", "/m8/metrics", "/m8/config",
+        "/m8/memory/recall", "/m8/memory/archive", "/m8/memory/stats",
+    ])
 
     logger.info("M5 潮汐记忆系统 FastAPI 服务已就绪")
     return app
