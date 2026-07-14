@@ -326,6 +326,11 @@ def register_m8_routes(
         """M8 标准配置查询接口（脱敏，无需鉴权）.
 
         返回模块标识、名称、版本与脱敏后的完整配置。
+
+        注意：_get_desensitized_config() 为同步函数，内部仅做
+        Pydantic model_dump + 环境变量注入 + 递归脱敏，均为内存操作，
+        无 I/O 阻塞风险。若后续引入同步 DB/网络 调用，需改用
+        asyncio.to_thread() 包装以避免阻塞事件循环。
         """
         config = _get_desensitized_config()
         logger.info("m8_config_queried", module=MODULE_ID)
