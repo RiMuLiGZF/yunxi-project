@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Header, Query
@@ -538,7 +539,7 @@ async def generate_code(
     """
     try:
         service = _get_service(x_user_id)
-        data = service.generate_code(
+        data = await service.generate_code(
             prompt=req.prompt,
             language=req.language,
             operation_type=req.operation_type,
@@ -564,7 +565,7 @@ async def code_chat(
     """
     try:
         service = _get_service(x_user_id)
-        data = service.code_chat(
+        data = await service.code_chat(
             message=req.message,
             language=req.language,
             conversation_id=req.conversation_id,
@@ -642,6 +643,16 @@ async def code_ai_status(
 ):
     """检查 AI 代码助手的服务状态."""
     try:
+        enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
+        if enable_llm:
+            model = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5:7b")
+            url = os.environ.get("LLM_CODEGEN_URL", "")
+            return make_response(data={
+                "available": True,
+                "provider": "ollama" if "11434" in url else "custom",
+                "model": model,
+                "mode": "llm",
+            })
         return make_response(data={
             "available": False,
             "provider": None,

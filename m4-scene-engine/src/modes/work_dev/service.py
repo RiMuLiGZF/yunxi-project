@@ -925,7 +925,7 @@ class WorkDevService:
     # AI 代码助手
     # -----------------------------------------------------------------------
 
-    def generate_code(
+    async def generate_code(
         self,
         prompt: str,
         language: str = "python",
@@ -954,7 +954,7 @@ class WorkDevService:
 
         if enable_llm:
             try:
-                code = asyncio.run(self._call_llm_for_codegen(prompt, language))
+                code = await self._call_llm_for_codegen(prompt, language)
                 is_fallback = False
                 model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
             except Exception as e:
@@ -1138,7 +1138,7 @@ fn main() {{
     # 代码对话
     # -----------------------------------------------------------------------
 
-    def code_chat(
+    async def code_chat(
         self,
         message: str,
         language: str = "python",
@@ -1176,7 +1176,7 @@ fn main() {{
 
         if enable_llm:
             try:
-                code = asyncio.run(self._call_llm_for_codegen(message, language, context_code))
+                code = await self._call_llm_for_codegen(message, language, context_code)
                 is_fallback = False
                 model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
             except Exception as e:
