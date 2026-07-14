@@ -50,11 +50,8 @@ def get_admin_token() -> str:
     except Exception:
         pass
 
-    # 开发环境默认 token（生产环境必须设置）
-    env = os.environ.get("YUNXI_ENV", "development")
-    if env == "production":
-        return ""  # 生产环境不设默认值，强制认证
-    return "m9-dev-token-placeholder"
+    # 未配置 token 时返回空（认证失败）
+    return ""
 
 
 def validate_token(token: str) -> bool:

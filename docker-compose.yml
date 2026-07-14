@@ -1,0 +1,42 @@
+# 云汐系统 - 外部依赖服务编排
+# 用法: docker compose up -d
+# 注意: Ollama 需手动安装 (https://ollama.com)，Windows Docker 暂不支持 GPU 直通
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: yunxi-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - yunxi-net
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: yunxi-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    networks:
+      - yunxi-net
+
+volumes:
+  redis_data:
+  chroma_data:
+
+networks:
+  yunxi-net:
+    driver: bridge

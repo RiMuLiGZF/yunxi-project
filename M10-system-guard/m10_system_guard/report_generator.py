@@ -175,14 +175,6 @@ class ReportGenerator:
             elif "disk" in log.log_type.lower():
                 disk_count += 1
 
-        # 如果没有审计日志数据，用模拟数据（沙盒模式）
-        if len(audit_logs) == 0:
-            import random
-            cpu_count = random.randint(0, 10)
-            memory_count = random.randint(0, 8)
-            temp_count = random.randint(0, 5)
-            disk_count = random.randint(0, 3)
-
         report.cpu_interventions = cpu_count
         report.memory_interventions = memory_count
         report.temperature_interventions = temp_count
@@ -269,27 +261,6 @@ class ReportGenerator:
                     "threshold": alert.threshold,
                     "message": alert.message,
                     "action_taken": alert.action_taken,
-                })
-
-        # 如果没有告警，生成一些模拟风险事件（沙盒模式）
-        if not risk_events:
-            import random
-            event_types = [
-                (MetricType.CPU, "CPU使用率飙升"),
-                (MetricType.MEMORY, "内存占用过高"),
-                (MetricType.TEMPERATURE, "系统温度过高"),
-            ]
-            for i in range(random.randint(1, 3)):
-                metric_type, desc = random.choice(event_types)
-                risk_events.append({
-                    "alert_id": f"mock_{i:04d}",
-                    "timestamp": time.time() - random.randint(3600, 86400),
-                    "level": random.choice(["warning", "critical"]),
-                    "metric_type": metric_type.value,
-                    "metric_value": round(random.uniform(75, 95), 1),
-                    "threshold": 75.0,
-                    "message": f"{desc}，已启动防护措施",
-                    "action_taken": "已限流",
                 })
 
         report.risk_events = risk_events

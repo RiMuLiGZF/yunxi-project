@@ -393,16 +393,13 @@ class MCPToolRegistry:
             self.logger.info(f"算力调度成功: task_type={task_type}")
             return data if isinstance(data, dict) else {"raw_response": data}
 
-        # 降级：返回mock数据
-        self.logger.warning(f"算力调度降级(mock): {data}")
+        # 降级：返回空结果
+        self.logger.warning(f"算力调度降级: {data}")
         return {
-            "status": "scheduled",
+            "status": "unavailable",
             "task_type": task_type,
             "priority": priority,
             "resources": resources or {},
-            "scheduled_at": datetime.now().isoformat(),
-            "estimated_duration": "30min",
-            "note": "已提交至 M8 控制塔（降级模式）",
             "degraded": True,
             "error": data,
         }
@@ -417,17 +414,13 @@ class MCPToolRegistry:
             self.logger.info(f"记忆查询成功: query={query[:50]}")
             return data if isinstance(data, dict) else {"raw_response": data}
 
-        self.logger.warning(f"记忆查询降级(mock): {data}")
+        self.logger.warning(f"记忆查询降级: {data}")
         return {
             "query": query,
             "top_k": top_k,
             "tags": tags or [],
-            "results": [
-                {"id": f"mem_{i}", "content": f"关于'{query}'的记忆片段 {i}", "relevance": 0.95 - i * 0.1}
-                for i in range(min(top_k, 3))
-            ],
-            "total": top_k,
-            "source": "M5 潮汐记忆（降级模式）",
+            "results": [],
+            "total": 0,
             "degraded": True,
             "error": data,
         }
@@ -442,13 +435,11 @@ class MCPToolRegistry:
             self.logger.info(f"场景切换成功: {scene_name}")
             return data if isinstance(data, dict) else {"raw_response": data}
 
-        self.logger.warning(f"场景切换降级(mock): {data}")
+        self.logger.warning(f"场景切换降级: {data}")
         return {
-            "status": "switched",
+            "status": "unavailable",
             "scene_name": scene_name,
             "scene_params": scene_params or {},
-            "switched_at": datetime.now().isoformat(),
-            "note": f"已切换至 {scene_name} 场景（降级模式）",
             "degraded": True,
             "error": data,
         }
@@ -463,19 +454,17 @@ class MCPToolRegistry:
             self.logger.info(f"巡检报告生成成功: type={report_type}")
             return data if isinstance(data, dict) else {"raw_response": data}
 
-        self.logger.warning(f"巡检报告降级(mock): {data}")
+        self.logger.warning(f"巡检报告降级: {data}")
         return {
             "report_type": report_type,
             "scope": scope,
-            "generated_at": datetime.now().isoformat(),
             "summary": {
-                "total_checks": 100,
-                "passed": 95,
-                "warnings": 3,
-                "errors": 2,
+                "total_checks": 0,
+                "passed": 0,
+                "warnings": 0,
+                "errors": 0,
             },
-            "status": "generated",
-            "note": "报告已生成（降级模式）",
+            "status": "unavailable",
             "degraded": True,
             "error": data,
         }
