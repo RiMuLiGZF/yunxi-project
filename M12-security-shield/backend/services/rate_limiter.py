@@ -17,8 +17,14 @@
 
 import time
 import threading
+import logging
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
+CLEANUP_INTERVAL_SEC = 300
+BUCKET_TTL_SEC = 3600
 
 
 # ===========================================================================
@@ -115,8 +121,8 @@ class RateLimiter:
 
         # 清理相关
         self._last_cleanup = time.time()
-        self._cleanup_interval = 300  # 每 5 分钟清理一次
-        self._bucket_ttl = 3600  # 桶的过期时间（1小时无访问则清理）
+        self._cleanup_interval = CLEANUP_INTERVAL_SEC  # 每 5 分钟清理一次
+        self._bucket_ttl = BUCKET_TTL_SEC  # 桶的过期时间（1小时无访问则清理）
 
         # 线程锁
         self._lock = threading.Lock()
@@ -374,18 +380,16 @@ def get_rate_limiter() -> RateLimiter:
 # 兼容直接运行测试
 if __name__ == "__main__":
     rl = get_rate_limiter()
-    print(f"速率限制器已初始化")
-    print(f"默认速率: {rl.default_rate} 次/分钟")
-    print(f"突发容量: {rl.default_burst}")
-    print()
+    logger.info("速率限制器已初始化")
+    logger.info("默认速率: %s 次/分钟", rl.default_rate)
+    logger.info("突发容量: %s", rl.default_burst)
 
     # 测试限流
     test_ip = "192.168.1.100"
-    print(f"测试 IP: {test_ip}")
+    logger.info("测试 IP: %s", test_ip)
     for i in range(5):
         allowed = rl.allow_request(test_ip)
         stats = rl.get_stats(test_ip)
-        print(f"  请求 {i+1}: {'允许' if allowed else '拒绝'} (剩余令牌: {stats['tokens']:.2f})")
+        logger.info("  请求 %s: %s (剩余令牌: %.2f)", i + 1, "允许" if allowed else "拒绝", stats["tokens"])
 
-    print()
-    print(f"需要等待: {rl.get_retry_after(test_ip):.2f} 秒")
+    logger.info("需要等待: %.2f 秒", rl.get_retry_after(test_ip))

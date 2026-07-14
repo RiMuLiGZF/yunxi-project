@@ -3,30 +3,13 @@
 定义安全审计接口的请求和响应数据模型
 """
 
-import re
+try:
+    from .common import validate_no_path_traversal
+except ImportError:
+    from common import validate_no_path_traversal
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
-
-
-# ===========================================================================
-# 安全校验工具
-# ===========================================================================
-
-# 路径遍历攻击特征模式
-_PATH_TRAVERSAL_PATTERN = re.compile(
-    r'(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.\.%2f|%2e\.%2f|%2e\.%5c)',
-    re.IGNORECASE,
-)
-
-
-def _validate_no_path_traversal(value: str, field_name: str) -> str:
-    """校验字段中不包含路径遍历字符"""
-    if value and _PATH_TRAVERSAL_PATTERN.search(value):
-        raise ValueError(
-            f"{field_name} 包含非法的路径遍历字符，不允许使用 ../ 等特殊序列"
-        )
-    return value
 
 
 # ===========================================================================
@@ -68,7 +51,7 @@ class EventResolveRequest(BaseModel):
     def validate_resolution_note(cls, v: str) -> str:
         """校验处理说明：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "处理说明")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("status")
@@ -134,7 +117,7 @@ class EventQueryParams(BaseModel):
     def validate_event_type(cls, v: Optional[str]) -> Optional[str]:
         """校验事件类型：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "事件类型")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("severity")
@@ -162,7 +145,7 @@ class EventQueryParams(BaseModel):
     def validate_keyword(cls, v: Optional[str]) -> Optional[str]:
         """校验关键词：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "关键词")
+            validate_no_path_traversal(v)
         return v
 
 
@@ -185,7 +168,7 @@ class AuditQueryParams(BaseModel):
     def validate_module(cls, v: Optional[str]) -> Optional[str]:
         """校验模块：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "模块")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("action")
@@ -193,7 +176,7 @@ class AuditQueryParams(BaseModel):
     def validate_action(cls, v: Optional[str]) -> Optional[str]:
         """校验操作类型：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "操作类型")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("status")
@@ -211,7 +194,7 @@ class AuditQueryParams(BaseModel):
     def validate_keyword(cls, v: Optional[str]) -> Optional[str]:
         """校验关键词：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "关键词")
+            validate_no_path_traversal(v)
         return v
 
 

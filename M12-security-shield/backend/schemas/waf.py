@@ -4,6 +4,10 @@
 """
 
 import re
+try:
+    from .common import validate_no_path_traversal
+except ImportError:
+    from common import validate_no_path_traversal
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
@@ -12,22 +16,6 @@ from pydantic import BaseModel, Field, field_validator
 # ===========================================================================
 # 安全校验工具
 # ===========================================================================
-
-# 路径遍历攻击特征模式
-_PATH_TRAVERSAL_PATTERN = re.compile(
-    r'(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.\.%2f|%2e\.%2f|%2e\.%5c)',
-    re.IGNORECASE,
-)
-
-
-def _validate_no_path_traversal(value: str, field_name: str) -> str:
-    """校验字段中不包含路径遍历字符"""
-    if value and _PATH_TRAVERSAL_PATTERN.search(value):
-        raise ValueError(
-            f"{field_name} 包含非法的路径遍历字符，不允许使用 ../ 等特殊序列"
-        )
-    return value
-
 
 # ===========================================================================
 # WAF 规则模型
@@ -53,7 +41,7 @@ class WafRuleBase(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("规则名称不能为空")
-        _validate_no_path_traversal(v, "规则名称")
+        validate_no_path_traversal(v)
         return v
 
     @field_validator("rule_type")
@@ -61,7 +49,7 @@ class WafRuleBase(BaseModel):
     def validate_rule_type(cls, v: str) -> str:
         """校验规则类型：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "规则类型")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("category")
@@ -69,7 +57,7 @@ class WafRuleBase(BaseModel):
     def validate_category(cls, v: str) -> str:
         """校验规则分类：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "规则分类")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("match_target")
@@ -104,7 +92,7 @@ class WafRuleBase(BaseModel):
     def validate_description(cls, v: str) -> str:
         """校验描述：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "规则描述")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("pattern")
@@ -146,7 +134,7 @@ class WafRuleUpdate(BaseModel):
             v = v.strip()
             if not v:
                 raise ValueError("规则名称不能为空")
-            _validate_no_path_traversal(v, "规则名称")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("rule_type")
@@ -154,7 +142,7 @@ class WafRuleUpdate(BaseModel):
     def validate_rule_type(cls, v: Optional[str]) -> Optional[str]:
         """校验规则类型"""
         if v is not None:
-            _validate_no_path_traversal(v, "规则类型")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("category")
@@ -162,7 +150,7 @@ class WafRuleUpdate(BaseModel):
     def validate_category(cls, v: Optional[str]) -> Optional[str]:
         """校验规则分类"""
         if v is not None:
-            _validate_no_path_traversal(v, "规则分类")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("pattern")
@@ -213,7 +201,7 @@ class WafRuleUpdate(BaseModel):
     def validate_description(cls, v: Optional[str]) -> Optional[str]:
         """校验描述"""
         if v is not None:
-            _validate_no_path_traversal(v, "规则描述")
+            validate_no_path_traversal(v)
         return v
 
 

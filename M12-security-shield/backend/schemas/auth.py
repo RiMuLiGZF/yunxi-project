@@ -4,6 +4,10 @@
 """
 
 import re
+try:
+    from .common import validate_no_path_traversal
+except ImportError:
+    from common import validate_no_path_traversal
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr, field_validator
@@ -13,36 +17,10 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 # 安全校验工具
 # ===========================================================================
 
-# 路径遍历攻击特征模式
-_PATH_TRAVERSAL_PATTERN = re.compile(
-    r'(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.\.%2f|%2e\.%2f|%2e\.%5c)',
-    re.IGNORECASE,
-)
-
 # 危险特殊字符模式（可能用于注入攻击）
 _DANGEROUS_CHARS_PATTERN = re.compile(
     r'[<>\'\"`;|&$(){}[\]\\]',
 )
-
-
-def _validate_no_path_traversal(value: str, field_name: str) -> str:
-    """校验字段中不包含路径遍历字符
-
-    Args:
-        value: 待校验的字符串值
-        field_name: 字段名（用于错误信息）
-
-    Returns:
-        校验通过的原始值
-
-    Raises:
-        ValueError: 包含路径遍历字符时抛出
-    """
-    if value and _PATH_TRAVERSAL_PATTERN.search(value):
-        raise ValueError(
-            f"{field_name} 包含非法的路径遍历字符，不允许使用 ../ 等特殊序列"
-        )
-    return value
 
 
 def _validate_safe_chars(value: str, field_name: str) -> str:
@@ -130,7 +108,7 @@ class ApiKeyBase(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("密钥名称不能为空")
-        _validate_no_path_traversal(v, "密钥名称")
+        validate_no_path_traversal(v)
         _validate_safe_chars(v, "密钥名称")
         return v
 
@@ -140,7 +118,7 @@ class ApiKeyBase(BaseModel):
         """校验所有者：禁止路径遍历和危险字符"""
         if v:
             v = v.strip()
-            _validate_no_path_traversal(v, "所有者")
+            validate_no_path_traversal(v)
             _validate_safe_chars(v, "所有者")
         return v
 
@@ -149,7 +127,7 @@ class ApiKeyBase(BaseModel):
     def validate_description(cls, v: str) -> str:
         """校验描述：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "描述")
+            validate_no_path_traversal(v)
         return v
 
 
@@ -178,7 +156,7 @@ class ApiKeyUpdate(BaseModel):
             v = v.strip()
             if not v:
                 raise ValueError("密钥名称不能为空")
-            _validate_no_path_traversal(v, "密钥名称")
+            validate_no_path_traversal(v)
             _validate_safe_chars(v, "密钥名称")
         return v
 
@@ -188,7 +166,7 @@ class ApiKeyUpdate(BaseModel):
         """校验所有者"""
         if v is not None:
             v = v.strip()
-            _validate_no_path_traversal(v, "所有者")
+            validate_no_path_traversal(v)
             _validate_safe_chars(v, "所有者")
         return v
 
@@ -197,7 +175,7 @@ class ApiKeyUpdate(BaseModel):
     def validate_description(cls, v: Optional[str]) -> Optional[str]:
         """校验描述"""
         if v is not None:
-            _validate_no_path_traversal(v, "描述")
+            validate_no_path_traversal(v)
         return v
 
 

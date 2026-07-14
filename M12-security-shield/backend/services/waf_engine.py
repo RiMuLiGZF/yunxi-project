@@ -21,6 +21,8 @@ from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
+DAY_SECONDS = 86400
+
 
 # ===========================================================================
 # 内置规则定义
@@ -449,8 +451,8 @@ class WafEngine:
         """检查并重置每日统计"""
         with self._lock:
             now = time.time()
-            # 判断是否过了一天（86400秒）
-            if now - self._stats["start_of_day"] >= 86400:
+            # 判断是否过了一天
+            if now - self._stats["start_of_day"] >= DAY_SECONDS:
                 self._stats["today_blocks"] = 0
                 self._stats["start_of_day"] = now
 
@@ -608,10 +610,9 @@ def get_waf_engine() -> WafEngine:
 # 兼容直接运行测试
 if __name__ == "__main__":
     engine = get_waf_engine()
-    print(f"WAF 引擎已初始化")
-    print(f"规则总数: {engine.get_rule_count()}")
-    print(f"启用规则: {engine.get_active_rule_count()}")
-    print()
+    logger.info("WAF 引擎已初始化")
+    logger.info("规则总数: %s", engine.get_rule_count())
+    logger.info("启用规则: %s", engine.get_active_rule_count())
 
     # 测试 SQL 注入检测
     result = engine.check_request(
@@ -619,10 +620,10 @@ if __name__ == "__main__":
         path="/api/test",
         query="id=1' OR '1'='1",
     )
-    print(f"SQL 注入测试: {'拦截' if not result['passed'] else '通过'}")
+    logger.info("SQL 注入测试: %s", "拦截" if not result["passed"] else "通过")
     if not result["passed"]:
-        print(f"  规则: {result['rule_name']}")
-        print(f"  类型: {result['rule_type']}")
+        logger.info("  规则: %s", result["rule_name"])
+        logger.info("  类型: %s", result["rule_type"])
 
     # 测试 XSS 检测
     result = engine.check_request(
@@ -630,10 +631,10 @@ if __name__ == "__main__":
         path="/api/test",
         query="q=<script>alert(1)</script>",
     )
-    print(f"XSS 测试: {'拦截' if not result['passed'] else '通过'}")
+    logger.info("XSS 测试: %s", "拦截" if not result["passed"] else "通过")
     if not result["passed"]:
-        print(f"  规则: {result['rule_name']}")
-        print(f"  类型: {result['rule_type']}")
+        logger.info("  规则: %s", result["rule_name"])
+        logger.info("  类型: %s", result["rule_type"])
 
     # 测试正常请求
     result = engine.check_request(
@@ -641,4 +642,4 @@ if __name__ == "__main__":
         path="/api/test",
         query="page=1&size=10",
     )
-    print(f"正常请求测试: {'拦截' if not result['passed'] else '通过'}")
+    logger.info("正常请求测试: %s", "拦截" if not result["passed"] else "通过")

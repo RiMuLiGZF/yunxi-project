@@ -8,15 +8,14 @@
 5. audit_logs       - 审计日志表
 """
 
-import sys
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 # 兼容相对导入和直接运行
 try:
-    from .database import Base, engine, SessionLocal, init_db
+    from .database import Base, init_db
 except ImportError:
-    from database import Base, engine, SessionLocal, init_db
+    from database import Base, init_db
 
 from sqlalchemy import (
     Column,
@@ -30,47 +29,10 @@ from sqlalchemy import (
 )
 
 
-# ===========================================================================
-# 工具函数：统一响应格式
-# ===========================================================================
+def _utc_now() -> datetime:
+    """返回带 UTC 时区的当前时间"""
+    return datetime.now(timezone.utc)
 
-def make_response(data: Any = None, code: int = 0, message: str = "success") -> dict:
-    """
-    构造统一格式的 API 响应
-
-    Args:
-        data: 响应数据
-        code: 状态码，0 表示成功
-        message: 状态消息
-
-    Returns:
-        统一格式的响应字典 {code, message, data}
-    """
-    return {
-        "code": code,
-        "message": message,
-        "data": data,
-    }
-
-
-def make_error_response(message: str, code: int = -1, data: Any = None) -> dict:
-    """
-    构造错误响应
-
-    Args:
-        message: 错误消息
-        code: 错误码
-        data: 附加数据
-
-    Returns:
-        错误响应字典
-    """
-    return make_response(data=data, code=code, message=message)
-
-
-# ===========================================================================
-# 数据模型定义
-# ===========================================================================
 
 class SecurityEvent(Base):
     """
@@ -94,8 +56,8 @@ class SecurityEvent(Base):
     resolved_by = Column(String(100), default="", comment="处理人")
     resolved_at = Column(DateTime, nullable=True, comment="处理时间")
     resolution_note = Column(Text, default="", comment="处理说明")
-    extra_data = Column(JSON, default=dict, comment="附加数据（JSON）")
-    created_at = Column(DateTime, default=datetime.now, index=True, comment="创建时间")
+    extra_data = Column(JSON, default=lambda: {}, comment="附加数据（JSON）")
+    created_at = Column(DateTime, default=_utc_now, index=True, comment="创建时间")
 
     __table_args__ = (
         Index("idx_security_events_created_at", "created_at"),
@@ -141,15 +103,15 @@ class ApiKey(Base):
     key_hash = Column(String(255), unique=True, index=True, nullable=False, comment="密钥哈希值")
     key_prefix = Column(String(50), default="", comment="密钥前缀（用于展示）")
     owner = Column(String(200), default="", comment="所有者/使用方")
-    roles = Column(JSON, default=list, comment="角色权限列表")
-    scopes = Column(JSON, default=list, comment="权限范围列表")
+    roles = Column(JSON, default=lambda: [], comment="角色权限列表")
+    scopes = Column(JSON, default=lambda: [], comment="权限范围列表")
     rate_limit = Column(Integer, default=0, comment="自定义速率限制（0=使用默认）")
     call_count = Column(Integer, default=0, comment="累计调用次数")
     last_used_at = Column(DateTime, nullable=True, comment="最后使用时间")
     expires_at = Column(DateTime, nullable=True, comment="过期时间（NULL=永不过期）")
     is_active = Column(Boolean, default=True, comment="是否启用")
     created_by = Column(String(100), default="system", comment="创建人")
-    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    created_at = Column(DateTime, default=_utc_now, comment="创建时间")
     description = Column(Text, default="", comment="描述说明")
 
     __table_args__ = (
@@ -201,12 +163,12 @@ class IpBlacklist(Base):
     severity = Column(String(20), default="medium", comment="威胁级别：low/medium/high/critical")
     source = Column(String(100), default="manual", comment="来源：manual/auto/waf/import")
     banned_by = Column(String(100), default="system", comment="封禁操作人")
-    banned_at = Column(DateTime, default=datetime.now, index=True, comment="封禁时间")
+    banned_at = Column(DateTime, default=_utc_now, index=True, comment="封禁时间")
     expires_at = Column(DateTime, nullable=True, comment="过期时间（NULL=永久）")
     is_active = Column(Boolean, default=True, comment="是否生效")
     hit_count = Column(Integer, default=0, comment="命中次数")
     last_hit_at = Column(DateTime, nullable=True, comment="最后命中时间")
-    extra_data = Column(JSON, default=dict, comment="附加数据")
+    extra_data = Column(JSON, default=lambda: {}, comment="附加数据")
 
     __table_args__ = (
         Index("idx_ip_blacklist_active", "is_active"),
@@ -258,8 +220,8 @@ class WafRule(Base):
     hit_count = Column(Integer, default=0, comment="命中次数")
     last_hit_at = Column(DateTime, nullable=True, comment="最后命中时间")
     created_by = Column(String(100), default="system", comment="创建人")
-    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    created_at = Column(DateTime, default=_utc_now, comment="创建时间")
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now, comment="更新时间")
 
     __table_args__ = (
         Index("idx_waf_rules_type_active", "rule_type", "is_active"),
@@ -303,7 +265,7 @@ class TokenBlacklist(Base):
     token_jti = Column(String(255), primary_key=True, index=True, comment="Token JTI")
     token_hash = Column(String(255), nullable=False, comment="Token 哈希")
     expired_at = Column(DateTime, nullable=False, comment="过期时间")
-    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    created_at = Column(DateTime, default=_utc_now, comment="创建时间")
 
     __table_args__ = (
         Index("idx_token_blacklist_expired_at", "expired_at"),
@@ -345,14 +307,14 @@ class AuditLog(Base):
     user_agent = Column(String(500), default="", comment="用户代理")
     request_method = Column(String(10), default="", comment="请求方法")
     request_path = Column(String(500), default="", comment="请求路径")
-    request_params = Column(JSON, default=dict, comment="请求参数")
+    request_params = Column(JSON, default=lambda: {}, comment="请求参数")
     response_status = Column(Integer, default=0, comment="响应状态码")
-    response_data = Column(JSON, default=dict, comment="响应数据摘要")
+    response_data = Column(JSON, default=lambda: {}, comment="响应数据摘要")
     status = Column(String(20), default="success", comment="操作状态：success/failed/denied")
     error_message = Column(Text, default="", comment="错误信息")
     duration_ms = Column(Integer, default=0, comment="耗时（毫秒）")
-    extra_data = Column(JSON, default=dict, comment="附加数据")
-    created_at = Column(DateTime, default=datetime.now, index=True, comment="创建时间")
+    extra_data = Column(JSON, default=lambda: {}, comment="附加数据")
+    created_at = Column(DateTime, default=_utc_now, index=True, comment="创建时间")
 
     __table_args__ = (
         Index("idx_audit_logs_created_at", "created_at"),
@@ -396,7 +358,9 @@ class AuditLog(Base):
 
 if __name__ == "__main__":
     init_db()
-    print("数据库已初始化")
-    print("已创建表:")
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("数据库已初始化")
     for table in Base.metadata.tables:
-        print(f"  - {table}")
+        logger.info("  - %s", table)

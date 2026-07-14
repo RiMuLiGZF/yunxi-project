@@ -7,9 +7,13 @@
 from .base import BaseMcpAdapter
 from .m2_adapter import M2SkillAdapter
 from .m7_adapter import M7BlockAdapter
+from .m4_adapter import M4SceneAdapter
+from .m5_adapter import M5MemoryAdapter
 
 __all__ = [
     "BaseMcpAdapter",
     "M2SkillAdapter",
     "M7BlockAdapter",
+    "M4SceneAdapter",
+    "M5MemoryAdapter",
 ]

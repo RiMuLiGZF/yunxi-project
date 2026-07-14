@@ -12,9 +12,16 @@
 import ipaddress
 import time
 import threading
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
+FAILURE_WINDOW_SEC = 600
+CLEANUP_EXPIRED_SEC = 1800
+CLEANUP_INTERVAL_SEC = 300
 
 
 # ===========================================================================
@@ -88,7 +95,7 @@ class IpFilter:
 
         # 清理相关
         self._last_cleanup = time.time()
-        self._cleanup_interval = 300  # 每 5 分钟清理一次
+        self._cleanup_interval = CLEANUP_INTERVAL_SEC  # 每 5 分钟清理一次
 
     # -----------------------------------------------------------------------
     # 黑名单管理
@@ -396,7 +403,7 @@ class IpFilter:
             count, first_time = self._failure_counts.get(ip_address, (0, now))
 
             # 如果距离第一次失败超过 10 分钟，重置计数
-            if now - first_time > 600:
+            if now - first_time > FAILURE_WINDOW_SEC:
                 count = 0
                 first_time = now
 
@@ -574,7 +581,7 @@ class IpFilter:
             # 清理过期的失败计数
             expired_failures = [
                 ip for ip, (count, first_time) in self._failure_counts.items()
-                if now - first_time > 1800  # 30 分钟
+                if now - first_time > CLEANUP_EXPIRED_SEC  # 30 分钟
             ]
             for ip in expired_failures:
                 self._failure_counts.pop(ip, None)
@@ -605,8 +612,7 @@ def get_ip_filter() -> IpFilter:
 # 兼容直接运行测试
 if __name__ == "__main__":
     ipf = get_ip_filter()
-    print("IP 过滤器已初始化")
-    print()
+    logger.info("IP 过滤器已初始化")
 
     # 测试添加黑名单
     ipf.add_to_blacklist("192.168.1.100", reason="恶意扫描", severity="high")
@@ -616,25 +622,22 @@ if __name__ == "__main__":
     ipf.add_to_whitelist("127.0.0.1", reason="本地回环")
 
     # 测试检测
-    print("检测 192.168.1.100:")
+    logger.info("检测 192.168.1.100:")
     result = ipf.check_ip("192.168.1.100")
-    print(f"  黑名单: {result['is_blacklisted']}")
-    print(f"  风险级别: {result['risk_level']}")
-    print(f"  建议: {result['recommendation']}")
+    logger.info("  黑名单: %s", result["is_blacklisted"])
+    logger.info("  风险级别: %s", result["risk_level"])
+    logger.info("  建议: %s", result["recommendation"])
 
-    print()
-    print("检测 127.0.0.1:")
+    logger.info("检测 127.0.0.1:")
     result = ipf.check_ip("127.0.0.1")
-    print(f"  白名单: {result['is_whitelisted']}")
-    print(f"  建议: {result['recommendation']}")
+    logger.info("  白名单: %s", result["is_whitelisted"])
+    logger.info("  建议: %s", result["recommendation"])
 
-    print()
-    print("检测 10.0.0.50 (CIDR 匹配):")
+    logger.info("检测 10.0.0.50 (CIDR 匹配):")
     result = ipf.check_ip("10.0.0.50")
-    print(f"  黑名单: {result['is_blacklisted']}")
-    print(f"  建议: {result['recommendation']}")
+    logger.info("  黑名单: %s", result["is_blacklisted"])
+    logger.info("  建议: %s", result["recommendation"])
 
-    print()
     bl_count, wl_count = ipf.get_counts()
-    print(f"黑名单数量: {bl_count}")
-    print(f"白名单数量: {wl_count}")
+    logger.info("黑名单数量: %s", bl_count)
+    logger.info("白名单数量: %s", wl_count)

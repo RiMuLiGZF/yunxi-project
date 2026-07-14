@@ -305,6 +305,14 @@ class SceneManagerAgentAdapter(AgentAdapterBase):
             output_text = result
             tools_used = [{"tool": "m4_scene_config", "type": "config"}]
 
+        elif task_type == "codegen":
+            # 代码生成（调用 M4 work_dev）
+            result, in_tok, out_tok = await self._do_codegen(prompt, metadata)
+            total_input_tokens += in_tok
+            total_output_tokens += out_tok
+            output_text = result
+            tools_used = [{"tool": "m4_workdev_codegen", "type": "codegen"}]
+
         elif task_type == "context":
             # 上下文管理
             result, in_tok, out_tok = await self._do_context(prompt, metadata)
@@ -431,13 +439,22 @@ class SceneManagerAgentAdapter(AgentAdapterBase):
     def _classify_task(self, prompt: str, metadata: dict[str, Any]) -> str:
         """分类用户请求的任务类型
 
-        Returns: recognize / switch / current / list / config / context
+        Returns: recognize / switch / current / list / config / context / codegen
         """
         # 优先从 metadata 获取明确的任务类型
         if metadata.get("task_type"):
             return metadata["task_type"]
 
         prompt_lower = prompt.lower()
+
+        # 代码生成类关键词
+        codegen_keywords = [
+            "写代码", "生成代码", "帮我写一个", "给我写一个", "写一个",
+            "代码生成", "写个", "写一段", "实现一个",
+            "generate code", "write code", "code for", "implement",
+        ]
+        if any(kw in prompt_lower for kw in codegen_keywords):
+            return "codegen"
 
         # 场景切换类关键词
         switch_keywords = [
@@ -821,6 +838,65 @@ class SceneManagerAgentAdapter(AgentAdapterBase):
         answer += "   • 场景描述: " + scene_info.get("description", "") + "\n"
         answer += "\n💡 通过 metadata.scene_config 传入配置项进行修改。"
 
+        return answer, len(prompt) // 4, len(answer) // 4
+
+    # ── 代码生成（调用 M4 work_dev）────────────────────────────────────
+
+    async def _do_codegen(
+        self,
+        prompt: str,
+        metadata: dict[str, Any],
+    ) -> tuple[str, int, int]:
+        """调用 M4 work_dev 模式进行代码生成，并将结果回写 M5 记忆."""
+        m4_url = self._config["m4_base_url"].rstrip("/")
+
+        # 提取语言和操作类型（可选）
+        language = metadata.get("language", "python")
+        operation_type = metadata.get("operation_type", "generate")
+
+        try:
+            response = await self._http_client.post(
+                f"{m4_url}/api/v1/work-dev/code/generate",
+                json={
+                    "prompt": prompt,
+                    "language": language,
+                    "operation_type": operation_type,
+                },
+                timeout=60.0,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                code = data.get("code", "")
+                content = data.get("content", "")
+                is_fallback = data.get("is_fallback", True)
+                model = data.get("model", "unknown")
+
+                answer = f"💻 代码生成完成（模型: {model}）\n\n"
+                if is_fallback:
+                    answer += "⚠️ 当前为模板匹配模式，建议配置 Ollama 以获得更智能的生成。\n\n"
+                answer += content
+                return answer, len(prompt) // 4, len(answer) // 4
+
+            else:
+                self._logger.warning(
+                    "m4_codegen_failed",
+                    status=response.status_code,
+                    body=response.text[:200],
+                )
+
+        except Exception as exc:
+            self._logger.warning("m4_codegen_error", error=str(exc))
+
+        # 降级：返回友好提示
+        answer = (
+            "💻 代码生成服务暂时不可用\n\n"
+            "可能原因：\n"
+            "• M4 场景引擎未启动（端口 8004）\n"
+            "• Ollama 服务未运行\n"
+            "• 网络连接超时\n\n"
+            "建议检查服务状态后重试。"
+        )
         return answer, len(prompt) // 4, len(answer) // 4
 
     # ── 上下文管理 ──────────────────────────────────────────────────────

@@ -38,6 +38,15 @@ RESPONSE_LEVEL_BLOCK = "block"      # 记录 + 拦截 + 封禁
 
 VALID_RESPONSE_LEVELS = {RESPONSE_LEVEL_DETECT, RESPONSE_LEVEL_LOG, RESPONSE_LEVEL_BLOCK}
 
+# 封禁时长（分钟）
+BAN_DURATION_1_HOUR_MIN = 60
+BAN_DURATION_6_HOUR_MIN = 360
+BAN_DURATION_12_HOUR_MIN = 720
+BAN_DURATION_24_HOUR_MIN = 1440
+
+# 事件清理窗口（秒）
+MAX_EVENT_WINDOW_SEC = 86400
+
 # 事件类型
 EVENT_TYPE_SQL_INJECTION = "sql_injection"
 EVENT_TYPE_XSS = "xss"
@@ -174,7 +183,7 @@ class AutoResponseEngine:
                 threshold=1,
                 time_window_seconds=60,
                 action="ban",
-                ban_duration_minutes=60,  # 1 小时
+                ban_duration_minutes=BAN_DURATION_1_HOUR_MIN,  # 1 小时
                 risk_level="high",
                 is_builtin=True,
             ),
@@ -186,7 +195,7 @@ class AutoResponseEngine:
                 threshold=10,
                 time_window_seconds=300,  # 5 分钟
                 action="ban",
-                ban_duration_minutes=1440,  # 24 小时
+                ban_duration_minutes=BAN_DURATION_24_HOUR_MIN,  # 24 小时
                 risk_level="high",
                 is_builtin=True,
             ),
@@ -198,7 +207,7 @@ class AutoResponseEngine:
                 threshold=100,
                 time_window_seconds=60,  # 1 分钟
                 action="ban",
-                ban_duration_minutes=360,  # 6 小时
+                ban_duration_minutes=BAN_DURATION_6_HOUR_MIN,  # 6 小时
                 risk_level="medium",
                 is_builtin=True,
             ),
@@ -210,7 +219,7 @@ class AutoResponseEngine:
                 threshold=50,
                 time_window_seconds=1,  # 1 秒
                 action="ban",
-                ban_duration_minutes=720,  # 12 小时
+                ban_duration_minutes=BAN_DURATION_12_HOUR_MIN,  # 12 小时
                 risk_level="critical",
                 is_builtin=True,
             ),
@@ -809,7 +818,7 @@ class AutoResponseEngine:
 
             # 清理过期的事件计数器
             expired_ips_counter = []
-            max_window = 86400  # 最多保留 24 小时
+            max_window = MAX_EVENT_WINDOW_SEC  # 最多保留 24 小时
             for ip, types in self._event_counters.items():
                 has_active = False
                 for event_type, dq in types.items():

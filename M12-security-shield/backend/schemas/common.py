@@ -107,3 +107,67 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="错误类型")
     message: str = Field(..., description="错误消息")
     details: Optional[dict] = Field(default=None, description="错误详情")
+
+
+# ===========================================================================
+# 路径遍历防护校验
+# ===========================================================================
+
+import re
+
+_PATH_TRAVERSAL_PATTERN = re.compile(
+    r"(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.%00/|\./|/\.\./|/\.\.\\|\\\.\.)"
+)
+
+
+def validate_no_path_traversal(value: str) -> str:
+    """验证字符串不包含路径遍历攻击模式
+
+    Args:
+        value: 待验证的字符串
+
+    Returns:
+        原始字符串（验证通过时）
+
+    Raises:
+        ValueError: 检测到路径遍历攻击模式时
+    """
+    if _PATH_TRAVERSAL_PATTERN.search(value):
+        raise ValueError("检测到路径遍历攻击特征")
+    return value
+
+
+# ===========================================================================
+# 响应工具函数（从 models.py 迁移，避免路由层耦合 ORM）
+# ===========================================================================
+
+def make_response(data: Any = None, code: int = 0, message: str = "success") -> dict:
+    """构造统一格式的 API 响应
+
+    Args:
+        data: 响应数据
+        code: 状态码，0 表示成功
+        message: 状态消息
+
+    Returns:
+        统一格式的响应字典 {code, message, data}
+    """
+    return {
+        "code": code,
+        "message": message,
+        "data": data,
+    }
+
+
+def make_error_response(message: str, code: int = -1, data: Any = None) -> dict:
+    """构造错误响应
+
+    Args:
+        message: 错误消息
+        code: 错误码
+        data: 附加数据
+
+    Returns:
+        错误响应字典
+    """
+    return make_response(data=data, code=code, message=message)

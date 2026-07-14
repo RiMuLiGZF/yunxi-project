@@ -13,7 +13,10 @@
 """
 
 import re
+import logging
 from typing import Any, Dict, List, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================
@@ -308,46 +311,39 @@ def mask_audit_data(data: Dict[str, Any]) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # 测试各脱敏函数
-    print("=== 脱敏工具测试 ===")
-    print()
+    logger.info("=== 脱敏工具测试 ===")
 
     # API Key 脱敏
-    print("API Key 脱敏:")
-    print(f"  'm12-abcdefghijklmnop1234' -> {mask_api_key('m12-abcdefghijklmnop1234')}")
-    print(f"  'short' -> {mask_api_key('short')}")
-    print()
+    logger.info("API Key 脱敏:")
+    logger.info("  'm12-abcdefghijklmnop1234' -> %s", mask_api_key("m12-abcdefghijklmnop1234"))
+    logger.info("  'short' -> %s", mask_api_key("short"))
 
     # 密码脱敏
-    print("密码脱敏:")
-    print(f"  'mysecret123' -> {mask_password('mysecret123')}")
-    print()
+    logger.info("密码脱敏:")
+    logger.info("  'mysecret123' -> %s", mask_password("mysecret123"))
 
     # JWT Token 脱敏
-    print("JWT Token 脱敏:")
+    logger.info("JWT Token 脱敏:")
     test_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
-    print(f"  '{test_token[:30]}...' -> {mask_jwt_token(test_token)}")
-    print()
+    logger.info("  '%s...' -> %s", test_token[:30], mask_jwt_token(test_token))
 
     # IP 地址脱敏
-    print("IP 地址脱敏:")
-    print(f"  '192.168.1.100' -> {mask_ip_address('192.168.1.100')}")
-    print(f"  '10.0.0.1' -> {mask_ip_address('10.0.0.1')}")
-    print(f"  '192.168.1.0/24' -> {mask_ip_address('192.168.1.0/24')}")
-    print(f"  '2001:db8::1' -> {mask_ip_address('2001:db8::1')}")
-    print()
+    logger.info("IP 地址脱敏:")
+    logger.info("  '192.168.1.100' -> %s", mask_ip_address("192.168.1.100"))
+    logger.info("  '10.0.0.1' -> %s", mask_ip_address("10.0.0.1"))
+    logger.info("  '192.168.1.0/24' -> %s", mask_ip_address("192.168.1.0/24"))
+    logger.info("  '2001:db8::1' -> %s", mask_ip_address("2001:db8::1"))
 
     # 邮箱脱敏
-    print("邮箱脱敏:")
-    print(f"  'user@example.com' -> {mask_email('user@example.com')}")
-    print()
+    logger.info("邮箱脱敏:")
+    logger.info("  'user@example.com' -> %s", mask_email("user@example.com"))
 
     # 手机号脱敏
-    print("手机号脱敏:")
-    print(f"  '13812345678' -> {mask_phone('13812345678')}")
-    print()
+    logger.info("手机号脱敏:")
+    logger.info("  '13812345678' -> %s", mask_phone("13812345678"))
 
     # 批量脱敏
-    print("批量脱敏 (mask_sensitive_data):")
+    logger.info("批量脱敏 (mask_sensitive_data):")
     test_data = {
         "username": "admin",
         "password": "secret123",
@@ -360,11 +356,11 @@ if __name__ == "__main__":
         },
     }
     masked = mask_sensitive_data(test_data, AUDIT_SENSITIVE_FIELDS)
-    print(f"  原始 password: {test_data['password']}")
-    print(f"  脱敏 password: {masked['password']}")
-    print(f"  原始 api_key: {test_data['api_key']}")
-    print(f"  脱敏 api_key: {masked['api_key']}")
-    print(f"  原始 source_ip: {test_data['source_ip']}")
-    print(f"  脱敏 source_ip: {masked['source_ip']}")
-    print(f"  嵌套 password: {masked['details']['password']}")
-    print(f"  嵌套 ip_address: {masked['details']['ip_address']}")
+    logger.info("  原始 password: %s", test_data["password"])
+    logger.info("  脱敏 password: %s", masked["password"])
+    logger.info("  原始 api_key: %s", test_data["api_key"])
+    logger.info("  脱敏 api_key: %s", masked["api_key"])
+    logger.info("  原始 source_ip: %s", test_data["source_ip"])
+    logger.info("  脱敏 source_ip: %s", masked["source_ip"])
+    logger.info("  嵌套 password: %s", masked["details"]["password"])
+    logger.info("  嵌套 ip_address: %s", masked["details"]["ip_address"])

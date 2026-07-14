@@ -1012,6 +1012,53 @@ class WorkDevService:
             "model": model_name,
         }
 
+    async def _archive_to_m5(
+        self,
+        prompt: str,
+        result: dict[str, Any],
+    ) -> None:
+        """将代码生成结果回写到 M5 潮汐记忆系统."""
+        m5_url = os.environ.get("M5_BASE_URL", "http://localhost:8005")
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(
+                    f"{m5_url}/api/v1/memory/store",
+                    json={
+                        "content": (
+                            f"【代码生成】需求：{prompt}\n\n"
+                            f"语言：{result['language']}\n"
+                            f"操作：{result['operation']}\n"
+                            f"模型：{result['model']}\n\n"
+                            f"```\n{result['code']}\n```"
+                        ),
+                        "domain": "private",
+                        "agent_id": "m4_scene_engine",
+                        "tags": [
+                            "code_generation",
+                            "work_dev",
+                            result["language"],
+                            result["operation"],
+                        ],
+                        "metadata": {
+                            "language": result["language"],
+                            "operation": result["operation"],
+                            "is_fallback": result["is_fallback"],
+                            "model": result["model"],
+                        },
+                        "source": "m4_work_dev",
+                    },
+                )
+                if response.status_code == 200:
+                    logger.info("code_archived_to_m5", prompt_preview=prompt[:50])
+                else:
+                    logger.warning(
+                        "m5_archive_failed",
+                        status=response.status_code,
+                        prompt_preview=prompt[:50],
+                    )
+        except Exception as e:
+            logger.warning("m5_archive_error", error=str(e), prompt_preview=prompt[:50])
+
     def _fallback_generate_code(
         self,
         prompt: str,

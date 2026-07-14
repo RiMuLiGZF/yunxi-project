@@ -4,7 +4,10 @@
 """
 
 import ipaddress
-import re
+try:
+    from .common import validate_no_path_traversal
+except ImportError:
+    from common import validate_no_path_traversal
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, IPvAnyAddress, field_validator
@@ -13,13 +16,6 @@ from pydantic import BaseModel, Field, IPvAnyAddress, field_validator
 # ===========================================================================
 # 安全校验工具
 # ===========================================================================
-
-# 路径遍历攻击特征模式
-_PATH_TRAVERSAL_PATTERN = re.compile(
-    r'(\.\./|\.\.\\|%2e%2e%2f|%2e%2e/|\.\.%2f|%2e\.%2f|%2e\.%5c)',
-    re.IGNORECASE,
-)
-
 
 def _validate_ip_or_cidr(value: str) -> str:
     """校验 IP 地址或 CIDR 段格式是否合法
@@ -56,15 +52,6 @@ def _validate_ip_or_cidr(value: str) -> str:
             raise ValueError(f"无效的 IP 地址格式: {value}")
 
 
-def _validate_no_path_traversal(value: str, field_name: str) -> str:
-    """校验字段中不包含路径遍历字符"""
-    if value and _PATH_TRAVERSAL_PATTERN.search(value):
-        raise ValueError(
-            f"{field_name} 包含非法的路径遍历字符，不允许使用 ../ 等特殊序列"
-        )
-    return value
-
-
 # ===========================================================================
 # IP 黑名单模型
 # ===========================================================================
@@ -90,7 +77,7 @@ class IpBlacklistBase(BaseModel):
     def validate_reason(cls, v: str) -> str:
         """校验封禁原因：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "封禁原因")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("ip_type")
@@ -130,7 +117,7 @@ class IpBlacklistUpdate(BaseModel):
     def validate_reason(cls, v: Optional[str]) -> Optional[str]:
         """校验封禁原因"""
         if v is not None:
-            _validate_no_path_traversal(v, "封禁原因")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("severity")
@@ -191,7 +178,7 @@ class IpWhitelistBase(BaseModel):
     def validate_reason(cls, v: str) -> str:
         """校验添加原因：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "添加原因")
+            validate_no_path_traversal(v)
         return v
 
     @field_validator("ip_type")
@@ -208,7 +195,7 @@ class IpWhitelistBase(BaseModel):
     def validate_description(cls, v: str) -> str:
         """校验描述：禁止路径遍历"""
         if v:
-            _validate_no_path_traversal(v, "描述")
+            validate_no_path_traversal(v)
         return v
 
 

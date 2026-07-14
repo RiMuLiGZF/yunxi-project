@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from collections import defaultdict, deque
 
-import structlog
+import logging
 
 # 脱敏工具
 try:
@@ -23,7 +23,10 @@ try:
 except ImportError:
     from masking import mask_audit_data, mask_sensitive_data, AUDIT_SENSITIVE_FIELDS
 
-logger = structlog.get_logger(__name__)
+logger = logging.getLogger(__name__)
+
+DAY_SECONDS = 86400
+MAX_EVENTS = 10000
 
 
 # ===========================================================================
@@ -42,8 +45,8 @@ class AuditService:
     def __init__(self):
         """初始化审计服务"""
         # 最大保留条数（内存中），超出时自动淘汰最旧记录
-        self._max_events = 10000
-        self._max_logs = 10000
+        self._max_events = MAX_EVENTS
+        self._max_logs = MAX_EVENTS
 
         # 安全事件存储（有界双端队列，达到上限自动淘汰最旧记录）
         self._security_events: deque = deque(maxlen=self._max_events)
@@ -70,10 +73,9 @@ class AuditService:
         self._lock = threading.Lock()
 
         logger.info(
-            "m12.audit.service_initialized",
-            max_events=self._max_events,
-            max_logs=self._max_logs,
-            message="审计服务已初始化（有界内存存储）",
+            "审计服务已初始化（有界内存存储）: max_events=%s, max_logs=%s",
+            self._max_events,
+            self._max_logs,
         )
 
     # -----------------------------------------------------------------------
@@ -136,10 +138,9 @@ class AuditService:
             # 达到容量上限时，deque(maxlen) 将在 append 时自动淘汰最旧记录
             if len(self._security_events) >= self._max_events:
                 logger.warning(
-                    "m12.audit.events_buffer_full",
-                    max_events=self._max_events,
-                    event_type=event_type,
-                    message="安全事件缓冲区已达上限，最旧记录将被自动淘汰",
+                    "安全事件缓冲区已达上限，最旧记录将被自动淘汰: max_events=%s, event_type=%s",
+                    self._max_events,
+                    event_type,
                 )
             self._security_events.append(event)
 
@@ -353,10 +354,9 @@ class AuditService:
             # 达到容量上限时，deque(maxlen) 将在 append 时自动淘汰最旧记录
             if len(self._audit_logs) >= self._max_logs:
                 logger.warning(
-                    "m12.audit.logs_buffer_full",
-                    max_logs=self._max_logs,
-                    action=action,
-                    message="审计日志缓冲区已达上限，最旧记录将被自动淘汰",
+                    "审计日志缓冲区已达上限，最旧记录将被自动淘汰: max_logs=%s, action=%s",
+                    self._max_logs,
+                    action,
                 )
             self._audit_logs.append(log)
             self._stats["total_logs"] += 1
@@ -555,7 +555,7 @@ class AuditService:
     def _get_week_events(self) -> int:
         """获取本周事件数"""
         now = time.time()
-        week_ago = now - 7 * 86400
+        week_ago = now - 7 * DAY_SECONDS
         count = 0
         for event in self._security_events:
             if event.get("created_timestamp", 0) >= week_ago:
@@ -565,7 +565,7 @@ class AuditService:
     def _check_day_reset(self) -> None:
         """检查并重置每日统计"""
         now = time.time()
-        if now - self._stats["start_of_day"] >= 86400:
+        if now - self._stats["start_of_day"] >= DAY_SECONDS:
             self._stats["events_today"] = 0
             self._stats["waf_blocks_today"] = 0
             self._stats["start_of_day"] = now
@@ -606,8 +606,7 @@ def get_audit_service() -> AuditService:
 # 兼容直接运行测试
 if __name__ == "__main__":
     audit = get_audit_service()
-    print("审计服务已初始化")
-    print()
+    logger.info("审计服务已初始化")
 
     # 测试记录事件
     for i in range(5):
@@ -630,15 +629,14 @@ if __name__ == "__main__":
 
     # 测试查询
     result = audit.get_security_events(page=1, page_size=10)
-    print(f"安全事件总数: {result['total']}")
-    print(f"当前页: {result['page']}/{result['total_pages']}")
-    print()
+    logger.info("安全事件总数: %s", result["total"])
+    logger.info("当前页: %s/%s", result["page"], result["total_pages"])
 
     # 测试统计
     stats = audit.get_stats()
-    print("统计数据:")
-    print(f"  总事件数: {stats['total_events']}")
-    print(f"  今日事件: {stats['events_today']}")
-    print(f"  高危事件: {stats['high_severity_count']}")
-    print(f"  按类型: {stats['events_by_type']}")
-    print(f"  TOP IP: {stats['top_source_ips'][:3]}")
+    logger.info("统计数据:")
+    logger.info("  总事件数: %s", stats["total_events"])
+    logger.info("  今日事件: %s", stats["events_today"])
+    logger.info("  高危事件: %s", stats["high_severity_count"])
+    logger.info("  按类型: %s", stats["events_by_type"])
+    logger.info("  TOP IP: %s", stats["top_source_ips"][:3])

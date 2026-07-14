@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Optional
 
@@ -536,6 +537,7 @@ async def generate_code(
     """AI 代码操作（生成/审查/调试/优化/重构/解释/测试生成）.
 
     当前为简化版（模板匹配 fallback），预留 LLM 接入点。
+    生成完成后自动回写 M5 潮汐记忆。
     """
     try:
         service = _get_service(x_user_id)
@@ -543,6 +545,10 @@ async def generate_code(
             prompt=req.prompt,
             language=req.language,
             operation_type=req.operation_type,
+        )
+        # 异步回写 M5 记忆（不阻塞响应）
+        asyncio.create_task(
+            service._archive_to_m5(prompt=req.prompt, result=data)
         )
         return make_response(message="操作完成", data=data)
     except Exception as e:
