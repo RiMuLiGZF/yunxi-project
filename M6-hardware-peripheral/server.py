@@ -46,6 +46,10 @@ from m6_hardware.services.notification import NotificationService
 from m6_hardware.realtime.sse_manager import SSEManager
 from m6_hardware.models.errors import M6Exception
 
+# P2-2/P2-4 改造：导入熔断器与指标收集器
+from m6_hardware.utils.circuit_breaker import CircuitBreaker
+from m6_hardware.utils.metrics import Metrics
+
 # ---------------------------------------------------------------------------
 # 生命周期管理
 # ---------------------------------------------------------------------------
@@ -67,6 +71,18 @@ async def lifespan(app: FastAPI):
     config = M6Config()
     app.state.config = config
     print(f"  配置: 已加载 (环境: {config.env})")
+
+    # P2-2/P2-4: 初始化全局指标收集器与数据采集熔断器
+    metrics = Metrics()
+    app.state.metrics = metrics
+    collector_breaker = CircuitBreaker(
+        name="data_collector",
+        failure_threshold=5,
+        recovery_timeout=30.0,
+    )
+    app.state.collector_breaker = collector_breaker
+    print(f"  Metrics 指标收集器: 已就绪")
+    print(f"  数据采集熔断器: 已就绪 (阈值={collector_breaker.failure_threshold}, 恢复={collector_breaker.recovery_timeout}s)")
 
     # 2. 初始化设备管理器
     device_manager = DeviceManager()
@@ -157,7 +173,11 @@ app.add_middleware(M8AuthMiddleware)
 # ---------------------------------------------------------------------------
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
-    """为每个请求注入 request_id，并记录响应时间"""
+    """为每个请求注入 request_id，记录响应时间，并埋点 Metrics 指标
+
+    P2-4 改造：在中间件层统一记录请求数、响应延迟直方图，
+    Metrics 单例随 app.state 注入。
+    """
     start_time = time.time()
     request_id = uuid.uuid4().hex[:16]
     request.state.request_id = request_id
@@ -167,6 +187,16 @@ async def add_request_id(request: Request, call_next):
     elapsed_ms = (time.time() - start_time) * 1000
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Response-Time"] = f"{elapsed_ms:.2f}ms"
+
+    # P2-4 埋点：请求计数 + 延迟直方图
+    try:
+        metrics: Metrics = request.app.state.metrics
+        metrics.inc("requests_total", labels={"path": request.url.path, "method": request.method})
+        metrics.inc("response_status", labels={"code": str(response.status_code)})
+        metrics.observe("response_latency_ms", elapsed_ms)
+    except Exception:
+        pass  # Metrics 不可用时静默降级
+
     return response
 
 
@@ -304,10 +334,26 @@ async def m8_std_health(x_m8_token: str = Header(default="")):
 async def m8_std_metrics(request: Request, x_m8_token: str = Header(default="")):
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
+
+    # P2-4: 合并系统指标 + Metrics 快照 + CircuitBreaker 状态
+    real_metrics = _get_m6_real_metrics(request)
+
+    metrics_snapshot = {}
+    breaker_stats = {}
+    try:
+        metrics_snapshot = request.app.state.metrics.snapshot()
+        breaker_stats = request.app.state.collector_breaker.stats
+    except Exception:
+        pass
+
     return {
         "code": 0,
         "message": "ok",
-        "data": _get_m6_real_metrics(request)
+        "data": {
+            **real_metrics,
+            "metrics": metrics_snapshot,
+            "circuit_breaker": breaker_stats,
+        }
     }
 
 @app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")

@@ -4,10 +4,13 @@ M6 硬件外设 - 数据采集服务
 
 P1-5 改造：数据库操作委托给 Repository，连接管理委托给 DatabaseConnection，
 本层仅保留业务事务编排与采集调度逻辑。
+
+P2-4 改造：集成 Metrics 指标埋点，记录采集次数、采集耗时、设备写入数等。
 """
 
 import asyncio
 import logging
+import time
 import traceback
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -15,6 +18,12 @@ from typing import Dict, Any, List, Optional
 from ..config import get_config
 from ..database import DatabaseConnection, get_db, SensorDataRepository, DeviceStatusRepository
 from .device_manager import get_device_manager
+
+# P2-4: 导入 Metrics 单例用于采集指标埋点
+try:
+    from ..utils.metrics import Metrics
+except ImportError:
+    Metrics = None  # type: ignore[assignment, misc]
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +86,13 @@ class DataCollector:
 
         所有设备的传感器数据与状态历史写入在同一个数据库事务中完成，
         任何一个设备写入失败则全部回滚，保证批次内数据一致性。
+
+        P2-4 改造：添加 Metrics 指标埋点（采集计数、耗时直方图、设备写入数）。
         """
+        # P2-4: 采集开始计时
+        collect_start = time.time()
+        metrics = Metrics() if Metrics is not None else None
+
         # 驱动所有设备步进（设备 I/O 操作，独立于 DB 事务）
         self._device_manager.tick_all()
 
@@ -126,6 +141,17 @@ class DataCollector:
                     len(devices),
                 )
 
+                # P2-4 埋点：采集成功指标
+                if metrics is not None:
+                    elapsed = (time.time() - collect_start) * 1000
+                    metrics.inc("collection_total")
+                    metrics.inc("collection_success")
+                    metrics.observe("collection_duration_ms", elapsed)
+                    metrics.set_gauge("collection_device_count", len(devices))
+                    metrics.set_gauge("collection_sensor_count", sum(
+                        len(d.get("sensors", {})) for d in devices
+                    ))
+
                 # ---- 过期数据清理（独立事务，失败不影响采集结果）----
                 try:
                     SensorDataRepository.cleanup_old(
@@ -146,6 +172,12 @@ class DataCollector:
             except Exception as e:
                 # 主事务回滚
                 conn.rollback()
+
+                # P2-4 埋点：采集失败指标
+                if metrics is not None:
+                    metrics.inc("collection_total")
+                    metrics.inc("collection_failures")
+
                 if failed_device_id:
                     logger.error(
                         "[DataCollector] 采集事务已回滚 | 失败设备=%s, "
