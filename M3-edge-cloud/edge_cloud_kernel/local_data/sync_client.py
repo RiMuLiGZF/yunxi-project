@@ -9,11 +9,17 @@ import time
 from enum import Enum
 from typing import Any
 
+import httpx
 import structlog
 
 from edge_cloud_kernel.models.sync_models import SyncItem, SyncResult, SyncStatus
 
 logger = structlog.get_logger(__name__)
+
+try:
+    from edge_cloud_kernel.shared.config import cloud_api_base as _DEFAULT_CLOUD_API_BASE
+except ImportError:
+    _DEFAULT_CLOUD_API_BASE = ""
 
 
 class SyncMode(str, Enum):
@@ -50,13 +56,13 @@ class SyncClient:
         """初始化 SyncClient.
 
         Args:
-            cloud_endpoint: 云端同步 API 端点.
+            cloud_endpoint: 云端同步 API 端点. 若为空，则尝试使用 shared.config.cloud_api_base.
             api_key: API 密钥.
         """
-        self._cloud_endpoint = cloud_endpoint
+        self._cloud_endpoint = cloud_endpoint or _DEFAULT_CLOUD_API_BASE
         self._api_key = api_key
         self._last_sync_time: float = 0.0
-        logger.info("sync_client.init")
+        logger.info("sync_client.init", cloud_endpoint=self._cloud_endpoint)
 
     async def upload(
         self,
@@ -71,20 +77,49 @@ class SyncClient:
             同步结果列表.
         """
         results: list[SyncResult] = []
-        for item in items:
-            try:
-                # TODO: 调用云端 API 上传
-                result = SyncResult(
-                    item_id=item.item_id,
-                    status=SyncStatus.SUCCESS,
-                )
-                results.append(result)
-            except Exception as e:
-                results.append(SyncResult(
-                    item_id=item.item_id,
-                    status=SyncStatus.FAILED,
-                    error_message=str(e),
-                ))
+        headers: dict[str, str] = {}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for item in items:
+                try:
+                    payload = item.model_dump(exclude_none=True)
+                    response = await client.post(
+                        f"{self._cloud_endpoint}/sync/upload",
+                        json=payload,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    result = SyncResult(
+                        item_id=item.item_id,
+                        status=SyncStatus.SUCCESS,
+                    )
+                    results.append(result)
+                except httpx.TimeoutException as e:
+                    results.append(SyncResult(
+                        item_id=item.item_id,
+                        status=SyncStatus.FAILED,
+                        error_message=f"Request timeout: {e}",
+                    ))
+                except httpx.ConnectError as e:
+                    results.append(SyncResult(
+                        item_id=item.item_id,
+                        status=SyncStatus.FAILED,
+                        error_message=f"Connection error: {e}",
+                    ))
+                except httpx.HTTPStatusError as e:
+                    results.append(SyncResult(
+                        item_id=item.item_id,
+                        status=SyncStatus.FAILED,
+                        error_message=f"HTTP {e.response.status_code}: {e.response.text}",
+                    ))
+                except Exception as e:
+                    results.append(SyncResult(
+                        item_id=item.item_id,
+                        status=SyncStatus.FAILED,
+                        error_message=str(e),
+                    ))
 
         self._last_sync_time = time.time()
         logger.info(
@@ -107,20 +142,51 @@ class SyncClient:
             同步结果列表.
         """
         results: list[SyncResult] = []
-        for key in keys:
-            try:
-                # TODO: 调用云端 API 下载
-                result = SyncResult(
-                    item_id=key,
-                    status=SyncStatus.SUCCESS,
-                )
-                results.append(result)
-            except Exception as e:
-                results.append(SyncResult(
-                    item_id=key,
-                    status=SyncStatus.FAILED,
-                    error_message=str(e),
-                ))
+        headers: dict[str, str] = {}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for key in keys:
+                try:
+                    response = await client.get(
+                        f"{self._cloud_endpoint}/sync/download",
+                        params={"key": key},
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    remote_checksum = data.get("checksum") or data.get("content_hash")
+                    result = SyncResult(
+                        item_id=key,
+                        status=SyncStatus.SUCCESS,
+                        remote_checksum=remote_checksum,
+                    )
+                    results.append(result)
+                except httpx.TimeoutException as e:
+                    results.append(SyncResult(
+                        item_id=key,
+                        status=SyncStatus.FAILED,
+                        error_message=f"Request timeout: {e}",
+                    ))
+                except httpx.ConnectError as e:
+                    results.append(SyncResult(
+                        item_id=key,
+                        status=SyncStatus.FAILED,
+                        error_message=f"Connection error: {e}",
+                    ))
+                except httpx.HTTPStatusError as e:
+                    results.append(SyncResult(
+                        item_id=key,
+                        status=SyncStatus.FAILED,
+                        error_message=f"HTTP {e.response.status_code}: {e.response.text}",
+                    ))
+                except Exception as e:
+                    results.append(SyncResult(
+                        item_id=key,
+                        status=SyncStatus.FAILED,
+                        error_message=str(e),
+                    ))
 
         self._last_sync_time = time.time()
         logger.info(

@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
+import aiosqlite
 import structlog
 
 from edge_cloud_kernel.models.call_log import CallLogRecord
@@ -110,6 +112,36 @@ class CallLogWriter:
             buffer_size=len(self._buffer),
         )
 
+    async def _ensure_table(self, db: aiosqlite.Connection) -> None:
+        """确保 call_logs 表结构已初始化.
+
+        Args:
+            db: aiosqlite 连接实例.
+        """
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS call_logs (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id        TEXT,
+                model           TEXT,
+                prompt_tokens   INTEGER DEFAULT 0,
+                completion_tokens INTEGER DEFAULT 0,
+                total_tokens    INTEGER DEFAULT 0,
+                latency_ms      INTEGER DEFAULT 0,
+                status          TEXT,
+                error           TEXT,
+                route           TEXT,
+                created_at      REAL
+            )
+            """
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_call_logs_agent_id ON call_logs(agent_id)"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_call_logs_created_at ON call_logs(created_at)"
+        )
+
     async def flush(self) -> int:
         """刷新缓冲区，将日志写入存储.
 
@@ -122,12 +154,41 @@ class CallLogWriter:
         records = self._buffer.copy()
         self._buffer.clear()
 
+        if not self._db_path:
+            logger.warning("call_log_writer.no_db_path", count=len(records))
+            return 0
+
         try:
-            # TODO: 使用 aiosqlite 写入 SQLite
-            # async with aiosqlite.connect(self._db_path) as db:
-            #     for record in records:
-            #         await db.execute("INSERT INTO call_logs ...", (...))
-            #     await db.commit()
+            db_dir = os.path.dirname(self._db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+
+            async with aiosqlite.connect(self._db_path) as db:
+                await self._ensure_table(db)
+                await db.execute("BEGIN")
+                for record in records:
+                    total_tokens = record.prompt_tokens + record.completion_tokens
+                    await db.execute(
+                        """
+                        INSERT INTO call_logs
+                            (agent_id, model, prompt_tokens, completion_tokens,
+                             total_tokens, latency_ms, status, error, route, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            record.agent_name,
+                            record.model,
+                            record.prompt_tokens,
+                            record.completion_tokens,
+                            total_tokens,
+                            int(record.latency_ms),
+                            record.status,
+                            record.error_message,
+                            record.target,
+                            record.timestamp,
+                        ),
+                    )
+                await db.commit()
 
             logger.info(
                 "call_log_writer.flushed",
