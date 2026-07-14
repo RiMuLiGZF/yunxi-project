@@ -91,7 +91,7 @@ class IpFilter:
         self._failure_counts: Dict[str, Tuple[int, float]] = {}
 
         # 线程锁
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
         # 清理相关
         self._last_cleanup = time.time()

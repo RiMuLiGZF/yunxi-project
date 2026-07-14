@@ -312,7 +312,6 @@ class SystemMonitor:
         if self.sandbox_mode:
             from tests.fixtures.mock_system_metrics import MockDataGenerator
             self.mock_generator = MockDataGenerator()
-            self._prepopulate_data()
         else:
             self.mock_generator = None
 
@@ -323,6 +322,10 @@ class SystemMonitor:
         self._minute_data = deque(maxlen=config.data_aggregation.minute_retention_hours * 60)
         self._hour_data = deque(maxlen=config.data_aggregation.hour_retention_days * 24)
         self._day_data = deque(maxlen=config.data_aggregation.day_retention_days)
+
+        # 预填充模拟数据（须在数据存储初始化之后）
+        if self.sandbox_mode:
+            self._prepopulate_data()
 
         # 运行状态
         self._running = False

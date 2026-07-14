@@ -17,9 +17,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from m10_system_guard.system_monitor import (
-    SystemMonitor, MockDataGenerator, get_system_monitor,
-)
+from m10_system_guard.system_monitor import SystemMonitor, get_system_monitor
+from tests.fixtures.mock_system_metrics import MockDataGenerator
 from m10_system_guard.models import (
     AggregationLevel, MetricType, SystemMetric,
 )

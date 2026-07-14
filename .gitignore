@@ -17,6 +17,8 @@ env/
 ENV/
 .venv/
 
+.start-all-pids.json
+
 # IDE
 .vscode/
 .idea/

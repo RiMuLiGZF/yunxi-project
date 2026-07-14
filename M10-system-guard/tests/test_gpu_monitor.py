@@ -83,7 +83,7 @@ class TestMockGPU:
 
     def test_mock_gpu_has_devices(self):
         """模拟数据生成器应返回包含 devices 的 GPUMetric"""
-        from m10_system_guard.system_monitor import MockDataGenerator
+        from tests.fixtures.mock_system_metrics import MockDataGenerator
         gen = MockDataGenerator()
         gpu = gen.generate_gpu()
 
@@ -94,7 +94,7 @@ class TestMockGPU:
 
     def test_mock_gpu_device_has_processes(self):
         """模拟 GPU 设备包含进程信息"""
-        from m10_system_guard.system_monitor import MockDataGenerator
+        from tests.fixtures.mock_system_metrics import MockDataGenerator
         gen = MockDataGenerator()
         gen._current_gpu = 80.0  # 设高值以触发进程生成
         gpu = gen.generate_gpu()
@@ -106,7 +106,7 @@ class TestMockGPU:
 
     def test_mock_gpu_continuous(self):
         """GPU 模拟数据连续变化"""
-        from m10_system_guard.system_monitor import MockDataGenerator
+        from tests.fixtures.mock_system_metrics import MockDataGenerator
         gen = MockDataGenerator()
         first = gen.generate_gpu().usage_percent
 
