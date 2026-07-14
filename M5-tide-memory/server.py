@@ -13,6 +13,12 @@ SRC_DIR = BASE_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+# 确保数据目录存在（M5 使用相对路径 ./data/memory/ 存储数据库）
+_DATA_DIR = BASE_DIR / "data" / "memory"
+_GROWTH_DIR = BASE_DIR / "data" / "growth"
+for _d in [_DATA_DIR, _GROWTH_DIR]:
+    _d.mkdir(parents=True, exist_ok=True)
+
 import structlog
 from tide_memory.utils.logging_setup import setup_logging
 
@@ -87,16 +93,25 @@ class BatchDeleteRequest(BaseModel):
 def create_fastapi_app() -> FastAPI:
     """创建 FastAPI 应用并挂载 M5 路由"""
 
-    # 初始化 M5 应用上下文
+    # 初始化 M5 应用上下文（包裹 try/except 防止初始化异常导致静默退出）
     logger.info("初始化 M5 潮汐记忆系统...")
-    app_ctx = create_app()
+    try:
+        app_ctx = create_app()
+    except Exception as e:
+        logger.error("M5 核心初始化失败，将以降级模式启动", error=str(e))
+        raise RuntimeError(f"M5 核心初始化失败: {e}") from e
+
     api_router = MemoryAPIRouter(app_ctx)
     m8_interface = M8Interface(app_ctx)
 
     # 初始化成长系统
     logger.info("初始化成长系统（成就/天赋/历法/编年史/记忆回响/赛季征程）...")
-    growth_router = GrowthAPIRouter(app_ctx)
-    logger.info("成长系统初始化完成")
+    try:
+        growth_router = GrowthAPIRouter(app_ctx)
+        logger.info("成长系统初始化完成")
+    except Exception as e:
+        logger.error("成长系统初始化失败，将以降级模式启动", error=str(e))
+        raise RuntimeError(f"成长系统初始化失败: {e}") from e
 
     # 创建 FastAPI 应用
     app = FastAPI(

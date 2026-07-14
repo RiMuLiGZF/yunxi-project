@@ -1,14 +1,19 @@
 """
-P2-23: M9 API 认证中间件
+M9 API 认证中间件
 
 使用 Token 认证保护 M9 的 API 接口。
 Token 从配置或环境变量读取，通过 Header X-M9-Token 传递。
 """
 
 import os
+import secrets
+import logging
 import time
 import hmac
 import hashlib
+
+logger = logging.getLogger("m9.auth")
+
 from typing import Optional, Dict, Any, Tuple, List
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -28,6 +33,9 @@ PUBLIC_PATHS = {
 }
 
 
+_dev_token: str = ""
+
+
 def get_admin_token() -> str:
     """获取管理员 Token.
 
@@ -41,16 +49,21 @@ def get_admin_token() -> str:
     # 从配置获取
     try:
         from .config import settings
-        if hasattr(settings, "admin_token") and settings.admin_token:
+        if settings.admin_token:
             return settings.admin_token
     except Exception:
         pass
 
-    # 开发环境默认 token（生产环境必须设置）
+    # 开发环境生成随机Token
     env = os.environ.get("YUNXI_ENV", "development")
     if env == "production":
         return ""  # 生产环境不设默认值，强制认证
-    return "m9-dev-token-placeholder"
+
+    global _dev_token
+    if not _dev_token:
+        _dev_token = secrets.token_urlsafe(32)
+        logger.warning("开发环境使用随机Token: %s", _dev_token)
+    return _dev_token
 
 
 def validate_token(token: str) -> bool:

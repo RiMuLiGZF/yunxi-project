@@ -13,7 +13,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 
 # 从 shared 读取全局配置作为默认值基准
@@ -47,11 +47,18 @@ class Settings(BaseSettings):
     M8 特有配置保留在此类中。
     """
 
+    model_config = SettingsConfigDict(
+        env_file=str(project_root / "config" / "yunxi.env"),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
     # ===== 服务配置（与全局配置同步） =====
     app_name: str = "云汐管理工作台 M8"
     version: str = _global_get("version", "1.0.0")
     host: str = _global_get("module_hosts", {}).get("m8", "0.0.0.0")
-    port: int = _global_get("module_ports", {}).get("m8", 8000)
+    port: int = _global_get("module_ports", {}).get("m8", 8008)
     env: str = _global_get("env", "development")
 
     # ===== 安全配置（与全局配置同步，M8 扩展） =====
@@ -70,12 +77,6 @@ class Settings(BaseSettings):
 
     # ===== 日志（与全局配置同步） =====
     log_level: str = _global_get("log_level", "info")
-
-    class Config:
-        env_file = str(project_root / "config" / "yunxi.env")
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"
 
 
 settings = Settings()

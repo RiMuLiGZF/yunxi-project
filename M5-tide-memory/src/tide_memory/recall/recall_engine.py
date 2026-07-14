@@ -25,6 +25,7 @@ from ..common.constants import (
     MEMORY_ID_PREFIX,
     MEMORY_ID_LENGTH,
     LAYER_L1_SHALLOW,
+    LAYER_L2_DEEP,
     CONTENT_SANITIZED,
     QUALITY_LEVEL_LOW,
     VALENCE_DEFAULT,

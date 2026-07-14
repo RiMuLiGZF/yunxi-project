@@ -81,7 +81,14 @@ def init_db():
 
 def _seed_initial_data():
     """初始化种子数据（告警等）"""
-    from .alert import AlertRecord  # noqa: E402
+    import structlog
+    logger = structlog.get_logger("m8.backend.models")
+
+    try:
+        from .alert import AlertRecord  # noqa: E402
+    except ImportError:
+        logger.debug("alert model not available, skipping alert seed data")
+        return
 
     db = SessionLocal()
     try:

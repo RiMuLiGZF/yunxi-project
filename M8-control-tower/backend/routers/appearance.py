@@ -1,6 +1,6 @@
 """形象工坊模式 API"""
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List
 
@@ -100,6 +100,7 @@ _history_snapshots = [
 
 # ========== 请求模型 ==========
 class ConfigUpdateRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     theme: Optional[str] = None
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None

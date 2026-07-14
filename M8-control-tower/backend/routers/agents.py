@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # 将项目根目录加入 path，以便导入 M1 联邦层模块
 project_root = Path(__file__).parent.parent.parent.parent
@@ -39,6 +39,8 @@ registry = get_module_registry()
 
 class AgentRegisterRequest(BaseModel):
     """Agent 注册请求"""
+    model_config = ConfigDict(protected_namespaces=())
+
     display_name: str = Field(..., description="显示名称")
     provider: str = Field(..., description="服务商/提供方")
     agent_type: str = Field(default="llm", description="Agent 类型: llm/code/voice/etc")

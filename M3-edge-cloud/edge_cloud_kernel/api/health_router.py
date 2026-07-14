@@ -30,12 +30,13 @@ router = APIRouter(tags=["Health"])
 # ---------------------------------------------------------------------------
 
 @router.get("/health", summary="健康检查")
-async def health_check(kernel: KernelManager = Depends(get_kernel_manager)):
-    """健康检查端点，返回标准格式.
+async def health_check(request: Request):
+    """健康检查端点（白名单，无需认证，不依赖 kernel_manager）.
 
-    Returns:
-        标准健康检查响应.
+    即使 kernel_manager 未初始化也能正常返回，避免 500。
     """
+    kernel: KernelManager | None = getattr(request.state, "kernel_manager", None)
+    uptime = kernel.uptime_seconds if kernel and hasattr(kernel, "uptime_seconds") else 0
     return {
         "code": 0,
         "message": "ok",
@@ -43,7 +44,7 @@ async def health_check(kernel: KernelManager = Depends(get_kernel_manager)):
             "status": "healthy",
             "version": "2.1.2",
             "module": "m3",
-            "uptime_seconds": kernel.uptime_seconds,
+            "uptime_seconds": uptime,
         },
     }
 

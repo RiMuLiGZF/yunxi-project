@@ -521,9 +521,21 @@ class SystemMonitor:
             )
 
         except Exception as e:
-            # 真实采集失败，回退到模拟数据
+            # 真实采集失败，回退到模拟数据或合理默认值
             print(f"[SystemMonitor] 真实采集失败，回退到模拟数据: {e}")
-            return self.mock_generator.generate_system_metric()
+            if self.mock_generator:
+                return self.mock_generator.generate_system_metric()
+            return SystemMetric(
+                timestamp=time.time(),
+                cpu=CPUMetric(usage_percent=0.0, core_count=0, per_core_usage=[], load_avg_1min=0.0, load_avg_5min=0.0, load_avg_15min=0.0),
+                memory=MemoryMetric(total_mb=0.0, used_mb=0.0, available_mb=0.0, usage_percent=0.0, swap_total_mb=0.0, swap_used_mb=0.0, swap_percent=0.0),
+                disk=DiskMetric(total_gb=0.0, used_gb=0.0, free_gb=0.0, usage_percent=0.0, read_mb_per_sec=0.0, write_mb_per_sec=0.0, io_wait_percent=0.0),
+                network=NetworkMetric(bytes_sent_mb=0.0, bytes_recv_mb=0.0, send_mb_per_sec=0.0, recv_mb_per_sec=0.0, connection_count=0, interface="default"),
+                gpu=GPUMetric(count=0),
+                temperature=TemperatureMetric(cpu_temp_celsius=0.0, gpu_temp_celsius=0.0, motherboard_temp_celsius=0.0, highest_temp_celsius=0.0, highest_temp_source="unknown"),
+                battery=BatteryMetric(percent=0.0, is_charging=False, remaining_minutes=0, power_plugged=False, design_capacity_mwh=60000.0, current_capacity_mwh=0.0),
+                aggregation_level=AggregationLevel.RAW,
+            )
 
     def _sample_gpu_real(self) -> GPUMetric:
         """真实 GPU 采样 - 尝试使用 pynvml，失败回退 mock."""
@@ -561,10 +573,14 @@ class SystemMonitor:
                     pass  # 留待后续扩展
             except Exception:
                 pass
-            return self.mock_generator.generate_gpu()
+            if self.mock_generator:
+                return self.mock_generator.generate_gpu()
+            return GPUMetric(count=0)
 
         except Exception:
-            return self.mock_generator.generate_gpu()
+            if self.mock_generator:
+                return self.mock_generator.generate_gpu()
+            return GPUMetric(count=0)
 
     def _sample_temperature_real(self) -> TemperatureMetric:
         """真实温度采样 - 尝试 psutil.sensors_temperatures，失败回退 mock."""
@@ -601,7 +617,15 @@ class SystemMonitor:
                     )
         except Exception:
             pass
-        return self.mock_generator.generate_temperature()
+        if self.mock_generator:
+            return self.mock_generator.generate_temperature()
+        return TemperatureMetric(
+            cpu_temp_celsius=0.0,
+            gpu_temp_celsius=0.0,
+            motherboard_temp_celsius=0.0,
+            highest_temp_celsius=0.0,
+            highest_temp_source="unknown",
+        )
 
     def _sample_battery_real(self) -> BatteryMetric:
         """真实电池采样 - 使用 psutil.sensors_battery，失败回退 mock."""
@@ -622,7 +646,16 @@ class SystemMonitor:
                     )
         except Exception:
             pass
-        return self.mock_generator.generate_battery()
+        if self.mock_generator:
+            return self.mock_generator.generate_battery()
+        return BatteryMetric(
+            percent=0.0,
+            is_charging=False,
+            remaining_minutes=0,
+            power_plugged=False,
+            design_capacity_mwh=60000.0,
+            current_capacity_mwh=0.0,
+        )
 
     def _check_aggregation(self, metric: SystemMetric):
         """检查是否需要进行数据聚合."""

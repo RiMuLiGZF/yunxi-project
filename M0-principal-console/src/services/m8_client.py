@@ -13,6 +13,12 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+try:
+    import psutil as _psutil
+    _HAS_PSUTIL = True
+except ImportError:
+    _HAS_PSUTIL = False
+
 from ..config import settings
 from ..models import (
     AlertItem,
@@ -138,27 +144,58 @@ class M8Client:
 
     async def _collect_from_modules(self) -> List[ModuleStatusItem]:
         """
-        直接轮询各模块的 /m8/health 接口收集真实状态。
-        超时或失败则标记为 stopped。
+        直接轮询各模块的健康接口收集真实状态。
+        策略：优先 /health（白名单无需认证），失败回退 /m8/health。
         """
+        async def _extract(data: dict) -> dict:
+            """统一提取 status / version，兼容多种响应格式"""
+            inner = data.get("data", data)
+            return {
+                "status": inner.get("status", data.get("status", "unknown")),
+                "version": inner.get("version", data.get("version")),
+            }
+
         async def _probe(module: str, port: int) -> ModuleStatusItem:
             try:
                 async with httpx.AsyncClient(timeout=3.0) as client:
-                    headers = {"X-M8-Token": f"yunxi-{module}-admin-token-2026"}
-                    response = await client.get(
-                        f"http://127.0.0.1:{port}/m8/health",
-                        headers=headers,
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
+                    # 第一轮：/health（白名单端点，所有模块均有，无需认证）
+                    resp = await client.get(f"http://127.0.0.1:{port}/health")
+                    if resp.status_code == 200:
+                        info = await _extract(resp.json())
                         return ModuleStatusItem(
                             key=module,
                             name=MODULE_NAMES.get(module, module),
-                            status=data.get("status", "unknown"),
+                            status=info["status"],
                             port=port,
-                            version=data.get("version"),
+                            version=info.get("version"),
                             last_heartbeat=datetime.now(),
                         )
+                    # 第二轮：/m8/health（需要 token，提供更丰富信息）
+                    if resp.status_code == 404:
+                        headers = {"X-M8-Token": f"yunxi-{module}-admin-token-2026"}
+                        resp2 = await client.get(
+                            f"http://127.0.0.1:{port}/m8/health",
+                            headers=headers,
+                        )
+                        if resp2.status_code == 200:
+                            info = await _extract(resp2.json())
+                            return ModuleStatusItem(
+                                key=module,
+                                name=MODULE_NAMES.get(module, module),
+                                status=info["status"],
+                                port=port,
+                                version=info.get("version"),
+                                last_heartbeat=datetime.now(),
+                            )
+                    # 服务可达但异常（500/401/403 等）
+                    return ModuleStatusItem(
+                        key=module,
+                        name=MODULE_NAMES.get(module, module),
+                        status="error",
+                        port=port,
+                        version=None,
+                        last_heartbeat=None,
+                    )
             except Exception:
                 pass
             return ModuleStatusItem(
@@ -236,6 +273,24 @@ class M8Client:
     # 仪表盘数据
     # ------------------------------------------------------------------
 
+    def _collect_system_resources(self) -> SystemResources:
+        """使用 psutil 采集真实系统资源，不可用时返回零值"""
+        if not _HAS_PSUTIL:
+            return SystemResources()
+        try:
+            cpu = _psutil.cpu_percent(interval=0.5)
+            mem = _psutil.virtual_memory()
+            disk = _psutil.disk_usage("/")
+            return SystemResources(
+                cpu_usage=round(cpu, 1),
+                memory_usage=round(mem.percent, 1),
+                memory_total_gb=round(mem.total / (1024 ** 3), 1),
+                memory_used_gb=round(mem.used / (1024 ** 3), 1),
+                disk_usage=round(disk.percent, 1),
+            )
+        except Exception:
+            return SystemResources()
+
     async def get_dashboard_summary(self) -> DashboardSummary:
         """
         获取仪表盘总览数据
@@ -247,7 +302,7 @@ class M8Client:
         if all(m.status == "stopped" for m in modules):
             return self._mock_dashboard_summary()
 
-        running = sum(1 for m in modules if m.status != "stopped")
+        running = sum(1 for m in modules if m.status not in ("stopped", "error"))
         stopped = sum(1 for m in modules if m.status == "stopped")
         mock = self._mock_dashboard_summary()
 
@@ -255,7 +310,7 @@ class M8Client:
             module_count=len(modules),
             module_running=running,
             module_stopped=stopped,
-            system_resources=mock.system_resources,
+            system_resources=self._collect_system_resources(),
             alerts=mock.alerts,
             alert_critical_count=mock.alert_critical_count,
             alert_warning_count=mock.alert_warning_count,

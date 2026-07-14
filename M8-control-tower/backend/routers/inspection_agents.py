@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # 导入上级模块
 from ..schemas import ApiResponse
@@ -47,6 +47,8 @@ class PrincipalChatRequest(BaseModel):
 
 class PrincipalRouteTestRequest(BaseModel):
     """手动路由测试请求"""
+    model_config = ConfigDict(protected_namespaces=())
+
     message: str = Field(..., description="测试消息", min_length=1)
     model_key: Optional[str] = Field(None, description="指定模型key（可选）")
     preference: str = Field("balanced", description="模型偏好: speed/quality/cost/balanced")

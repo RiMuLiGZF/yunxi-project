@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from ..schemas import ApiResponse
@@ -22,6 +22,8 @@ router = APIRouter()
 
 class ComputeModelCreate(BaseModel):
     """新增模型绑定请求体"""
+    model_config = ConfigDict(protected_namespaces=())
+
     model_key: str = Field(..., description="模型标识，如 default-chat")
     model_name: str = Field(..., description="显示名称")
     purpose: str = Field("chat", description="用途：chat/embedding/code/vision")
@@ -33,6 +35,8 @@ class ComputeModelCreate(BaseModel):
 
 class ComputeModelUpdate(BaseModel):
     """更新模型绑定请求体"""
+    model_config = ConfigDict(protected_namespaces=())
+
     model_name: Optional[str] = Field(None, description="显示名称")
     purpose: Optional[str] = Field(None, description="用途")
     group_id: Optional[str] = Field(None, description="绑定的密钥分组")

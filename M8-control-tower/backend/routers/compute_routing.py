@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..schemas import ApiResponse
@@ -79,6 +79,8 @@ class PolicyUpdate(BaseModel):
 
 class RouteRequest(BaseModel):
     """手动路由请求体"""
+    model_config = ConfigDict(protected_namespaces=())
+
     model_key: str = Field("default-chat", description="模型 key")
     purpose: str = Field("chat", description="用途")
     caller_module: str = Field("m8", description="调用模块")
@@ -91,6 +93,8 @@ class RouteRequest(BaseModel):
 
 class FailoverTestRequest(BaseModel):
     """故障转移测试请求体"""
+    model_config = ConfigDict(protected_namespaces=())
+
     failed_source_id: str = Field(..., description="失败的算力源ID")
     model_key: str = Field("default-chat", description="模型 key")
     reason: str = Field("test_failover", description="失败原因")
