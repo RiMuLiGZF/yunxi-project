@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from tide_memory.errors import ErrorCode, error_response
+from tide_memory.common.errors import ErrorCode, error_response
 
 logger = structlog.get_logger(__name__)
 

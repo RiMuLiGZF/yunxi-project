@@ -14,10 +14,10 @@ from enum import Enum
 from typing import Dict, Optional
 
 from ..common.constants import (
-    RETENTION_TOP_SECRET_DAYS,
-    RETENTION_CONFIDENTIAL_DAYS,
-    RETENTION_INTERNAL_DAYS,
-    RETENTION_FOREVER,
+    CLASSIFICATION_TOP_SECRET_DAYS,
+    CLASSIFICATION_CONFIDENTIAL_DAYS,
+    CLASSIFICATION_INTERNAL_DAYS,
+    CLASSIFICATION_PUBLIC_DAYS,
 )
 
 
@@ -50,10 +50,10 @@ class SecretMarker:
 
     # 各密级保留天数（超过后自动降级）
     _RETENTION_DAYS = {
-        ClassificationLevel.TOP_SECRET: RETENTION_TOP_SECRET_DAYS,
-        ClassificationLevel.CONFIDENTIAL: RETENTION_CONFIDENTIAL_DAYS,
-        ClassificationLevel.INTERNAL: RETENTION_INTERNAL_DAYS,
-        ClassificationLevel.PUBLIC: RETENTION_FOREVER,  # 永久
+        ClassificationLevel.TOP_SECRET: CLASSIFICATION_TOP_SECRET_DAYS,
+        ClassificationLevel.CONFIDENTIAL: CLASSIFICATION_CONFIDENTIAL_DAYS,
+        ClassificationLevel.INTERNAL: CLASSIFICATION_INTERNAL_DAYS,
+        ClassificationLevel.PUBLIC: CLASSIFICATION_PUBLIC_DAYS,  # 永久
     }
 
     # 各密级的访问角色

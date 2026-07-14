@@ -5,6 +5,7 @@ from .l0_beach import BeachLayer
 from .l1_shallow import ShallowLayer
 from .l2_deep import DeepLayer
 from .l3_abyss import AbyssLayer
+from .cache_coordinator import CacheCoordinator
 from .transactional_layer import (
     TransactionalLayer,
     transactional,
@@ -19,6 +20,7 @@ __all__ = [
     "ShallowLayer",
     "DeepLayer",
     "AbyssLayer",
+    "CacheCoordinator",
     "TransactionalLayer",
     "transactional",
     "transactional_method",
