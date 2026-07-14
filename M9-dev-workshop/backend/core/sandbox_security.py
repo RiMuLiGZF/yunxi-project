@@ -105,6 +105,39 @@ def is_code_allowed(code: str, language: str, sandbox_level: str = "strict") -> 
     return False, findings
 
 
+def compile_restricted_python(code: str) -> Tuple[bool, str, str]:
+    """使用 RestrictedPython 编译 Python 代码（第二层沙箱防护）.
+
+    Args:
+        code: Python 源代码
+
+    Returns:
+        (编译成功, 编译后代码对象或错误消息, 额外信息)
+    """
+    try:
+        from RestrictedPython import compile_restricted
+        from RestrictedPython.Guards import safe_builtins
+
+        # 编译受限代码
+        compiled = compile_restricted(code, filename='<sandbox>', mode='exec')
+
+        # 检查编译结果
+        if compiled.errors:
+            error_list = "; ".join(compiled.errors)
+            return False, f"RestrictedPython 编译错误: {error_list}", ""
+
+        if compiled.code is None:
+            return False, "RestrictedPython 编译失败: 代码对象为空", ""
+
+        return True, compiled.code, ""
+
+    except ImportError:
+        # RestrictedPython 未安装，跳过此层检测
+        return True, "", "RestrictedPython 未安装，跳过第二层沙箱检测"
+    except Exception as e:
+        return False, f"RestrictedPython 异常: {str(e)}", ""
+
+
 def get_safe_environ() -> Dict[str, str]:
     """获取安全的环境变量（移除敏感信息）.
 

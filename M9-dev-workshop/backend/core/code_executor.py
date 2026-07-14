@@ -8,7 +8,7 @@ import threading
 from typing import Optional
 from config import get_settings
 from core.models_code import CodeExecutionRequest, CodeExecutionResult
-from core.sandbox_security import is_code_allowed, get_safe_environ, validate_code_size
+from core.sandbox_security import is_code_allowed, get_safe_environ, validate_code_size, compile_restricted_python
 
 
 class CodeExecutor:
@@ -88,6 +88,17 @@ class CodeExecutor:
                         execution_time=time.time() - start_time,
                         exit_code=126
                     )
+
+                # P2-3: RestrictedPython 第二层沙箱（仅 Python 代码）
+                if request.language == "python":
+                    rp_ok, rp_result, rp_info = compile_restricted_python(request.code)
+                    if not rp_ok:
+                        return CodeExecutionResult(
+                            success=False,
+                            stderr=f"RestrictedPython 沙箱检测未通过: {rp_result}",
+                            execution_time=time.time() - start_time,
+                            exit_code=126
+                        )
 
             # 创建临时文件
             ext = self.LANGUAGE_EXTENSIONS.get(request.language, ".txt")

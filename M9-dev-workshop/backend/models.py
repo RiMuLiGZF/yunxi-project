@@ -5,6 +5,8 @@
 
 import sys
 import os
+import time
+import logging
 from datetime import datetime
 from typing import Optional, List
 
@@ -24,26 +26,38 @@ from sqlalchemy import (
     Boolean,
     Float,
     JSON,
+    Index,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+# 慢查询告警日志
+slow_query_logger = logging.getLogger("m9.slow_query")
 
 
 # ===== 数据库初始化 =====
 settings = get_settings()
+# P2-2: SQLite 使用 StaticPool（单连接复用），避免多连接并发写入问题
 engine = create_engine(
     settings.get_db_url(),
     connect_args={"check_same_thread": False},  # SQLite 多线程支持
     echo=settings.debug,
+    poolclass=StaticPool,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
 def get_db():
-    """获取数据库会话（依赖注入用）"""
+    """获取数据库会话（依赖注入用，含慢查询检测）"""
     db = SessionLocal()
     try:
+        # P2-2: 记录开始时间用于慢查询检测
+        start = time.time()
         yield db
+        elapsed = time.time() - start
+        if elapsed > 1.0:  # 超过1秒视为慢查询
+            slow_query_logger.warning(f"慢查询检测: 会话存在 {elapsed:.2f}s")
     finally:
         db.close()
 
@@ -70,6 +84,13 @@ class WorkspaceProject(Base):
     total_dev_time = Column(Float, default=0.0, comment="累计开发时长（分钟）")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    # P2-2: 添加查询索引
+    __table_args__ = (
+        Index('idx_wp_path', 'path'),
+        Index('idx_wp_name', 'name'),
+        Index('idx_wp_last_opened', 'last_opened'),
+    )
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -100,6 +121,13 @@ class VSCodeSession(Base):
     status = Column(String(50), default="running", comment="状态：running/closed/crashed")
     window_title = Column(String(255), default="", comment="窗口标题")
 
+    # P2-2: 添加查询索引
+    __table_args__ = (
+        Index('idx_vs_status', 'status'),
+        Index('idx_vs_project_path', 'project_path'),
+        Index('idx_vs_start_time', 'start_time'),
+    )
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return {
@@ -126,6 +154,12 @@ class MCPTool(Base):
     input_schema = Column(JSON, default=dict, comment="输入参数 Schema")
     registered_at = Column(DateTime, default=datetime.now, comment="注册时间")
 
+    # P2-2: 添加查询索引
+    __table_args__ = (
+        Index('idx_mt_category', 'category'),
+        Index('idx_mt_enabled', 'enabled'),
+    )
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return {
@@ -151,6 +185,13 @@ class DevActivity(Base):
     description = Column(Text, default="", comment="活动描述")
     timestamp = Column(DateTime, default=datetime.now, comment="活动时间")
     meta_data = Column(JSON, default=dict, comment="附加数据")
+
+    # P2-2: 添加查询索引
+    __table_args__ = (
+        Index('idx_da_project', 'project'),
+        Index('idx_da_timestamp', 'timestamp'),
+        Index('idx_da_activity_type', 'activity_type'),
+    )
 
     def to_dict(self) -> dict:
         """转换为字典"""
