@@ -6,7 +6,7 @@
 # 服务配置
 server:
   host: "0.0.0.0"
-  port: 8010
+  port: 8000
   env: "development"
 
 # 应用信息
@@ -35,8 +35,8 @@ principal:
 # CORS 配置
 cors:
   origins:
-    - "http://localhost:8010"
-    - "http://127.0.0.1:8010"
+    - "http://localhost:8000"
+    - "http://127.0.0.1:8000"
 
 # 数据目录
 data:

@@ -4,7 +4,7 @@ M0 主理人管控台 - 启动入口
 运行方式:
     python server.py
 
-默认端口: 8010
+默认端口: 8000
 """
 
 from __future__ import annotations

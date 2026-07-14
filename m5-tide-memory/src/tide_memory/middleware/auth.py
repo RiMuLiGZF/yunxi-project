@@ -29,10 +29,9 @@ logger = structlog.get_logger(__name__)
 # ========== 公开端点（跳过认证） ==========
 
 _PUBLIC_PATHS = (
-    # 健康检查
+    # 健康检查（M8 健康检查已纳入标准接口，需要 Token 鉴权）
     "/health",
     "/api/v1/health",
-    "/m8/health",
     # 公开文档
     "/docs",
     "/openapi.json",

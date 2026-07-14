@@ -34,7 +34,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 class ServerConfig(BaseModel):
     """服务配置"""
     host: str = "0.0.0.0"
-    port: int = 8010
+    port: int = 8000
     env: str = "development"
 
 
@@ -68,8 +68,8 @@ class PrincipalConfig(BaseModel):
 class CORSConfig(BaseModel):
     """CORS 配置"""
     origins: List[str] = Field(default_factory=lambda: [
-        "http://localhost:8010",
-        "http://127.0.0.1:8010",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ])
 
 

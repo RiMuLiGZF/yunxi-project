@@ -12,7 +12,7 @@ M0 是云汐系统的最高管控节点，仅对主理人（Owner）开放。
 - **后端**: FastAPI + SQLite
 - **前端**: 纯 HTML/CSS/JS（深色科技感主题）
 - **认证**: 复用 M8 JWT 认证体系，增加 Owner 角色校验
-- **端口**: 8010
+- **端口**: 8000
 
 ## 目录结构
 
@@ -72,7 +72,7 @@ cp config.example.yaml config.yaml
 python server.py
 ```
 
-访问 http://localhost:8010 ，使用主理人账号登录。
+访问 http://localhost:8000 ，使用主理人账号登录。
 
 ## MVP 功能
 
@@ -93,4 +93,4 @@ M0 通过 HTTP 调用 M8 的管理接口获取数据和下发指令。
 M8 未启动时，M0 提供 fallback mock 数据，保证界面可用。
 
 - M8 默认地址: `http://localhost:8000`
-- M0 端口: `8010`
+- M0 端口: `8000`
