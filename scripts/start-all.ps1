@@ -57,7 +57,7 @@ foreach ($mod in $Modules) {
 
         $Processes += @{ Name = $mod.Name; Process = $process; Port = $mod.Port }
 
-        $timeout = 20
+        $timeout = 60
         $elapsed = 0
         $ready = $false
         while ($elapsed -lt $timeout) {
