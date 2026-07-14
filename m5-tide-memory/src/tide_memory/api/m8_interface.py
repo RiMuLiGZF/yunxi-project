@@ -3,54 +3,23 @@ M8 标准接口适配层
 
 M5 潮汐记忆系统对接 M8 标准接口规范
 所有对外接口遵循 M8 统一错误码和响应格式
+
+错误码统一说明：
+    错误码唯一来源为 tide_memory.errors.ErrorCode，
+    M8ErrorCode 作为向后兼容别名，映射到同一枚举。
 """
 
 from __future__ import annotations
 
 import os
-from enum import IntEnum
 from typing import Any, Dict, Optional
 from datetime import datetime
 
 from ..core.version import get_module_version
+from ..errors import ErrorCode
 
-
-class M8ErrorCode(IntEnum):
-    """M8 统一错误码（M5分段 50000-59999）"""
-    SUCCESS = 0
-    
-    # 通用错误
-    UNKNOWN_ERROR = 50000
-    INVALID_PARAMS = 50001
-    UNAUTHORIZED = 50002
-    FORBIDDEN = 50003
-    NOT_FOUND = 50004
-    RATE_LIMITED = 50005
-    INTERNAL_ERROR = 50006
-    
-    # 记忆相关
-    MEMORY_NOT_FOUND = 50101
-    MEMORY_TOO_LARGE = 50102
-    MEMORY_ENCRYPTION_FAILED = 50103
-    MEMORY_DECRYPTION_FAILED = 50104
-    
-    # 权限相关
-    PERMISSION_DENIED = 50201
-    DOMAIN_NOT_ACCESSIBLE = 50202
-    CLASSIFICATION_TOO_HIGH = 50203
-    
-    # 存储相关
-    STORAGE_FULL = 50301
-    STORAGE_ERROR = 50302
-    SYNC_FAILED = 50303
-    
-    # 检索相关
-    SEARCH_TIMEOUT = 50401
-    VECTOR_INDEX_ERROR = 50402
-    
-    # 巩固相关
-    CONSOLIDATION_RUNNING = 50501
-    CONSOLIDATION_FAILED = 50502
+# 向后兼容别名：外部模块可继续通过 M8ErrorCode 引用错误码
+M8ErrorCode = ErrorCode
 
 
 class M8Response:
@@ -59,7 +28,7 @@ class M8Response:
     @staticmethod
     def success(data: Any = None, message: str = "success") -> Dict:
         return {
-            "code": M8ErrorCode.SUCCESS,
+            "code": ErrorCode.SUCCESS,
             "message": message,
             "data": data,
             "request_id": M8Interface.generate_request_id(),
@@ -67,7 +36,7 @@ class M8Response:
         }
 
     @staticmethod
-    def error(code: M8ErrorCode, message: str = None, data: Any = None) -> Dict:
+    def error(code: ErrorCode, message: str = None, data: Any = None) -> Dict:
         return {
             "code": code.value,
             "message": message or code.name,
@@ -82,7 +51,7 @@ class M8Interface:
     M8 标准接口适配层
     
     提供符合M8规范的统一接口：
-    - 标准错误码
+    - 标准错误码（统一来源：ErrorCode）
     - 标准响应格式
     - 标准请求ID
     - 统一鉴权入口
@@ -181,7 +150,7 @@ class M8Interface:
                 "storage_used_mb": storage_used_mb,
             })
         except Exception as e:
-            return M8Response.error(M8ErrorCode.INTERNAL_ERROR, str(e))
+            return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_config(self, params: Dict = None) -> Dict:
         """M8标准：配置查询"""
@@ -209,7 +178,7 @@ class M8Interface:
         try:
             query = params.get("query", "")
             if not query:
-                return M8Response.error(M8ErrorCode.INVALID_PARAMS, "query is required")
+                return M8Response.error(ErrorCode.INVALID_PARAMS, "query is required")
 
             top_k = params.get("top_k", 10)
             filters = params.get("filters", {})
@@ -217,7 +186,7 @@ class M8Interface:
 
             skill_if = self._app.get("skill_interface")
             if not skill_if:
-                return M8Response.error(M8ErrorCode.INTERNAL_ERROR, "service not initialized")
+                return M8Response.error(ErrorCode.INTERNAL_ERROR, "service not initialized")
 
             result = skill_if.recall(
                 query=query,
@@ -232,8 +201,8 @@ class M8Interface:
 
             if not result.get("success"):
                 if result.get("error") == "permission_denied":
-                    return M8Response.error(M8ErrorCode.PERMISSION_DENIED)
-                return M8Response.error(M8ErrorCode.UNKNOWN_ERROR, result.get("error", ""))
+                    return M8Response.error(ErrorCode.PERMISSION_DENIED)
+                return M8Response.error(ErrorCode.UNKNOWN_ERROR, result.get("error", ""))
 
             return M8Response.success({
                 "results": result.get("results", []),
@@ -242,7 +211,7 @@ class M8Interface:
             })
 
         except Exception as e:
-            return M8Response.error(M8ErrorCode.INTERNAL_ERROR, str(e))
+            return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_archive(self, params: Dict) -> Dict:
         """
@@ -258,14 +227,14 @@ class M8Interface:
         try:
             content = params.get("content", "")
             if not content:
-                return M8Response.error(M8ErrorCode.INVALID_PARAMS, "content is required")
+                return M8Response.error(ErrorCode.INVALID_PARAMS, "content is required")
 
             metadata = params.get("metadata", {})
             context = params.get("context", {})
 
             skill_if = self._app.get("skill_interface")
             if not skill_if:
-                return M8Response.error(M8ErrorCode.INTERNAL_ERROR, "service not initialized")
+                return M8Response.error(ErrorCode.INTERNAL_ERROR, "service not initialized")
 
             result = skill_if.archive(
                 content=content,
@@ -279,8 +248,8 @@ class M8Interface:
 
             if not result.get("success"):
                 if result.get("error") == "permission_denied":
-                    return M8Response.error(M8ErrorCode.PERMISSION_DENIED)
-                return M8Response.error(M8ErrorCode.UNKNOWN_ERROR, result.get("error", ""))
+                    return M8Response.error(ErrorCode.PERMISSION_DENIED)
+                return M8Response.error(ErrorCode.UNKNOWN_ERROR, result.get("error", ""))
 
             return M8Response.success({
                 "memory_id": result.get("archive_id"),
@@ -290,7 +259,7 @@ class M8Interface:
             })
 
         except Exception as e:
-            return M8Response.error(M8ErrorCode.INTERNAL_ERROR, str(e))
+            return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def m8_get_stats(self, params: Dict = None) -> Dict:
         """M8标准：获取统计信息"""
@@ -302,7 +271,7 @@ class M8Interface:
             stats = skill_if.get_stats(params.get("domain", "private") if params else "private")
             return M8Response.success(stats)
         except Exception as e:
-            return M8Response.error(M8ErrorCode.INTERNAL_ERROR, str(e))
+            return M8Response.error(ErrorCode.INTERNAL_ERROR, str(e))
 
     def get_interface_spec(self) -> Dict:
         """获取M8接口规范定义"""
@@ -319,6 +288,6 @@ class M8Interface:
                 {"name": "archive", "method": "POST", "path": "/m8/memory/archive"},
                 {"name": "stats", "method": "GET", "path": "/m8/memory/stats"},
             ],
-            "error_codes": {e.name: e.value for e in M8ErrorCode},
+            "error_codes": {e.name: e.value for e in ErrorCode},
         }
 # vim: set et ts=4 sw=4:
