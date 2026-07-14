@@ -13,13 +13,17 @@ import time
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from collections import defaultdict
+from collections import defaultdict, deque
+
+import structlog
 
 # 脱敏工具
 try:
     from .masking import mask_audit_data, mask_sensitive_data, AUDIT_SENSITIVE_FIELDS
 except ImportError:
     from masking import mask_audit_data, mask_sensitive_data, AUDIT_SENSITIVE_FIELDS
+
+logger = structlog.get_logger(__name__)
 
 
 # ===========================================================================
@@ -37,10 +41,14 @@ class AuditService:
 
     def __init__(self):
         """初始化审计服务"""
-        # 安全事件存储
-        self._security_events: List[Dict[str, Any]] = []
-        # 审计日志存储
-        self._audit_logs: List[Dict[str, Any]] = []
+        # 最大保留条数（内存中），超出时自动淘汰最旧记录
+        self._max_events = 10000
+        self._max_logs = 10000
+
+        # 安全事件存储（有界双端队列，达到上限自动淘汰最旧记录）
+        self._security_events: deque = deque(maxlen=self._max_events)
+        # 审计日志存储（有界双端队列，达到上限自动淘汰最旧记录）
+        self._audit_logs: deque = deque(maxlen=self._max_logs)
 
         # 事件 ID 计数器
         self._event_id_counter = 0
@@ -61,9 +69,12 @@ class AuditService:
         # 线程锁
         self._lock = threading.Lock()
 
-        # 最大保留条数（内存中）
-        self._max_events = 10000
-        self._max_logs = 10000
+        logger.info(
+            "m12.audit.service_initialized",
+            max_events=self._max_events,
+            max_logs=self._max_logs,
+            message="审计服务已初始化（有界内存存储）",
+        )
 
     # -----------------------------------------------------------------------
     # 安全事件
@@ -122,6 +133,14 @@ class AuditService:
                 "created_timestamp": now,
             }
 
+            # 达到容量上限时，deque(maxlen) 将在 append 时自动淘汰最旧记录
+            if len(self._security_events) >= self._max_events:
+                logger.warning(
+                    "m12.audit.events_buffer_full",
+                    max_events=self._max_events,
+                    event_type=event_type,
+                    message="安全事件缓冲区已达上限，最旧记录将被自动淘汰",
+                )
             self._security_events.append(event)
 
             # 更新统计
@@ -138,10 +157,6 @@ class AuditService:
             # 按小时统计
             hour_key = datetime.fromtimestamp(now).strftime("%Y-%m-%d %H:00")
             self._stats["events_by_hour"][hour_key] += 1
-
-            # 限制最大条数
-            if len(self._security_events) > self._max_events:
-                self._security_events = self._security_events[-self._max_events:]
 
             return event
 
@@ -335,12 +350,16 @@ class AuditService:
                 "created_at": datetime.now().isoformat(),
             }
 
+            # 达到容量上限时，deque(maxlen) 将在 append 时自动淘汰最旧记录
+            if len(self._audit_logs) >= self._max_logs:
+                logger.warning(
+                    "m12.audit.logs_buffer_full",
+                    max_logs=self._max_logs,
+                    action=action,
+                    message="审计日志缓冲区已达上限，最旧记录将被自动淘汰",
+                )
             self._audit_logs.append(log)
             self._stats["total_logs"] += 1
-
-            # 限制最大条数
-            if len(self._audit_logs) > self._max_logs:
-                self._audit_logs = self._audit_logs[-self._max_logs:]
 
             return log
 

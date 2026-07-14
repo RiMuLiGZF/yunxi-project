@@ -27,6 +27,8 @@ class YunxiConfig:
             "m7": int(os.getenv("M7_PORT", "8007")),
             "m8": int(os.getenv("M8_PORT", "8008")),
             "m10": int(os.getenv("M10_PORT", "8010")),
+            "m11": int(os.getenv("M11_PORT", "8011")),
+            "m12": int(os.getenv("M12_PORT", "8012")),
         }
 
         # ===== 模块主机配置 =====
@@ -41,6 +43,8 @@ class YunxiConfig:
             "m7": os.getenv("M7_HOST", "0.0.0.0"),
             "m8": os.getenv("M8_HOST", "0.0.0.0"),
             "m10": os.getenv("M10_HOST", "0.0.0.0"),
+            "m11": os.getenv("M11_HOST", "0.0.0.0"),
+            "m12": os.getenv("M12_HOST", "0.0.0.0"),
         }
 
         # ===== 模块管理令牌配置 =====
@@ -55,6 +59,8 @@ class YunxiConfig:
             "m7": os.getenv("M7_ADMIN_TOKEN", "yunxi-m7-admin-token-2026"),
             "m8": os.getenv("M8_ADMIN_TOKEN", "yunxi-m8-admin-token-2026"),
             "m10": os.getenv("M10_ADMIN_TOKEN", "yunxi-m10-admin-token-2026"),
+            "m11": os.getenv("M11_ADMIN_TOKEN", "yunxi-m11-admin-token-2026"),
+            "m12": os.getenv("M12_ADMIN_TOKEN", "yunxi-m12-admin-token-2026"),
         }
 
         # ===== 模块 Base URL 配置 =====
@@ -69,6 +75,40 @@ class YunxiConfig:
             "m7": os.getenv("M7_BASE_URL", "http://localhost:8007"),
             "m8": os.getenv("M8_BASE_URL", "http://localhost:8008"),
             "m10": os.getenv("M10_BASE_URL", "http://localhost:8010"),
+            "m11": os.getenv("M11_BASE_URL", "http://localhost:8011"),
+            "m12": os.getenv("M12_BASE_URL", "http://localhost:8012"),
+        }
+
+        # ===== 模块 Python 可执行文件配置（进程管理用） =====
+        self.module_python_executables: dict = {
+            "m0": os.getenv("M0_PYTHON", "python"),
+            "m1": os.getenv("M1_PYTHON", "python"),
+            "m2": os.getenv("M2_PYTHON", "python"),
+            "m3": os.getenv("M3_PYTHON", "python"),
+            "m4": os.getenv("M4_PYTHON", "python"),
+            "m5": os.getenv("M5_PYTHON", "python"),
+            "m6": os.getenv("M6_PYTHON", "python"),
+            "m7": os.getenv("M7_PYTHON", "python"),
+            "m8": os.getenv("M8_PYTHON", "python"),
+            "m10": os.getenv("M10_PYTHON", "python"),
+            "m11": os.getenv("M11_PYTHON", "python"),
+            "m12": os.getenv("M12_PYTHON", "python"),
+        }
+
+        # ===== 模块健康检查路径配置 =====
+        self.module_health_checks: dict = {
+            "m0": "/health",
+            "m1": "/health",
+            "m2": "/health",
+            "m3": "/health",
+            "m4": "/health",
+            "m5": "/health",
+            "m6": "/health",
+            "m7": "/health",
+            "m8": "/health",
+            "m10": "/health",
+            "m11": "/health",
+            "m12": "/health",
         }
 
         # ===== 全局安全配置 =====
@@ -93,6 +133,14 @@ class YunxiConfig:
     def get_module_base_url(self, module_key: str) -> Optional[str]:
         """获取指定模块的 Base URL"""
         return self.module_base_urls.get(module_key)
+
+    def get_module_python_executable(self, module_key: str) -> Optional[str]:
+        """获取指定模块的 Python 可执行文件路径（进程管理用）"""
+        return self.module_python_executables.get(module_key)
+
+    def get_module_health_check(self, module_key: str) -> Optional[str]:
+        """获取指定模块的健康检查路径"""
+        return self.module_health_checks.get(module_key)
 
     def get_all_module_keys(self) -> list:
         """获取所有模块的 key 列表"""

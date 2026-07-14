@@ -14,6 +14,15 @@ from typing import Dict, List, Optional
 # 模块配置（硬编码）
 MODULE_CONFIGS: List[dict] = [
     {
+        "key": "m0",
+        "name": "主理人管控台",
+        "work_dir": "M0-principal-console",
+        "start_cmd": "python server.py",
+        "port": 8000,
+        "python_executable": "python",
+        "health_check": "/health",
+    },
+    {
         "key": "m1",
         "name": "代理集群",
         "work_dir": "M1-agent-hub",
@@ -75,6 +84,24 @@ MODULE_CONFIGS: List[dict] = [
         "work_dir": "M10-system-guard",
         "start_cmd": "python server.py",
         "port": 8010,
+    },
+    {
+        "key": "m11",
+        "name": "MCP总线",
+        "work_dir": "M11-mcp-bus",
+        "start_cmd": "python server.py",
+        "port": 8011,
+        "python_executable": "python",
+        "health_check": "/health",
+    },
+    {
+        "key": "m12",
+        "name": "安全盾",
+        "work_dir": "M12-security-shield",
+        "start_cmd": "python server.py",
+        "port": 8012,
+        "python_executable": "python",
+        "health_check": "/health",
     },
 ]
 

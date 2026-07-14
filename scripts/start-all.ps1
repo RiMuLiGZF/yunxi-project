@@ -2,7 +2,7 @@
 .SYNOPSIS
 云汐系统一键启动脚本
 .DESCRIPTION
-按依赖顺序启动所有 8 个模块
+按依赖顺序启动所有模块（M0-M12）
 #>
 
 $ErrorActionPreference = "Continue"
@@ -67,10 +67,31 @@ $Modules = @(
     },
     @{
         Name = "M8-管理台"
-        Port = 8000
+        Port = 8008
         Path = "M8-control-tower\backend"
-        Cmd = "uvicorn main:app --port 8000"
+        Cmd = "uvicorn main:app --port 8008"
         LogFile = "m8.log"
+    },
+    @{
+        Name = "M0-主理人管控台"
+        Port = 8000
+        Path = "M0-principal-console"
+        Cmd = "python server.py"
+        LogFile = "m0.log"
+    },
+    @{
+        Name = "M11-MCP总线"
+        Port = 8011
+        Path = "M11-mcp-bus"
+        Cmd = "python server.py"
+        LogFile = "m11.log"
+    },
+    @{
+        Name = "M12-安全盾"
+        Port = 8012
+        Path = "M12-security-shield"
+        Cmd = "python server.py"
+        LogFile = "m12.log"
     }
 )
 
@@ -136,7 +157,10 @@ foreach ($mod in $Modules) {
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "  启动完成！成功 $successCount / $($Modules.Count)" -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
-Write-Host "  M8 管理台: http://localhost:8000/startup/index.html" -ForegroundColor White
+Write-Host "  M0 主理人管控台: http://localhost:8000" -ForegroundColor White
+Write-Host "  M8 管理台: http://localhost:8008/startup/index.html" -ForegroundColor White
+Write-Host "  M11 MCP总线: http://localhost:8011" -ForegroundColor White
+Write-Host "  M12 安全盾: http://localhost:8012" -ForegroundColor White
 Write-Host "  日志目录: $LogDir" -ForegroundColor Gray
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
