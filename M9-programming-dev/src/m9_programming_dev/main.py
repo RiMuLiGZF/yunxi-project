@@ -50,13 +50,13 @@ def _verify_m8_token(x_m8_token: str = "") -> bool:
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict:
     """健康检查"""
     return {"status": "healthy", "module": "m9_programming_dev"}
 
 
 @app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
-async def m8_std_health(x_m8_token: str = Header(default="")):
+async def m8_std_health(x_m8_token: str = Header(default="")) -> dict:
     """M8 标准健康检查接口."""
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
@@ -74,7 +74,7 @@ async def m8_std_health(x_m8_token: str = Header(default="")):
 
 
 @app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
-async def m8_std_metrics(x_m8_token: str = Header(default="")):
+async def m8_std_metrics(x_m8_token: str = Header(default="")) -> dict:
     """M8 标准性能指标接口."""
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
@@ -103,7 +103,7 @@ async def m8_std_metrics(x_m8_token: str = Header(default="")):
 
 
 @app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
-async def m8_std_config(x_m8_token: str = Header(default="")):
+async def m8_std_config(x_m8_token: str = Header(default="")) -> dict:
     """M8 标准配置查询接口."""
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
@@ -122,7 +122,7 @@ async def m8_std_config(x_m8_token: str = Header(default="")):
 
 
 @app.get("/")
-async def root():
+async def root() -> dict:
     return {
         "module": "M9-programming-dev",
         "name": "编程开发模块",

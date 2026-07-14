@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/execute", response_model=CodeExecutionResult)
-async def execute_code(request: CodeExecutionRequest):
+async def execute_code(request: CodeExecutionRequest) -> CodeExecutionResult:
     """执行代码"""
     try:
         result = code_executor.execute(request)
@@ -18,7 +18,7 @@ async def execute_code(request: CodeExecutionRequest):
 
 
 @router.get("/languages")
-async def list_supported_languages():
+async def list_supported_languages() -> dict:
     """列出支持的编程语言"""
     return {
         "supported_languages": list(code_executor.LANGUAGE_COMMANDS.keys()),

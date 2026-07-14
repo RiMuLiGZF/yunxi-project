@@ -1,11 +1,20 @@
 """M9 项目管理接口"""
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from typing import List, Dict
 from ..models import ProjectInfo
 from ..project_manager import project_manager
+from ..models.errors import ErrorCode, M9Exception, http_from_error
 
 router = APIRouter()
+
+
+class CreateProjectRequest(BaseModel):
+    """创建项目请求体"""
+    name: str
+    description: str = ""
+    language: str = ""
 
 
 @router.get("/", response_model=List[ProjectInfo])
@@ -19,14 +28,17 @@ async def get_project(project_id: str):
     """获取项目详情"""
     project = project_manager.get_project(project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="项目不存在")
+        raise HTTPException(status_code=404, detail={
+            "code": ErrorCode.PROJECT_NOT_FOUND,
+            "message": "项目不存在",
+        })
     return project
 
 
 @router.post("/", response_model=ProjectInfo)
-async def create_project(name: str, description: str = "", language: str = ""):
+async def create_project(req: CreateProjectRequest):
     """创建新项目"""
-    return project_manager.create_project(name, description, language)
+    return project_manager.create_project(req.name, req.description, req.language)
 
 
 @router.delete("/{project_id}")
@@ -34,7 +46,10 @@ async def delete_project(project_id: str):
     """删除项目"""
     if project_manager.delete_project(project_id):
         return {"status": "deleted"}
-    raise HTTPException(status_code=404, detail="项目不存在")
+    raise HTTPException(status_code=404, detail={
+        "code": ErrorCode.PROJECT_NOT_FOUND,
+        "message": "项目不存在",
+    })
 
 
 @router.get("/{project_id}/files")
@@ -42,5 +57,8 @@ async def list_project_files(project_id: str, path: str = ""):
     """列出项目文件"""
     project = project_manager.get_project(project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="项目不存在")
+        raise HTTPException(status_code=404, detail={
+            "code": ErrorCode.PROJECT_NOT_FOUND,
+            "message": "项目不存在",
+        })
     return project_manager.get_project_files(project_id, path)
