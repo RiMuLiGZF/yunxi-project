@@ -15,7 +15,7 @@ try:
         GatewayWafCheckRequest, GatewayWafCheckResponse,
         GatewayWafBatchRequest, GatewayWafBatchResponse,
     )
-    from ..auth import get_current_user, require_scope, SCOPE_WAF_READ, SCOPE_WAF_WRITE
+    from ..auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN
 except ImportError:
     import sys
     from pathlib import Path
@@ -27,7 +27,7 @@ except ImportError:
         GatewayWafCheckRequest, GatewayWafCheckResponse,
         GatewayWafBatchRequest, GatewayWafBatchResponse,
     )
-    from auth import get_current_user, require_scope, SCOPE_WAF_READ, SCOPE_WAF_WRITE
+    from auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN
 
 router = APIRouter(prefix="/api/m12/waf", tags=["M12-WAF防护墙"])
 
@@ -50,7 +50,10 @@ def waf_status():
 
 
 @router.post("/toggle", summary="启用/禁用 WAF")
-def waf_toggle(enabled: Optional[bool] = None):
+def waf_toggle(
+    enabled: Optional[bool] = None,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     启用或禁用 WAF 防护墙
 
@@ -140,6 +143,7 @@ def create_rule(
     action: str = "block",
     description: str = "",
     is_active: bool = True,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     新增自定义 WAF 防护规则
@@ -171,6 +175,7 @@ def update_rule(
     action: Optional[str] = None,
     description: Optional[str] = None,
     is_active: Optional[bool] = None,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     更新指定的 WAF 规则配置
@@ -201,7 +206,10 @@ def update_rule(
 
 
 @router.delete("/rules/{rule_id}", summary="删除规则")
-def delete_rule(rule_id: int):
+def delete_rule(
+    rule_id: int,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     删除指定的 WAF 规则（仅自定义规则可删除）
     """

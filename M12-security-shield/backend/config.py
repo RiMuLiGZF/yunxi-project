@@ -143,6 +143,12 @@ class Settings(BaseSettings):
     # 自动封禁时长（分钟）
     auto_ban_minutes: int = 60
 
+    # ===== 管理员账户配置 =====
+    # 管理员用户名（用于登录认证）
+    admin_username: str = ""
+    # 管理员密码哈希（bcrypt 格式，可通过 hash_password() 生成）
+    admin_password_hash: str = ""
+
     class Config:
         """pydantic-settings 配置"""
         env_prefix = "M12_"

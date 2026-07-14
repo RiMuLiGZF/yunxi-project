@@ -3,7 +3,7 @@
 提供安全态势概览、攻击趋势、威胁分布等仪表盘数据接口
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # 兼容相对导入和直接运行
 try:
@@ -12,6 +12,7 @@ try:
     from ..services.waf_engine import get_waf_engine
     from ..services.ip_filter import get_ip_filter
     from ..services.rate_limiter import get_rate_limiter
+    from ..auth import require_role, ROLE_VIEWER
 except ImportError:
     import sys
     from pathlib import Path
@@ -21,6 +22,7 @@ except ImportError:
     from services.waf_engine import get_waf_engine
     from services.ip_filter import get_ip_filter
     from services.rate_limiter import get_rate_limiter
+    from auth import require_role, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/dashboard", tags=["M12-安全仪表盘"])
 
@@ -30,7 +32,9 @@ router = APIRouter(prefix="/api/m12/dashboard", tags=["M12-安全仪表盘"])
 # ===========================================================================
 
 @router.get("/summary", summary="安全概览")
-def dashboard_summary():
+def dashboard_summary(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取安全仪表盘概览数据，包含核心安全指标
     """
@@ -99,7 +103,9 @@ def dashboard_summary():
 # ===========================================================================
 
 @router.get("/attack-trend", summary="攻击趋势")
-def attack_trend():
+def attack_trend(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取攻击趋势数据（最近 24 小时，按小时统计）
     """
@@ -142,7 +148,9 @@ def attack_trend():
 # ===========================================================================
 
 @router.get("/threat-distribution", summary="威胁分布")
-def threat_distribution():
+def threat_distribution(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取威胁类型分布数据
     """
@@ -181,6 +189,7 @@ def threat_distribution():
 @router.get("/attack-sources", summary="攻击来源")
 def attack_sources(
     limit: int = 10,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     获取攻击来源 IP 排行及地理位置分布
@@ -218,7 +227,9 @@ def attack_sources(
 # ===========================================================================
 
 @router.get("/realtime", summary="实时安全数据")
-def realtime_data():
+def realtime_data(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取实时安全数据（最近事件、实时拦截等）
     """

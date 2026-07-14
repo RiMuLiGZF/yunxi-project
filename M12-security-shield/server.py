@@ -285,11 +285,11 @@ _start_time_m8 = time.time()
 
 
 def _verify_m8_token(x_m8_token: str = "") -> bool:
-    """验证 M8 token（使用 hmac.compare_digest 防止时序攻击）."""
+    """验证 M8 管控塔身份令牌"""
     import hmac
     expected = os.environ.get("M12_ADMIN_TOKEN", "")
     if not expected:
-        return True
+        return False  # 环境变量未设置时，拒绝所有请求（安全默认）
     return hmac.compare_digest(x_m8_token, expected)
 
 

@@ -4,7 +4,7 @@
 """
 
 import time
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from typing import Optional
 
 # 兼容相对导入和直接运行
@@ -15,6 +15,7 @@ try:
     from ..services.ip_filter import get_ip_filter
     from ..services.audit_service import get_audit_service
     from ..config import get_settings
+    from ..auth import require_role, ROLE_ADMIN
 except ImportError:
     import sys
     from pathlib import Path
@@ -25,6 +26,7 @@ except ImportError:
     from services.ip_filter import get_ip_filter
     from services.audit_service import get_audit_service
     from config import get_settings
+    from auth import require_role, ROLE_ADMIN
 
 router = APIRouter(prefix="/api/m12/status", tags=["M12-状态检查"])
 
@@ -164,8 +166,10 @@ def service_overview():
 # 配置信息
 # ===========================================================================
 
-@router.get("/config", summary="配置信息")
-def config_info():
+@router.get("/config", summary="系统配置信息")
+def system_config(
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     获取当前运行配置（敏感信息已脱敏）
     """

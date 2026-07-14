@@ -3,7 +3,7 @@
 提供 IP 黑白名单管理、IP 检测、自动封禁等接口
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional
 from datetime import datetime
 
@@ -11,12 +11,14 @@ from datetime import datetime
 try:
     from ..models import make_response, make_error_response
     from ..services.ip_filter import get_ip_filter
+    from ..auth import require_role, ROLE_ADMIN, ROLE_OPERATOR
 except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from models import make_response, make_error_response
     from services.ip_filter import get_ip_filter
+    from auth import require_role, ROLE_ADMIN, ROLE_OPERATOR
 
 router = APIRouter(prefix="/api/m12/ip", tags=["M12-IP访问控制"])
 
@@ -100,6 +102,7 @@ def add_blacklist(
     severity: str = "medium",
     source: str = "manual",
     description: str = "",
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     添加 IP 到黑名单
@@ -135,7 +138,10 @@ def add_blacklist(
 
 
 @router.delete("/blacklist/{ip_address}", summary="移除黑名单")
-def remove_blacklist(ip_address: str):
+def remove_blacklist(
+    ip_address: str,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     从黑名单中移除指定 IP
     """
@@ -208,6 +214,7 @@ def add_whitelist(
     reason: str = "",
     source: str = "manual",
     description: str = "",
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     添加 IP 到白名单
@@ -240,7 +247,10 @@ def add_whitelist(
 
 
 @router.delete("/whitelist/{ip_address}", summary="移除白名单")
-def remove_whitelist(ip_address: str):
+def remove_whitelist(
+    ip_address: str,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     从白名单中移除指定 IP
     """

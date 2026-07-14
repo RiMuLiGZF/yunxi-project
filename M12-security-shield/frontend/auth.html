@@ -616,6 +616,17 @@
 <script>
   const API_BASE = 'http://localhost:8012';
 
+  // HTML 转义工具，防止 XSS
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // 鉴权检查
   function checkAuth() {
     const token = localStorage.getItem('m12_token');
@@ -700,7 +711,7 @@
           <div class="key-header">
             <div class="key-name">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-              ${k.name}
+              ${escapeHtml(k.name)}
               <span class="tag ${status.class}" style="font-size:10px;">${status.text}</span>
             </div>
             <span class="tag tag-info" style="font-size:10px;">${roleLabels[k.role]}</span>
@@ -708,10 +719,10 @@
           <div class="key-value">
             <span class="masked">${maskedKey}</span>
             <div class="flex gap-2">
-              <button class="copy-btn" onclick="toggleKeyVisibility('${k.id}', this)" title="显示/隐藏">
+              <button class="copy-btn" onclick="toggleKeyVisibility('${escapeHtml(k.id)}', this)" title="显示/隐藏">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               </button>
-              <button class="copy-btn" onclick="copyToClipboard('${k.key}')" title="复制">
+              <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(k.key)}')" title="复制">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
               </button>
             </div>
@@ -720,15 +731,15 @@
             <div class="key-stats">
               <span>今日: <strong style="color:var(--primary-light)">${k.todayCalls.toLocaleString()}</strong> 次</span>
               <span>累计: <strong style="color:var(--text-secondary)">${k.totalCalls.toLocaleString()}</strong> 次</span>
-              <span>过期: ${k.expiresAt}</span>
+              <span>过期: ${escapeHtml(k.expiresAt)}</span>
             </div>
             <div class="key-actions">
-              <button class="btn btn-ghost btn-sm" onclick="rotateKey('${k.id}')">轮换</button>
+              <button class="btn btn-ghost btn-sm" onclick="rotateKey('${escapeHtml(k.id)}')">轮换</button>
               ${k.status === 'active'
-                ? `<button class="btn btn-ghost btn-sm text-warning" onclick="disableKey('${k.id}')">禁用</button>`
-                : `<button class="btn btn-ghost btn-sm text-primary" onclick="enableKey('${k.id}')">启用</button>`
+                ? `<button class="btn btn-ghost btn-sm text-warning" onclick="disableKey('${escapeHtml(k.id)}')">禁用</button>`
+                : `<button class="btn btn-ghost btn-sm text-primary" onclick="enableKey('${escapeHtml(k.id)}')">启用</button>`
               }
-              <button class="btn btn-ghost btn-sm text-danger" onclick="deleteKey('${k.id}')">删除</button>
+              <button class="btn btn-ghost btn-sm text-danger" onclick="deleteKey('${escapeHtml(k.id)}')">删除</button>
             </div>
           </div>
         </div>
@@ -762,7 +773,7 @@
   function rotateKey(id) {
     const key = apiKeys.find(k => k.id === id);
     if (!key) return;
-    if (confirm(`确定要轮换密钥「${key.name}」吗？轮换后旧密钥将在 24 小时后失效。`)) {
+    if (confirm(`确定要轮换密钥「${key.name.replace(/</g, '&lt;')}」吗？轮换后旧密钥将在 24 小时后失效。`)) {
       showToast('密钥轮换中...', 'info');
       setTimeout(() => {
         key.key = 'm12sk_new_' + Math.random().toString(36).substring(2, 34);
@@ -775,7 +786,7 @@
   function disableKey(id) {
     const key = apiKeys.find(k => k.id === id);
     if (!key) return;
-    if (confirm(`确定要禁用密钥「${key.name}」吗？`)) {
+    if (confirm(`确定要禁用密钥「${key.name.replace(/</g, '&lt;')}」吗？`)) {
       key.status = 'disabled';
       renderKeys();
       showToast('密钥已禁用', 'success');
@@ -793,7 +804,7 @@
   function deleteKey(id) {
     const key = apiKeys.find(k => k.id === id);
     if (!key) return;
-    if (confirm(`确定要删除密钥「${key.name}」吗？此操作不可恢复！`)) {
+    if (confirm(`确定要删除密钥「${key.name.replace(/</g, '&lt;')}」吗？此操作不可恢复！`)) {
       apiKeys = apiKeys.filter(k => k.id !== id);
       renderKeys();
       showToast('密钥已删除', 'success');
@@ -897,16 +908,16 @@
               ${roleIcons[r.icon] || roleIcons.eye}
             </div>
             <div>
-              <div class="role-name">${r.name}</div>
-              <div class="role-desc">${r.desc}</div>
+              <div class="role-name">${escapeHtml(r.name)}</div>
+              <div class="role-desc">${escapeHtml(r.desc)}</div>
             </div>
           </div>
           <div class="role-perms">
-            ${r.perms.map(p => `<span class="role-perm">${p}</span>`).join('')}
+            ${r.perms.map(p => `<span class="role-perm">${escapeHtml(p)}</span>`).join('')}
           </div>
           <div class="role-footer">
             <span>${r.userCount} 个用户</span>
-            <button class="btn btn-ghost btn-sm" onclick="showToast('编辑角色：${r.name}', 'info')">编辑权限</button>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('编辑角色：${escapeHtml(r.name)}', 'info')">编辑权限</button>
           </div>
         </div>
       `;
@@ -929,7 +940,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
-              <span class="text-sm text-gray-200 truncate">${k.name}</span>
+              <span class="text-sm text-gray-200 truncate">${escapeHtml(k.name)}</span>
               <span class="text-xs font-mono text-primary">${k.todayCalls.toLocaleString()}</span>
             </div>
             <div class="progress-bar" style="height:3px;">

@@ -533,6 +533,17 @@
 <script>
   const API_BASE = 'http://localhost:8012';
 
+  // HTML 转义工具，防止 XSS
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // 鉴权检查
   function checkAuth() {
     const token = localStorage.getItem('m12_token');
@@ -638,33 +649,33 @@
     container.innerHTML = filtered.map(rule => {
       const iconData = ruleIcons[rule.type] || ruleIcons.custom;
       return `
-        <div class="rule-card ${rule.enabled ? '' : 'disabled'}" data-id="${rule.id}">
+        <div class="rule-card ${rule.enabled ? '' : 'disabled'}" data-id="${escapeHtml(rule.id)}">
           <div class="rule-header">
             <div class="rule-name">
               <div class="rule-icon" style="background: ${iconData.bg}; color: ${iconData.color};">
                 ${iconData.icon}
               </div>
-              <span>${rule.name}</span>
+              <span>${escapeHtml(rule.name)}</span>
               <span class="severity-dot ${sevClasses[rule.severity]}" title="${sevLabels[rule.severity]}"></span>
               ${rule.custom ? '<span class="tag tag-info" style="font-size:10px;">自定义</span>' : ''}
             </div>
             <label class="switch">
-              <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${rule.id}', this)">
+              <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${escapeHtml(rule.id)}', this)">
               <span class="slider"></span>
             </label>
           </div>
-          <div class="rule-desc">${rule.desc}</div>
+          <div class="rule-desc">${escapeHtml(rule.desc)}</div>
           <div class="rule-meta">
             <div class="rule-stats">
               <span>今日拦截: <strong style="color: var(--primary-light);">${rule.todayBlocks}</strong></span>
               <span>累计拦截: <strong style="color: var(--text-secondary);">${rule.totalBlocks.toLocaleString()}</strong></span>
             </div>
             <div class="rule-actions">
-              <button class="btn btn-ghost btn-sm" onclick="editRule('${rule.id}')">
+              <button class="btn btn-ghost btn-sm" onclick="editRule('${escapeHtml(rule.id)}')">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 编辑
               </button>
-              ${rule.custom ? `<button class="btn btn-ghost btn-sm text-danger" onclick="deleteRule('${rule.id}')">
+              ${rule.custom ? `<button class="btn btn-ghost btn-sm text-danger" onclick="deleteRule('${escapeHtml(rule.id)}')">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 删除
               </button>` : ''}

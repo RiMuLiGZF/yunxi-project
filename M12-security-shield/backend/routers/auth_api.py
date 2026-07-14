@@ -3,7 +3,7 @@
 提供 API 密钥管理、登录认证、Token 刷新等接口
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional
 
 # 兼容相对导入和直接运行
@@ -16,6 +16,9 @@ try:
         create_access_token,
         create_refresh_token,
         decode_token,
+        verify_password,
+        require_role,
+        ROLE_ADMIN,
     )
     from ..config import get_settings
 except ImportError:
@@ -30,6 +33,9 @@ except ImportError:
         create_access_token,
         create_refresh_token,
         decode_token,
+        verify_password,
+        require_role,
+        ROLE_ADMIN,
     )
     from config import get_settings
 
@@ -54,21 +60,34 @@ def login(
     """
     用户登录，获取访问令牌和刷新令牌
 
-    注意：当前为框架演示版本，实际使用需对接用户系统
+    当前通过环境变量配置的管理员账户进行认证。
+    首次部署前请设置 M12_ADMIN_USERNAME 和 M12_ADMIN_PASSWORD_HASH。
     """
     try:
         settings = get_settings()
 
-        # TODO: 对接真实用户系统进行验证
-        # 演示模式：任意非空用户名密码均可登录
         if not username or not password:
             return make_error_response("用户名和密码不能为空", code=400)
 
-        # 构造用户信息
+        # 检查管理员账户是否已配置
+        if not settings.admin_username or not settings.admin_password_hash:
+            return make_error_response(
+                "管理员账户未配置，请先设置 M12_ADMIN_USERNAME 和 M12_ADMIN_PASSWORD_HASH",
+                code=503,
+            )
+
+        # 验证用户名和密码
+        if username != settings.admin_username:
+            return make_error_response("用户名或密码错误", code=401)
+
+        if not verify_password(password, settings.admin_password_hash):
+            return make_error_response("用户名或密码错误", code=401)
+
+        # 构造用户信息（不再硬编码 admin 权限）
         user_info = {
             "user_id": f"user_{username}",
             "username": username,
-            "roles": ["admin"],
+            "roles": [ROLE_ADMIN],
             "scopes": ["*"],
         }
 
@@ -163,6 +182,7 @@ def list_api_keys(
     is_active: Optional[bool] = Query(None, description="是否启用筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     获取 API 密钥列表
@@ -206,6 +226,7 @@ def create_api_key(
     scopes: str = "",
     rate_limit: int = 0,
     description: str = "",
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     创建新的 API 密钥
@@ -253,7 +274,10 @@ def create_api_key(
 
 
 @router.get("/keys/{key_id}", summary="获取密钥详情")
-def get_api_key_detail(key_id: int):
+def get_api_key_detail(
+    key_id: int,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     获取单个 API 密钥的详细信息（不含密钥本身）
     """
@@ -283,6 +307,7 @@ def update_api_key(
     rate_limit: Optional[int] = None,
     description: Optional[str] = None,
     is_active: Optional[bool] = None,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     更新 API 密钥的配置信息
@@ -318,7 +343,10 @@ def update_api_key(
 
 
 @router.delete("/keys/{key_id}", summary="吊销密钥")
-def revoke_api_key(key_id: int):
+def revoke_api_key(
+    key_id: int,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     吊销（删除）指定的 API 密钥
     """
@@ -337,7 +365,10 @@ def revoke_api_key(key_id: int):
 
 
 @router.post("/keys/{key_id}/rotate", summary="轮换密钥")
-def rotate_api_key(key_id: int):
+def rotate_api_key(
+    key_id: int,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
     """
     轮换 API 密钥（生成新密钥，旧密钥失效）
 

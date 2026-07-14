@@ -3,7 +3,7 @@
 提供安全事件查询、审计日志、统计分析等接口
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional
 
 # 兼容相对导入和直接运行
@@ -11,6 +11,7 @@ try:
     from ..models import make_response, make_error_response
     from ..services.audit_service import get_audit_service
     from ..services.masking import mask_audit_data, mask_ip_address
+    from ..auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 except ImportError:
     import sys
     from pathlib import Path
@@ -18,6 +19,7 @@ except ImportError:
     from models import make_response, make_error_response
     from services.audit_service import get_audit_service
     from services.masking import mask_audit_data, mask_ip_address
+    from auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/audit", tags=["M12-安全审计"])
 
@@ -37,6 +39,7 @@ def list_events(
     end_time: Optional[str] = Query(None, description="结束时间"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     查询安全事件列表，支持多条件筛选和分页
@@ -62,7 +65,10 @@ def list_events(
 
 
 @router.get("/events/{event_id}", summary="事件详情")
-def get_event_detail(event_id: int):
+def get_event_detail(
+    event_id: int,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取单个安全事件的详细信息
     """
@@ -83,6 +89,7 @@ def resolve_event(
     event_id: int,
     resolution_note: str = "",
     status: str = "resolved",
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
 ):
     """
     处理安全事件（标记为已解决/已忽略等）
@@ -117,6 +124,7 @@ def list_audit_logs(
     keyword: Optional[str] = Query(None, description="关键词搜索"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     查询操作审计日志，支持多条件筛选和分页
@@ -145,7 +153,9 @@ def list_audit_logs(
 # ===========================================================================
 
 @router.get("/stats", summary="审计统计")
-def audit_stats():
+def audit_stats(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取安全审计的统计数据，包括事件总数、按类型/级别分布等
     """
@@ -158,7 +168,9 @@ def audit_stats():
 
 
 @router.get("/stats/summary", summary="统计概览")
-def stats_summary():
+def stats_summary(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取安全审计的简要统计概览
     """
@@ -183,7 +195,9 @@ def stats_summary():
 
 
 @router.get("/stats/by-type", summary="按类型统计")
-def stats_by_type():
+def stats_by_type(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     按事件类型统计安全事件分布
     """
@@ -207,7 +221,9 @@ def stats_by_type():
 
 
 @router.get("/stats/by-severity", summary="按级别统计")
-def stats_by_severity():
+def stats_by_severity(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     按严重级别统计安全事件分布
     """
@@ -230,7 +246,9 @@ def stats_by_severity():
 
 
 @router.get("/stats/trend", summary="趋势数据")
-def stats_trend():
+def stats_trend(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取安全事件的趋势数据（最近 24 小时，按小时统计）
     """
@@ -249,6 +267,7 @@ def stats_trend():
 @router.get("/stats/top-ips", summary="攻击来源 IP 排行")
 def stats_top_ips(
     limit: int = Query(10, ge=1, le=100, description="返回数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     获取攻击来源 IP 排行 TOP N

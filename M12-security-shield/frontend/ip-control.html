@@ -520,6 +520,17 @@
 <script>
   const API_BASE = 'http://localhost:8012';
 
+  // HTML 转义工具，防止 XSS
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // 鉴权检查
   function checkAuth() {
     const token = localStorage.getItem('m12_token');
@@ -632,12 +643,12 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
           </div>
           <div>
-            <div class="ip-addr">${item.ip}</div>
-            <div class="ip-detail">${item.desc} · 添加者: ${item.addedBy} · ${item.addedAt}</div>
+            <div class="ip-addr">${escapeHtml(item.ip)}</div>
+            <div class="ip-detail">${escapeHtml(item.desc)} · 添加者: ${escapeHtml(item.addedBy)} · ${escapeHtml(item.addedAt)}</div>
           </div>
         </div>
         <div class="ip-actions">
-          <button class="btn btn-ghost btn-sm" onclick="removeFromWhitelist('${item.ip}')">
+          <button class="btn btn-ghost btn-sm" onclick="removeFromWhitelist('${escapeHtml(item.ip)}')">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--danger);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             移除
           </button>
@@ -680,12 +691,12 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--danger-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
           </div>
           <div>
-            <div class="ip-addr">${item.ip}</div>
-            <div class="ip-detail">${item.reason} · 添加者: ${item.addedBy} · ${item.addedAt}</div>
+            <div class="ip-addr">${escapeHtml(item.ip)}</div>
+            <div class="ip-detail">${escapeHtml(item.reason)} · 添加者: ${escapeHtml(item.addedBy)} · ${escapeHtml(item.addedAt)}</div>
           </div>
         </div>
         <div class="ip-actions">
-          <button class="btn btn-ghost btn-sm" onclick="removeFromBlacklist('${item.ip}')">
+          <button class="btn btn-ghost btn-sm" onclick="removeFromBlacklist('${escapeHtml(item.ip)}')">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             解封
           </button>
@@ -733,15 +744,15 @@
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--warning);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <div style="flex:1;">
-              <div class="ip-addr">${item.ip} <span class="tag tag-warning" style="margin-left:6px;font-size:10px;">${item.country}</span></div>
-              <div class="ip-detail">${item.reason} · ${item.requests} 次请求 · 剩余 ${remainStr}</div>
+              <div class="ip-addr">${escapeHtml(item.ip)} <span class="tag tag-warning" style="margin-left:6px;font-size:10px;">${escapeHtml(item.country)}</span></div>
+              <div class="ip-detail">${escapeHtml(item.reason)} · ${item.requests} 次请求 · 剩余 ${escapeHtml(remainStr)}</div>
               <div class="ban-progress">
                 <div class="ban-progress-fill" style="width:${pct}%;"></div>
               </div>
             </div>
           </div>
           <div class="ip-actions">
-            <button class="btn btn-ghost btn-sm" onclick="unbanIp('${item.ip}')">
+            <button class="btn btn-ghost btn-sm" onclick="unbanIp('${escapeHtml(item.ip)}')">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--primary-light);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               解封
             </button>
@@ -816,7 +827,7 @@
       result.classList.add('allowed');
       title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>访问允许（白名单）';
       detail.innerHTML = `
-        IP 地址: <strong>${ip}</strong><br>
+        IP 地址: <strong>${escapeHtml(ip)}</strong><br>
         状态: <span style="color:var(--primary-light)">放行</span><br>
         匹配规则: 白名单规则<br>
         访问权限: 完全放行，不受 WAF 和速率限制
@@ -826,9 +837,9 @@
       const item = blacklist.find(b => ipMatches(ip, b.ip));
       title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>访问拒绝（黑名单）';
       detail.innerHTML = `
-        IP 地址: <strong>${ip}</strong><br>
+        IP 地址: <strong>${escapeHtml(ip)}</strong><br>
         状态: <span style="color:var(--danger-light)">封禁</span><br>
-        封禁原因: ${item.reason}<br>
+        封禁原因: ${escapeHtml(item.reason)}<br>
         封禁类型: 永久封禁<br>
         HTTP 响应: 403 Forbidden
       `;
@@ -838,9 +849,9 @@
       const mins = Math.floor(item.remaining / 60);
       title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>访问拒绝（自动封禁）';
       detail.innerHTML = `
-        IP 地址: <strong>${ip}</strong><br>
+        IP 地址: <strong>${escapeHtml(ip)}</strong><br>
         状态: <span style="color:var(--danger-light)">临时封禁</span><br>
-        封禁原因: ${item.reason}<br>
+        封禁原因: ${escapeHtml(item.reason)}<br>
         剩余时间: 约 ${mins} 分钟<br>
         请求次数: ${item.requests} 次
       `;
@@ -848,7 +859,7 @@
       result.classList.add('allowed');
       title.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>访问允许（正常）';
       detail.innerHTML = `
-        IP 地址: <strong>${ip}</strong><br>
+        IP 地址: <strong>${escapeHtml(ip)}</strong><br>
         状态: <span style="color:var(--primary-light)">正常访问</span><br>
         匹配规则: 无特殊规则<br>
         防护状态: 受 WAF 保护，速率限制生效
