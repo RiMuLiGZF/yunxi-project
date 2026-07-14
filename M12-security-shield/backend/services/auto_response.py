@@ -260,6 +260,85 @@ class AutoResponseEngine:
     # 事件处理
     # -----------------------------------------------------------------------
 
+    def _match_rules(self, event: SecurityEvent) -> List[Tuple[str, ResponseRule]]:
+        """评估哪些规则匹配当前事件（需在锁内调用）
+
+        Args:
+            event: 安全事件
+
+        Returns:
+            匹配的规则列表，每项为 (rule_id, rule)
+        """
+        matched: List[Tuple[str, ResponseRule]] = []
+        for rule_id, rule in self._rules.items():
+            if not rule.enabled:
+                continue
+            if event.event_type not in rule.event_types:
+                continue
+            count = self._get_event_count(
+                event.source_ip, event.event_type, rule.time_window_seconds
+            )
+            if count >= rule.threshold:
+                matched.append((rule_id, rule))
+        return matched
+
+    def _execute_action(
+        self,
+        event: SecurityEvent,
+        action: ResponseRule,
+        result: Dict[str, Any],
+    ) -> None:
+        """执行响应动作（需在锁内调用）
+
+        Args:
+            event: 安全事件
+            action: 触发的响应规则
+            result: 结果字典（会被修改）
+        """
+        rule = action
+        rule_id = rule.rule_id
+
+        if self._response_level == RESPONSE_LEVEL_LOG:
+            # log 级别：记录 + 告警
+            if "alert" not in result["actions"]:
+                result["actions"].append("alert")
+                self._stats["total_alerts"] += 1
+                alert_msg = (
+                    f"[{rule.risk_level.upper()}] {rule.name}: "
+                    f"IP {event.source_ip} 触发 {rule_id}"
+                )
+                self._alerts.append({
+                    "timestamp": time.time(),
+                    "ip": event.source_ip,
+                    "rule_id": rule_id,
+                    "rule_name": rule.name,
+                    "severity": rule.risk_level,
+                    "message": alert_msg,
+                    "event_type": event.event_type,
+                })
+                result["alert_message"] = alert_msg
+
+        elif self._response_level == RESPONSE_LEVEL_BLOCK:
+            # block 级别：记录 + 告警 + 封禁
+            if "alert" not in result["actions"]:
+                result["actions"].append("alert")
+                self._stats["total_alerts"] += 1
+
+            if rule.action == "ban" and rule.ban_duration_minutes > 0:
+                is_banned, _ = self._is_ip_banned(event.source_ip)
+                if not is_banned:
+                    self._do_ban(
+                        ip=event.source_ip,
+                        duration_minutes=rule.ban_duration_minutes,
+                        reason=rule.description,
+                        rule_id=rule_id,
+                        severity=rule.risk_level,
+                    )
+                    result["banned"] = True
+                    result["ban_duration_minutes"] = rule.ban_duration_minutes
+                    if "ban" not in result["actions"]:
+                        result["actions"].append("ban")
+
     def process_event(self, event: SecurityEvent) -> Dict[str, Any]:
         """处理安全事件，判断是否触发响应
 
@@ -298,62 +377,12 @@ class AutoResponseEngine:
             # 记录事件到计数器
             self._record_event(event)
 
-            # 检查各规则是否触发
-            for rule_id, rule in self._rules.items():
-                if not rule.enabled:
-                    continue
-
-                if event.event_type not in rule.event_types:
-                    continue
-
-                # 检查时间窗口内的事件次数
-                count = self._get_event_count(event.source_ip, event.event_type,
-                                               rule.time_window_seconds)
-
-                if count >= rule.threshold:
-                    result["triggered"] = True
-                    result["rules_triggered"].append(rule_id)
-
-                    # 根据响应级别决定动作
-                    if self._response_level == RESPONSE_LEVEL_LOG:
-                        # log 级别：记录 + 告警
-                        if "alert" not in result["actions"]:
-                            result["actions"].append("alert")
-                            self._stats["total_alerts"] += 1
-                            alert_msg = f"[{rule.risk_level.upper()}] {rule.name}: " \
-                                        f"IP {event.source_ip} 触发 {rule.rule_id}"
-                            self._alerts.append({
-                                "timestamp": time.time(),
-                                "ip": event.source_ip,
-                                "rule_id": rule_id,
-                                "rule_name": rule.name,
-                                "severity": rule.risk_level,
-                                "message": alert_msg,
-                                "event_type": event.event_type,
-                            })
-                            result["alert_message"] = alert_msg
-
-                    elif self._response_level == RESPONSE_LEVEL_BLOCK:
-                        # block 级别：记录 + 告警 + 封禁
-                        if "alert" not in result["actions"]:
-                            result["actions"].append("alert")
-                            self._stats["total_alerts"] += 1
-
-                        if rule.action == "ban" and rule.ban_duration_minutes > 0:
-                            # 执行封禁
-                            is_banned, _ = self._is_ip_banned(event.source_ip)
-                            if not is_banned:
-                                self._do_ban(
-                                    ip=event.source_ip,
-                                    duration_minutes=rule.ban_duration_minutes,
-                                    reason=rule.description,
-                                    rule_id=rule_id,
-                                    severity=rule.risk_level,
-                                )
-                                result["banned"] = True
-                                result["ban_duration_minutes"] = rule.ban_duration_minutes
-                                if "ban" not in result["actions"]:
-                                    result["actions"].append("ban")
+            # 检查各规则是否触发并执行动作
+            matched_rules = self._match_rules(event)
+            for rule_id, rule in matched_rules:
+                result["triggered"] = True
+                result["rules_triggered"].append(rule_id)
+                self._execute_action(event, rule, result)
 
             return result
 
@@ -878,13 +907,12 @@ def get_auto_response_engine() -> AutoResponseEngine:
 # 兼容直接运行测试
 if __name__ == "__main__":
     engine = get_auto_response_engine()
-    print("自动响应引擎已初始化")
-    print(f"响应级别: {engine.get_response_level()}")
-    print(f"内置规则数: {len(engine.get_rules())}")
-    print()
+    logger.info("自动响应引擎已初始化")
+    logger.info("响应级别: %s", engine.get_response_level())
+    logger.info("内置规则数: %s", len(engine.get_rules()))
 
     # 测试 detect 级别
-    print("=== Detect 级别 ===")
+    logger.info("=== Detect 级别 ===")
     event = SecurityEvent(
         event_type=EVENT_TYPE_SQL_INJECTION,
         source_ip="192.168.1.100",
@@ -892,12 +920,12 @@ if __name__ == "__main__":
         description="SQL 注入攻击",
     )
     result = engine.process_event(event)
-    print(f"SQL 注入事件处理: triggered={result['triggered']}")
-    print(f"  原因: detect 级别只记录不响应")
+    logger.info("SQL 注入事件处理: triggered=%s", result["triggered"])
+    logger.info("  原因: detect 级别只记录不响应")
 
     # 切换到 block 级别
     engine.set_response_level(RESPONSE_LEVEL_BLOCK)
-    print(f"\n=== Block 级别 (切换后) ===")
+    logger.info("=== Block 级别 (切换后) ===")
 
     # 测试 SQL 注入封禁
     event2 = SecurityEvent(
@@ -907,14 +935,14 @@ if __name__ == "__main__":
         description="SQL 注入攻击测试",
     )
     result2 = engine.process_event(event2)
-    print(f"SQL 注入事件处理:")
-    print(f"  triggered: {result2['triggered']}")
-    print(f"  actions: {result2['actions']}")
-    print(f"  banned: {result2['banned']}")
-    print(f"  ban_duration: {result2['ban_duration_minutes']} 分钟")
+    logger.info("SQL 注入事件处理:")
+    logger.info("  triggered: %s", result2["triggered"])
+    logger.info("  actions: %s", result2["actions"])
+    logger.info("  banned: %s", result2["banned"])
+    logger.info("  ban_duration: %s 分钟", result2["ban_duration_minutes"])
 
     # 测试暴力破解封禁
-    print(f"\n=== 暴力破解测试（需要 10 次登录失败）===")
+    logger.info("=== 暴力破解测试（需要 10 次登录失败）===")
     for i in range(10):
         ev = SecurityEvent(
             event_type=EVENT_TYPE_LOGIN_FAILED,
@@ -922,23 +950,27 @@ if __name__ == "__main__":
             severity="medium",
             description=f"登录失败 #{i+1}",
         )
-        result3 = engine.process_event(ev)
+        engine.process_event(ev)
 
-    print(f"10 次登录失败后，封禁状态:")
+    logger.info("10 次登录失败后，封禁状态:")
     banned, ban_info = engine.is_ip_banned("172.16.0.50")
-    print(f"  被封禁: {banned}")
+    logger.info("  被封禁: %s", banned)
     if ban_info:
-        print(f"  原因: {ban_info.reason}")
-        print(f"  时长: {int((ban_info.expires_at - time.time()) / 60)} 分钟")
+        logger.info("  原因: %s", ban_info.reason)
+        logger.info("  时长: %s 分钟", int((ban_info.expires_at - time.time()) / 60))
 
     # 统计
-    print(f"\n=== 统计 ===")
+    logger.info("=== 统计 ===")
     stats = engine.get_stats()
     for k, v in stats.items():
-        print(f"  {k}: {v}")
+        logger.info("  %s: %s", k, v)
 
     # 封禁列表
-    print(f"\n=== 封禁列表 ===")
+    logger.info("=== 封禁列表 ===")
     for ban in engine.get_banned_ips():
-        print(f"  {ban['ip_address']}: {ban['reason'][:30]}... "
-              f"(剩余 {ban['remaining_minutes']} 分钟)")
+        logger.info(
+            "  %s: %s... (剩余 %s 分钟)",
+            ban["ip_address"],
+            ban["reason"][:30],
+            ban["remaining_minutes"],
+        )
