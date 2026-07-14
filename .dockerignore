@@ -1,0 +1,83 @@
+# ============================================================
+# 云汐系统 - Docker 构建忽略文件
+# 用途: 排除不需要打包进镜像的文件，减小镜像体积
+# ============================================================
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试与覆盖率
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+tests/
+*.test
+
+# 数据目录（通过 volume 挂载，不打包进镜像）
+data/
+
+# 前端资源（前端单独构建）
+frontend/
+node_modules/
+*.log
+
+# 文档与报告
+docs/
+*.md
+changelogs/
+health-reports/
+logs/
+artifacts/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+docker-compose.yml
+Dockerfile.base
+.dockerignore
+
+# 备份与临时文件
+backups/
+备份/
+*.bak
+*.tmp
+*.7z
+*.zip
+
+# 环境变量（通过 env_file 注入）
+.env
+.env.*
+!.env.example
+
+# 运行时产生的文件
+*.pid
+*.socket

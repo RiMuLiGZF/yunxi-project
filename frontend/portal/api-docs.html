@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 文档中心 - 云汐</title>
+    <style>
+/* ============================================================
+   云汐 API 文档中心 — 深色科技感主题
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg-base: #0a1929;
+    --bg-elevated: #0d2137;
+    --bg-surface: #112a45;
+    --bg-card: rgba(16, 40, 65, 0.65);
+    --bg-overlay: rgba(8, 20, 36, 0.92);
+    --bg-hover: rgba(59, 130, 246, 0.08);
+    --bg-active: rgba(59, 130, 246, 0.15);
+
+    --border-default: rgba(148, 163, 184, 0.12);
+    --border-subtle: rgba(148, 163, 184, 0.06);
+    --border-strong: rgba(148, 163, 184, 0.22);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    --text-inverse: #0f172a;
+
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --secondary: #06b6d4;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+    --purple: #a78bfa;
+
+    --method-get: #10b981;
+    --method-post: #3b82f6;
+    --method-put: #f59e0b;
+    --method-delete: #ef4444;
+    --method-patch: #a78bfa;
+
+    --font-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+    --transition: 200ms ease;
+}
+
+html, body {
+    height: 100%;
+    font-family: var(--font-base);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ── */
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ── Header ── */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    min-height: 56px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-default);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.header-logo svg {
+    width: 28px;
+    height: 28px;
+    color: var(--primary);
+}
+
+.header-title {
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+}
+
+.header-subtitle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    padding: 2px 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: var(--radius-full, 9999px);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.module-select-wrapper {
+    position: relative;
+}
+
+.module-select {
+    appearance: none;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 6px 36px 6px 12px;
+    font-size: 13px;
+    font-family: var(--font-base);
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition);
+    min-width: 200px;
+}
+
+.module-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.module-select-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--text-secondary);
+    pointer-events: none;
+}
+
+.refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.refresh-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.refresh-btn.spinning svg {
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Status Bar ── */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 24px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    min-height: 36px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.status-dot.loading {
+    background: var(--warning);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-text { flex: 1; }
+
+.status-stats {
+    display: flex;
+    gap: 16px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.stat-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Main Content ── */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border-default);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrapper svg {
+    position: absolute;
+    left: 10px;
+    width: 16px;
+    height: 16px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 8px 12px 8px 34px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: var(--font-base);
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.search-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.sidebar-modules {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.sidebar-modules::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-modules::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-modules::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+}
+
+.sidebar-modules::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.3);
+}
+
+/* ── Module Group ── */
+.module-group {
+    margin-bottom: 2px;
+}
+
+.module-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition);
+    border-left: 3px solid transparent;
+}
+
+.module-group-header:hover {
+    background: var(--bg-hover);
+}
+
+.module-group-header.active {
+    background: var(--bg-active);
+    border-left-color: var(--primary);
+}
+
+.module-group-header.error {
+    opacity: 0.6;
+}
+
+.module-group-header.error .module-id {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--error);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.module-id {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--primary);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    min-width: 30px;
+    text-align: center;
+}
+
+.module-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.module-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.module-chevron {
+    width: 16px;
+    height: 16px;
+    color: var(--text-tertiary);
+    transition: transform var(--transition);
+    flex-shrink: 0;
+}
+
+.module-group-header.expanded .module-chevron {
+    transform: rotate(90deg);
+}
+
+.module-api-list {
+    display: none;
+    padding: 2px 0 6px 0;
+}
+
+.module-api-list.show {
+    display: block;
+}
+
+.module-api-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 16px 5px 56px;
+    cursor: pointer;
+    transition: background var(--transition);
+    font-size: 12px;
+}
+
+.module-api-item:hover {
+    background: var(--bg-hover);
+}
+
+.module-api-item.active {
+    background: var(--bg-active);
+}
+
+.api-method-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    min-width: 42px;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+.api-method-badge.get    { background: rgba(16, 185, 129, 0.15); color: var(--method-get); }
+.api-method-badge.post   { background: rgba(59, 130, 246, 0.15); color: var(--method-post); }
+.api-method-badge.put    { background: rgba(245, 158, 11, 0.15); color: var(--method-put); }
+.api-method-badge.delete { background: rgba(239, 68, 68, 0.15);  color: var(--method-delete); }
+.api-method-badge.patch  { background: rgba(167, 139, 250, 0.15); color: var(--method-patch); }
+
+.api-path-preview {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Content Area ── */
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.content-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.content-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 6px;
+}
+
+.content-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.25);
+}
+
+/* ── Welcome / Empty State ── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    gap: 16px;
+    padding: 40px;
+}
+
+.empty-state svg {
+    width: 64px;
+    height: 64px;
+    color: var(--text-tertiary);
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.empty-state-desc {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    max-width: 400px;
+    line-height: 1.6;
+}
+
+/* ── Module Content ── */
+.module-content {
+    max-width: 960px;
+}
+
+.module-content-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-default);
+}
+
+.module-content-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.module-content-title .module-id {
+    font-size: 13px;
+    padding: 3px 8px;
+}
+
+.module-content-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.module-content-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.meta-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.meta-tag strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* ── API Endpoint Card ── */
+.endpoint-section {
+    margin-bottom: 12px;
+}
+
+.endpoint-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color var(--transition);
+}
+
+.endpoint-card:hover {
+    border-color: var(--border-strong);
+}
+
+.endpoint-card.expanded {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), var(--shadow-md);
+}
+
+.endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition);
+}
+
+.endpoint-header:hover {
+    background: var(--bg-hover);
+}
+
+.endpoint-method {
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    min-width: 70px;
+    text-align: center;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.endpoint-method.get    { background: rgba(16, 185, 129, 0.15); color: var(--method-get); }
+.endpoint-method.post   { background: rgba(59, 130, 246, 0.15); color: var(--method-post); }
+.endpoint-method.put    { background: rgba(245, 158, 11, 0.15); color: var(--method-put); }
+.endpoint-method.delete { background: rgba(239, 68, 68, 0.15);  color: var(--method-delete); }
+.endpoint-method.patch  { background: rgba(167, 139, 250, 0.15); color: var(--method-patch); }
+
+.endpoint-path {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.endpoint-summary {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.endpoint-expand-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--text-tertiary);
+    transition: transform var(--transition);
+    flex-shrink: 0;
+}
+
+.endpoint-card.expanded .endpoint-expand-icon {
+    transform: rotate(180deg);
+    color: var(--primary);
+}
+
+/* ── Endpoint Detail ── */
+.endpoint-detail {
+    display: none;
+    border-top: 1px solid var(--border-default);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.endpoint-detail.show {
+    display: block;
+}
+
+.detail-section {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.detail-section:last-child {
+    border-bottom: none;
+}
+
+.detail-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-section-title svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ── Tables ── */
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.detail-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid var(--border-default);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-table th:first-child {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.detail-table th:last-child {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.detail-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    vertical-align: top;
+}
+
+.detail-table tr:last-child td {
+    border-bottom: none;
+}
+
+.table-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--secondary);
+    font-size: 12px;
+}
+
+.table-type {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--purple);
+    background: rgba(167, 139, 250, 0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.table-required {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.table-required.yes {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.table-required.no {
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+}
+
+.table-desc {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.table-in {
+    font-size: 11px;
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.table-status-code {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.table-status-code.s2xx { color: var(--success); }
+.table-status-code.s3xx { color: var(--warning); }
+.table-status-code.s4xx { color: var(--error); }
+.table-status-code.s5xx { color: var(--error); }
+
+.no-data {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* ── Response Schema Block ── */
+.schema-block {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.schema-block::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+}
+
+.schema-block::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+}
+
+/* ── Loading Overlay ── */
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 25, 41, 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+}
+
+.loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border-default);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.loading-progress {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 400px;
+}
+
+.loading-dot {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.loading-dot.pending {
+    background: var(--bg-surface);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border-default);
+}
+
+.loading-dot.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.loading-dot.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.loading-dot.loading {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--primary);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    animation: pulse 1s ease-in-out infinite;
+}
+
+/* ── Filter Tags ── */
+.filter-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-tag {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    user-select: none;
+}
+
+.filter-tag:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.filter-tag.active {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 240px;
+        min-width: 240px;
+    }
+    .header-subtitle {
+        display: none;
+    }
+    .content-area {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 600px) {
+    .main-content {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border-default);
+    }
+    .module-select {
+        min-width: 140px;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在连接 13 个模块服务，获取 OpenAPI Schema ...</div>
+        <div class="loading-progress" id="loadingProgress"></div>
+    </div>
+
+    <div class="app-layout">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <a class="header-logo" href="#">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <span class="header-title">云汐 API 文档中心</span>
+                </a>
+                <span class="header-subtitle">OpenAPI 3.x Aggregation</span>
+            </div>
+            <div class="header-controls">
+                <div class="module-select-wrapper">
+                    <select class="module-select" id="moduleSelect">
+                        <option value="all">全部模块</option>
+                    </select>
+                </div>
+                <button class="refresh-btn" id="refreshBtn" title="重新加载">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <polyline points="1 20 1 14 7 14"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div class="status-dot loading" id="statusDot"></div>
+            <span class="status-text" id="statusText">正在初始化 ...</span>
+            <div class="status-stats">
+                <span class="stat-item">模块 <span class="stat-value" id="statModules">0/13</span></span>
+                <span class="stat-item">端点 <span class="stat-value" id="statEndpoints">0</span></span>
+            </div>
+        </div>
+
+        <!-- Main -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-search">
+                    <div class="search-input-wrapper">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input type="text" class="search-input" id="searchInput" placeholder="搜索路径或描述 ...">
+                    </div>
+                </div>
+                <nav class="sidebar-modules" id="sidebarModules"></nav>
+            </aside>
+
+            <!-- Content -->
+            <main class="content-area" id="contentArea">
+                <div class="empty-state" id="emptyState">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <div class="empty-state-title">选择一个模块以查看 API 文档</div>
+                    <div class="empty-state-desc">
+                        从左侧边栏选择模块，或使用顶部下拉框切换。<br>
+                        所有 OpenAPI Schema 将在页面加载时自动获取。
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+/* ============================================================
+   云汐 API 文档中心 — 核心逻辑
+   ============================================================ */
+
+const MODULES = [
+    { id: 'M0',  name: '主理人管控台', url: 'http://localhost:8000/openapi.json' },
+    { id: 'M1',  name: '多Agent调度',  url: 'http://localhost:8001/openapi.json' },
+    { id: 'M2',  name: '技能集群',    url: 'http://localhost:8002/openapi.json' },
+    { id: 'M3',  name: '端云协同',    url: 'http://localhost:8003/openapi.json' },
+    { id: 'M4',  name: '场景引擎',    url: 'http://localhost:8004/openapi.json' },
+    { id: 'M5',  name: '潮汐记忆',    url: 'http://localhost:8005/openapi.json' },
+    { id: 'M6',  name: '硬件外设',    url: 'http://localhost:8006/openapi.json' },
+    { id: 'M7',  name: '积木平台',    url: 'http://localhost:8007/openapi.json' },
+    { id: 'M8',  name: '控制塔',      url: 'http://localhost:8008/openapi.json' },
+    { id: 'M9',  name: '编程开发',    url: 'http://localhost:8009/openapi.json' },
+    { id: 'M10', name: '系统卫士',    url: 'http://localhost:8010/openapi.json' },
+    { id: 'M11', name: 'MCP总线',     url: 'http://localhost:8011/openapi.json' },
+    { id: 'M12', name: '安全盾',      url: 'http://localhost:8012/openapi.json' },
+];
+
+/* ── State ── */
+const state = {
+    moduleData: {},       // { moduleId: { spec, endpoints, error } }
+    activeModule: null,   // currently selected module id
+    activeEndpoint: null, // currently expanded endpoint key
+    searchQuery: '',
+    methodFilter: null,   // null = all, or 'GET','POST',...
+};
+
+/* ── DOM Refs ── */
+const $ = (sel) => document.querySelector(sel);
+const loadingOverlay = $('#loadingOverlay');
+const loadingProgress = $('#loadingProgress');
+const statusDot = $('#statusDot');
+const statusText = $('#statusText');
+const statModules = $('#statModules');
+const statEndpoints = $('#statEndpoints');
+const moduleSelect = $('#moduleSelect');
+const refreshBtn = $('#refreshBtn');
+const searchInput = $('#searchInput');
+const sidebarModules = $('#sidebarModules');
+const contentArea = $('#contentArea');
+const emptyState = $('#emptyState');
+
+/* ============================================================
+   Data Fetching
+   ============================================================ */
+
+async function fetchAllModules() {
+    // Reset state
+    state.moduleData = {};
+    state.activeModule = null;
+    state.activeEndpoint = null;
+
+    // Show loading
+    loadingOverlay.classList.remove('hidden');
+    refreshBtn.classList.add('spinning');
+    statusDot.className = 'status-dot loading';
+
+    // Build loading dots
+    loadingProgress.innerHTML = MODULES.map(m =>
+        `<span class="loading-dot pending" id="dot-${m.id}">${m.id}</span>`
+    ).join('');
+
+    // Populate select
+    moduleSelect.innerHTML = '<option value="all">全部模块</option>' +
+        MODULES.map(m => `<option value="${m.id}">${m.id} - ${m.name}</option>`).join('');
+
+    const results = await Promise.allSettled(
+        MODULES.map(async (m) => {
+            const dot = document.getElementById(`dot-${m.id}`);
+            if (dot) dot.className = 'loading-dot loading';
+
+            try {
+                const resp = await fetch(m.url, { signal: AbortSignal.timeout(8000) });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const spec = await resp.json();
+                if (dot) dot.className = 'loading-dot success';
+                return { module: m, spec, error: null };
+            } catch (err) {
+                if (dot) dot.className = 'loading-dot error';
+                return { module: m, spec: null, error: err.message };
+            }
+        })
+    );
+
+    // Process results
+    let successCount = 0;
+    let totalEndpoints = 0;
+
+    results.forEach(r => {
+        if (r.status === 'fulfilled') {
+            const { module, spec, error } = r.value;
+            if (spec) {
+                const endpoints = parseEndpoints(spec);
+                state.moduleData[module.id] = { spec, endpoints, error: null, title: spec.info?.title || module.name };
+                successCount++;
+                totalEndpoints += endpoints.length;
+            } else {
+                state.moduleData[module.id] = { spec: null, endpoints: [], error, title: module.name };
+            }
+        } else {
+            const module = MODULES.find(m => m.id === r.reason?.module?.id);
+            if (module) {
+                state.moduleData[module.id] = { spec: null, endpoints: [], error: 'Unknown error', title: module.name };
+            }
+        }
+    });
+
+    // Update status
+    statModules.textContent = `${successCount}/13`;
+    statEndpoints.textContent = totalEndpoints;
+    statusDot.className = 'status-dot';
+    statusText.textContent = `已加载 ${successCount} 个模块，共 ${totalEndpoints} 个 API 端点`;
+
+    // Hide loading
+    loadingOverlay.classList.add('hidden');
+    refreshBtn.classList.remove('spinning');
+
+    // Render sidebar
+    renderSidebar();
+
+    // Auto-select first available module
+    const firstAvailable = MODULES.find(m => state.moduleData[m.id] && !state.moduleData[m.id].error);
+    if (firstAvailable) {
+        selectModule(firstAvailable.id);
+    } else {
+        renderEmptyState('no_modules');
+    }
+}
+
+/* ============================================================
+   OpenAPI Parser
+   ============================================================ */
+
+function parseEndpoints(spec) {
+    const endpoints = [];
+    const paths = spec.paths || {};
+
+    for (const [path, methods] of Object.entries(paths)) {
+        for (const [method, detail] of Object.entries(methods)) {
+            if (['get', 'post', 'put', 'delete', 'patch'].includes(method.toLowerCase())) {
+                endpoints.push({
+                    method: method.toUpperCase(),
+                    path,
+                    summary: detail.summary || '',
+                    operationId: detail.operationId || '',
+                    description: detail.description || '',
+                    parameters: detail.parameters || [],
+                    requestBody: detail.requestBody || null,
+                    responses: detail.responses || {},
+                    tags: detail.tags || [],
+                    deprecated: detail.deprecated || false,
+                });
+            }
+        }
+    }
+
+    return endpoints;
+}
+
+/* ============================================================
+   Sidebar Rendering
+   ============================================================ */
+
+function renderSidebar() {
+    const query = state.searchQuery.toLowerCase();
+
+    let html = '';
+    MODULES.forEach(m => {
+        const data = state.moduleData[m.id];
+        if (!data) return;
+
+        const endpoints = data.endpoints || [];
+        const filteredEndpoints = query
+            ? endpoints.filter(e =>
+                e.path.toLowerCase().includes(query) ||
+                e.summary.toLowerCase().includes(query)
+            )
+            : endpoints;
+
+        // Filter by method if set
+        const methodFiltered = state.methodFilter
+            ? filteredEndpoints.filter(e => e.method === state.methodFilter)
+            : filteredEndpoints;
+
+        const hasError = !!data.error;
+        const isActive = state.activeModule === m.id;
+
+        html += `
+        <div class="module-group" data-module="${m.id}">
+            <div class="module-group-header ${isActive ? 'active' : ''} ${hasError ? 'error' : ''}"
+                 onclick="selectModule('${m.id}')">
+                <span class="module-id">${m.id}</span>
+                <span class="module-name">${data.title}</span>
+                ${hasError
+                    ? '<span class="module-count" style="color:var(--error)">不可用</span>'
+                    : `<span class="module-count">${methodFiltered.length}</span>`
+                }
+                <svg class="module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </div>
+            <div class="module-api-list ${isActive ? 'show' : ''}">
+                ${methodFiltered.map((ep, i) => {
+                    const key = `${m.id}:${ep.method}:${ep.path}`;
+                    const isEpActive = state.activeEndpoint === key;
+                    return `
+                    <div class="module-api-item ${isEpActive ? 'active' : ''}"
+                         onclick="scrollToEndpoint('${m.id}', '${ep.method}', '${escapeAttr(ep.path)}')">
+                        <span class="api-method-badge ${ep.method.toLowerCase()}">${ep.method}</span>
+                        <span class="api-path-preview">${ep.path}</span>
+                    </div>`;
+                }).join('')}
+                ${methodFiltered.length === 0 && !hasError
+                    ? '<div class="no-data" style="padding-left:56px">无匹配的端点</div>'
+                    : ''
+                }
+            </div>
+        </div>`;
+    });
+
+    sidebarModules.innerHTML = html;
+}
+
+function escapeAttr(str) {
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+/* ============================================================
+   Module Selection & Content Rendering
+   ============================================================ */
+
+function selectModule(moduleId) {
+    state.activeModule = moduleId;
+    state.activeEndpoint = null;
+
+    // Update sidebar active state
+    document.querySelectorAll('.module-group-header').forEach(el => {
+        el.classList.toggle('active', el.dataset.module === moduleId);
+    });
+    document.querySelectorAll('.module-api-list').forEach(el => {
+        const group = el.closest('.module-group');
+        el.classList.toggle('show', group && group.dataset.module === moduleId);
+    });
+
+    // Update select
+    moduleSelect.value = moduleId;
+
+    const data = state.moduleData[moduleId];
+    if (!data || data.error) {
+        renderEmptyState('module_error', moduleId);
+        return;
+    }
+
+    renderModuleContent(moduleId, data);
+}
+
+function renderModuleContent(moduleId, data) {
+    const query = state.searchQuery.toLowerCase();
+    const methodFilter = state.methodFilter;
+
+    let endpoints = data.endpoints;
+
+    if (query) {
+        endpoints = endpoints.filter(e =>
+            e.path.toLowerCase().includes(query) ||
+            e.summary.toLowerCase().includes(query)
+        );
+    }
+    if (methodFilter) {
+        endpoints = endpoints.filter(e => e.method === methodFilter);
+    }
+
+    const spec = data.spec;
+    const info = spec?.info || {};
+    const version = info.version || 'N/A';
+
+    // Count methods
+    const methodCounts = {};
+    data.endpoints.forEach(e => {
+        methodCounts[e.method] = (methodCounts[e.method] || 0) + 1;
+    });
+
+    let html = `
+    <div class="module-content">
+        <div class="module-content-header">
+            <div class="module-content-title">
+                <span class="module-id">${moduleId}</span>
+                ${escapeHtml(data.title)}
+            </div>
+            <div class="module-content-desc">${escapeHtml(info.description || '')}</div>
+            <div class="module-content-meta">
+                <span class="meta-tag">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    版本 <strong>${escapeHtml(version)}</strong>
+                </span>
+                ${Object.entries(methodCounts).map(([method, count]) => `
+                <span class="meta-tag">
+                    <span style="color:var(--method-${method.toLowerCase()});font-weight:700;font-size:11px">${method}</span>
+                    <strong>${count}</strong>
+                </span>`).join('')}
+            </div>
+        </div>
+
+        <!-- Method Filters -->
+        <div class="filter-bar">
+            <span class="filter-tag ${!methodFilter ? 'active' : ''}" onclick="setMethodFilter(null)">全部</span>
+            ${['GET','POST','PUT','DELETE','PATCH'].map(m => `
+            <span class="filter-tag ${methodFilter === m ? 'active' : ''}" onclick="setMethodFilter('${m}')">${m}</span>
+            `).join('')}
+        </div>
+    `;
+
+    if (endpoints.length === 0) {
+        html += `<div class="no-data" style="padding:40px 0">没有匹配的 API 端点</div>`;
+    } else {
+        endpoints.forEach((ep, idx) => {
+            const key = `${moduleId}:${ep.method}:${ep.path}`;
+            html += renderEndpointCard(key, ep, spec);
+        });
+    }
+
+    html += '</div>';
+
+    contentArea.innerHTML = html;
+}
+
+function renderEndpointCard(key, ep, spec) {
+    const hasParams = ep.parameters.length > 0;
+    const hasBody = !!ep.requestBody;
+    const hasResponses = Object.keys(ep.responses).length > 0;
+
+    let detailHtml = '';
+
+    // Description
+    if (ep.description) {
+        detailHtml += `
+        <div class="detail-section">
+            <div style="color:var(--text-secondary);font-size:13px;line-height:1.6">${escapeHtml(ep.description)}</div>
+        </div>`;
+    }
+
+    // Parameters
+    if (hasParams) {
+        detailHtml += `
+        <div class="detail-section">
+            <div class="detail-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                </svg>
+                参数
+            </div>
+            <table class="detail-table">
+                <thead><tr>
+                    <th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th>
+                </tr></thead>
+                <tbody>
+                    ${ep.parameters.map(p => `
+                    <tr>
+                        <td><span class="table-name">${escapeHtml(p.name)}</span></td>
+                        <td><span class="table-in">${escapeHtml(p.in)}</span></td>
+                        <td><span class="table-type">${escapeHtml(resolveSchemaType(p.schema || p))}</span></td>
+                        <td><span class="table-required ${p.required ? 'yes' : 'no'}">${p.required ? '必填' : '可选'}</span></td>
+                        <td><span class="table-desc">${escapeHtml(p.description || '-')}</span></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }
+
+    // Request Body
+    if (hasBody) {
+        const bodyContent = ep.requestBody.content || {};
+        const firstKey = Object.keys(bodyContent)[0];
+        const mediaType = firstKey ? bodyContent[firstKey] : null;
+        const schema = mediaType?.schema;
+
+        detailHtml += `
+        <div class="detail-section">
+            <div class="detail-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                请求体
+                ${firstKey ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-tertiary);font-size:11px;margin-left:auto">${escapeHtml(firstKey)}</span>` : ''}
+            </div>`;
+
+        if (schema) {
+            const props = resolveSchemaProperties(schema, spec);
+            if (props.length > 0) {
+                detailHtml += `
+                <table class="detail-table">
+                    <thead><tr>
+                        <th>属性</th><th>类型</th><th>必填</th><th>说明</th>
+                    </tr></thead>
+                    <tbody>
+                        ${props.map(p => `
+                        <tr>
+                            <td><span class="table-name">${escapeHtml(p.name)}</span></td>
+                            <td><span class="table-type">${escapeHtml(p.type)}</span></td>
+                            <td><span class="table-required ${p.required ? 'yes' : 'no'}">${p.required ? '必填' : '可选'}</span></td>
+                            <td><span class="table-desc">${escapeHtml(p.description || '-')}</span></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+            } else {
+                detailHtml += `<div class="schema-block">${formatJson(schema)}</div>`;
+            }
+        } else {
+            detailHtml += `<div class="no-data">无 Schema 定义</div>`;
+        }
+        detailHtml += '</div>';
+    }
+
+    // Responses
+    if (hasResponses) {
+        detailHtml += `
+        <div class="detail-section">
+            <div class="detail-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                响应
+            </div>
+            <table class="detail-table">
+                <thead><tr>
+                    <th>状态码</th><th>说明</th><th>类型</th>
+                </tr></thead>
+                <tbody>
+                    ${Object.entries(ep.responses).map(([code, resp]) => {
+                        const codeClass = code.startsWith('2') ? 's2xx' : code.startsWith('3') ? 's3xx' : code.startsWith('4') ? 's4xx' : 's5xx';
+                        const content = resp.content || {};
+                        const firstMediaKey = Object.keys(content)[0];
+                        const mediaSchema = firstMediaKey ? content[firstMediaKey]?.schema : null;
+                        const schemaType = mediaSchema ? resolveSchemaType(mediaSchema) : '-';
+                        return `
+                        <tr>
+                            <td><span class="table-status-code ${codeClass}">${escapeHtml(code)}</span></td>
+                            <td><span class="table-desc">${escapeHtml(resp.description || '-')}</span></td>
+                            <td><span class="table-type">${escapeHtml(schemaType)}</span></td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }
+
+    if (!hasParams && !hasBody && !hasResponses && !ep.description) {
+        detailHtml += `<div class="detail-section"><div class="no-data">该端点无详细文档信息</div></div>`;
+    }
+
+    return `
+    <div class="endpoint-section" id="ep-${CSS.escape(key)}">
+        <div class="endpoint-card ${state.activeEndpoint === key ? 'expanded' : ''}" data-key="${escapeAttr(key)}">
+            <div class="endpoint-header" onclick="toggleEndpoint('${escapeAttr(key)}')">
+                <span class="endpoint-method ${ep.method.toLowerCase()}">${ep.method}</span>
+                <span class="endpoint-path">${escapeHtml(ep.path)}</span>
+                <span class="endpoint-summary">${escapeHtml(ep.summary || ep.operationId)}</span>
+                ${ep.deprecated ? '<span style="color:var(--warning);font-size:11px;font-weight:600">DEPRECATED</span>' : ''}
+                <svg class="endpoint-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </div>
+            <div class="endpoint-detail ${state.activeEndpoint === key ? 'show' : ''}">
+                ${detailHtml}
+            </div>
+        </div>
+    </div>`;
+}
+
+/* ============================================================
+   Schema Resolvers
+   ============================================================ */
+
+function resolveSchemaType(schema) {
+    if (!schema) return 'any';
+    if (schema.type) {
+        if (schema.type === 'array' && schema.items) {
+            return `array<${resolveSchemaType(schema.items)}>`;
+        }
+        return schema.type;
+    }
+    if (schema.$ref) {
+        const parts = schema.$ref.split('/');
+        return parts[parts.length - 1];
+    }
+    if (schema.oneOf || schema.anyOf || schema.allOf) {
+        const keyword = schema.oneOf ? 'oneOf' : schema.anyOf ? 'anyOf' : 'allOf';
+        const items = schema[keyword] || [];
+        return items.map(s => resolveSchemaType(s)).join(' | ');
+    }
+    return 'object';
+}
+
+function resolveSchemaProperties(schema, spec) {
+    if (!schema) return [];
+
+    // Handle $ref
+    if (schema.$ref) {
+        const name = schema.$ref.split('/').pop();
+        const resolved = spec?.components?.schemas?.[name];
+        if (resolved) return resolveSchemaProperties(resolved, spec);
+        return [];
+    }
+
+    const props = [];
+    const properties = schema.properties || {};
+    const required = new Set(schema.required || []);
+
+    for (const [name, propSchema] of Object.entries(properties)) {
+        props.push({
+            name,
+            type: resolveSchemaType(propSchema),
+            required: required.has(name),
+            description: propSchema.description || '',
+        });
+    }
+    return props;
+}
+
+/* ============================================================
+   Interaction Handlers
+   ============================================================ */
+
+function toggleEndpoint(key) {
+    if (state.activeEndpoint === key) {
+        state.activeEndpoint = null;
+    } else {
+        state.activeEndpoint = key;
+    }
+
+    // Update card visuals
+    document.querySelectorAll('.endpoint-card').forEach(card => {
+        const cardKey = card.dataset.key;
+        const isExpanded = cardKey === state.activeEndpoint;
+        card.classList.toggle('expanded', isExpanded);
+        card.querySelector('.endpoint-detail').classList.toggle('show', isExpanded);
+    });
+
+    // Update sidebar highlight
+    document.querySelectorAll('.module-api-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    const activeItems = document.querySelectorAll('.module-api-item.active');
+    activeItems.forEach(el => el.classList.remove('active'));
+}
+
+function scrollToEndpoint(moduleId, method, path) {
+    const key = `${moduleId}:${method}:${path}`;
+    // First select module if needed
+    if (state.activeModule !== moduleId) {
+        selectModule(moduleId);
+    }
+    // Then toggle the endpoint
+    setTimeout(() => {
+        toggleEndpoint(key);
+        // Scroll into view
+        const el = document.getElementById(`ep-${CSS.escape(key)}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 50);
+}
+
+function setMethodFilter(method) {
+    state.methodFilter = method;
+    // Re-render
+    renderSidebar();
+    if (state.activeModule) {
+        const data = state.moduleData[state.activeModule];
+        if (data) renderModuleContent(state.activeModule, data);
+    }
+}
+
+function renderEmptyState(type, moduleId) {
+    let title = '';
+    let desc = '';
+
+    if (type === 'no_modules') {
+        title = '无可用模块';
+        desc = '所有 13 个模块均无法连接。请确认后端服务已启动，然后点击刷新按钮重试。';
+    } else if (type === 'module_error') {
+        const data = state.moduleData[moduleId];
+        title = `模块 ${moduleId} 不可用`;
+        desc = `连接失败：${escapeHtml(data?.error || '未知错误')}。请检查服务是否运行在 ${MODULES.find(m => m.id === moduleId)?.url || ''}。`;
+    }
+
+    contentArea.innerHTML = `
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div class="empty-state-title">${title}</div>
+        <div class="empty-state-desc">${desc}</div>
+    </div>`;
+}
+
+/* ============================================================
+   Search
+   ============================================================ */
+
+let searchTimer = null;
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        state.searchQuery = searchInput.value.trim();
+        renderSidebar();
+        if (state.activeModule) {
+            const data = state.moduleData[state.activeModule];
+            if (data) renderModuleContent(state.activeModule, data);
+        }
+    }, 200);
+});
+
+/* ============================================================
+   Module Select
+   ============================================================ */
+
+moduleSelect.addEventListener('change', () => {
+    const val = moduleSelect.value;
+    if (val === 'all') {
+        // Show all modules merged view
+        renderAllModulesView();
+    } else {
+        selectModule(val);
+    }
+});
+
+function renderAllModulesView() {
+    state.activeModule = null;
+    state.activeEndpoint = null;
+
+    // Clear sidebar active
+    document.querySelectorAll('.module-group-header').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.module-api-list').forEach(el => el.classList.remove('show'));
+
+    let allEndpoints = [];
+    MODULES.forEach(m => {
+        const data = state.moduleData[m.id];
+        if (data && !data.error) {
+            data.endpoints.forEach(ep => {
+                allEndpoints.push({ ...ep, moduleId: m.id, moduleTitle: data.title });
+            });
+        }
+    });
+
+    const query = state.searchQuery.toLowerCase();
+    if (query) {
+        allEndpoints = allEndpoints.filter(e =>
+            e.path.toLowerCase().includes(query) ||
+            e.summary.toLowerCase().includes(query)
+        );
+    }
+    if (state.methodFilter) {
+        allEndpoints = allEndpoints.filter(e => e.method === state.methodFilter);
+    }
+
+    let html = `
+    <div class="module-content">
+        <div class="module-content-header">
+            <div class="module-content-title">全部模块 API 总览</div>
+            <div class="module-content-desc">聚合展示所有可用模块的 API 端点，共 ${allEndpoints.length} 个</div>
+        </div>
+        <div class="filter-bar">
+            <span class="filter-tag ${!state.methodFilter ? 'active' : ''}" onclick="setMethodFilter(null)">全部</span>
+            ${['GET','POST','PUT','DELETE','PATCH'].map(m => `
+            <span class="filter-tag ${state.methodFilter === m ? 'active' : ''}" onclick="setMethodFilter('${m}')">${m}</span>
+            `).join('')}
+        </div>
+    `;
+
+    allEndpoints.forEach(ep => {
+        const key = `${ep.moduleId}:${ep.method}:${ep.path}`;
+        html += `
+        <div class="endpoint-section">
+            <div class="endpoint-card" data-key="${escapeAttr(key)}">
+                <div class="endpoint-header" onclick="toggleEndpoint('${escapeAttr(key)}')">
+                    <span class="endpoint-method ${ep.method.toLowerCase()}">${ep.method}</span>
+                    <span class="endpoint-path">${escapeHtml(ep.path)}</span>
+                    <span style="font-size:11px;color:var(--text-tertiary);padding:1px 6px;background:var(--bg-surface);border-radius:3px;border:1px solid var(--border-subtle);white-space:nowrap">${escapeHtml(ep.moduleId)}</span>
+                    <span class="endpoint-summary">${escapeHtml(ep.summary || ep.operationId)}</span>
+                    <svg class="endpoint-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+                <div class="endpoint-detail">
+                    <div class="detail-section" style="padding:10px 18px">
+                        <span class="table-desc">模块：${escapeHtml(ep.moduleTitle)} &nbsp;|&nbsp; ${escapeHtml(ep.description || ep.summary || '无描述')}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    if (allEndpoints.length === 0) {
+        html += '<div class="no-data" style="padding:40px 0">没有匹配的 API 端点</div>';
+    }
+
+    html += '</div>';
+    contentArea.innerHTML = html;
+}
+
+/* ============================================================
+   Refresh
+   ============================================================ */
+
+refreshBtn.addEventListener('click', () => {
+    fetchAllModules();
+});
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function formatJson(obj) {
+    try {
+        return JSON.stringify(obj, null, 2);
+    } catch {
+        return String(obj);
+    }
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+
+document.addEventListener('DOMContentLoaded', fetchAllModules);
+    </script>
+</body>
+</html>

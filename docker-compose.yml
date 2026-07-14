@@ -1,8 +1,13 @@
-# 云汐系统 - 外部依赖服务编排
+# ============================================================
+# 云汐系统 - Docker Compose 完整编排
 # 用法: docker compose up -d
-# 注意: Ollama 需手动安装 (https://ollama.com)，Windows Docker 暂不支持 GPU 直通
+# 说明: 包含外部依赖服务(redis/chromadb) + 13个业务模块
+# ============================================================
 
 services:
+  # ----------------------------------------------------------
+  # 基础设施服务
+  # ----------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: yunxi-redis
@@ -18,12 +23,13 @@ services:
       retries: 5
     networks:
       - yunxi-net
+    restart: unless-stopped
 
   chromadb:
     image: chromadb/chroma:latest
     container_name: yunxi-chromadb
     ports:
-      - "8000:8000"
+      - "8100:8000"  # 端口映射到 8100，避免与 M0 的 8000 冲突
     volumes:
       - chroma_data:/chroma/chroma
     environment:
@@ -32,10 +38,400 @@ services:
       - ANONYMIZED_TELEMETRY=FALSE
     networks:
       - yunxi-net
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M0 主理人管控台 - 系统总入口
+  # ----------------------------------------------------------
+  yunxi-m0:
+    build:
+      context: .
+      dockerfile: M0-principal-console/Dockerfile
+    container_name: yunxi-m0
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M0_PORT=8000
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M1 多Agent调度中心
+  # ----------------------------------------------------------
+  yunxi-m1:
+    build:
+      context: .
+      dockerfile: M1-agent-hub/Dockerfile
+    container_name: yunxi-m1
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M1_PORT=8001
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M2 技能集群
+  # ----------------------------------------------------------
+  yunxi-m2:
+    build:
+      context: .
+      dockerfile: M2-skills-cluster/Dockerfile
+    container_name: yunxi-m2
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M2_PORT=8002
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M3 端云协同内核
+  # ----------------------------------------------------------
+  yunxi-m3:
+    build:
+      context: .
+      dockerfile: M3-edge-cloud/Dockerfile
+    container_name: yunxi-m3
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M3_PORT=8003
+    depends_on:
+      - redis
+      - chromadb
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M4 场景引擎
+  # ----------------------------------------------------------
+  yunxi-m4:
+    build:
+      context: .
+      dockerfile: m4-scene-engine/Dockerfile
+    container_name: yunxi-m4
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M4_PORT=8004
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M5 潮汐记忆系统
+  # ----------------------------------------------------------
+  yunxi-m5:
+    build:
+      context: .
+      dockerfile: M5-tide-memory/Dockerfile
+    container_name: yunxi-m5
+    ports:
+      - "8005:8005"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M5_PORT=8005
+    depends_on:
+      - redis
+      - chromadb
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M6 硬件外设模拟服务
+  # ----------------------------------------------------------
+  yunxi-m6:
+    build:
+      context: .
+      dockerfile: M6-hardware-peripheral/Dockerfile
+    container_name: yunxi-m6
+    ports:
+      - "8006:8006"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M6_PORT=8006
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M7 积木平台（可视化工作流构建）
+  # ----------------------------------------------------------
+  yunxi-m7:
+    build:
+      context: .
+      dockerfile: M7-workflow-builder/Dockerfile
+    container_name: yunxi-m7
+    ports:
+      - "8007:8007"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M7_PORT=8007
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M8 管理工作台
+  # ----------------------------------------------------------
+  yunxi-m8:
+    build:
+      context: .
+      dockerfile: M8-control-tower/Dockerfile
+    container_name: yunxi-m8
+    ports:
+      - "8008:8008"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M8_PORT=8008
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M9 编程开发模块
+  # ----------------------------------------------------------
+  yunxi-m9:
+    build:
+      context: .
+      dockerfile: M9-programming-dev/Dockerfile
+    container_name: yunxi-m9
+    ports:
+      - "8009:8009"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M9_PORT=8009
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M10 系统卫士
+  # ----------------------------------------------------------
+  yunxi-m10:
+    build:
+      context: .
+      dockerfile: M10-system-guard/Dockerfile
+    container_name: yunxi-m10
+    ports:
+      - "8010:8010"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M10_PORT=8010
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M11 MCP 总线
+  # ----------------------------------------------------------
+  yunxi-m11:
+    build:
+      context: .
+      dockerfile: M11-mcp-bus/Dockerfile
+    container_name: yunxi-m11
+    ports:
+      - "8011:8011"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M11_PORT=8011
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M12 安全盾
+  # ----------------------------------------------------------
+  yunxi-m12:
+    build:
+      context: .
+      dockerfile: M12-security-shield/Dockerfile
+    container_name: yunxi-m12
+    ports:
+      - "8012:8012"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - M12_PORT=8012
+    depends_on:
+      - redis
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Ollama (可选 - 需要 GPU 的用户自行启用)
+  # 用法: 取消下方注释后 docker compose up -d
+  # ----------------------------------------------------------
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: yunxi-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   networks:
+  #     - yunxi-net
+  #   restart: unless-stopped
 
 volumes:
   redis_data:
   chroma_data:
+  # ollama_data:
 
 networks:
   yunxi-net:

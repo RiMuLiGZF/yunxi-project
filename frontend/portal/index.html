@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云汐工作台 - 统一门户</title>
+<link rel="stylesheet" href="../common/css/theme.css">
+<style>
+/* ============================================================
+   云汐工作台 — 统一前端门户
+   ============================================================ */
+
+/* ── Reset & Base ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+}
+
+/* ── Login Page ── */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+}
+
+.login-card {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: 40px 36px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  animation: fadeSlideUp 0.4s ease;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-logo .logo-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  border-radius: var(--radius-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.login-logo .logo-icon svg {
+  width: 28px;
+  height: 28px;
+  color: white;
+}
+
+.login-logo h1 {
+  font-family: var(--font-family-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: var(--tracking-tight);
+}
+
+.login-logo p {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin-top: 4px;
+}
+
+.login-form .form-group {
+  margin-bottom: 20px;
+}
+
+.login-form label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-family-base);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  outline: none;
+}
+
+.login-form input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-glow-primary);
+}
+
+.login-form input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.login-form .login-btn {
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: white;
+  font-size: var(--text-base);
+  font-weight: 600;
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.login-form .login-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.login-form .login-btn:active {
+  transform: translateY(0);
+}
+
+.login-form .login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-error {
+  color: var(--state-error);
+  font-size: var(--text-sm);
+  text-align: center;
+  margin-top: 12px;
+  min-height: 20px;
+}
+
+/* ── Main App Layout ── */
+.app-layout {
+  display: none;
+  height: 100vh;
+  width: 100vw;
+  flex-direction: column;
+}
+
+.app-layout.active {
+  display: flex;
+}
+
+/* ── Header ── */
+.app-header {
+  height: var(--header-height);
+  background: var(--header-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+  z-index: var(--z-sticky);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sidebar-toggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-logo .logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-logo .logo-icon svg {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.header-logo span {
+  font-family: var(--font-family-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.header-user .user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.logout-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.logout-btn:hover {
+  color: var(--state-error);
+  border-color: var(--state-error);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ── Content Area ── */
+.app-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width var(--transition-slow), min-width var(--transition-slow), opacity var(--transition-slow);
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  opacity: 0;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 2px;
+}
+
+.nav-section-title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  padding: 12px 12px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  user-select: none;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--color-glow-primary);
+  color: var(--color-text-primary);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+
+.nav-item .nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-item .nav-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-item .nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-item .nav-status {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  transition: background var(--transition-base);
+}
+
+.nav-status.online {
+  background: var(--state-success);
+  box-shadow: 0 0 6px var(--state-success);
+}
+
+.nav-status.offline {
+  background: var(--state-error);
+  box-shadow: 0 0 6px var(--state-error);
+}
+
+.nav-status.checking {
+  background: var(--state-warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.nav-item .nav-port {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  flex-shrink: 0;
+}
+
+.nav-item.active .nav-port {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Main Panel ── */
+.main-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Health Status Bar ── */
+.health-bar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.health-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.health-bar::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 2px;
+}
+
+.health-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.health-chip:hover {
+  border-color: var(--color-border-default);
+  background: var(--color-glow-primary);
+}
+
+.health-chip.active {
+  border-color: var(--color-primary);
+  background: var(--color-glow-primary);
+  color: var(--color-text-primary);
+}
+
+.health-chip .chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.health-chip .chip-dot.online {
+  background: var(--state-success);
+  box-shadow: 0 0 4px var(--state-success);
+}
+
+.health-chip .chip-dot.offline {
+  background: var(--state-error);
+  box-shadow: 0 0 4px var(--state-error);
+}
+
+.health-chip .chip-dot.checking {
+  background: var(--state-warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Iframe Container ── */
+.iframe-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--color-bg-base);
+}
+
+.iframe-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  gap: 12px;
+}
+
+.iframe-placeholder svg {
+  width: 64px;
+  height: 64px;
+  opacity: 0.3;
+}
+
+.iframe-placeholder p {
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.iframe-placeholder .hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1024px) {
+  .health-chip .chip-label {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-layout, .login-page {
+    min-width: 1024px;
+  }
+}
+
+/* ── Loading spinner for login ── */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Theme toggle in header ── */
+.header-right .theme-toggle-btn {
+  width: 32px;
+  height: 32px;
+}
+
+/* ── Fullscreen toggle ── */
+.fullscreen-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.fullscreen-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.fullscreen-btn svg {
+  width: 16px;
+  height: 16px;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     Login Page
+     ============================================================ -->
+<div id="loginPage" class="login-page" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <h1>云汐工作台</h1>
+      <p>统一前端门户 - 身份认证</p>
+    </div>
+    <form class="login-form" id="loginForm">
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">登录</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     Main App Layout
+     ============================================================ -->
+<div id="appLayout" class="app-layout" style="display:none;">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <button class="sidebar-toggle" id="sidebarToggle" title="折叠/展开侧边栏">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="header-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span>云汐工作台</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-user">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <span id="userName">用户</span>
+      </div>
+      <button class="logout-btn" id="logoutBtn">退出登录</button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="app-content">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="nav-section-title">核心模块</div>
+        <!-- M0 - M6 -->
+        <a class="nav-item" data-module="M0" data-url="http://localhost:8000/" data-port="8000">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+          <span class="nav-label">M0 主理人管控台</span>
+          <span class="nav-status checking" data-health-port="8000"></span>
+          <span class="nav-port">8000</span>
+        </a>
+        <a class="nav-item" data-module="M1" data-url="http://localhost:8001/docs" data-port="8001">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="nav-label">M1 多Agent调度</span>
+          <span class="nav-status checking" data-health-port="8001"></span>
+          <span class="nav-port">8001</span>
+        </a>
+        <a class="nav-item" data-module="M2" data-url="http://localhost:8002/docs" data-port="8002">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
+          <span class="nav-label">M2 技能集群</span>
+          <span class="nav-status checking" data-health-port="8002"></span>
+          <span class="nav-port">8002</span>
+        </a>
+        <a class="nav-item" data-module="M3" data-url="http://localhost:8003/docs" data-port="8003">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span>
+          <span class="nav-label">M3 端云协同</span>
+          <span class="nav-status checking" data-health-port="8003"></span>
+          <span class="nav-port">8003</span>
+        </a>
+        <a class="nav-item" data-module="M4" data-url="../modes/index.html" data-port="8004">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+          <span class="nav-label">M4 场景引擎</span>
+          <span class="nav-status checking" data-health-port="8004"></span>
+          <span class="nav-port">8004</span>
+        </a>
+        <a class="nav-item" data-module="M5" data-url="http://localhost:8005/docs" data-port="8005">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+          <span class="nav-label">M5 潮汐记忆</span>
+          <span class="nav-status checking" data-health-port="8005"></span>
+          <span class="nav-port">8005</span>
+        </a>
+        <a class="nav-item" data-module="M6" data-url="../watch/index.html" data-port="8006">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+          <span class="nav-label">M6 硬件外设</span>
+          <span class="nav-status checking" data-health-port="8006"></span>
+          <span class="nav-port">8006</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top: 8px;">平台服务</div>
+        <!-- M7 - M12 -->
+        <a class="nav-item" data-module="M7" data-url="../m7/workflow-list.html" data-port="8007">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+          <span class="nav-label">M7 积木平台</span>
+          <span class="nav-status checking" data-health-port="8007"></span>
+          <span class="nav-port">8007</span>
+        </a>
+        <a class="nav-item" data-module="M8" data-url="../m8/dashboard.html" data-port="8008">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <span class="nav-label">M8 控制塔</span>
+          <span class="nav-status checking" data-health-port="8008"></span>
+          <span class="nav-port">8008</span>
+        </a>
+        <a class="nav-item" data-module="M9" data-url="http://localhost:8009/docs" data-port="8009">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg></span>
+          <span class="nav-label">M9 编程开发</span>
+          <span class="nav-status checking" data-health-port="8009"></span>
+          <span class="nav-port">8009</span>
+        </a>
+        <a class="nav-item" data-module="M10" data-url="http://localhost:8010/docs" data-port="8010">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M21 12c.552 0 1-.448 1-1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6c0 .552.448 1 1 1"/><path d="M3 15h6l6 6h6a2 2 0 0 0 2-2v-4"/></svg></span>
+          <span class="nav-label">M10 系统卫士</span>
+          <span class="nav-status checking" data-health-port="8010"></span>
+          <span class="nav-port">8010</span>
+        </a>
+        <a class="nav-item" data-module="M11" data-url="http://localhost:8011/docs" data-port="8011">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+          <span class="nav-label">M11 MCP总线</span>
+          <span class="nav-status checking" data-health-port="8011"></span>
+          <span class="nav-port">8011</span>
+        </a>
+        <a class="nav-item" data-module="M12" data-url="http://localhost:8012/docs" data-port="8012">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <span class="nav-label">M12 安全盾</span>
+          <span class="nav-status checking" data-health-port="8012"></span>
+          <span class="nav-port">8012</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Panel -->
+    <div class="main-panel">
+      <!-- Health Status Bar -->
+      <div class="health-bar" id="healthBar">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Iframe Container -->
+      <div class="iframe-container" id="iframeContainer">
+        <div class="iframe-placeholder" id="iframePlaceholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+          <p>云汐工作台</p>
+          <span class="hint">请从左侧选择一个模块开始</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Scripts
+     ============================================================ -->
+<script src="../common/js/theme.js"></script>
+<script src="../common/api.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // ── Module Definitions ──
+  var MODULES = [
+    { id: 'M0', name: '主理人管控台', url: 'http://localhost:8000/', port: 8000 },
+    { id: 'M1', name: '多Agent调度',  url: 'http://localhost:8001/docs', port: 8001 },
+    { id: 'M2', name: '技能集群',     url: 'http://localhost:8002/docs', port: 8002 },
+    { id: 'M3', name: '端云协同',     url: 'http://localhost:8003/docs', port: 8003 },
+    { id: 'M4', name: '场景引擎',     url: '../modes/index.html',      port: 8004 },
+    { id: 'M5', name: '潮汐记忆',     url: 'http://localhost:8005/docs', port: 8005 },
+    { id: 'M6', name: '硬件外设',     url: '../watch/index.html',      port: 8006 },
+    { id: 'M7', name: '积木平台',     url: '../m7/workflow-list.html', port: 8007 },
+    { id: 'M8', name: '控制塔',       url: '../m8/dashboard.html',     port: 8008 },
+    { id: 'M9', name: '编程开发',     url: 'http://localhost:8009/docs', port: 8009 },
+    { id: 'M10', name: '系统卫士',    url: 'http://localhost:8010/docs', port: 8010 },
+    { id: 'M11', name: 'MCP总线',     url: 'http://localhost:8011/docs', port: 8011 },
+    { id: 'M12', name: '安全盾',      url: 'http://localhost:8012/docs', port: 8012 },
+  ];
+
+  // ── State ──
+  var currentModule = null;
+  var healthStatus = {};
+  var healthTimer = null;
+  var currentIframe = null;
+
+  // ── DOM References ──
+  var loginPage = document.getElementById('loginPage');
+  var appLayout = document.getElementById('appLayout');
+  var loginForm = document.getElementById('loginForm');
+  var loginBtn = document.getElementById('loginBtn');
+  var loginError = document.getElementById('loginError');
+  var usernameInput = document.getElementById('username');
+  var passwordInput = document.getElementById('password');
+  var sidebarToggle = document.getElementById('sidebarToggle');
+  var sidebar = document.getElementById('sidebar');
+  var sidebarNav = document.getElementById('sidebarNav');
+  var healthBar = document.getElementById('healthBar');
+  var iframeContainer = document.getElementById('iframeContainer');
+  var iframePlaceholder = document.getElementById('iframePlaceholder');
+  var userName = document.getElementById('userName');
+  var userAvatar = document.getElementById('userAvatar');
+  var logoutBtn = document.getElementById('logoutBtn');
+
+  // ── Auth Check ──
+  function checkAuth() {
+    var token = localStorage.getItem('yunxi_token');
+    if (token) {
+      showApp();
+    } else {
+      showLogin();
+    }
+  }
+
+  function showLogin() {
+    loginPage.style.display = 'flex';
+    appLayout.style.display = 'none';
+    appLayout.classList.remove('active');
+    usernameInput.focus();
+  }
+
+  function showApp() {
+    loginPage.style.display = 'none';
+    appLayout.style.display = 'flex';
+    appLayout.classList.add('active');
+
+    // Restore user info
+    var user = YunxiAPI.getCurrentUser();
+    if (user) {
+      var displayName = user.username || user.name || '用户';
+      userName.textContent = displayName;
+      userAvatar.textContent = displayName.charAt(0).toUpperCase();
+    }
+
+    // Restore sidebar state
+    var sidebarCollapsed = localStorage.getItem('yunxi_portal_sidebar') === 'collapsed';
+    if (sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+    }
+
+    // Restore active module
+    var savedModule = localStorage.getItem('yunxi_portal_active_module');
+    if (savedModule) {
+      activateModule(savedModule);
+    }
+
+    // Start health polling
+    checkAllHealth();
+    healthTimer = setInterval(checkAllHealth, 30000);
+  }
+
+  // ── Login ──
+  loginForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var username = usernameInput.value.trim();
+    var password = passwordInput.value.trim();
+
+    if (!username || !password) {
+      loginError.textContent = '请输入用户名和密码';
+      return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="spinner"></span>登录中...';
+    loginError.textContent = '';
+
+    // Direct POST to M8 auth endpoint
+    fetch('http://localhost:8008/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        if (!response.ok || data.code !== 0) {
+          throw new Error(data.message || data.detail || '登录失败');
+        }
+        return data;
+      });
+    })
+    .then(function(data) {
+      var token = data.data ? data.data.access_token : data.access_token;
+      var user = data.data ? data.data.user : data.user;
+
+      if (token) {
+        localStorage.setItem('yunxi_token', token);
+        if (user) {
+          localStorage.setItem('yunxi_user', JSON.stringify(user));
+        }
+        location.reload();
+      } else {
+        throw new Error('登录响应中未获取到令牌');
+      }
+    })
+    .catch(function(err) {
+      loginError.textContent = err.message || '网络错误，请检查 M8 控制塔服务是否运行';
+      loginBtn.disabled = false;
+      loginBtn.textContent = '登录';
+    });
+  });
+
+  // ── Logout ──
+  logoutBtn.addEventListener('click', function() {
+    localStorage.removeItem('yunxi_token');
+    localStorage.removeItem('yunxi_user');
+    localStorage.removeItem('yunxi_portal_active_module');
+    if (healthTimer) {
+      clearInterval(healthTimer);
+      healthTimer = null;
+    }
+    location.reload();
+  });
+
+  // ── Sidebar Toggle ──
+  sidebarToggle.addEventListener('click', function() {
+    sidebar.classList.toggle('collapsed');
+    var collapsed = sidebar.classList.contains('collapsed');
+    localStorage.setItem('yunxi_portal_sidebar', collapsed ? 'collapsed' : 'expanded');
+  });
+
+  // ── Module Navigation ──
+  var navItems = sidebarNav.querySelectorAll('.nav-item');
+
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      var moduleId = this.getAttribute('data-module');
+      activateModule(moduleId);
+    });
+  });
+
+  function activateModule(moduleId) {
+    var mod = MODULES.find(function(m) { return m.id === moduleId; });
+    if (!mod) return;
+
+    currentModule = moduleId;
+    localStorage.setItem('yunxi_portal_active_module', moduleId);
+
+    // Update nav active state
+    navItems.forEach(function(item) {
+      item.classList.toggle('active', item.getAttribute('data-module') === moduleId);
+    });
+
+    // Update health bar active state
+    var chips = healthBar.querySelectorAll('.health-chip');
+    chips.forEach(function(chip) {
+      chip.classList.toggle('active', chip.getAttribute('data-module') === moduleId);
+    });
+
+    // Load iframe
+    loadModule(mod);
+  }
+
+  function loadModule(mod) {
+    // Remove placeholder
+    if (iframePlaceholder) {
+      iframePlaceholder.style.display = 'none';
+    }
+
+    // Remove existing iframe
+    if (currentIframe) {
+      currentIframe.remove();
+      currentIframe = null;
+    }
+
+    // Create new iframe
+    var iframe = document.createElement('iframe');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
+    iframe.setAttribute('src', mod.url);
+    iframe.setAttribute('loading', 'lazy');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;background:var(--color-bg-base);';
+    iframeContainer.appendChild(iframe);
+    currentIframe = iframe;
+  }
+
+  // ── Health Status ──
+  function buildHealthBar() {
+    healthBar.innerHTML = '';
+    MODULES.forEach(function(mod) {
+      var chip = document.createElement('div');
+      chip.className = 'health-chip';
+      chip.setAttribute('data-module', mod.id);
+      chip.innerHTML =
+        '<span class="chip-dot checking" data-health="' + mod.id + '"></span>' +
+        '<span class="chip-label">' + mod.id + ' ' + mod.name + '</span>';
+      chip.addEventListener('click', function() {
+        activateModule(mod.id);
+      });
+      healthBar.appendChild(chip);
+    });
+  }
+
+  function checkAllHealth() {
+    MODULES.forEach(function(mod) {
+      checkModuleHealth(mod);
+    });
+  }
+
+  function checkModuleHealth(mod) {
+    var statusDot = sidebarNav.querySelector('.nav-status[data-health-port="' + mod.port + '"]');
+    var chipDot = healthBar.querySelector('.chip-dot[data-health="' + mod.id + '"]');
+
+    // Set checking state
+    setStatusIndicator(statusDot, 'checking');
+    setStatusIndicator(chipDot, 'checking');
+
+    // Use Image-based silent check (avoids console errors for CORS)
+    var checkUrl = 'http://localhost:' + mod.port + '/health';
+    var img = new Image();
+    var timer = setTimeout(function() {
+      img.src = '';
+      setStatusIndicator(statusDot, 'offline');
+      setStatusIndicator(chipDot, 'offline');
+      healthStatus[mod.id] = 'offline';
+    }, 3000);
+
+    img.onload = function() {
+      clearTimeout(timer);
+      setStatusIndicator(statusDot, 'online');
+      setStatusIndicator(chipDot, 'online');
+      healthStatus[mod.id] = 'online';
+    };
+
+    img.onerror = function() {
+      clearTimeout(timer);
+      // onerror fires for non-image responses too; if the port responds at all,
+      // the service is considered online
+      setStatusIndicator(statusDot, 'online');
+      setStatusIndicator(chipDot, 'online');
+      healthStatus[mod.id] = 'online';
+    };
+
+    img.src = checkUrl + '?_t=' + Date.now();
+  }
+
+  function setStatusIndicator(el, status) {
+    if (!el) return;
+    // Determine base class before resetting
+    var isNavItem = el.classList.contains('nav-status') || !!el.closest('.nav-item');
+    var isChip = el.classList.contains('chip-dot') || !!el.closest('.health-chip');
+
+    // Reset and rebuild classes
+    el.className = '';
+    if (isNavItem) {
+      el.classList.add('nav-status');
+    }
+    if (isChip) {
+      el.classList.add('chip-dot');
+    }
+    el.classList.add(status);
+  }
+
+  // ── Keyboard Shortcuts ──
+  document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + B: Toggle sidebar
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      e.preventDefault();
+      sidebarToggle.click();
+    }
+  });
+
+  // ── M0 Fallback: Try root, fallback to /docs ──
+  // If M0's static file service is not configured, redirect to /docs
+  var m0Nav = sidebarNav.querySelector('[data-module="M0"]');
+  if (m0Nav) {
+    m0Nav.setAttribute('data-url-fallback', 'http://localhost:8000/docs');
+  }
+
+  var originalLoadModule = loadModule;
+  loadModule = function(mod) {
+    originalLoadModule(mod);
+
+    // For M0, detect if static serving is available
+    if (mod.id === 'M0') {
+      var iframe = currentIframe;
+      if (iframe) {
+        iframe.addEventListener('error', function() {
+          // Fallback to /docs
+          iframe.src = 'http://localhost:8000/docs';
+        }, { once: true });
+
+        // Also try a fetch to check if root serves content
+        fetch('http://localhost:8000/', { method: 'HEAD', mode: 'no-cors' })
+          .then(function(response) {
+            // no-cors: response.type is 'opaque', just means port is open
+            // Keep current src
+          })
+          .catch(function() {
+            // Port not reachable, try fallback
+            if (iframe) {
+              iframe.src = 'http://localhost:8000/docs';
+            }
+          });
+      }
+    }
+  };
+
+  // ── Initialize ──
+  buildHealthBar();
+  checkAuth();
+
+  // Handle theme toggle button placement in header (optional enhancement)
+  if (window.YunxiTheme && YunxiTheme.createToggleButton) {
+    var themeBtn = YunxiTheme.createToggleButton();
+    var logoutBtnEl = document.getElementById('logoutBtn');
+    logoutBtnEl.parentNode.insertBefore(themeBtn, logoutBtnEl);
+  }
+
+})();
+</script>
+</body>
+</html>

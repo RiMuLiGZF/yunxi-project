@@ -1,0 +1,25 @@
+# ============================================================
+# 云汐系统 - 通用基础镜像
+# 用途: 为所有模块提供共享的系统依赖和 Python 运行时环境
+# 使用方式: 各模块 Dockerfile 可参考此文件的 COPY/RUN 步骤
+# ============================================================
+FROM python:3.10-slim
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# 工作目录
+WORKDIR /app
+
+# 安装基础 Python 依赖
+COPY shared/ /app/shared/
+COPY config/ /app/config/
+
+RUN pip install --no-cache-dir \
+    fastapi uvicorn httpx pydantic pydantic-settings \
+    structlog python-dotenv psutil
+
+# 共享代码安装
+ENV PYTHONPATH=/app
