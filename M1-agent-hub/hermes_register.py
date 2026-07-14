@@ -5,7 +5,7 @@ Hermes Agent 联邦注册脚本
 将 Hermes Agent 注册到 M1 联邦调度系统，作为外部 Agent 使用。
 
 接入方案：方案一（M1 联邦 + MCP 协议层）
-- 位置：M1-agent-cluster/federation/（联邦调度层）
+- 位置：M1-agent-hub/federation/（联邦调度层）
 - 适配器：federation/adapters/hermes_agent.py
 - 工具调用：通过 MCP 协议调用 M2 Skills
 

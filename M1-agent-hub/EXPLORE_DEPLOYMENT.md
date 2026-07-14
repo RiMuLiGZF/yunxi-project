@@ -59,7 +59,7 @@ ollama pull qwen2.5:1.5b
 ### 2. 测试功能
 
 ```bash
-cd M1-agent-cluster
+cd M1-agent-hub
 python explore_register.py --test
 ```
 

@@ -319,7 +319,7 @@ class MockDataEngine:
 
         # ===== 云汐系统进程 =====
         yunxi_processes = [
-            ("M1 调度中心", "M1-agent-cluster", 5),
+            ("M1 调度中心", "M1-agent-hub", 5),
             ("M2 技能集群", "M2-skill-cluster", 4),
             ("M4 场景引擎", "M4-scene-engine", 6),
             ("M5 潮汐记忆", "M5-tide-memory", 3),

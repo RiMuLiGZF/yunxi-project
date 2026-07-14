@@ -74,7 +74,7 @@ class ModuleProcessManager:
         # 各模块的启动命令
         module_cmds = {
             "m1": {
-                "dir": "M1-agent-cluster",
+                "dir": "M1-agent-hub",
                 "cmd": [sys.executable, "server.py"],
             },
             "m2": {

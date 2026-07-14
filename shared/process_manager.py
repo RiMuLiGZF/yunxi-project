@@ -16,7 +16,7 @@ MODULE_CONFIGS: List[dict] = [
     {
         "key": "m1",
         "name": "代理集群",
-        "work_dir": "M1-agent-cluster",
+        "work_dir": "M1-agent-hub",
         "start_cmd": "python server.py",
         "port": 8001,
     },

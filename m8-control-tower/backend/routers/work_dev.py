@@ -2211,7 +2211,7 @@ async def get_file_tree(project_id: int = 1):
         "type": "folder",
         "children": [
             {
-                "name": "M1-agent-cluster",
+                "name": "M1-agent-hub",
                 "type": "folder",
                 "children": [
                     {"name": "server.py", "type": "file", "size": "4.2KB"},

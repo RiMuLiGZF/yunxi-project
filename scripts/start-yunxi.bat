@@ -24,7 +24,7 @@ start "Yunxi-M8" /B python -m uvicorn M8-control-tower.backend.main:app --host 0
 timeout /t 3 /nobreak >nul
 
 echo [2/6] 启动 M1 多Agent调度中心 (端口 8001)...
-cd M1-agent-cluster
+cd M1-agent-hub
 start "Yunxi-M1" /B python server.py
 cd ..
 timeout /t 2 /nobreak >nul

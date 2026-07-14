@@ -72,7 +72,7 @@ yunxi-project/
 │       │   └── dashboard.py
 │       ├── test_e2e.py        # 端到端测试
 │       └── requirements.txt
-├── M1-agent-cluster/
+├── M1-agent-hub/
 │   └── federation/agents/
 │       ├── sentinel_lite.py     # Sentinel-Lite 快速巡检Agent
 │       └── sentinel_pro.py     # Sentinel-Pro 全面巡检Agent

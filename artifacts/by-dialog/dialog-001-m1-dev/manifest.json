@@ -14,7 +14,7 @@
       "name": "m1-100-concurrent-test-report",
       "type": "report",
       "module": "M1",
-      "path": "by-module/M1-agent-cluster/m1-100-concurrent-test-report.md",
+      "path": "by-module/M1-agent-hub/m1-100-concurrent-test-report.md",
       "description": "M1调度中心100并发压力测试报告",
       "tags": [
         "M1",
@@ -29,7 +29,7 @@
       "name": "m1-architecture-design",
       "type": "doc",
       "module": "M1",
-      "path": "by-module/M1-agent-cluster/m1-architecture-design.md",
+      "path": "by-module/M1-agent-hub/m1-architecture-design.md",
       "description": "M1多Agent集群调度架构设计文档",
       "tags": [
         "M1",

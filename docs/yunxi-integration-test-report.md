@@ -53,7 +53,7 @@
 | 模块 | 端口 | 启动命令 | 启动状态 | 健康检查 |
 |------|------|----------|----------|----------|
 | M8 管理工作台 | 8000 | `cd M8-control-tower/backend && uvicorn main:app --port 8000` | ✅ 通过 | ✅ 正常 |
-| M1 Agent调度 | 8001 | `cd M1-agent-cluster && python server.py` | ✅ 通过 | ✅ 正常 |
+| M1 Agent调度 | 8001 | `cd M1-agent-hub && python server.py` | ✅ 通过 | ✅ 正常 |
 | M2 技能集群 | 8002 | `cd M2-skills-cluster && python -m skills_cluster.main` | ✅ 通过 | ✅ 正常 |
 | M3 端云协同 | 8003 | `cd M3-edge-cloud && python -m edge_cloud.main` | ✅ 通过 | ✅ 正常 |
 | M4 场景引擎 | 8004 | `cd M4-scene-engine/src && python -m uvicorn main:app --port 8004` | ✅ 通过 | ✅ 正常 |
@@ -298,7 +298,7 @@ $Modules = @(
     @{ Name = "M4-场景引擎"; Port = 8004; Path = "M4-scene-engine"; Cmd = "python -m uvicorn src.main:app --port 8004" },
     @{ Name = "M3-端云协同"; Port = 8003; Path = "M3-edge-cloud"; Cmd = "python -m edge_cloud.main" },
     @{ Name = "M6-硬件外设"; Port = 8006; Path = "M6-hardware-peripheral"; Cmd = "python server.py" },
-    @{ Name = "M1-Agent调度"; Port = 8001; Path = "M1-agent-cluster"; Cmd = "python server.py" },
+    @{ Name = "M1-Agent调度"; Port = 8001; Path = "M1-agent-hub"; Cmd = "python server.py" },
     @{ Name = "M7-积木平台"; Port = 3001; Path = "M7-workflow-builder"; Cmd = "python -m uvicorn src.main:app --port 3001" },
     @{ Name = "M8-管理台"; Port = 8000; Path = "M8-control-tower/backend"; Cmd = "uvicorn main:app --port 8000" }
 )

@@ -54,7 +54,7 @@ $Modules = @(
     @{
         Name = "M1-Agent调度"
         Port = 8001
-        Path = "M1-agent-cluster"
+        Path = "M1-agent-hub"
         Cmd = "python server.py"
         LogFile = "m1.log"
     },

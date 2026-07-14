@@ -51,7 +51,7 @@ class MockProcessGenerator:
 
     # 云汐系统进程名称模板
     YUNXI_PROCESSES = [
-        ("m1-agent-cluster", "python -m m1_agent_cluster.server", "M1"),
+        ("M1-agent-hub", "python -m M1_agent_hub.server", "M1"),
         ("m2-skills", "python -m m2_skills_cluster.server", "M2"),
         ("m3-edge-cloud", "python -m m3_edge_cloud.server", "M3"),
         ("m4-scene-engine", "python -m m4_scene_engine.server", "M4"),

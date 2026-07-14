@@ -58,9 +58,9 @@ version_backup/
 # 旧版废弃目录
 M6-wearable-hardware/
 M7-block-orchestration/
-M1-agent-cluster_old2/
-M1-agent-cluster_backup_20260711/
-M1-agent-cluster_backup_20260711.7z
+M1-agent-hub_old2/
+M1-agent-hub_backup_20260711/
+M1-agent-hub_backup_20260711.7z
 
 # 备份说明文件
 备份说明.txt

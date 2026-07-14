@@ -616,7 +616,7 @@ class UserRepository:
 - **书籍**：《Release It!》— 生产环境的稳定性模式（熔断器、隔板等）
 - **Martin Fowler 博客**：[martinfowler.com/microservices](https://martinfowler.com/microservices/)
 - **课程**：极客时间《从 0 开始学微服务》
-- **源码参考**：`M1-agent-cluster/circuit_breaker.py`、`M1-agent-cluster/retry_coordinator.py`、`M10-system-guard/`
+- **源码参考**：`M1-agent-hub/circuit_breaker.py`、`M1-agent-hub/retry_coordinator.py`、`M10-system-guard/`
 
 ---
 
@@ -909,7 +909,7 @@ M1 多 Agent 集群调度是云汐的"大脑中枢"，采用**联邦调度架构
 - **框架文档**：LangGraph 官方文档、AutoGen 官方文档
 - **书籍**：《AI Agent 设计模式》（如果出版了的话）
 - **博客**：Lil'Log 的 Agent 系列、Andrej Karpathy 的 AI Agent 相关演讲
-- **源码参考**：`M1-agent-cluster/orchestrator_v9.py`、`M1-agent-cluster/master_scheduler.py`、`M1-agent-cluster/semantic_router.py`
+- **源码参考**：`M1-agent-hub/orchestrator_v9.py`、`M1-agent-hub/master_scheduler.py`、`M1-agent-hub/semantic_router.py`
 
 ---
 

@@ -26,7 +26,7 @@
 | 模块 | 端口 | 入口文件 | 启动命令 |
 |------|------|---------|---------|
 | M8 管理工作台（主入口） | **8000** | `M8-control-tower/server.py` | `python server.py` |
-| M1 多Agent集群调度 | 8001 | `M1-agent-cluster/server.py` | `python server.py` |
+| M1 多Agent集群调度 | 8001 | `M1-agent-hub/server.py` | `python server.py` |
 | M2 技能集群 | 8002 | `M2-skills-cluster/start_server.py` | `python start_server.py` |
 | M3 端云协同内核 | 8003 | `M3-edge-cloud/server.py` | `python server.py` |
 | M4 场景引擎 | 8004 | `M4-scene-engine/server.py` | `python server.py` |
@@ -242,7 +242,7 @@ LLM_MODEL=qwen2.5:7b
 | 文件 | 作用 | 重要性 |
 |------|------|--------|
 | `config/yunxi.env` | 全局主配置，所有模块共享 | ⭐⭐⭐ 最重要 |
-| `M1-agent-cluster/.env` | M1 独立配置（覆盖全局） | ⭐⭐ |
+| `M1-agent-hub/.env` | M1 独立配置（覆盖全局） | ⭐⭐ |
 | `M2-skills-cluster/.env` | M2 独立配置 | ⭐⭐ |
 | `M5-tide-memory/.env` | M5 独立配置 | ⭐⭐ |
 | `M8-control-tower/backend/.env` | M8 独立配置 | ⭐⭐ |

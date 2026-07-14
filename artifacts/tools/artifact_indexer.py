@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 # 模块映射规则
 MODULE_MAP = {
-    "M1": "M1-agent-cluster",
+    "M1": "M1-agent-hub",
     "M2": "M2-skills-cluster",
     "M3": "M3-edge-cloud",
     "M4": "M4-scene-engine",

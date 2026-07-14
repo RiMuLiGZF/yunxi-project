@@ -13,7 +13,7 @@ artifacts/
 ├── README.md                    # 本文件 - 产物管理说明文档
 ├── index.json                   # 产物索引总表（所有产物的元数据）
 ├── by-module/                   # 按模块分类存放（主存储）
-│   ├── M1-agent-cluster/        # M1 多Agent集群调度
+│   ├── M1-agent-hub/        # M1 多Agent集群调度
 │   ├── M2-skills-cluster/       # M2 技能集群
 │   ├── M3-edge-cloud/           # M3 端云协同
 │   ├── M4-scene-engine/         # M4 场景引擎
@@ -120,7 +120,7 @@ python tools/artifact_indexer.py --stats
 ### 方式二：手动登记
 
 ```bash
-python tools/artifact_indexer.py --add "产物名称" doc M1 "by-module/M1-agent-cluster/file.md" "产物描述"
+python tools/artifact_indexer.py --add "产物名称" doc M1 "by-module/M1-agent-hub/file.md" "产物描述"
 ```
 
 ### 方式三：对话清单登记

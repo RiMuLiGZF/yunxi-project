@@ -17,7 +17,7 @@
 | 实际运行版本 | OrchestratorV9 |
 | 服务端口 | 8001 |
 | 入口文件 | server.py |
-| 目录路径 | M1-agent-cluster/ |
+| 目录路径 | M1-agent-hub/ |
 | 代码规模 | 约 140 个 Python 文件，~41,181 行代码 |
 | 数据库 | SQLite (yunxi_core.db) + 向量记忆 + 事件存储 |
 | 技术栈 | FastAPI + Uvicorn + Pydantic v2 + structlog + SQLAlchemy + aiohttp + OpenAI SDK + cryptography + psutil + numpy |
@@ -113,7 +113,7 @@
 ### 目录结构现状
 
 ```
-M1-agent-cluster/
+M1-agent-hub/
 ├── server.py                  # 服务入口
 ├── orchestrator/              # 编排器核心（v2-v9 多个版本并存）
 │   ├── orchestrator_v2.py
@@ -270,7 +270,7 @@ FastAPI 接入层（鉴权 / 限流 / 校验）
    - **建议**：按领域驱动设计（DDD）重新组织目录结构
    - **目标结构**：
      ```
-     M1-agent-cluster/
+     M1-agent-hub/
      ├── app/
      │   ├── api/            # API 层
      │   ├── core/           # 核心编排逻辑

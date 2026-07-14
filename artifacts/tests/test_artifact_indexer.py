@@ -62,7 +62,7 @@ class TestDetectModule(TestCase):
     """测试模块检测"""
 
     def test_by_module_directory_m1(self):
-        path = Path("by-module/M1-agent-cluster/doc.md")
+        path = Path("by-module/M1-agent-hub/doc.md")
         self.assertEqual(detect_module(path), "M1")
 
     def test_by_module_directory_m10(self):
@@ -176,12 +176,12 @@ class TestBuildIndex(TestCase):
         self.tools_dir.mkdir(parents=True)
 
         # 创建测试文件
-        (self.artifacts_dir / "by-module" / "M1-agent-cluster").mkdir(parents=True)
+        (self.artifacts_dir / "by-module" / "M1-agent-hub").mkdir(parents=True)
         (self.artifacts_dir / "by-module" / "M10-system-guard").mkdir(parents=True)
         (self.artifacts_dir / "templates").mkdir(parents=True)
 
         # 写入测试文件
-        test_md = self.artifacts_dir / "by-module" / "M1-agent-cluster" / "test-doc.md"
+        test_md = self.artifacts_dir / "by-module" / "M1-agent-hub" / "test-doc.md"
         test_md.write_text("# Test\ncontent", encoding="utf-8")
 
         test_md2 = self.artifacts_dir / "by-module" / "M10-system-guard" / "test-report.md"

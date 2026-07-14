@@ -234,7 +234,7 @@ m4-scene-engine/
 ### 重要问题
 
 3. **目录命名不规范**
-   - **描述**：目录名为全小写 `m4-scene-engine`，而其他模块使用首字母大写（如 M1-agent-cluster、M2-skills-cluster）
+   - **描述**：目录名为全小写 `m4-scene-engine`，而其他模块使用首字母大写（如 M1-agent-hub、M2-skills-cluster）
    - **影响**：命名风格不一致，影响工程整体规范性
    - **建议**：统一为 `M4-scene-engine`
 

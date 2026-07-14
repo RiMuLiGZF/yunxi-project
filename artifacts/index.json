@@ -11,7 +11,7 @@
       "dialog_id": null,
       "dialog_name": null,
       "description": "m1-100-concurrent-test-report - report类型产物",
-      "path": "by-module/M1-agent-cluster/m1-100-concurrent-test-report.md",
+      "path": "by-module/M1-agent-hub/m1-100-concurrent-test-report.md",
       "tags": [
         "M1",
         "report",
@@ -34,7 +34,7 @@
       "dialog_id": null,
       "dialog_name": null,
       "description": "m1-architecture-design - doc类型产物",
-      "path": "by-module/M1-agent-cluster/m1-architecture-design.md",
+      "path": "by-module/M1-agent-hub/m1-architecture-design.md",
       "tags": [
         "agent-cluster",
         "design",
