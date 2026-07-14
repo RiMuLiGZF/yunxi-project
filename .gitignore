@@ -97,7 +97,7 @@ M8-control-tower/backend/routers/dashboard.py
 M8-control-tower/backend/routers/inspection.py
 M8-control-tower/backend/test_e2e.py
 
-# M8: 云同步占位符目录
+# M8: data/ 目录用于本地 SQLite 存储，无需纳入版本控制
 M8-control-tower/data/
 
 # 前端历史残留目录（git-temp迁移遗留）
