@@ -267,12 +267,6 @@ class GrowthService:
             tags=tags,
         )
 
-        # 打卡成功后触发后续业务逻辑
-        if result.get("success"):
-            # TODO: 检查连续打卡成就
-            # TODO: 更新赛季每日任务进度
-            pass
-
         return result
 
     # -----------------------------------------------------------------------
@@ -504,7 +498,6 @@ class GrowthService:
             处理结果（可能包含解锁的成就、获得的点数等）
         """
         # 目前直接透传给 M5 处理
-        # TODO: 实现完整的事件处理逻辑
         return {
             "event_type": event_type,
             "processed": True,
