@@ -291,6 +291,38 @@ class WafRule(Base):
         }
 
 
+class TokenBlacklist(Base):
+    """
+    Token 黑名单表
+
+    管理已登出或失效的 JWT Token，防止被重复使用。
+    支持按过期时间自动清理。
+    """
+    __tablename__ = "token_blacklist"
+
+    token_jti = Column(String(255), primary_key=True, index=True, comment="Token JTI")
+    token_hash = Column(String(255), nullable=False, comment="Token 哈希")
+    expired_at = Column(DateTime, nullable=False, comment="过期时间")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+
+    __table_args__ = (
+        Index("idx_token_blacklist_expired_at", "expired_at"),
+    )
+
+    def to_dict(self) -> dict:
+        """转换为字典
+
+        Returns:
+            黑名单记录字典
+        """
+        return {
+            "token_jti": self.token_jti,
+            "token_hash": self.token_hash,
+            "expired_at": self.expired_at.isoformat() if self.expired_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class AuditLog(Base):
     """
     审计日志表

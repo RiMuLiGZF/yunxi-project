@@ -9,6 +9,7 @@
 
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
 
@@ -16,11 +17,11 @@ from typing import Optional, List
 try:
     from .config import get_settings
     from .database import get_db
-    from .models import ApiKey
+    from .models import ApiKey, TokenBlacklist
 except ImportError:
     from config import get_settings
     from database import get_db
-    from models import ApiKey
+    from models import ApiKey, TokenBlacklist
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -202,6 +203,7 @@ def create_access_token(
         "exp": expire,
         "iat": datetime.utcnow(),
         "type": "access",
+        "jti": uuid.uuid4().hex,
     })
 
     encoded_jwt = jwt.encode(
@@ -229,6 +231,7 @@ def create_refresh_token(data: dict) -> str:
         "exp": expire,
         "iat": datetime.utcnow(),
         "type": "refresh",
+        "jti": uuid.uuid4().hex,
     })
 
     encoded_jwt = jwt.encode(
@@ -258,6 +261,93 @@ def decode_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+# ===========================================================================
+# Token 黑名单管理
+# ===========================================================================
+
+def is_token_blacklisted(db: Session, token_jti: str) -> bool:
+    """检查 Token JTI 是否在黑名单中
+
+    Args:
+        db: 数据库会话
+        token_jti: Token 的 JTI 标识
+
+    Returns:
+        是否在黑名单中
+    """
+    if not token_jti:
+        return False
+    return db.query(TokenBlacklist).filter(
+        TokenBlacklist.token_jti == token_jti,
+    ).first() is not None
+
+
+def add_token_to_blacklist(
+    db: Session,
+    token_jti: str,
+    token_hash: str,
+    expired_at: datetime,
+) -> None:
+    """将 Token 加入黑名单
+
+    Args:
+        db: 数据库会话
+        token_jti: Token 的 JTI 标识
+        token_hash: Token 的 SHA256 哈希
+        expired_at: Token 过期时间
+    """
+    exists = db.query(TokenBlacklist).filter(
+        TokenBlacklist.token_jti == token_jti,
+    ).first()
+    if exists:
+        return
+    record = TokenBlacklist(
+        token_jti=token_jti,
+        token_hash=token_hash,
+        expired_at=expired_at,
+    )
+    db.add(record)
+    db.commit()
+
+
+def clean_expired_blacklist_tokens(db: Session) -> int:
+    """清理已过期的黑名单 Token
+
+    Args:
+        db: 数据库会话
+
+    Returns:
+        清理的记录数量
+    """
+    now = datetime.utcnow()
+    result = db.query(TokenBlacklist).filter(
+        TokenBlacklist.expired_at < now,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return result
+
+
+def blacklist_token(db: Session, token: str) -> bool:
+    """将指定 Token 加入黑名单（便捷函数）
+
+    Args:
+        db: 数据库会话
+        token: JWT Token 字符串
+
+    Returns:
+        是否成功加入黑名单
+    """
+    payload = decode_token(token)
+    if not payload or not payload.get("jti"):
+        return False
+    jti = payload.get("jti")
+    exp_timestamp = payload.get("exp")
+    expired_at = datetime.fromtimestamp(exp_timestamp) if exp_timestamp else datetime.utcnow()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    add_token_to_blacklist(db, jti, token_hash, expired_at)
+    return True
 
 
 # ===========================================================================
@@ -363,6 +453,19 @@ async def get_current_user(
         token = credentials.credentials
         payload = decode_token(token)
         if payload and payload.get("type") == "access":
+            # 黑名单检查
+            jti = payload.get("jti")
+            if jti and is_token_blacklisted(db, jti):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token 已失效",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            # 自动清理过期黑名单 Token（静默失败不影响主流程）
+            try:
+                clean_expired_blacklist_tokens(db)
+            except Exception:
+                pass
             return {
                 "auth_type": "jwt",
                 "user_id": payload.get("sub", ""),

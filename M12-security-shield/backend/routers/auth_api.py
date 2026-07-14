@@ -4,6 +4,8 @@
 """
 
 from fastapi import APIRouter, Query, Depends
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 from typing import Optional
 
 # 兼容相对导入和直接运行
@@ -19,7 +21,11 @@ try:
         verify_password,
         require_role,
         ROLE_ADMIN,
+        security,
+        blacklist_token,
+        clean_expired_blacklist_tokens,
     )
+    from ..database import get_db
     from ..config import get_settings
 except ImportError:
     import sys
@@ -36,7 +42,11 @@ except ImportError:
         verify_password,
         require_role,
         ROLE_ADMIN,
+        security,
+        blacklist_token,
+        clean_expired_blacklist_tokens,
     )
+    from database import get_db
     from config import get_settings
 
 router = APIRouter(prefix="/api/m12/auth", tags=["M12-鉴权管理"])
@@ -161,12 +171,19 @@ def refresh_token(refresh_token: str):
 
 
 @router.post("/logout", summary="登出")
-def logout():
+def logout(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db),
+):
     """
-    用户登出（客户端清除 Token 即可，服务端预留黑名单机制）
+    用户登出，服务端将当前 Token 加入黑名单
     """
     try:
-        # TODO: 实现 Token 黑名单机制
+        if credentials and credentials.scheme.lower() == "bearer":
+            token = credentials.credentials
+            blacklist_token(db, token)
+            # 登出时自动清理过期黑名单 Token
+            clean_expired_blacklist_tokens(db)
         return make_response(data={"success": True}, message="登出成功")
     except Exception as e:
         return make_error_response(f"登出失败: {str(e)}")
