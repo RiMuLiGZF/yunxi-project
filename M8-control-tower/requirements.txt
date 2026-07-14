@@ -1,0 +1,13 @@
+# M8-control-tower 依赖包
+fastapi
+uvicorn
+pydantic
+python-dotenv
+pydantic-settings
+python-jose[cryptography]
+bcrypt
+SQLAlchemy
+alembic
+cryptography
+httpx
+psutil
