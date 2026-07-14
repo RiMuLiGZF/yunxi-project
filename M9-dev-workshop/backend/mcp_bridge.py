@@ -9,7 +9,7 @@ import uuid
 import threading
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass, field
 
 # 兼容相对导入和直接运行
@@ -309,12 +309,92 @@ class MCPToolRegistry:
                     }
                 )
 
+    # ===== HTTP 调用辅助方法 =====
+
+    def _http_call_with_retry(
+        self,
+        url: str,
+        method: str = "POST",
+        json_data: Optional[Dict] = None,
+        params: Optional[Dict] = None,
+        timeout: float = 30.0,
+        max_retries: int = 2,
+        retry_delay: float = 1.0,
+    ) -> Tuple[bool, Any]:
+        """带重试和降级的 HTTP 调用.
+
+        Args:
+            url: 请求URL
+            method: HTTP方法
+            json_data: JSON请求体
+            params: URL查询参数
+            timeout: 超时时间（秒）
+            max_retries: 最大重试次数
+            retry_delay: 重试延迟基数（指数退避）
+
+        Returns:
+            (成功标志, 响应数据或错误信息)
+        """
+        import httpx
+
+        last_error = None
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=timeout) as client:
+                    if method.upper() == "GET":
+                        resp = client.get(url, params=params)
+                    else:
+                        resp = client.post(url, json=json_data, params=params)
+
+                    if resp.status_code >= 500:
+                        # 服务端错误，可重试
+                        last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                        if attempt < max_retries:
+                            delay = retry_delay * (2 ** attempt)
+                            self.logger.warning(f"HTTP 调用失败 (尝试 {attempt+1}/{max_retries+1}): {url} - {last_error}, {delay}s后重试")
+                            time.sleep(delay)
+                            continue
+                        return False, last_error
+
+                    try:
+                        return True, resp.json()
+                    except Exception:
+                        return True, resp.text
+
+            except httpx.TimeoutException:
+                last_error = f"请求超时 ({timeout}s)"
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** attempt)
+                    self.logger.warning(f"HTTP 超时 (尝试 {attempt+1}/{max_retries+1}): {url}, {delay}s后重试")
+                    time.sleep(delay)
+                    continue
+            except httpx.ConnectError:
+                last_error = f"连接失败: {url}"
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** attempt)
+                    self.logger.warning(f"连接失败 (尝试 {attempt+1}/{max_retries+1}): {url}, {delay}s后重试")
+                    time.sleep(delay)
+                    continue
+            except Exception as e:
+                last_error = str(e)
+                break
+
+        return False, last_error
+
     # ===== 内置工具实现 =====
 
     def _tool_compute_schedule(self, task_type: str, priority: int = 5, resources: Optional[Dict] = None) -> Dict:
-        """算力调度工具实现（调用 M8 控制塔 API）"""
-        # 实际项目中使用 httpx 调用 M8 控制塔 API
-        # 此处为框架实现，返回模拟结果
+        """算力调度工具实现"""
+        endpoint = f"{self.settings.m8_control_tower_api}/compute/schedule"
+        payload = {"task_type": task_type, "priority": priority, "resources": resources or {}}
+
+        success, data = self._http_call_with_retry(endpoint, method="POST", json_data=payload)
+        if success:
+            self.logger.info(f"算力调度成功: task_type={task_type}")
+            return data if isinstance(data, dict) else {"raw_response": data}
+
+        # 降级：返回mock数据
+        self.logger.warning(f"算力调度降级(mock): {data}")
         return {
             "status": "scheduled",
             "task_type": task_type,
@@ -322,11 +402,22 @@ class MCPToolRegistry:
             "resources": resources or {},
             "scheduled_at": datetime.now().isoformat(),
             "estimated_duration": "30min",
-            "note": "已提交至 M8 控制塔，等待调度",
+            "note": "已提交至 M8 控制塔（降级模式）",
+            "degraded": True,
+            "error": data,
         }
 
     def _tool_memory_query(self, query: str, top_k: int = 5, tags: Optional[List] = None) -> Dict:
-        """记忆查询工具实现（调用 M5 潮汐记忆 API）"""
+        """记忆查询工具实现"""
+        endpoint = f"{self.settings.m5_memory_api}/memory/query"
+        payload = {"query": query, "top_k": top_k, "tags": tags or []}
+
+        success, data = self._http_call_with_retry(endpoint, method="POST", json_data=payload)
+        if success:
+            self.logger.info(f"记忆查询成功: query={query[:50]}")
+            return data if isinstance(data, dict) else {"raw_response": data}
+
+        self.logger.warning(f"记忆查询降级(mock): {data}")
         return {
             "query": query,
             "top_k": top_k,
@@ -336,21 +427,43 @@ class MCPToolRegistry:
                 for i in range(min(top_k, 3))
             ],
             "total": top_k,
-            "source": "M5 潮汐记忆",
+            "source": "M5 潮汐记忆（降级模式）",
+            "degraded": True,
+            "error": data,
         }
 
     def _tool_scene_switch(self, scene_name: str, scene_params: Optional[Dict] = None) -> Dict:
-        """场景切换工具实现（调用 M4 场景引擎 API）"""
+        """场景切换工具实现"""
+        endpoint = f"{self.settings.m4_scene_api}/scene/switch"
+        payload = {"scene_name": scene_name, "scene_params": scene_params or {}}
+
+        success, data = self._http_call_with_retry(endpoint, method="POST", json_data=payload)
+        if success:
+            self.logger.info(f"场景切换成功: {scene_name}")
+            return data if isinstance(data, dict) else {"raw_response": data}
+
+        self.logger.warning(f"场景切换降级(mock): {data}")
         return {
             "status": "switched",
             "scene_name": scene_name,
             "scene_params": scene_params or {},
             "switched_at": datetime.now().isoformat(),
-            "note": f"已切换至 {scene_name} 场景",
+            "note": f"已切换至 {scene_name} 场景（降级模式）",
+            "degraded": True,
+            "error": data,
         }
 
     def _tool_inspection_report(self, report_type: str = "daily", scope: str = "all") -> Dict:
-        """巡检报告工具实现（调用 M8 巡检 API）"""
+        """巡检报告工具实现"""
+        endpoint = f"{self.settings.m8_inspection_api}/inspection/report"
+        payload = {"report_type": report_type, "scope": scope}
+
+        success, data = self._http_call_with_retry(endpoint, method="POST", json_data=payload)
+        if success:
+            self.logger.info(f"巡检报告生成成功: type={report_type}")
+            return data if isinstance(data, dict) else {"raw_response": data}
+
+        self.logger.warning(f"巡检报告降级(mock): {data}")
         return {
             "report_type": report_type,
             "scope": scope,
@@ -362,7 +475,9 @@ class MCPToolRegistry:
                 "errors": 2,
             },
             "status": "generated",
-            "note": "报告已生成，可在 M8 巡检模块查看详情",
+            "note": "报告已生成（降级模式）",
+            "degraded": True,
+            "error": data,
         }
 
     def _tool_vscode_launch(self, project_path: str = "", new_window: bool = False) -> Dict:
