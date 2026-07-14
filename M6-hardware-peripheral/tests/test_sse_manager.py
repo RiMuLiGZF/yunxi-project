@@ -1,14 +1,33 @@
-"""P1-6: SSE 管理器测试覆盖扩展"""
+"""P1-6: SSE 管理器测试覆盖扩展
+
+P2-1 适配：_clients 从 Set[Queue] 改为 Dict[Queue, _ConnectionMeta]，
+心跳格式从 ping event 改为 SSE 注释，连接上限强制生效。
+"""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
 import json
+import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from m6_hardware.realtime.sse_manager import SSEManager, get_sse_manager
+from m6_hardware.realtime.sse_manager import (
+    SSEManager, get_sse_manager, _ConnectionMeta,
+)
+from m6_hardware.models.errors import M6Exception, ErrorCode
+
+
+def _make_meta(client_id: str = "test", device_id: str = None) -> _ConnectionMeta:
+    """测试辅助：快速创建连接元数据"""
+    now = time.time()
+    return _ConnectionMeta(
+        client_id=client_id,
+        device_id=device_id,
+        created_at=now,
+        last_active=now,
+    )
 
 
 @pytest.fixture
@@ -71,18 +90,18 @@ class TestSSEManagerSingleton:
 class TestSSEManagerConnections:
     """连接管理测试"""
 
-    def test_add_connection_via_connect(self, sse_manager):
-        """connect() 添加 queue 到 _clients"""
+    def test_add_connection(self, sse_manager):
+        """添加 queue 到 _connections 并记录元数据"""
         assert sse_manager.client_count == 0
         queue = asyncio.Queue()
-        sse_manager._clients.add(queue)
+        sse_manager._connections[queue] = _make_meta()
         assert sse_manager.client_count == 1
 
     def test_remove_connection(self, sse_manager):
-        """从 _clients 移除 queue"""
+        """从 _connections 移除 queue"""
         queue = asyncio.Queue()
-        sse_manager._clients.add(queue)
-        sse_manager._clients.discard(queue)
+        sse_manager._connections[queue] = _make_meta()
+        sse_manager._connections.pop(queue, None)
         assert sse_manager.client_count == 0
 
     def test_client_count_property(self, sse_manager):
@@ -90,15 +109,15 @@ class TestSSEManagerConnections:
         assert sse_manager.client_count == 0
         q1 = asyncio.Queue()
         q2 = asyncio.Queue()
-        sse_manager._clients.add(q1)
-        sse_manager._clients.add(q2)
+        sse_manager._connections[q1] = _make_meta("c1")
+        sse_manager._connections[q2] = _make_meta("c2")
         assert sse_manager.client_count == 2
 
-    def test_duplicate_queue_ignored(self, sse_manager):
-        """重复添加同一个 queue 被 set 去重"""
+    def test_duplicate_queue_overwrites(self, sse_manager):
+        """重复添加同一个 queue 会覆盖元数据，数量仍为 1"""
         q = asyncio.Queue()
-        sse_manager._clients.add(q)
-        sse_manager._clients.add(q)
+        sse_manager._connections[q] = _make_meta("c1")
+        sse_manager._connections[q] = _make_meta("c1-new")
         assert sse_manager.client_count == 1
 
     @pytest.mark.asyncio
@@ -107,16 +126,32 @@ class TestSSEManagerConnections:
         from sse_starlette.sse import EventSourceResponse
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         assert isinstance(response, EventSourceResponse)
         assert sse_manager.client_count == 1  # queue 已添加
 
     @pytest.mark.asyncio
+    async def test_connect_records_metadata(self, sse_manager):
+        """connect() 为连接记录元数据"""
+        mock_request = MagicMock()
+        mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {"device_id": "dev-001"}
+
+        response = await sse_manager.connect(mock_request)
+        # 消费生成器触发连接添加
+        async for _ in response.body_iterator:
+            pass
+        # 连接已清理，但验证连接期间元数据存在
+        assert sse_manager.total_connections == 1
+
+    @pytest.mark.asyncio
     async def test_connect_queue_removed_on_disconnect(self, sse_manager):
         """客户端断开后 queue 被清理"""
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         # 手动消费 response 使生成器运行到 finally
@@ -124,6 +159,27 @@ class TestSSEManagerConnections:
             pass
         # 队列应该被清理
         assert sse_manager.client_count == 0
+
+    @pytest.mark.asyncio
+    async def test_connect_rejects_when_limit_exceeded(self, sse_manager, mock_config):
+        """连接数达上限时抛出 M6Exception(SSE_LIMIT_EXCEEDED)"""
+        # __init__ 已将 sse_max_connections 缓存到 _max_connections，
+        # 测试需直接修改实例属性以使上限检查生效
+        sse_manager._max_connections = 2
+        mock_request = MagicMock()
+        mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
+
+        # 填满连接
+        for _ in range(2):
+            q = asyncio.Queue()
+            sse_manager._connections[q] = _make_meta()
+
+        with pytest.raises(M6Exception) as exc_info:
+            await sse_manager.connect(mock_request)
+        assert exc_info.value.code == ErrorCode.SSE_LIMIT_EXCEEDED
+        assert "100" not in str(exc_info.value)  # 上限是 2 不是 100
+        assert "2" in str(exc_info.value)
 
 
 class TestSSEManagerBroadcast:
@@ -134,8 +190,8 @@ class TestSSEManagerBroadcast:
         """_broadcast 正常广播消息到所有客户端"""
         q1 = asyncio.Queue()
         q2 = asyncio.Queue()
-        sse_manager._clients.add(q1)
-        sse_manager._clients.add(q2)
+        sse_manager._connections[q1] = _make_meta("c1")
+        sse_manager._connections[q2] = _make_meta("c2")
 
         await sse_manager._broadcast("test_event", {"msg": "hello"})
 
@@ -146,19 +202,29 @@ class TestSSEManagerBroadcast:
         assert msg1["data"]["msg"] == "hello"
 
     @pytest.mark.asyncio
+    async def test_broadcast_updates_last_active(self, sse_manager):
+        """广播成功后更新连接的 last_active"""
+        q = asyncio.Queue()
+        meta = _make_meta("c1")
+        old_last_active = meta.last_active
+        sse_manager._connections[q] = meta
+
+        await asyncio.sleep(0.01)
+        await sse_manager._broadcast("evt", {"k": "v"})
+
+        assert meta.last_active > old_last_active
+
+    @pytest.mark.asyncio
     async def test_broadcast_queue_full_warning(self, sse_manager):
         """_broadcast 队列满时清理头部并记录 warning"""
         q = asyncio.Queue(maxsize=1)
         q.put_nowait("filler")  # 填满队列
-        sse_manager._clients.add(q)
+        sse_manager._connections[q] = _make_meta()
 
         with patch("m6_hardware.realtime.sse_manager.logger") as mock_logger:
             await sse_manager._broadcast("evt", {"k": "v"})
-            # 队列满时会有 warning 日志
-            assert q.qsize() == 1
-            # 检查丢弃统计日志（累计丢弃可能触发 warning）
-            # 首次丢弃不一定打印累计日志，但 _broadcast 内部会调用 logger.warning
             # 至少确保队列被处理，没有抛异常
+            assert q.qsize() == 1
 
     @pytest.mark.asyncio
     async def test_broadcast_exception_removes_dead_client(self, sse_manager):
@@ -169,13 +235,13 @@ class TestSSEManagerBroadcast:
 
         bad = BadQueue()
         good = asyncio.Queue()
-        sse_manager._clients.add(bad)
-        sse_manager._clients.add(good)
+        sse_manager._connections[bad] = _make_meta("bad")
+        sse_manager._connections[good] = _make_meta("good")
 
         with patch("m6_hardware.realtime.sse_manager.logger") as mock_logger:
             await sse_manager._broadcast("evt", {"k": "v"})
-            assert bad not in sse_manager._clients
-            assert good in sse_manager._clients
+            assert bad not in sse_manager._connections
+            assert good in sse_manager._connections
             mock_logger.error.assert_called()
 
     @pytest.mark.asyncio
@@ -189,7 +255,7 @@ class TestSSEManagerBroadcast:
         """队列满丢弃会增加 drop_count"""
         q = asyncio.Queue(maxsize=1)
         q.put_nowait("x")
-        sse_manager._clients.add(q)
+        sse_manager._connections[q] = _make_meta()
         prev_drop = sse_manager.drop_count
         await sse_manager._broadcast("evt", {"k": "v"})
         assert sse_manager.drop_count >= prev_drop
@@ -203,6 +269,7 @@ class TestSSEManagerEventGenerator:
         """event_generator 首先生成 connected 事件"""
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         events = []
@@ -218,6 +285,7 @@ class TestSSEManagerEventGenerator:
         """event_generator 生成 initial_state 事件"""
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         events = []
@@ -229,24 +297,27 @@ class TestSSEManagerEventGenerator:
 
     @pytest.mark.asyncio
     async def test_event_generator_heartbeat_on_timeout(self, sse_manager, mock_config):
-        """queue 超时时生成心跳 ping 事件"""
+        """queue 超时时生成 SSE 心跳注释（P2-1 改为 comment 格式）"""
         mock_config.sse_heartbeat_interval = 0.01  # 10ms 便于测试
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(side_effect=[False, True])
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         events = []
         async for chunk in response.body_iterator:
             events.append(chunk)
-            if any(e.get("event") == "ping" for e in events):
+            # P2-1: 心跳现在以 comment 格式发送
+            if chunk.get("comment") == "heartbeat":
                 break
-        assert any(e.get("event") == "ping" for e in events)
+        assert any(e.get("comment") == "heartbeat" for e in events)
 
     @pytest.mark.asyncio
     async def test_event_generator_delivers_broadcast(self, sse_manager):
         """event_generator 能投递广播消息"""
         mock_request = MagicMock()
         mock_request.is_disconnected = AsyncMock(side_effect=[False, False, True])
+        mock_request.query_params = {}
 
         response = await sse_manager.connect(mock_request)
         gen = response.body_iterator
@@ -275,6 +346,25 @@ class TestSSEManagerEventGenerator:
 
         assert any(e.get("event") == "sensor_data" for e in events)
 
+    @pytest.mark.asyncio
+    async def test_event_generator_connected_includes_client_id(self, sse_manager):
+        """P2-1: connected 事件包含 client_id"""
+        mock_request = MagicMock()
+        mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
+
+        response = await sse_manager.connect(mock_request)
+        events = []
+        async for chunk in response.body_iterator:
+            events.append(chunk)
+            if len(events) >= 1:
+                break
+
+        connected_event = next((e for e in events if e.get("event") == "connected"), None)
+        assert connected_event is not None
+        data = json.loads(connected_event["data"])
+        assert "client_id" in data
+
 
 class TestSSEManagerMaxConnections:
     """连接上限测试"""
@@ -284,13 +374,78 @@ class TestSSEManagerMaxConnections:
         assert mock_config.sse_max_connections == 100
 
     @pytest.mark.asyncio
-    async def test_many_connections_allowed(self, sse_manager, mock_config):
-        """当前实现允许超过 max_connections 的连接（记录上限配置存在）"""
-        mock_config.sse_max_connections = 5
-        for _ in range(10):
+    async def test_connect_enforces_limit(self, sse_manager, mock_config):
+        """P2-1: connect() 强制执行连接上限"""
+        # __init__ 已将 sse_max_connections 缓存到 _max_connections，
+        # 测试需直接修改实例属性以使上限检查生效
+        sse_manager._max_connections = 3
+        mock_request = MagicMock()
+        mock_request.is_disconnected = AsyncMock(return_value=True)
+        mock_request.query_params = {}
+
+        # 前 3 个连接正常
+        for _ in range(3):
+            resp = await sse_manager.connect(mock_request)
+            # 消费生成器以清理
+            async for _ in resp.body_iterator:
+                pass
+
+        # 重新填充到上限
+        for _ in range(3):
             q = asyncio.Queue()
-            sse_manager._clients.add(q)
-        assert sse_manager.client_count == 10
+            sse_manager._connections[q] = _make_meta()
+
+        # 第 4 个应该被拒绝
+        with pytest.raises(M6Exception) as exc_info:
+            await sse_manager.connect(mock_request)
+        assert exc_info.value.code == ErrorCode.SSE_LIMIT_EXCEEDED
+
+
+class TestSSEManagerCleanup:
+    """P2-1: 定时清理测试"""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_task_started_on_start(self, sse_manager):
+        """start() 时启动清理任务"""
+        await sse_manager.start()
+        assert sse_manager._cleanup_task is not None
+        await sse_manager.stop()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_task_cancelled_on_stop(self, sse_manager):
+        """stop() 时取消清理任务"""
+        await sse_manager.start()
+        assert sse_manager._cleanup_task is not None
+        await sse_manager.stop()
+        assert sse_manager._cleanup_task is None
+
+    @pytest.mark.asyncio
+    async def test_cleanup_stale_connections(self, sse_manager):
+        """超时连接被清理"""
+        # 设置短超时
+        sse_manager._client_timeout = 0.05  # 50ms
+
+        q1 = asyncio.Queue()
+        meta1 = _make_meta("c1")
+        meta1.last_active = time.time() - 10  # 10秒前活跃
+        sse_manager._connections[q1] = meta1
+
+        q2 = asyncio.Queue()
+        meta2 = _make_meta("c2")
+        meta2.last_active = time.time()  # 刚刚活跃
+        sse_manager._connections[q2] = meta2
+
+        assert sse_manager.client_count == 2
+        await sse_manager._cleanup_stale_connections()
+        assert sse_manager.client_count == 1
+        assert q2 in sse_manager._connections
+
+    @pytest.mark.asyncio
+    async def test_close_all_stops_service(self, sse_manager):
+        """close_all() 等同于 stop()"""
+        await sse_manager.start()
+        await sse_manager.close_all()
+        assert not sse_manager._running
 
 
 class TestSSEManagerLifecycle:
@@ -319,7 +474,7 @@ class TestSSEManagerLifecycle:
     async def test_push_notification(self, sse_manager):
         """push_notification 广播 notification 事件"""
         q = asyncio.Queue()
-        sse_manager._clients.add(q)
+        sse_manager._connections[q] = _make_meta()
         await sse_manager.push_notification({"title": "hello"})
         msg = q.get_nowait()
         assert msg["event"] == "notification"
@@ -328,7 +483,7 @@ class TestSSEManagerLifecycle:
     async def test_push_custom_event(self, sse_manager):
         """push_custom_event 广播自定义事件"""
         q = asyncio.Queue()
-        sse_manager._clients.add(q)
+        sse_manager._connections[q] = _make_meta()
         await sse_manager.push_custom_event("custom", {"a": 1})
         msg = q.get_nowait()
         assert msg["event"] == "custom"
