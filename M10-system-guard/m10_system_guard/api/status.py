@@ -11,15 +11,16 @@ import uuid
 from fastapi import APIRouter, Query
 
 from ..config import get_config
+from ..errors import M10ErrorCode
 from ..system_monitor import get_system_monitor
 from ..models import make_response, AggregationLevel
+
+from .response import success as _success
 
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    """构造成功响应."""
-    return make_response(data=data, message=message)
+
 
 
 @router.get("", summary="系统状态摘要")
@@ -69,7 +70,7 @@ async def metric_value(metric_type: str):
             "timestamp": time.time(),
         })
     except ValueError:
-        return make_response(code=400, message=f"未知的指标类型: {metric_type}")
+        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"未知的指标类型: {metric_type}")
 
 
 @router.get("/history", summary="历史数据")
@@ -82,7 +83,7 @@ async def history_data(
     try:
         agg_level = AggregationLevel(level.lower())
     except ValueError:
-        return make_response(code=400, message=f"无效的聚合级别: {level}")
+        return make_response(code=M10ErrorCode.INVALID_PARAMETER, message=f"无效的聚合级别: {level}")
 
     data = monitor.get_history(agg_level, limit=limit)
     return _success({

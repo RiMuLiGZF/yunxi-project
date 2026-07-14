@@ -8,15 +8,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
+from ..errors import M10ErrorCode
 from ..models import make_response, GuardPolicyUpdateRequest, MetricType
 from ..guard_engine import get_guard_engine
+
+from .response import success as _success
 
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    """构造成功响应."""
-    return make_response(data=data, message=message)
+
 
 
 @router.get("", summary="防护状态")
@@ -68,11 +69,11 @@ async def get_policy(metric_type: str):
     try:
         mtype = MetricType(metric_type.lower())
     except ValueError:
-        return make_response(code=400, message=f"无效的指标类型: {metric_type}")
+        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"无效的指标类型: {metric_type}")
 
     policy = engine.get_policy(mtype)
     if policy is None:
-        return make_response(code=404, message=f"未找到策略: {metric_type}")
+        return make_response(code=M10ErrorCode.POLICY_NOT_FOUND, message=f"未找到策略: {metric_type}")
 
     return _success({
         "name": policy.name,
@@ -96,7 +97,7 @@ async def update_policy(metric_type: str, request: GuardPolicyUpdateRequest):
     try:
         mtype = MetricType(metric_type.lower())
     except ValueError:
-        return make_response(code=400, message=f"无效的指标类型: {metric_type}")
+        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"无效的指标类型: {metric_type}")
 
     success = engine.update_policy(
         mtype,
@@ -108,7 +109,7 @@ async def update_policy(metric_type: str, request: GuardPolicyUpdateRequest):
     )
 
     if not success:
-        return make_response(code=404, message=f"未找到策略: {metric_type}")
+        return make_response(code=M10ErrorCode.POLICY_NOT_FOUND, message=f"未找到策略: {metric_type}")
 
     return _success({"updated": True, "metric_type": metric_type})
 
@@ -133,7 +134,7 @@ async def acknowledge_alert(alert_id: str):
     engine = get_guard_engine()
     success = engine.acknowledge_alert(alert_id)
     if not success:
-        return make_response(code=404, message=f"告警不存在: {alert_id}")
+        return make_response(code=M10ErrorCode.ALERT_NOT_FOUND, message=f"告警不存在: {alert_id}")
     return _success({"acknowledged": True, "alert_id": alert_id})
 
 

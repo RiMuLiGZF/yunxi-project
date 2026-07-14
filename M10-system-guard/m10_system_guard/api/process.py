@@ -8,15 +8,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
+from ..errors import M10ErrorCode
 from ..models import make_response
 from ..process_manager import get_process_manager
+
+from .response import success as _success
 
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    """构造成功响应."""
-    return make_response(data=data, message=message)
+
 
 
 @router.get("", summary="进程列表")
@@ -116,7 +117,7 @@ async def process_detail(pid: int):
     pm = get_process_manager()
     proc = pm.get_process_by_pid(pid)
     if proc is None:
-        return make_response(code=404, message=f"进程 PID={pid} 不存在")
+        return make_response(code=M10ErrorCode.PROCESS_NOT_FOUND, message=f"进程 PID={pid} 不存在")
     return _success(proc.to_dict())
 
 

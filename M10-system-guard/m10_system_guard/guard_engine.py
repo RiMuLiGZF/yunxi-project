@@ -81,6 +81,13 @@ class GuardEngine:
         # 回调函数
         self._on_alert_callbacks: list[Callable] = []
 
+        # 告警风暴抑制
+        self._alert_counts: dict[str, int] = {}  # 按级别统计最近的告警数
+        self._alert_storm_threshold = 10  # 60秒内同类告警超过此数视为风暴
+        self._alert_storm_window = 60.0  # 风暴检测时间窗口（秒）
+        self._alert_storm_suppressed = False  # 是否处于风暴抑制状态
+        self._last_alert_timestamps: dict[str, float] = {}  # 各级别最近告警时间
+
     def _init_policies(self):
         """初始化防护策略."""
         cfg = self.threshold_cfg
@@ -329,6 +336,10 @@ class GuardEngine:
             acknowledged=False,
         )
 
+        # 风暴抑制检查
+        if self._check_alert_storm(alert):
+            return  # 风暴期间，跳过非紧急告警
+
         self._alerts.append(alert)
 
         # 同时写入数据库持久化
@@ -351,6 +362,36 @@ class GuardEngine:
                 callback(alert)
             except Exception:
                 pass
+
+    def _check_alert_storm(self, alert) -> bool:
+        """检查是否处于告警风暴状态.
+
+        Returns:
+            True 表示应抑制该告警
+        """
+        now = time.time()
+        level = alert.level.value if hasattr(alert.level, 'value') else str(alert.level)
+
+        # EMERGENCY 级别不抑制
+        if level == 'emergency':
+            return False
+
+        # 清理过期记录
+        for k in list(self._last_alert_timestamps.keys()):
+            if now - self._last_alert_timestamps[k] > self._alert_storm_window:
+                del self._last_alert_timestamps[k]
+
+        # 记录本次告警
+        self._last_alert_timestamps[alert.alert_id] = now
+
+        # 检查是否超过阈值
+        recent_count = len(self._last_alert_timestamps)
+        if recent_count > self._alert_storm_threshold:
+            self._alert_storm_suppressed = True
+            return True
+
+        self._alert_storm_suppressed = False
+        return False
 
     def _update_throttling(self, overall_level: GuardLevel):
         """根据总体防护级别更新限流状态.
@@ -529,6 +570,7 @@ class GuardEngine:
             "unacknowledged_alerts": sum(1 for a in self._alerts if not a.acknowledged),
             "policies_count": len(self._policies),
             "db_persistence": self._db_enabled,
+            "alert_storm_suppressed": self._alert_storm_suppressed,
         }
 
 
