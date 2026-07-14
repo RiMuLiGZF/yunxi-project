@@ -16,12 +16,12 @@ from fastapi import APIRouter, Query
 from ..models import make_response
 from ..audit_logger import get_audit_logger
 
+from .response import success as _success
+
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    """构造成功响应."""
-    return make_response(data=data, message=message)
+
 
 
 def _try_db_query(func_name: str, *args, **kwargs):

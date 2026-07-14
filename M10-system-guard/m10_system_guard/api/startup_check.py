@@ -11,12 +11,12 @@ from fastapi import APIRouter, Query
 from ..models import make_response, StartupCheckRequest
 from ..startup_check import get_startup_checker
 
+from .response import success as _success
+
 router = APIRouter()
 
 
-def _success(data=None, message: str = "ok"):
-    """构造成功响应."""
-    return make_response(data=data, message=message)
+
 
 
 @router.post("/check", summary="执行启动检查")

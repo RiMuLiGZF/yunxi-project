@@ -162,19 +162,34 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # 关闭时清理
+    # 关闭时清理（按顺序）
     print("\n正在关闭 M10 系统卫士服务...")
-    sm = get_system_monitor()
-    sm.stop()
-    # 刷新审计日志
-    al = get_audit_logger()
-    al.stop()
-    if db_ready:
-        from m10_system_guard.database import SessionLocal
-        SessionLocal.close_all()
-    print("  审计日志: 已刷新")
+
+    import signal
+    # 1. 停止接受新任务
     ss = get_sandbox_scheduler()
     ss.stop()
+    print("  沙箱调度: 已停止")
+
+    # 2. 停止数据采集
+    sm = get_system_monitor()
+    sm.stop()
+    print("  系统监控: 已停止")
+
+    # 3. 刷新审计日志到数据库
+    al = get_audit_logger()
+    al.stop()
+    print("  审计日志: 已刷新")
+
+    # 4. 关闭数据库连接
+    if db_ready:
+        try:
+            from m10_system_guard.database import SessionLocal
+            SessionLocal.close_all()
+            print("  数据库: 已关闭")
+        except Exception as e:
+            print(f"  数据库: 关闭失败 ({e})")
+
     print("M10 系统卫士服务已关闭\n")
 
 

@@ -12,6 +12,7 @@ from .guard import router as guard_router
 from .startup_check import router as startup_check_router
 from .audit import router as audit_router
 from .report import router as report_router
+from .response import success, error
 
 # 主 API 路由
 api_router = APIRouter(prefix="/api/v1")
