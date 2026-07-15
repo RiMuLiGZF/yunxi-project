@@ -91,7 +91,14 @@ master.key*
 # 完整备份见: c:\云汐\工作台\云汐系统备份\
 # M1 已重新纳入版本控制（2026-07-13 目录重建修复文件系统损坏）
 # M8 已重新纳入版本控制（2026-07-12 架构调整Phase2/Phase3）
-# M5 已重新纳入版本控制（2026-07-12 Phase1优化开始）
+
+# === 核心保密模块：仅保留在本地，不上传公开仓库 ===
+# M5 潮汐记忆系统：四层潮汐记忆架构是核心创新壁垒，仅本地维护
+M5-tide-memory/
+m5-tide-memory/
+
+# M0 主理人管控台：内部管理模块，不属于用户面向功能
+M0-principal-console/
 
 .coverage
 htmlcov/
@@ -111,13 +118,6 @@ M8-control-tower/backend/test_e2e.py
 
 # M8: data/ 目录用于本地 SQLite 存储，无需纳入版本控制
 M8-control-tower/data/
-
-# M5: 运行时数据（加密密钥、向量索引、记忆数据库）
-M5-tide-memory/data/
-M5-tide-memory/src/data/
-
-# M0: 运行时数据库
-M0-principal-console/data/
 
 # 前端历史残留目录（git-temp迁移遗留）
 frontend/m9/
