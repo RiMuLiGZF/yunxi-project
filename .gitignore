@@ -71,6 +71,16 @@ M1-agent-hub_backup_20260711.7z
 备份目录说明.md
 BACKUP_ANCHOR.txt
 
+# 环境变量与密钥（绝对禁止上传）
+yunxi.env
+config/yunxi.env
+*.env
+!.env.example
+*.key
+*.key.enc
+*.pem
+master.key*
+
 # 测试环境
 .env.test
 
@@ -101,6 +111,13 @@ M8-control-tower/backend/test_e2e.py
 
 # M8: data/ 目录用于本地 SQLite 存储，无需纳入版本控制
 M8-control-tower/data/
+
+# M5: 运行时数据（加密密钥、向量索引、记忆数据库）
+M5-tide-memory/data/
+M5-tide-memory/src/data/
+
+# M0: 运行时数据库
+M0-principal-console/data/
 
 # 前端历史残留目录（git-temp迁移遗留）
 frontend/m9/
