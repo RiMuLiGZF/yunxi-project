@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "yunxi-mcp-bus": {
+      "command": "python",
+      "args": ["-m", "src.main"],
+      "cwd": "C:\\云汐\\工作台\\yunxi-project\\M11-mcp-bus",
+      "env": {
+        "PYTHONPATH": "C:\\云汐\\工作台\\yunxi-project\\M11-mcp-bus\\src",
+        "M4_BASE_URL": "http://localhost:8004",
+        "M5_BASE_URL": "http://localhost:8005"
+      }
+    }
+  }
+}
