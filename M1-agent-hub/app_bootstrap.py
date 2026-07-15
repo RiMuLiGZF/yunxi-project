@@ -112,7 +112,14 @@ class YunxiApplication:
         # 6. V4 组件
         llm_type = self.config.get_str("llm.provider_type", "mock")
         llm_model = self.config.get_str("llm.model", "mock-model")
-        llm = LLMProviderFactory.create(llm_type, model=llm_model)
+        llm_api_key = self.config.get_str("llm.api_key", "")
+        llm_base_url = self.config.get_str("llm.base_url", "")
+        llm = LLMProviderFactory.create(
+            llm_type,
+            model=llm_model,
+            api_key=llm_api_key or None,
+            base_url=llm_base_url or None,
+        )
 
         persistence = SQLitePersistence(db_path)
 

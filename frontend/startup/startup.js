@@ -235,18 +235,24 @@ function startSplash() {
 
   setTimeout(() => {
     clearInterval(msgInterval);
-    // 检查登录状态
-    if (typeof YunxiAPI !== 'undefined' && YunxiAPI.isLoggedIn()) {
-      // 已登录：进入模式选择层
-      transitionLayer('splash-layer', 'mode-selector-layer');
-    } else {
-      // 未登录：跳转到登录页
-      if (typeof YunxiAPI !== 'undefined') {
-        YunxiAPI.redirectToLogin();
-      } else {
-        window.location.href = '../m8/login.html';
+    // 自动启用访客模式（本地演示用），不强制登录
+    if (typeof YunxiAPI !== 'undefined') {
+      if (!YunxiAPI.isLoggedIn()) {
+        // 设置访客 token 和用户信息
+        try {
+          localStorage.setItem('yunxi_token', 'guest_' + Date.now());
+          localStorage.setItem('yunxi_user', JSON.stringify({
+            username: 'guest',
+            nickname: '汐舟主理',
+            role: 'user'
+          }));
+        } catch (e) {
+          console.warn('设置访客模式失败:', e);
+        }
       }
     }
+    // 进入模式选择层
+    transitionLayer('splash-layer', 'mode-selector-layer');
   }, totalDuration);
 }
 

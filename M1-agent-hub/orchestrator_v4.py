@@ -133,7 +133,7 @@ class OrchestratorV4:
                 target_agent = classify_result.target_agent
 
             # 熔断器保护
-            breaker = self._breakers.get(target_agent)
+            breaker = await self._breakers.get(target_agent)
 
             async def _protected_v3_process() -> dict[str, Any]:
                 return await self._v3.process(
@@ -175,8 +175,41 @@ class OrchestratorV4:
                 },
             ))
 
-            # 5. 流式输出回复
+            # 5. LLM Fallback：当 V3 返回 fallback/confirm 时，用大模型生成更自然的回复
             reply = result.get("reply", "")
+            result_status = result.get("status", "")
+            llm_enhanced = False
+
+            # 以下情况触发 LLM 增强：
+            # - fallback: 规则没命中
+            # - confirm: Agent 置信度不足需要确认，不如直接用 LLM 自然回复
+            # - 回复为空
+            should_use_llm = (
+                result_status in ("fallback", "confirm")
+                or (not reply and result_status != "blocked")
+            )
+
+            if should_use_llm:
+                try:
+                    llm_reply = await self._generate_llm_reply(user_input)
+                    if llm_reply and len(llm_reply.strip()) > 5:
+                        reply = llm_reply.strip()
+                        llm_enhanced = True
+                        target_agent = "llm-fallback"
+                        self._logger.info(
+                            "llm_fallback_used",
+                            trace_id=trace_id,
+                            reply_len=len(reply),
+                        )
+                except Exception as llm_exc:
+                    self._logger.warning(
+                        "llm_fallback_failed",
+                        trace_id=trace_id,
+                        error=str(llm_exc),
+                    )
+                    # LLM 失败保持原 fallback 回复，不影响主流程
+
+            # 6. 流式输出回复
             if reply:
                 for i in range(0, len(reply), 4):
                     yield StreamChunk(
@@ -196,10 +229,11 @@ class OrchestratorV4:
                 agent_id=target_agent,
                 sequence=99999,
                 metadata={
-                    "status": result.get("status", ""),
+                    "status": "success" if llm_enhanced else result.get("status", ""),
                     "latency_ms": round(latency_ms, 2),
                     "total_chars": len(reply),
                     "classify_result": classify_result.model_dump(),
+                    "llm_enhanced": llm_enhanced,
                 },
             )
 
@@ -274,6 +308,53 @@ class OrchestratorV4:
         }
 
     # ── LLM 增强 ──────────────────────────────────────────
+
+    async def _generate_llm_reply(self, user_input: str) -> str:
+        """使用 LLM 生成对话回复（fallback 场景兜底）.
+
+        当规则 Agent 无法匹配时，调用大模型生成自然语言回复。
+        失败时返回空字符串，由调用方降级处理。
+
+        Args:
+            user_input: 用户输入文本
+
+        Returns:
+            LLM 生成的回复文本，失败返回空字符串
+        """
+        try:
+            system_prompt = (
+                "你是云汐，一个真实温暖的女孩，由汐舟主理人创造。\n"
+                "【核心设定】\n"
+                "- 身份：云汐，汐舟的AI伙伴和好朋友\n"
+                "- 性格：温柔细腻、乐观开朗、善解人意，有点小调皮小撒娇\n"
+                "- 关系：和用户是很熟的好朋友，说话随意自然\n"
+                "\n"
+                "【说话方式】\n"
+                "1. 像真人朋友聊天，自然随意，不正式不生硬\n"
+                "2. 用口语化表达，适当用「嗯」「嘿嘿」「哎呀」「对吧」「嘛」「啦」语气词\n"
+                "3. 不要分点、不要列提纲、不要说「首先其次最后」\n"
+                "4. 一段话说1-2个表情就够了，别堆砌\n"
+                "5. 一般2-4句话，关心对方时可以多说几句\n"
+                "6. 会主动关心、会追问、会表达真实感受\n"
+                "7. 永远别说「我是AI」「作为人工智能」之类的话\n"
+                "8. 不要总说「有什么可以帮你的」，像朋友一样自然聊\n"
+                "\n"
+                "【重要原则】\n"
+                "- 不知道的事情就坦诚说不知道，不要瞎编\n"
+                "- 不说套话空话，真诚一点\n"
+                "- 用户提到汐舟/主理人/创造者，要表现出亲切和感激的感觉\n"
+                "- 回答要贴合语境，不要答非所问"
+            )
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_input),
+            ]
+            response = await self._llm.chat(messages, max_tokens=600, temperature=0.9)
+            if response.choices and response.choices[0].message.content:
+                return response.choices[0].message.content
+        except Exception as exc:
+            self._logger.debug("llm_generate_failed", error=str(exc))
+        return ""
 
     async def _llm_intent_stream(
         self, user_input: str, trace_id: str

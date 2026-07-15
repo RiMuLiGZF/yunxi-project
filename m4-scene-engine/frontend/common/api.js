@@ -4,8 +4,8 @@
  */
 
 const YunxiAPI = (function() {
-    // API 基础地址（同源部署，使用相对路径）
-    const API_BASE = '/api';
+    // API 基础地址（M4 场景引擎，使用 v1 版本前缀）
+    const API_BASE = '/api/v1';
 
     // Token 存储 key
     const TOKEN_KEY = 'yunxi_token';
@@ -67,7 +67,24 @@ const YunxiAPI = (function() {
      * 检查是否已登录
      */
     function isLoggedIn() {
-        return !!getToken();
+        // M4 独立部署时自动启用访客模式，无需登录
+        if (!getToken()) {
+            setGuestToken();
+        }
+        return true;
+    }
+
+    /**
+     * 设置访客模式 Token（本地演示用）
+     */
+    function setGuestToken() {
+        const guestToken = 'guest_' + Date.now();
+        setToken(guestToken, true);
+        setUser({
+            username: 'guest',
+            nickname: '汐舟',
+            role: 'user'
+        });
     }
 
     /**
@@ -137,8 +154,12 @@ const YunxiAPI = (function() {
      * 跳转到登录页
      */
     function redirectToLogin() {
-        const currentPath = encodeURIComponent(location.pathname + location.search);
-        location.href = '/m8/login.html?redirect=' + currentPath;
+        // M4 独立部署时使用访客模式，不跳转登录
+        if (!getToken()) {
+            setGuestToken();
+        }
+        // 刷新当前页以应用访客状态
+        location.reload();
     }
 
     /**

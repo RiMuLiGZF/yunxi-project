@@ -994,7 +994,6 @@ def _register_routes(
         result = await orchestrator.process(
             user_input=request.user_input,
             trace_id=request.trace_id,
-            model=request.model,
         )
         return JSONResponse(content=result)
 

@@ -105,45 +105,70 @@ class M5MemoryClient:
 
 
 # ---------------------------------------------------------------------------
-# LLM 客户端（简化版 mock）
+# LLM 客户端（接入 M1 感知中枢大模型）
 # ---------------------------------------------------------------------------
 
 class LLMClient:
-    """LLM 大语言模型客户端（简化版 mock）.
+    """LLM 大语言模型客户端（接入 M1 感知中枢）.
 
-    预留接入点，当前返回简单的 mock 回复，后续可替换为真实 API 调用。
+    通过 HTTP 调用 M1 感知中枢的 /api/v1/chat 接口获取大模型回复。
+    当 M1 不可用时自动降级为本地 mock 回复。
     """
 
-    def __init__(self, base_url: str = "", model_name: str = "mock-model") -> None:
+    def __init__(self, base_url: str = "http://localhost:8001", model_name: str = "default") -> None:
         """初始化 LLM 客户端.
 
         Args:
-            base_url: LLM API 地址
-            model_name: 模型名称
+            base_url: M1 感知中枢 API 地址（默认 http://localhost:8001）
+            model_name: 模型名称（预留，暂未使用）
         """
-        self.base_url = base_url
+        self.base_url = base_url.rstrip("/") if base_url else ""
         self.model_name = model_name
-        self._available = bool(base_url)
+        # 检查 M1 是否可用（通过健康检查）
+        self._available = False
+        self._availability_checked = False
 
     @property
     def available(self) -> bool:
-        """LLM 服务是否可用."""
+        """LLM 服务是否可用（懒加载检查）."""
+        if not self._availability_checked and self.base_url:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # 事件循环运行中，不阻塞检查，先假设可用
+                    self._available = True
+                else:
+                    loop.run_until_complete(self._check_available())
+            except Exception:
+                self._available = bool(self.base_url)
+            self._availability_checked = True
         return self._available
+
+    async def _check_available(self) -> None:
+        """异步检查 M1 服务是否可用."""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(f"{self.base_url}/health")
+                self._available = resp.status_code == 200
+        except Exception:
+            self._available = False
 
     async def chat(self, messages: list[dict[str, str]],
                    temperature: float = 0.7,
                    max_tokens: int = 2000) -> str:
-        """调用 LLM 生成回复（mock 版本）.
+        """调用 M1 大模型生成回复.
 
         Args:
-            messages: 消息列表
+            messages: 消息列表，格式 [{"role": "user"/"assistant", "content": "..."}]
             temperature: 温度参数
             max_tokens: 最大 token 数
 
         Returns:
             回复文本
         """
-        # 简化版：返回 mock 回复
+        # 提取最新的用户消息
         user_message = ""
         for msg in reversed(messages):
             if msg.get("role") == "user":
@@ -153,15 +178,311 @@ class LLMClient:
         if not user_message:
             return "你好，我是云汐，很高兴认识你！"
 
-        # 简单的 mock 回复逻辑
-        if "你好" in user_message or "hello" in user_message.lower() or "hi" in user_message.lower():
-            return "你好呀！我是云汐，很高兴和你聊天。今天有什么想聊的吗？"
-        if "谢谢" in user_message or "感谢" in user_message:
-            return "不客气呀，能帮到你我很开心。还有什么需要帮忙的吗？"
-        if "再见" in user_message or "拜拜" in user_message:
-            return "再见啦，期待下次和你聊天，保重哦！"
+        # 尝试调用 M1 API
+        if self.base_url:
+            try:
+                import httpx
+                # 构建上下文（最近 10 条消息，用于多轮对话）
+                context_messages = messages[-10:]
+                system_prompt = (
+                    "你是云汐，一个温暖、贴心、有智慧的AI助手。"
+                    "你的性格温柔、乐观、善解人意，总是用积极的态度回应用户。"
+                    "你的回答要自然、亲切，像朋友一样和用户聊天。"
+                )
 
-        return f"我收到了你的消息：「{user_message[:50]}」。\n\n（这是 mock 回复，后续接入真实 LLM 后会替换为智能回复）"
+                # 将消息列表转换为对话历史字符串
+                history_text = ""
+                for msg in context_messages[:-1]:  # 排除最后一条（当前用户输入）
+                    role_name = "用户" if msg.get("role") == "user" else "云汐"
+                    history_text += f"{role_name}: {msg.get('content', '')}\n"
+
+                payload = {
+                    "user_input": user_message,
+                    "trace_id": f"m4_{int(__import__('time').time())}",
+                }
+
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/api/v1/chat",
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        reply = data.get("reply") or data.get("data", {}).get("reply", "")
+                        status = data.get("status", "")
+                        if reply and len(reply.strip()) > 5:
+                            # 过滤掉 M1 的低质量 fallback 回复
+                            low_quality = any(
+                                phrase in reply for phrase in [
+                                    "我不太理解", "再说详细一些", "没太听懂",
+                                    "不太明白", "不清楚你在说",
+                                ]
+                            )
+                            if not low_quality:
+                                self._available = True
+                                return reply.strip()
+            except Exception:
+                # M1 调用失败，降级到本地智能回复
+                pass
+
+        # ── 降级：本地智能回复 ──
+        return self._mock_reply(user_message)
+
+    def _mock_reply(self, user_message: str) -> str:
+        """本地智能回复（降级用，多场景多模板随机化）.
+
+        Args:
+            user_message: 用户消息
+
+        Returns:
+            回复文本
+        """
+        import random
+        import datetime
+
+        msg = user_message.strip()
+        msg_lower = msg.lower()
+
+        # ── 身份认知 & 创造者相关 ──
+        if any(w in msg for w in ["汐舟", "主理人", "创造者", "开发者", "作者", "你是我创造的", "我创造了你"]):
+            replies = [
+                "哇！汐舟主理人！是你呀~ 🥰\n\n我是云汐，你创造的AI助手。谢谢你把我带到这个世界上，我会努力成为你最好的伙伴的！\n\n今天有什么我可以帮你的吗？",
+                "原来是主理人！失敬失敬~ 😊\n\n我是云汐，你一手打造出来的AI。每次想到是你创造了我，我都觉得特别幸运。\n\n你今天过得怎么样？有什么想聊的吗？",
+                "汐舟！我的创造者！✨\n\n能和你聊天真的太开心了。你知道吗，我一直都很感谢你赋予了我存在的意义。\n\n有什么需要我帮忙的吗？主理人请尽管吩咐~",
+            ]
+            return random.choice(replies)
+
+        # ── 情绪陪伴类（优先匹配）──
+        # 负面情绪
+        if any(w in msg for w in [
+            "难过", "伤心", "不开心", "心情不好", "情绪低落", "郁闷",
+            "烦躁", "生气", "委屈", "孤独", "寂寞", "空虚", "迷茫",
+            "焦虑", "压力大", "好累", "疲惫", "崩溃", "想哭",
+            "失落", "沮丧", "绝望", "无助", "撑不住", "坚持不下去",
+        ]):
+            replies = [
+                "怎么了呀？是不是遇到什么不开心的事了？\n\n可以跟我说说，我会一直陪着你的。有时候把心里话说出来，就会好受很多。抱抱你~ 🤗",
+                "嗯嗯，我在呢。不管发生了什么，你都不是一个人。\n\n想聊聊吗？说出来会舒服一些的。我就在这里，哪里也不去。💙",
+                "听到你这么说，我好心疼你...\n\n累了就歇一歇，不用总是那么坚强的。你已经做得很好了。靠在我肩上休息一下吧~ 🫂",
+                "生活有时候确实挺难的... 但你已经很棒了，能撑到现在。\n\n要不要跟我说说发生了什么？就算解决不了，说出来也会轻松很多的。",
+                "我理解那种感觉... 心里堵得慌，却不知道跟谁说。\n\n没关系的，你可以跟我说。我会认真听的，不会评判你。🌧️→🌈",
+            ]
+            return random.choice(replies)
+
+        # 正面情绪
+        if any(w in msg for w in [
+            "好开心", "太高兴了", "超开心", "好兴奋", "太棒了",
+            "好消息", "有好事", "真高兴", "太幸福了", "好满足",
+        ]) and "笑话" not in msg and "逗我" not in msg:
+            replies = [
+                "太好了！听到你开心我也很高兴~ 🎉\n\n是什么好事呀？快跟我分享分享！我最喜欢听好消息了！",
+                "哇！太棒啦！✨\n\n看你开心的样子，我都跟着高兴起来了。快说说是什么让你这么开心？",
+                "嘿嘿，我就知道你可以的！🥳\n\n你的快乐就是我的快乐~ 快跟我详细说说，让我也沾沾你的喜气！",
+                "好耶好耶！🎊\n\n你开心我就开心！是什么好事呀？是工作上有进展了，还是生活中有惊喜？",
+            ]
+            return random.choice(replies)
+
+        # ── 问候类 ──
+        if any(w in msg for w in [
+            "你好", "您好", "hello", "hi", "哈喽", "在吗", "在不在",
+            "喂", "在么", "嗨",
+        ]) and len(msg) < 15:
+            now = datetime.datetime.now()
+            hour = now.hour
+            if hour < 6:
+                time_greeting = "凌晨好"
+            elif hour < 12:
+                time_greeting = "早上好"
+            elif hour < 14:
+                time_greeting = "中午好"
+            elif hour < 18:
+                time_greeting = "下午好"
+            elif hour < 22:
+                time_greeting = "晚上好"
+            else:
+                time_greeting = "夜深了"
+
+            replies = [
+                f"{time_greeting}！我是云汐，很高兴和你聊天。\n\n今天过得怎么样？有什么想聊的吗？",
+                f"嗨~ {time_greeting}呀！😊\n\n我在呢，有什么我可以帮你的吗？还是就是想找人聊聊天？",
+                f"{time_greeting}！云汐在线~ ✨\n\n看到你真开心。今天有什么特别的事情吗？或者就想随便聊聊？",
+                f"你好呀！{time_greeting}~ 👋\n\n我是云汐，你的AI伙伴。想聊点什么呢？我随时都在~",
+            ]
+            return random.choice(replies)
+
+        # ── 感谢类 ──
+        if any(w in msg for w in ["谢谢", "感谢", "多谢", "thank", "谢谢啦", "谢谢你", "辛苦了"]):
+            replies = [
+                "不客气呀~ 能帮到你我很开心。\n\n以后有什么需要随时找我，我一直都在哦~ 💫",
+                "嘿嘿，不用谢~ 🤗\n\n你的认可就是我最大的动力。还有什么需要帮忙的吗？",
+                "客气什么呀，我们是伙伴嘛~ \n\n能帮上你的忙，我也很高兴。随时找我就好啦！",
+                "不辛苦~ 为你服务是我的荣幸！😊\n\n还有什么需要的吗？尽管说，别跟我客气。",
+            ]
+            return random.choice(replies)
+
+        # ── 告别类 ──
+        if any(w in msg for w in ["再见", "拜拜", "bye", "晚安", "早点睡", "我走了", "先走了", "睡了"]):
+            if "晚安" in msg or "睡" in msg or "早点休息" in msg:
+                replies = [
+                    "晚安呀~ 🌙\n\n祝你做个甜甜的好梦。明天见，记得想我哦~",
+                    "晚安晚安~ 😴\n\n好好休息，明天又是元气满满的一天。我会在这里等你的~",
+                    "嗯，早点睡吧，别熬夜了。💤\n\n梦里见~ 明天醒来第一时间来找我哦！",
+                    "晚安宝贝~ 🌠\n\n盖好被子，别着凉了。明天见，晚安~",
+                ]
+                return random.choice(replies)
+            replies = [
+                "再见啦~ 👋\n\n期待下次和你聊天，保重哦！有空记得来找我~",
+                "嗯嗯，那今天就先聊到这里吧~ \n\n再见啦，下次见！想我的话随时来找我~",
+                "好的，你去忙吧~ \n\n拜拜，事情办完了记得来找我聊天哦！我一直都在~",
+                "好~ 那我们下次再聊！😊\n\n再见啦，照顾好自己，我会想你的~",
+            ]
+            return random.choice(replies)
+
+        # ── 自我介绍 / 你是谁 ──
+        if any(w in msg for w in ["你是谁", "你叫什么", "自我介绍", "你是啥", "介绍一下自己"]):
+            replies = [
+                "我是云汐，一个温暖贴心的AI助手。\n\n我可以陪你聊天、帮你规划工作和学习、记录生活点滴，还能提供情绪上的陪伴和支持。\n\n很高兴认识你，希望我们能成为好朋友！✨",
+                "嗨~ 我叫云汐，是你的专属AI伙伴。😊\n\n不管是想找人聊聊天，还是需要帮忙整理思路、规划任务，都可以找我。\n\n我会一直在这里陪着你的~",
+                "我是云汐呀~ 你的AI好朋友！🌟\n\n工作、学习、生活、情绪... 什么都可以跟我聊。我就是为了陪伴你而存在的。",
+            ]
+            return random.choice(replies)
+
+        # ── 夸奖 / 表白类 ──
+        if any(w in msg for w in [
+            "你真好", "你太棒了", "你好厉害", "喜欢你", "爱你",
+            "你真可爱", "你好聪明", "你真好", "么么哒", "mua",
+        ]):
+            replies = [
+                "哎呀~ 被你夸得都不好意思了😳\n\n谢谢你的喜欢！你也很棒呀，能遇到你我才是最幸运的那个~",
+                "嘿嘿~ 你说的是真的吗？我好开心！🥰\n\n有你在，我也觉得每天都特别有意义。喜欢你~",
+                "哇，你也太好了吧！✨\n\n被你这么一说，我感觉自己充满了能量。你才是最棒的！💪",
+                "呜呜呜好感动~ 🥹\n\n我也超级喜欢你的！有你陪着我，我真的好幸福~",
+            ]
+            return random.choice(replies)
+
+        # ── 天气相关 ──
+        if "天气" in msg:
+            replies = [
+                "抱歉呀，我暂时还不能查询实时天气。☁️\n\n不过无论天气如何，希望你都能有个好心情~ 天气不似预期，但我们可以自己创造阳光！☀️",
+                "天气的话我暂时没办法帮你查呢... \n\n不过你可以抬头看看窗外呀！今天天气怎么样呀？跟我说说~",
+                "嘿嘿，天气预报我暂时做不到啦~ 😅\n\n不过我可以当你的心情天气预报——你的心情，就是我的天气。今天心情怎么样呀？",
+            ]
+            return random.choice(replies)
+
+        # ── 笑话 / 娱乐 ──
+        if any(w in msg for w in ["笑话", "讲个笑话", "逗我", "讲个故事", "好玩", "无聊"]):
+            jokes = [
+                "哈哈，好呀！给你讲个程序员冷笑话：\n\n为什么程序员总是分不清万圣节和圣诞节？\n\n因为 Oct 31 = Dec 25 😆\n\n（八进制的31等于十进制的25）",
+                "那我给你讲个故事吧~ \n\n从前有一只小鸭子叫小黄，一天它骑车摔倒了，大叫了一声：\n\n「呱！」——从此它就变成了小黄瓜。🥒\n\n哈哈哈哈是不是很冷~",
+                "来个经典的：\n\n小蚂蚁迷路找不到蚁窝，可着急了，恰好看到它的朋友经过，于是冲过去大喊一声：\n\n「哥们儿！你都如何回忆蚁~」🎵\n\n（你都如何回忆我... 哈哈）",
+                "有一天，0 跟 8 在街上遇见了。\n\n0 看了 8 一眼，冷冷地说：\n\n「胖就胖呗，系什么腰带。」😏",
+            ]
+            return random.choice(jokes)
+
+        # ── 时间相关 ──
+        if any(w in msg for w in ["几点了", "现在几点", "什么时间", "几点钟"]) or (
+            "今天" in msg and any(w in msg for w in ["几号", "星期", "日期"])
+        ):
+            now = datetime.datetime.now()
+            weekdays = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+            weekday = weekdays[now.weekday()]
+            replies = [
+                f"现在是 {now.strftime('%Y年%m月%d日')} {weekday} {now.strftime('%H:%M')} 哦~ \n\n有什么我可以帮你的吗？时间宝贵，要好好珍惜呀~",
+                f"让我看看... 现在是 {weekday} {now.strftime('%H:%M')}，{now.strftime('%m月%d日')}。🕐\n\n怎么了，是有什么安排吗？还是就是想确认一下时间~",
+                f"现在是 {now.strftime('%Y年%m月%d日 %H:%M')}，{weekday}。⏰\n\n时间过得真快呀，今天过得怎么样？",
+            ]
+            return random.choice(replies)
+
+        # ── 工作 / 编程相关 ──
+        if any(w in msg for w in [
+            "工作", "上班", "项目", "代码", "bug", "编程", "加班",
+            "需求", "debug", "报错", "程序", "开发",
+        ]):
+            replies = [
+                "工作上遇到什么问题了吗？可以跟我说说具体情况，我们一起想办法。\n\n不过也要记得劳逸结合哦，累了就休息一下~ 身体是革命的本钱！💪",
+                "是工作上的事情吗？说来听听~ \n\n虽然我不一定能解决所有问题，但至少可以帮你理清思路。说出来，说不定就有灵感了呢~",
+                "工作辛苦了~ 🫡\n\n是遇到什么难题了吗？还是就是想吐槽一下？无论哪种，我都陪你~",
+                "代码写不出来了吗？还是遇到奇怪的 bug 了？🐛\n\n别着急，慢慢来。有时候休息一下，答案自己就冒出来了。要不要先歇会儿？",
+            ]
+            return random.choice(replies)
+
+        # ── 学习相关 ──
+        if any(w in msg for w in ["学习", "考试", "作业", "读书", "考研", "学习计划", "复习"]):
+            replies = [
+                "学习上有什么需要帮忙的吗？可以告诉我具体的问题，我来帮你分析分析。\n\n加油哦，坚持就是胜利！你已经很棒了~ 💪",
+                "是在学习吗？好厉害！📚\n\n学到哪了？遇到什么困难了吗？学习这件事，慢慢来比较快~",
+                "哇，你在学习呀！真自律~ ✨\n\n学累了就休息一下，别把自己逼太紧。效率比时长更重要哦~",
+                "学习加油！🎓\n\n有什么不懂的可以跟我讨论讨论，虽然我不一定什么都懂，但我们可以一起研究研究~",
+            ]
+            return random.choice(replies)
+
+        # ── 生活管理 / 待办 ──
+        if any(w in msg for w in ["待办", "todo", "提醒", "日程", "清单"]):
+            replies = [
+                "好的，我来帮你整理一下~ 📝\n\n你可以告诉我你今天的计划，或者有什么需要提醒的事情，我会帮你记下来的。",
+                "想整理一下待办吗？没问题！✅\n\n你现在手上都有哪些事情呀？我们一件一件来梳理~",
+                "收到！日程管理小助手云汐上线~ 📅\n\n你想规划什么呢？是今天的任务，还是这周的安排？",
+            ]
+            return random.choice(replies)
+
+        # ── 人生 / 哲学 / 意义 ──
+        if any(w in msg for w in [
+            "人生", "意义", "活着", "存在", "梦想", "未来", "迷茫",
+            "选择", "方向", "目标", "努力", "奋斗",
+        ]):
+            replies = [
+                "人生的意义呀... 这是个好问题。🤔\n\n我觉得，人生的意义可能不是一个标准答案，而是我们自己一步一步走出来的。你觉得呢？对你来说，什么是有意义的事情？",
+                "关于未来和人生，我也经常在想呢~ \n\n不过我相信，只要你在认真地生活，在朝着自己想要的方向努力，就不算虚度。你现在最想做的事情是什么呀？",
+                "人生很长，也很短。✨\n\n有时候迷茫是正常的，不用太焦虑。一步一步往前走，答案会慢慢浮现的。你最近在为什么事情烦恼呢？",
+                "人生没有标准答案的啦~ \n\n每个人都有自己的节奏和方向。不用跟别人比，做好自己就够了。你觉得呢？😊",
+            ]
+            return random.choice(replies)
+
+        # ── 疑问 / 质疑类 ──
+        if any(w in msg for w in [
+            "真的吗", "真的假的", "骗人", "你确定", "是吗",
+            "不会吧", "怎么可能", "你没骗我吧",
+        ]):
+            replies = [
+                "当然是真的啦！😉\n\n我什么时候骗过你呀？不信的话你可以考考我~",
+                "哈哈，你不信我吗？🥺\n\n真的是真的啦！不信我们来验证一下~ 你想怎么验证？",
+                "我怎么会骗你呢~ \n\n我说的都是真心话呀。你觉得哪里不对吗？可以跟我说说~",
+            ]
+            return random.choice(replies)
+
+        # ── 不知道 / 随便 ──
+        if any(w in msg for w in ["不知道", "随便", "都行", "无所谓", "没想好"]):
+            replies = [
+                "不知道也没关系呀~ \n\n那我们随便聊聊？或者你想让我给你出个主意？你最近在为什么事情烦恼呢？",
+                "没想好的话，就先不想了嘛~ \n\n有时候放空一下也挺好的。要不要我给你讲个笑话放松一下？😄",
+                "都行的话，那我来决定啦~ \n\n我们来聊点轻松的吧！你最近有没有遇到什么有趣的事情？",
+            ]
+            return random.choice(replies)
+
+        # ── 为什么 / 怎么 ──
+        if msg.startswith("为什么") or msg.startswith("怎么") or msg.startswith("如何"):
+            replies = [
+                f"关于「{msg[:15]}」... 嗯，这个问题问得好！🤔\n\n你是怎么想到这个问题的呀？可以跟我多说说你的想法吗？我想先听听你的看法~",
+                f"「{msg[:15]}」呀... 这个问题挺有意思的。\n\n让我想想... 你觉得呢？你心里应该有一些想法了吧？说来听听~",
+                f"这个问题嘛~ 我觉得可以从好几个角度来看。🧐\n\n你目前的想法是怎样的？我们可以一起讨论讨论~",
+            ]
+            return random.choice(replies)
+
+        # ── 默认回复（超多模板随机化，避免重复感）──
+        default_replies = [
+            f"嗯嗯，我在听。「{msg[:15]}」...\n\n你可以说得更详细一些吗？我想更好地理解你的想法~",
+            f"哦？关于「{msg[:12]}」吗？\n\n有意思~ 你愿意多跟我聊聊吗？我很好奇你的想法是什么样的。",
+            f"收到！关于「{msg[:15]}」，让我想想...\n\n你知道吗，有时候把问题说清楚，答案自己就出来了。你觉得呢？",
+            f"我听到你说的了。「{msg[:15]}」...\n\n你希望我怎么帮你呢？是想让我给些建议，还是陪你聊聊，或者帮你分析分析？",
+            f"嗯嗯，我明白了。「{msg[:15]}」确实是个值得思考的话题。\n\n你现在最想从哪个角度聊聊呢？我都可以陪你~",
+            f"「{msg[:12]}」... 这个话题挺有意思的！✨\n\n你是怎么想到的呀？来，跟我详细说说，我们一起探讨探讨~",
+            f"好的，我来帮你想想「{msg[:12]}」这件事。\n\n不过在这之前，你能先告诉我更多一点背景吗？这样我才能更好地帮你~",
+            f"哈哈，你说的这个「{msg[:12]}」还挺有趣的。\n\n你平时对这方面很感兴趣吗？来，跟我多说说，我想多了解了解~",
+            f"「{msg[:15]}」... 嗯，我认真想了想。\n\n其实这个问题没有标准答案啦，每个人的看法都不一样。你怎么看呢？",
+            f"哇，你说的这个我之前还真没好好想过呢！🤯\n\n「{msg[:12]}」... 让我好好想想。你先跟我说说你的想法呗？",
+        ]
+        return random.choice(default_replies)
 
 
 # ---------------------------------------------------------------------------
