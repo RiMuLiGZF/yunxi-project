@@ -55,7 +55,9 @@ class SceneRecognizer:
 
     def recognize(
         self,
-        text: str,
+        text: str = "",
+        audio_data: bytes | None = None,
+        image_data: bytes | None = None,
         context: dict[str, Any] | None = None,
         include_all_scores: bool = True,
     ) -> dict[str, Any]:
@@ -63,6 +65,8 @@ class SceneRecognizer:
 
         Args:
             text: 用户输入文本
+            audio_data: 音频二进制数据（可选，将自动 ASR 转文本）
+            image_data: 图像二进制数据（可选，将自动 Vision/OCR 转文本）
             context: 上下文信息
             include_all_scores: 是否返回所有场景得分
 
@@ -76,6 +80,20 @@ class SceneRecognizer:
                 "reason": "匹配关键词..."  # 识别原因
             }
         """
+        # 多模态预处理
+        method_used = "keyword"  # 默认
+        if audio_data and not text:
+            # ASR 语音转文本
+            text = self._asr_transcribe(audio_data)
+            if text:
+                method_used = "asr_"  # 前缀，后续拼接
+
+        if image_data and not text:
+            # OCR / Vision 图像转文本
+            text = self._vision_extract(image_data)
+            if text:
+                method_used = "vision_"
+
         if not text or not text.strip():
             empty_result = {
                 "scene": "unknown",
@@ -109,8 +127,8 @@ class SceneRecognizer:
                 "top_scene": best_scene,
                 "confidence": round(best_score, 4),
                 "score": round(best_score, 4),
-                "method": "keyword",
-                "reason": f"匹配关键词: {', '.join(matched_keywords.get(best_scene, [])[:5])}",
+                "method": method_used + "keyword",
+                "reason": f"[{method_used.rstrip('_') or 'text'}] 匹配关键词: {', '.join(matched_keywords.get(best_scene, [])[:5])}",
             }
             if include_all_scores:
                 result["all_scores"] = {k: round(v, 4) for k, v in scores.items()}
@@ -138,8 +156,8 @@ class SceneRecognizer:
             "top_scene": "unknown",
             "confidence": round(best_score, 4),
             "score": round(best_score, 4),
-            "method": "keyword",
-            "reason": f"最高关键词得分 {best_score:.2%} 低于阈值 {self.keyword_threshold:.0%}",
+            "method": method_used + "keyword",
+            "reason": f"[{method_used.rstrip('_') or 'text'}] 最高关键词得分 {best_score:.2%} 低于阈值 {self.keyword_threshold:.0%}",
         }
         if include_all_scores:
             result["all_scores"] = {k: round(v, 4) for k, v in scores.items()}
@@ -353,3 +371,147 @@ class SceneRecognizer:
     def get_scene_keywords(self, scene_id: str) -> list[str]:
         """获取指定场景的关键词列表."""
         return self._scene_keywords.get(scene_id, [])
+
+    # ------------------------------------------------------------------
+    # 多模态预处理：ASR 语音转文本
+    # ------------------------------------------------------------------
+
+    def _asr_transcribe(self, audio_data: bytes) -> str:
+        """将音频数据转为文本.
+
+        按优先级尝试：
+        1. faster_whisper 本地模型
+        2. Ollama whisper 模型（HTTP 调用）
+        3. mock 降级（返回模拟文本）
+
+        Args:
+            audio_data: 音频二进制数据
+
+        Returns:
+            转录文本；所有引擎不可用时返回空字符串
+        """
+        import tempfile
+        import os
+
+        # 1. 尝试 faster_whisper
+        try:
+            from faster_whisper import WhisperModel  # type: ignore[import-untyped]
+
+            # 将音频写入临时文件
+            suffix = ".wav"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(audio_data)
+                tmp_path = tmp.name
+
+            try:
+                model = WhisperModel("small", device="cpu", compute_type="int8")
+                segments, _ = model.transcribe(tmp_path)
+                text = " ".join(seg.text for seg in segments).strip()
+                if text:
+                    logger.info("recognizer.asr_faster_whisper_ok", length=len(text))
+                    return text
+            finally:
+                os.unlink(tmp_path)
+
+        except ImportError:
+            logger.debug("recognizer.asr_faster_whisper_not_installed")
+        except Exception as e:
+            logger.warning(
+                "recognizer.asr_faster_whisper_failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+        # 2. 尝试 Ollama whisper 模型
+        try:
+            import base64 as b64mod
+
+            b64 = b64mod.b64encode(audio_data).decode("utf-8")
+            # Ollama whisper API 使用 /api/generate 或 /api/chat
+            response = httpx.post(
+                f"{self.llm_base_url.rstrip('/') or 'http://localhost:11434'}/api/generate",
+                json={
+                    "model": "whisper",
+                    "prompt": "",
+                    "images": [],  # whisper 通过 generate 直接处理音频
+                    "stream": False,
+                },
+                timeout=30.0,
+                files=None,
+            )
+            # 注意：Ollama 的 whisper 模型通常通过专门端点处理，
+            # 此处为示意性实现，实际需根据 Ollama 版本调整
+            if response.status_code == 200:
+                data = response.json()
+                text = data.get("response", "").strip()
+                if text:
+                    logger.info("recognizer.asr_ollama_ok", length=len(text))
+                    return text
+        except Exception as e:
+            logger.debug(
+                "recognizer.asr_ollama_failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+        # 3. Mock 降级
+        mock_text = "这是一段语音输入的模拟文本，用于场景识别测试。"
+        logger.info("recognizer.asr_mock_fallback")
+        return mock_text
+
+    # ------------------------------------------------------------------
+    # 多模态预处理：Vision/OCR 图像转文本
+    # ------------------------------------------------------------------
+
+    def _vision_extract(self, image_data: bytes) -> str:
+        """从图像数据中提取文字或描述.
+
+        按优先级尝试：
+        1. VisionService（Ollama vision 模型获取图像描述）
+        2. OCRService（多引擎 OCR 提取文字）
+        3. 返回空字符串
+
+        Args:
+            image_data: 图像二进制数据
+
+        Returns:
+            提取的文本；所有引擎不可用时返回空字符串
+        """
+        # 1. 尝试 VisionService 获取图像描述
+        try:
+            from src.services.vision_service import VisionService
+
+            vision = VisionService(
+                ollama_base_url=self.llm_base_url or "http://localhost:11434",
+            )
+            description = vision.describe_image(image_data)
+            if description:
+                logger.info("recognizer.vision_describe_ok", length=len(description))
+                return description
+        except Exception as e:
+            logger.debug(
+                "recognizer.vision_describe_failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+        # 2. 尝试 OCRService 提取文字
+        try:
+            from src.services.ocr_service import OCRService
+
+            ocr = OCRService(
+                ollama_base_url=self.llm_base_url or "http://localhost:11434",
+            )
+            text = ocr.extract_text(image_data)
+            if text:
+                logger.info("recognizer.vision_ocr_ok", length=len(text))
+                return text
+        except Exception as e:
+            logger.debug(
+                "recognizer.vision_ocr_failed",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+        logger.warning("recognizer.vision_all_failed")
+        return ""

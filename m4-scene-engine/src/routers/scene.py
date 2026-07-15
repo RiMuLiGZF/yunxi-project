@@ -5,9 +5,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, File, UploadFile, Form
 
 from src.models import (
     SCENE_DEFINITIONS,
@@ -228,3 +229,85 @@ async def get_scene_history(
     )
 
     return make_response(data=history)
+
+
+# ---------------------------------------------------------------------------
+# 多模态场景识别：语音
+# ---------------------------------------------------------------------------
+
+@router.post("/scene/recognize/voice", summary="语音场景识别")
+async def recognize_from_voice(
+    request: Request,
+    file: UploadFile = File(...),
+    language: str = Form("auto"),
+    context: str = Form("{}"),
+):
+    """通过音频文件进行场景识别.
+
+    接收音频文件，内部通过 ASR 转文本后再进行场景识别。
+
+    Form 参数:
+        - language: 语言（zh/en/auto）
+        - context: 上下文信息 JSON 字符串
+    """
+    services = _get_services(request)
+    recognizer = services["recognizer"]
+    health_metrics = services["health_metrics"]
+
+    audio_data = await file.read()
+    result = recognizer.recognize(
+        audio_data=audio_data,
+        context=json.loads(context),
+    )
+
+    # 记录指标
+    if health_metrics is not None:
+        health_metrics.metrics.record_recognize()
+
+    return make_response(data={
+        "result": result,
+        "scene": result.get("scene", "unknown"),
+        "confidence": result.get("confidence", 0),
+        "input_modality": "voice",
+        "filename": file.filename,
+    })
+
+
+# ---------------------------------------------------------------------------
+# 多模态场景识别：图像
+# ---------------------------------------------------------------------------
+
+@router.post("/scene/recognize/image", summary="图像场景识别")
+async def recognize_from_image(
+    request: Request,
+    file: UploadFile = File(...),
+    context: str = Form("{}"),
+):
+    """通过图像文件进行场景识别.
+
+    接收图片文件，内部通过 Vision/OCR 转文本后再进行场景识别。
+
+    Form 参数:
+        - context: 上下文信息 JSON 字符串
+    """
+    services = _get_services(request)
+    recognizer = services["recognizer"]
+    health_metrics = services["health_metrics"]
+
+    image_data = await file.read()
+    result = recognizer.recognize(
+        image_data=image_data,
+        context=json.loads(context),
+    )
+
+    # 记录指标
+    if health_metrics is not None:
+        health_metrics.metrics.record_recognize()
+
+    return make_response(data={
+        "result": result,
+        "scene": result.get("scene", "unknown"),
+        "confidence": result.get("confidence", 0),
+        "input_modality": "image",
+        "filename": file.filename,
+    })
