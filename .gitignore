@@ -127,3 +127,7 @@ frontend/user/
 
 # M1: 幽灵符号链接（文件系统损坏残留，已用M1-agent-hub替代）
 M1-agent-cluster/
+
+# artifacts 中引用保密模块的设计文档（避免间接暴露核心创新壁垒）
+artifacts/by-module/M5-tide-memory/
+artifacts/by-module/M1-agent-cluster/

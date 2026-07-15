@@ -17,8 +17,9 @@ from pydantic_settings import BaseSettings
 
 logger = structlog.get_logger(__name__)
 
-# 默认 JWT 密钥（用于检测用户是否使用了默认值）
-DEFAULT_JWT_SECRET = "yunxi-m12-security-shield-secret-key-2026"
+# 默认 JWT 密钥（占位符，仅用于检测用户是否忘记配置环境变量）
+# 生产环境必须通过 JWT_SECRET 环境变量覆盖此值
+DEFAULT_JWT_SECRET = "CHANGE_ME_" + secrets.token_urlsafe(32)
 
 
 def generate_secret_key(length: int = 64) -> str:
