@@ -8,6 +8,7 @@ __version__ = "1.0.0"
 
 from federation.registry import ExternalAgentRegistry
 from federation.scheduler import FederatedScheduler
+from federation.remote_discovery import RemoteAgentDiscovery, RemoteAgent
 from federation.comparator import MultiAgentComparator
 from federation.cost_controller import CostController
 from federation.privacy_guard import PrivacyGuard, FederationPrivacyGuard
@@ -20,6 +21,8 @@ from federation.adapters.local_model import LocalModelAdapter
 __all__ = [
     "ExternalAgentRegistry",
     "FederatedScheduler",
+    "RemoteAgentDiscovery",
+    "RemoteAgent",
     "MultiAgentComparator",
     "CostController",
     "FederationPrivacyGuard",

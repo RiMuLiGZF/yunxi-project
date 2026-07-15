@@ -500,6 +500,97 @@ class ExternalAgentRegistry:
         """公开的适配器获取方法"""
         return self._get_or_create_adapter(agent_id)
 
+    # ── 远程 Agent 注册 ──────────────────────────────────
+
+    def register_remote_agents(self, remote_agents: list[Any]) -> int:
+        """将远程发现的 Agent 批量注册到联邦注册表
+
+        使得现有的联邦调度流程（decide / schedule_with_cluster）
+        可以透明地选择远程 Agent，无需额外适配。
+
+        注册策略：
+        - Agent ID 加 remote_ 前缀，避免与本地 Agent 冲突
+        - 使用幂等注册（已有则更新）
+        - 跨节点 Agent 成本模型为零（集群内网）
+        - 隐私等级设为 ENHANCED（内网传输）
+
+        Args:
+            remote_agents: RemoteAgent 实例列表
+                （来自 federation.remote_discovery.RemoteAgentDiscovery）
+
+        Returns:
+            成功注册的数量
+        """
+        from federation.remote_discovery import RemoteAgent as RemoteAgentType
+
+        registered = 0
+        for ra in remote_agents:
+            # 类型检查：仅处理 RemoteAgent 实例
+            if not isinstance(ra, RemoteAgentType):
+                self._logger.warning(
+                    "register_remote_agents_skipped_invalid_type",
+                    agent_id=getattr(ra, "agent_id", "?"),
+                    actual_type=type(ra).__name__,
+                )
+                continue
+
+            if ra.status != "active":
+                continue
+
+            remote_id = f"remote_{ra.agent_id}"
+
+            # 利用已有 register_agent 的幂等注册能力
+            try:
+                self.register_agent(
+                    agent_id=remote_id,
+                    display_name=ra.display_name or f"远程({ra.node_id})",
+                    provider=f"cluster://{ra.node_id}",
+                    capabilities=ra.capabilities,
+                    cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0},
+                    privacy_level=AgentPrivacyLevel.ENHANCED,
+                    connection_type=ConnectionType.LOCAL,
+                    config={
+                        "node_id": ra.node_id,
+                        "host": ra.host,
+                        "port": ra.port,
+                        "remote_agent_id": ra.agent_id,
+                    },
+                )
+                registered += 1
+            except Exception as exc:
+                self._logger.warning(
+                    "register_remote_agent_failed",
+                    remote_id=remote_id,
+                    error=str(exc),
+                )
+
+        self._logger.info(
+            "remote_agents_registered",
+            input_count=len(remote_agents),
+            registered_count=registered,
+        )
+
+        return registered
+
+    def unregister_all_remote(self) -> int:
+        """注销所有远程 Agent（清理操作）
+
+        Returns:
+            注销的数量
+        """
+        remote_ids = [
+            aid for aid in self._agents
+            if aid.startswith("remote_")
+        ]
+        for aid in remote_ids:
+            self.delete_agent(aid)
+
+        self._logger.info(
+            "remote_agents_unregistered",
+            count=len(remote_ids),
+        )
+        return len(remote_ids)
+
     # ── 统计 ──────────────────────────────────────────────
 
     def stats(self) -> dict[str, Any]:

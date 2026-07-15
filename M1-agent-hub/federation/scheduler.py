@@ -201,6 +201,232 @@ class FederatedScheduler:
 
         return decision
 
+    # ── 集群扩展入口 ──────────────────────────────────
+
+    def schedule_with_cluster(
+        self,
+        task_type: str = "general",
+        security_level: SecurityClassification = SecurityClassification.PUBLIC,
+        user_preference: UserPreferenceMode | None = None,
+        remaining_budget: float = -1.0,
+        speed_requirement: str = "medium",
+        task_complexity: float = 0.5,
+    ) -> FederationDecision:
+        """支持跨节点发现的联邦调度决策（集群扩展入口）
+
+        在原有 6 步决策流程基础上，于 Step 2（内部能力评估）之后
+        新增 Step 2.5（远程 Agent 发现），将远程 Agent 纳入候选评分。
+
+        决策流程：
+        1. 隐私检查：高涉密 → 强制内部
+        2. 内部能力评估
+        2.5 远程 Agent 发现：从集群总线发现其他节点的 Agent
+        3. 合并外部 + 远程候选列表
+        4. 候选评分排序
+        5. 内部 vs 外部比较
+        6. 预算检查
+        """
+        from federation.remote_discovery import RemoteAgentDiscovery
+
+        preference = user_preference or self._default_preference
+
+        self._logger.info(
+            "cluster_schedule_start",
+            task_type=task_type,
+            security_level=security_level.value,
+            preference=preference.value,
+        )
+
+        # Step 1: 隐私红线检查（与原流程一致）
+        privacy_result = self._check_privacy(security_level)
+        if privacy_result == "blocked":
+            return self._internal_decision(
+                reason=f"涉密等级{security_level.value}高于阈值，强制内部执行（隐私红线）",
+                privacy_status="blocked",
+            )
+
+        # Step 2: 内部能力评估
+        internal_score = self._evaluate_internal(task_type, task_complexity)
+        if internal_score >= 0.8 and preference != UserPreferenceMode.QUALITY_FIRST:
+            return self._internal_decision(
+                reason=f"内部能力评分{internal_score:.2f}>=0.8，{preference.value}模式下优先内部",
+                privacy_status=privacy_result,
+            )
+
+        # Step 2.5: 远程 Agent 发现（新增）
+        discovery = RemoteAgentDiscovery()
+        remote_agents = discovery.discover_from_cluster()
+
+        # 将远程 Agent 转为 ExternalAgentProfile 并注册到联邦注册表
+        remote_profiles: list[Any] = []
+        for ra in remote_agents:
+            if ra.status != "active":
+                continue
+            profile = self._remote_agent_to_profile(ra)
+            if profile:
+                remote_profiles.append(profile)
+
+        # Step 3: 获取可用外部 Agent 列表（原有）+ 远程 Agent
+        local_candidates = self._get_active_candidates(task_type)
+        all_candidates = local_candidates + remote_profiles
+
+        if not all_candidates:
+            return self._internal_decision(
+                reason="无可用外部 Agent 且无远程 Agent，降级到内部执行",
+                privacy_status=privacy_result,
+            )
+
+        self._logger.info(
+            "cluster_candidates_collected",
+            local_count=len(local_candidates),
+            remote_count=len(remote_profiles),
+            total=len(all_candidates),
+        )
+
+        # Step 4: 候选评分排序（复用现有评分逻辑）
+        scored_candidates: list[tuple[Any, float]] = []
+        for agent in all_candidates:
+            score = self._score_candidate(
+                agent=agent,
+                task_type=task_type,
+                preference=preference,
+                remaining_budget=remaining_budget,
+                speed_requirement=speed_requirement,
+                privacy_status=privacy_result,
+                task_complexity=task_complexity,
+            )
+            scored_candidates.append((agent, score))
+
+        scored_candidates.sort(key=lambda x: x[1], reverse=True)
+
+        if not scored_candidates:
+            return self._internal_decision(
+                reason="所有候选 Agent 均不符合要求，降级到内部执行",
+                privacy_status=privacy_result,
+            )
+
+        top_agent, top_score = scored_candidates[0]
+
+        # Step 5: 内部 vs 外部比较（与原流程一致）
+        if preference == UserPreferenceMode.COST_FIRST and internal_score >= 0.6:
+            return self._internal_decision(
+                reason="成本优先模式，内部能力满足基本需求，选择内部执行",
+                privacy_status=privacy_result,
+            )
+
+        if (
+            preference == UserPreferenceMode.SPEED_FIRST
+            and speed_requirement == "fast"
+            and internal_score >= 0.5
+        ):
+            return self._internal_decision(
+                reason="速度优先模式+极速要求，内部延迟更低，选择内部执行",
+                privacy_status=privacy_result,
+            )
+
+        # Step 6: 预算检查
+        estimated_cost = self._estimate_cost(top_agent, task_complexity)
+        if remaining_budget >= 0 and estimated_cost > remaining_budget:
+            for agent, score in scored_candidates:
+                cost = self._estimate_cost(agent, task_complexity)
+                if cost <= remaining_budget:
+                    top_agent, top_score = agent, score
+                    estimated_cost = cost
+                    break
+            else:
+                return self._internal_decision(
+                    reason=f"剩余预算${remaining_budget:.4f}不足以支付所有候选 Agent，降级到内部执行",
+                    privacy_status=privacy_result,
+                )
+
+        # 判断是否为远程 Agent
+        is_remote = top_agent.agent_id.startswith("remote_")
+        source_hint = "（跨节点远程）" if is_remote else ""
+
+        fallback_id = scored_candidates[1][0].agent_id if len(scored_candidates) > 1 else ""
+
+        decision = FederationDecision(
+            use_external=True,
+            selected_agent_id=top_agent.agent_id,
+            selected_agent_name=top_agent.display_name,
+            decision_reason=self._build_reason(
+                top_agent, preference, task_type, estimated_cost, privacy_result
+            ) + source_hint,
+            estimated_cost=estimated_cost,
+            estimated_latency=top_agent.response_speed,
+            privacy_check=privacy_result,
+            quality_score=top_score,
+            fallback_agent_id=fallback_id,
+        )
+
+        self._logger.info(
+            "cluster_decision_made",
+            selected_agent=top_agent.agent_id,
+            is_remote=is_remote,
+            score=round(top_score, 2),
+            estimated_cost=round(estimated_cost, 4),
+        )
+
+        return decision
+
+    def _remote_agent_to_profile(self, remote_agent: Any) -> Any | None:
+        """将 RemoteAgent 转换为 ExternalAgentProfile
+
+        转换后可直接参与现有 _score_candidate 评分流程。
+
+        Args:
+            remote_agent: RemoteAgent 实例
+
+        Returns:
+            ExternalAgentProfile 实例，转换失败返回 None
+        """
+        from shared_models import (
+            ExternalAgentProfile,
+            ExternalAgentType,
+            AgentPrivacyLevel,
+            ConnectionType,
+            CostModel,
+        )
+
+        try:
+            # 远程 Agent 类型映射
+            type_map = {
+                "llm": ExternalAgentType.LLM,
+                "code": ExternalAgentType.CODE,
+                "design": ExternalAgentType.DESIGN,
+                "search": ExternalAgentType.SEARCH,
+                "tool": ExternalAgentType.TOOL,
+            }
+            agent_type = type_map.get(
+                remote_agent.agent_type.lower(), ExternalAgentType.LLM
+            )
+
+            return ExternalAgentProfile(
+                agent_id=f"remote_{remote_agent.agent_id}",
+                display_name=remote_agent.display_name or f"远程({remote_agent.node_id})",
+                provider=f"cluster://{remote_agent.node_id}",
+                agent_type=agent_type,
+                capabilities=remote_agent.capabilities,
+                response_speed=remote_agent.response_speed,
+                quality_rating=remote_agent.quality_rating,
+                cost_model=CostModel(),  # 跨节点调用无额外美元成本
+                privacy_level=AgentPrivacyLevel.ENHANCED,  # 内网传输
+                connection_type=ConnectionType.LOCAL,  # 集群内网
+                status="active",
+                config={
+                    "node_id": remote_agent.node_id,
+                    "host": remote_agent.host,
+                    "port": remote_agent.port,
+                },
+            )
+        except Exception as exc:
+            self._logger.warning(
+                "remote_agent_conversion_failed",
+                agent_id=getattr(remote_agent, "agent_id", "unknown"),
+                error=str(exc),
+            )
+            return None
+
     # ── 内部方法 ────────────────────────────────────────
 
     def _check_privacy(self, security_level: SecurityClassification) -> str:
