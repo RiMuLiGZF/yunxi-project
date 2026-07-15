@@ -68,6 +68,7 @@ Dockerfile.base
 # 备份与临时文件
 backups/
 备份/
+archive/
 *.bak
 *.tmp
 *.7z

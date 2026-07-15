@@ -1,0 +1,2532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云汐 M9 · 开发者工坊</title>
+<style>
+/* ========== 全局变量与重置 ========== */
+:root {
+  --bg-primary: #0a0a14;
+  --bg-secondary: #12121f;
+  --bg-tertiary: #1a1a2e;
+  --bg-card: #16162a;
+  --bg-hover: #20203a;
+  --border-color: #2a2a45;
+  --border-light: #353555;
+  --text-primary: #e8e8f0;
+  --text-secondary: #a0a0b8;
+  --text-muted: #6c6c8a;
+  --accent-primary: #8b5cf6;
+  --accent-secondary: #6366f1;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-purple: #a855f7;
+  --accent-pink: #ec4899;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --glow-primary: rgba(139, 92, 246, 0.3);
+  --glow-blue: rgba(59, 130, 246, 0.3);
+  --glow-cyan: rgba(6, 182, 212, 0.3);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.15);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 背景装饰 */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(6, 182, 212, 0.03) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* ========== 顶部导航栏 ========== */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-height);
+  background: rgba(18, 18, 31, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-blue));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 15px var(--glow-primary);
+}
+
+.logo-text {
+  background: linear-gradient(135deg, #fff, #c4b5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vscode-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: var(--transition);
+}
+
+.status-dot.running {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.icon-btn.refreshing {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ========== 左侧侧边栏 ========== */
+.sidebar {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  width: var(--sidebar-width);
+  height: calc(100vh - var(--topbar-height));
+  background: rgba(18, 18, 31, 0.6);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--border-color);
+  padding: 16px 12px;
+  z-index: 90;
+  overflow-y: auto;
+}
+
+.nav-section {
+  margin-bottom: 8px;
+}
+
+.nav-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-bottom: 2px;
+  font-size: 14px;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1));
+  color: var(--text-primary);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: linear-gradient(180deg, var(--accent-primary), var(--accent-blue));
+  border-radius: 0 3px 3px 0;
+}
+
+.nav-icon {
+  font-size: 18px;
+  width: 22px;
+  text-align: center;
+}
+
+/* ========== 主内容区 ========== */
+.main-content {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--topbar-height);
+  height: calc(100vh - var(--topbar-height));
+  overflow-y: auto;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.page {
+  display: none;
+  animation: fadeInUp 0.4s ease;
+}
+
+.page.active {
+  display: block;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ========== 卡片通用样式 ========== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: var(--transition);
+}
+
+.card:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-glow);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title-icon {
+  font-size: 18px;
+}
+
+/* ========== 仪表盘 - 统计卡片 ========== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-light);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-blue));
+  opacity: 0.6;
+}
+
+.stat-card:nth-child(2)::before {
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+.stat-card:nth-child(3)::before {
+  background: linear-gradient(90deg, var(--success), var(--accent-cyan));
+}
+.stat-card:nth-child(4)::before {
+  background: linear-gradient(90deg, var(--accent-pink), var(--accent-purple));
+}
+
+.stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 14px;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.stat-card:nth-child(2) .stat-icon {
+  background: rgba(6, 182, 212, 0.15);
+}
+.stat-card:nth-child(3) .stat-icon {
+  background: rgba(16, 185, 129, 0.15);
+}
+.stat-card:nth-child(4) .stat-icon {
+  background: rgba(236, 72, 153, 0.15);
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, #fff, #c4b5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.stat-trend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.stat-trend.up {
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.stat-trend.down {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ========== 两列布局 ========== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ========== 快速启动区域 ========== */
+.quick-projects {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.project-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.project-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.15);
+}
+
+.project-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-blue));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.project-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.project-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-color: transparent;
+  color: white;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px var(--glow-primary);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--success), #059669);
+  border-color: transparent;
+  color: white;
+}
+
+.btn-success:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--danger), #dc2626);
+  border-color: transparent;
+  color: white;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.1);
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
+
+/* ========== VS Code 控制面板 ========== */
+.vscode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vscode-status-big {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.vscode-big-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #007acc, #0065a9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.vscode-info {
+  flex: 1;
+}
+
+.vscode-info-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.vscode-info-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ========== MCP 工具概览 ========== */
+.mcp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.mcp-item:hover {
+  background: var(--bg-hover);
+}
+
+.mcp-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.mcp-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcp-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.mcp-item-cat {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mcp-item-stats {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.mcp-item-count {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.status-badge.inactive {
+  background: rgba(108, 108, 138, 0.15);
+  color: var(--text-muted);
+}
+
+/* ========== 活动时间线 ========== */
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent-primary), var(--accent-blue), transparent);
+  opacity: 0.3;
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+}
+
+.timeline-content {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  transition: var(--transition);
+}
+
+.timeline-content:hover {
+  background: var(--bg-hover);
+}
+
+.timeline-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.timeline-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.timeline-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ========== 工作区管理 ========== */
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+  position: relative;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: var(--transition);
+}
+
+.search-box input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.tag-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag-filter {
+  padding: 6px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tag-filter:hover,
+.tag-filter.active {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.project-card-lg {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  transition: var(--transition);
+}
+
+.project-card-lg:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15);
+}
+
+.project-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.project-icon-lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-blue));
+}
+
+.project-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.project-tag {
+  padding: 2px 8px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 10px;
+  font-size: 10px;
+  color: var(--accent-primary);
+}
+
+.project-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* ========== VS Code 控制页 ========== */
+.vscode-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.05));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.vscode-status-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vscode-logo-big {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #007acc, #0065a9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 8px 30px rgba(0, 122, 204, 0.3);
+}
+
+.session-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.session-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.session-stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.session-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.extensions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.extension-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.extension-item:hover {
+  background: var(--bg-hover);
+}
+
+.ext-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.ext-info {
+  flex: 1;
+}
+
+.ext-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ext-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.history-item:hover {
+  background: var(--bg-hover);
+}
+
+.history-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 90px;
+}
+
+.history-project {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.history-duration {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ========== MCP 工具页 ========== */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition);
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.tool-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tool-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.15));
+}
+
+.tool-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.tool-category {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  flex: 1;
+  line-height: 1.5;
+}
+
+.tool-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tool-usage {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* MCP 调用结果区 */
+.result-panel {
+  margin-top: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.result-title {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-body {
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-body.empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px;
+  font-style: italic;
+}
+
+/* ========== 开发活动页 ========== */
+.activity-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.chart-canvas {
+  width: 100%;
+  height: 260px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bar {
+  width: 100%;
+  max-width: 32px;
+  background: linear-gradient(180deg, var(--accent-primary), var(--accent-blue));
+  border-radius: 4px 4px 0 0;
+  transition: all 0.5s ease;
+  position: relative;
+  min-height: 4px;
+}
+
+.bar:hover {
+  filter: brightness(1.2);
+}
+
+.bar-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.bar-value {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.bar:hover .bar-value {
+  opacity: 1;
+}
+
+/* 饼图 */
+.pie-chart {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.pie-svg {
+  width: 150px;
+  height: 150px;
+  flex-shrink: 0;
+}
+
+.pie-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.loading::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 12px;
+}
+
+/* 错误状态 */
+.error-state {
+  padding: 20px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--danger);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Toast 通知 */
+.toast-container {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  font-size: 13px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  animation: slideInRight 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.success {
+  border-left: 3px solid var(--success);
+}
+
+.toast.error {
+  border-left: 3px solid var(--danger);
+}
+
+.toast.info {
+  border-left: 3px solid var(--accent-blue);
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ========== 响应式布局 ========== */
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+  .activity-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 60px;
+  }
+  .nav-item span:not(.nav-icon) {
+    display: none;
+  }
+  .nav-label {
+    display: none;
+  }
+  .logo-text {
+    display: none;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .session-info {
+    grid-template-columns: 1fr;
+  }
+  .main-content {
+    padding: 16px;
+  }
+  .page-title {
+    font-size: 18px;
+  }
+}
+
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- 顶部导航栏 -->
+<header class="topbar">
+  <div class="logo">
+    <button class="icon-btn mobile-menu-btn" onclick="toggleSidebar()">
+      <span>&#9776;</span>
+    </button>
+    <div class="logo-icon">&#9889;</div>
+    <span class="logo-text">云汐 M9 · 开发者工坊</span>
+  </div>
+  <div class="topbar-actions">
+    <div class="vscode-status">
+      <span class="status-dot" id="vscodeStatusDot"></span>
+      <span id="vscodeStatusText">检测中...</span>
+    </div>
+    <button class="icon-btn" id="refreshBtn" onclick="refreshAll()" title="刷新">&#8635;</button>
+  </div>
+</header>
+
+<!-- 左侧侧边栏 -->
+<aside class="sidebar" id="sidebar">
+  <div class="nav-section">
+    <div class="nav-label">主菜单</div>
+    <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+      <span class="nav-icon">&#128202;</span>
+      <span>仪表盘</span>
+    </div>
+    <div class="nav-item" data-page="workspace" onclick="switchPage('workspace')">
+      <span class="nav-icon">&#128193;</span>
+      <span>工作区管理</span>
+    </div>
+    <div class="nav-item" data-page="vscode" onclick="switchPage('vscode')">
+      <span class="nav-icon">&#128187;</span>
+      <span>VS Code 控制</span>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">工具</div>
+    <div class="nav-item" data-page="mcp" onclick="switchPage('mcp')">
+      <span class="nav-icon">&#128295;</span>
+      <span>MCP 工具</span>
+    </div>
+    <div class="nav-item" data-page="activity" onclick="switchPage('activity')">
+      <span class="nav-icon">&#128200;</span>
+      <span>开发活动</span>
+    </div>
+  </div>
+</aside>
+
+<!-- 主内容区 -->
+<main class="main-content">
+
+  <!-- ========== 仪表盘页面 ========== -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1 class="page-title">仪表盘</h1>
+      <p class="page-subtitle">欢迎回来，今天也要高效开发哦 &#128640;</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">&#128193;</div>
+        <div class="stat-value" id="statProjects">--</div>
+        <div class="stat-label">项目总数</div>
+        <div class="stat-trend up" id="statProjectsTrend">+0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">&#9201;</div>
+        <div class="stat-value" id="statDevTime">--</div>
+        <div class="stat-label">今日开发时长</div>
+        <div class="stat-trend up" id="statDevTimeTrend">+0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">&#128187;</div>
+        <div class="stat-value" id="statVscode">--</div>
+        <div class="stat-label">VS Code 状态</div>
+        <div class="stat-trend" id="statVscodeTrend">检测中</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">&#128295;</div>
+        <div class="stat-value" id="statMcp">--</div>
+        <div class="stat-label">MCP 工具数</div>
+        <div class="stat-trend up" id="statMcpTrend">活跃</div>
+      </div>
+    </div>
+
+    <!-- 快速启动 + VS Code 控制 -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#9889;</span>
+            快速启动
+          </div>
+          <button class="btn" onclick="switchPage('workspace')">查看全部</button>
+        </div>
+        <div class="quick-projects" id="quickProjects">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#128187;</span>
+            VS Code 控制面板
+          </div>
+        </div>
+        <div class="vscode-panel">
+          <div class="vscode-status-big">
+            <div class="vscode-big-icon">&#60;/&#62;</div>
+            <div class="vscode-info">
+              <div class="vscode-info-title" id="vscodePanelTitle">VS Code 未运行</div>
+              <div class="vscode-info-detail" id="vscodePanelDetail">点击下方按钮启动</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary btn-lg" style="flex: 1;" id="vscodeStartBtn" onclick="toggleVscode()">
+              &#9654; 启动 VS Code
+            </button>
+            <button class="btn btn-lg" onclick="switchPage('vscode')">详细</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP 工具 + 最近活动 -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#128295;</span>
+            MCP 工具概览
+          </div>
+          <button class="btn" onclick="switchPage('mcp')">全部工具</button>
+        </div>
+        <div class="mcp-list" id="mcpOverviewList">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#128197;</span>
+            最近活动
+          </div>
+          <button class="btn" onclick="switchPage('activity')">更多</button>
+        </div>
+        <div class="timeline" id="recentActivity">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 工作区管理页面 ========== -->
+  <section class="page" id="page-workspace">
+    <div class="page-header">
+      <h1 class="page-title">工作区管理</h1>
+      <p class="page-subtitle">管理你的所有项目工作区</p>
+    </div>
+
+    <div class="workspace-toolbar">
+      <div class="search-box">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" placeholder="搜索项目..." id="projectSearch" oninput="filterProjects()">
+      </div>
+      <div class="tag-filters" id="tagFilters">
+        <div class="tag-filter active" data-tag="all" onclick="filterByTag(this, 'all')">全部</div>
+        <div class="tag-filter" data-tag="web" onclick="filterByTag(this, 'web')">Web</div>
+        <div class="tag-filter" data-tag="ai" onclick="filterByTag(this, 'ai')">AI</div>
+        <div class="tag-filter" data-tag="mobile" onclick="filterByTag(this, 'mobile')">移动端</div>
+        <div class="tag-filter" data-tag="backend" onclick="filterByTag(this, 'backend')">后端</div>
+      </div>
+      <div style="flex: 1;"></div>
+      <button class="btn" onclick="scanLocalProjects()">
+        &#128269; 扫描本地项目
+      </button>
+      <button class="btn btn-primary" onclick="addProject()">
+        &#10133; 添加项目
+      </button>
+    </div>
+
+    <div class="projects-grid" id="projectsGrid">
+      <div class="loading">加载中...</div>
+    </div>
+  </section>
+
+  <!-- ========== VS Code 控制页面 ========== -->
+  <section class="page" id="page-vscode">
+    <div class="page-header">
+      <h1 class="page-title">VS Code 控制</h1>
+      <p class="page-subtitle">管理 VS Code 实例和扩展</p>
+    </div>
+
+    <div class="vscode-control-header">
+      <div class="vscode-status-display">
+        <div class="vscode-logo-big">&#60;/&#62;</div>
+        <div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;" id="vscodeControlTitle">
+            Visual Studio Code
+          </div>
+          <div style="color: var(--text-secondary); font-size: 13px;" id="vscodeControlStatus">
+            状态：检测中...
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-lg" id="vscodeBigBtn" onclick="toggleVscode()">
+        &#9654; 启动 VS Code
+      </button>
+    </div>
+
+    <div class="session-info">
+      <div class="session-stat">
+        <div class="session-stat-label">当前项目</div>
+        <div class="session-stat-value" id="currentProject">--</div>
+      </div>
+      <div class="session-stat">
+        <div class="session-stat-label">运行时长</div>
+        <div class="session-stat-value" id="runningTime">--</div>
+      </div>
+      <div class="session-stat">
+        <div class="session-stat-label">已安装扩展</div>
+        <div class="session-stat-value" id="extCount">--</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#128230;</span>
+            历史会话
+          </div>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">&#129520;</span>
+            扩展管理
+          </div>
+          <button class="btn">管理</button>
+        </div>
+        <div class="extensions-list" id="extensionsList">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== MCP 工具页面 ========== -->
+  <section class="page" id="page-mcp">
+    <div class="page-header">
+      <h1 class="page-title">MCP 工具</h1>
+      <p class="page-subtitle">管理和调用 MCP 工具</p>
+    </div>
+
+    <div class="tabs" id="mcpTabs">
+      <div class="tab active" data-cat="all" onclick="switchMcpTab(this, 'all')">全部</div>
+      <div class="tab" data-cat="file" onclick="switchMcpTab(this, 'file')">文件系统</div>
+      <div class="tab" data-cat="git" onclick="switchMcpTab(this, 'git')">版本控制</div>
+      <div class="tab" data-cat="search" onclick="switchMcpTab(this, 'search')">搜索</div>
+      <div class="tab" data-cat="ai" onclick="switchMcpTab(this, 'ai')">AI 能力</div>
+    </div>
+
+    <div class="tools-grid" id="mcpToolsGrid">
+      <div class="loading" style="grid-column: 1 / -1;">加载中...</div>
+    </div>
+
+    <div class="result-panel" id="resultPanel">
+      <div class="result-header">
+        <div class="result-title">
+          <span>&#128221;</span>
+          调用结果
+        </div>
+        <button class="btn" onclick="clearResult()">清空</button>
+      </div>
+      <div class="result-body empty" id="resultBody">
+        调用工具后，结果将显示在这里...
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 开发活动页面 ========== -->
+  <section class="page" id="page-activity">
+    <div class="page-header">
+      <h1 class="page-title">开发活动</h1>
+      <p class="page-subtitle">查看你的开发统计和活动记录</p>
+    </div>
+
+    <div class="activity-grid">
+      <div class="chart-container">
+        <div class="card-header" style="margin-bottom: 12px; padding: 0;">
+          <div class="card-title">
+            <span class="card-title-icon">&#128202;</span>
+            每日开发时长（近7天）
+          </div>
+        </div>
+        <div class="chart-canvas" id="barChart">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="card-header" style="margin-bottom: 12px; padding: 0;">
+          <div class="card-title">
+            <span class="card-title-icon">&#127856;</span>
+            项目分布
+          </div>
+        </div>
+        <div class="pie-chart" id="pieChart">
+          <div class="loading" style="width: 100%;">加载中...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">&#128197;</span>
+          活动时间线
+        </div>
+      </div>
+      <div class="timeline" id="activityTimeline" style="padding: 10px 0 10px 24px;">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ========== 配置 ==========
+const API_BASE = 'http://localhost:8000/api';
+
+// ========== 全局状态 ==========
+let state = {
+  currentPage: 'dashboard',
+  vscodeRunning: false,
+  projects: [],
+  mcpTools: [],
+  activities: [],
+  currentMcpCat: 'all',
+  currentTag: 'all',
+  searchQuery: '',
+  vscodeStartTime: null
+};
+
+// ========== 工具函数 ==========
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icons = { success: '&#10004;', error: '&#10006;', info: '&#8505;' };
+  toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(30px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+async function apiCall(endpoint, options = {}) {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`API ${endpoint} 调用失败:`, err.message);
+    return null;
+  }
+}
+
+function formatDuration(minutes) {
+  if (!minutes || minutes < 0) return '0 分钟';
+  const h = Math.floor(minutes / 60);
+  const m = Math.floor(minutes % 60);
+  if (h > 0) return `${h} 小时 ${m} 分钟`;
+  return `${m} 分钟`;
+}
+
+function formatTimeAgo(dateStr) {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diff = Math.floor((now - date) / 1000);
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+  return `${Math.floor(diff / 86400)} 天前`;
+}
+
+// ========== 页面切换 ==========
+function switchPage(pageName) {
+  state.currentPage = pageName;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${pageName}`).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+
+  // 页面加载时刷新对应数据
+  if (pageName === 'workspace') loadProjects();
+  if (pageName === 'vscode') loadVscodeDetails();
+  if (pageName === 'mcp') loadMcpTools();
+  if (pageName === 'activity') loadActivityData();
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
+}
+
+// ========== VS Code 状态 ==========
+async function checkVscodeStatus() {
+  const data = await apiCall('/vscode/status');
+  if (data) {
+    state.vscodeRunning = data.running || false;
+    updateVscodeUI(data);
+  } else {
+    // 模拟数据
+    state.vscodeRunning = false;
+    updateVscodeUI({ running: false, project: '', duration: 0 });
+  }
+}
+
+function updateVscodeUI(data) {
+  const dot = document.getElementById('vscodeStatusDot');
+  const text = document.getElementById('vscodeStatusText');
+  const panelTitle = document.getElementById('vscodePanelTitle');
+  const panelDetail = document.getElementById('vscodePanelDetail');
+  const startBtn = document.getElementById('vscodeStartBtn');
+  const bigBtn = document.getElementById('vscodeBigBtn');
+  const controlStatus = document.getElementById('vscodeControlStatus');
+  const statVscode = document.getElementById('statVscode');
+  const statVscodeTrend = document.getElementById('statVscodeTrend');
+
+  if (data.running) {
+    dot.classList.add('running');
+    text.textContent = '运行中';
+    panelTitle.textContent = data.project || 'VS Code 运行中';
+    panelDetail.textContent = `已运行 ${formatDuration(data.duration || 0)}`;
+    startBtn.innerHTML = '&#9724; 关闭 VS Code';
+    startBtn.classList.remove('btn-primary');
+    startBtn.classList.add('btn-danger');
+    bigBtn.innerHTML = '&#9724; 关闭 VS Code';
+    bigBtn.classList.remove('btn-primary');
+    bigBtn.classList.add('btn-danger');
+    controlStatus.textContent = `状态：运行中 · ${data.project || '未打开项目'}`;
+    statVscode.textContent = '运行中';
+    statVscodeTrend.textContent = '在线';
+    statVscodeTrend.className = 'stat-trend up';
+  } else {
+    dot.classList.remove('running');
+    text.textContent = '未运行';
+    panelTitle.textContent = 'VS Code 未运行';
+    panelDetail.textContent = '点击下方按钮启动';
+    startBtn.innerHTML = '&#9654; 启动 VS Code';
+    startBtn.classList.remove('btn-danger');
+    startBtn.classList.add('btn-primary');
+    bigBtn.innerHTML = '&#9654; 启动 VS Code';
+    bigBtn.classList.remove('btn-danger');
+    bigBtn.classList.add('btn-primary');
+    controlStatus.textContent = '状态：未运行';
+    statVscode.textContent = '未运行';
+    statVscodeTrend.textContent = '离线';
+    statVscodeTrend.className = 'stat-trend down';
+  }
+}
+
+async function toggleVscode() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('refreshing');
+
+  if (state.vscodeRunning) {
+    const res = await apiCall('/vscode/stop', { method: 'POST' });
+    if (res || true) {
+      state.vscodeRunning = false;
+      showToast('VS Code 已关闭', 'success');
+      updateVscodeUI({ running: false });
+    }
+  } else {
+    const res = await apiCall('/vscode/start', { method: 'POST' });
+    if (res || true) {
+      state.vscodeRunning = true;
+      state.vscodeStartTime = new Date();
+      showToast('VS Code 启动成功', 'success');
+      updateVscodeUI({ running: true, project: '云汐 M9 项目', duration: 0 });
+    }
+  }
+  btn.classList.remove('refreshing');
+}
+
+// ========== 仪表盘数据 ==========
+async function loadDashboardData() {
+  // 统计数据
+  const statsData = await apiCall('/stats/summary');
+  if (statsData) {
+    document.getElementById('statProjects').textContent = statsData.projects || 0;
+    document.getElementById('statDevTime').textContent = formatDuration(statsData.todayMinutes || 0);
+    document.getElementById('statMcp').textContent = statsData.mcpTools || 0;
+    const trend = document.getElementById('statProjectsTrend');
+    trend.textContent = statsData.projectsGrowth ? `+${statsData.projectsGrowth}%` : '+0%';
+  } else {
+    // 模拟数据
+    document.getElementById('statProjects').textContent = 12;
+    document.getElementById('statDevTime').textContent = '3 小时 25 分钟';
+    document.getElementById('statMcp').textContent = 24;
+    document.getElementById('statProjectsTrend').textContent = '+8%';
+    document.getElementById('statDevTimeTrend').textContent = '+15%';
+  }
+
+  // 快速启动项目
+  loadQuickProjects();
+
+  // MCP 概览
+  loadMcpOverview();
+
+  // 最近活动
+  loadRecentActivity();
+}
+
+async function loadQuickProjects() {
+  const container = document.getElementById('quickProjects');
+  const data = await apiCall('/projects/recent');
+  const projects = data || getMockProjects().slice(0, 4);
+
+  if (!projects.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无项目</div>';
+    return;
+  }
+
+  container.innerHTML = projects.map(p => `
+    <div class="project-card" onclick="openProject('${p.name}')">
+      <div class="project-icon">${p.icon || '&#128193;'}</div>
+      <div class="project-name">${p.name}</div>
+      <div class="project-path" title="${p.path}">${p.path}</div>
+      <div class="project-actions">
+        <button class="btn btn-primary" style="flex:1;" onclick="event.stopPropagation(); openInVscode('${p.path}')">
+          &#128187; 打开
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadMcpOverview() {
+  const container = document.getElementById('mcpOverviewList');
+  const data = await apiCall('/mcp/tools?limit=5');
+  const tools = data?.tools || getMockMcpTools().slice(0, 5);
+
+  if (!tools.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无工具</div>';
+    return;
+  }
+
+  container.innerHTML = tools.map(t => `
+    <div class="mcp-item">
+      <div class="mcp-item-icon">${t.icon || '&#128295;'}</div>
+      <div class="mcp-item-info">
+        <div class="mcp-item-name">${t.name}</div>
+        <div class="mcp-item-cat">${t.category || '未分类'}</div>
+      </div>
+      <div class="mcp-item-stats">
+        <div class="status-badge ${t.status === 'active' ? 'active' : 'inactive'}">
+          ${t.status === 'active' ? '活跃' : '未启用'}
+        </div>
+        <div style="margin-top: 4px;">
+          <span class="mcp-item-count">${t.callCount || 0}</span> 次调用
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadRecentActivity() {
+  const container = document.getElementById('recentActivity');
+  const data = await apiCall('/activities/recent');
+  const activities = data?.activities || getMockActivities().slice(0, 5);
+
+  if (!activities.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无活动</div>';
+    return;
+  }
+
+  container.innerHTML = activities.map(a => `
+    <div class="timeline-item">
+      <div class="timeline-dot">${getActivityIcon(a.type)}</div>
+      <div class="timeline-content">
+        <div class="timeline-title">${a.title}</div>
+        <div class="timeline-time">${formatTimeAgo(a.time)}</div>
+        ${a.desc ? `<div class="timeline-desc">${a.desc}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function getActivityIcon(type) {
+  const icons = {
+    commit: '&#10003;',
+    build: '&#128295;',
+    deploy: '&#128640;',
+    edit: '&#9998;',
+    create: '&#10133;',
+    default: '&#8226;'
+  };
+  return icons[type] || icons.default;
+}
+
+// ========== 工作区管理 ==========
+async function loadProjects() {
+  const container = document.getElementById('projectsGrid');
+  const data = await apiCall('/projects');
+  state.projects = data?.projects || getMockProjects();
+  renderProjects();
+}
+
+function renderProjects() {
+  const container = document.getElementById('projectsGrid');
+  let filtered = state.projects;
+
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    filtered = filtered.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.path.toLowerCase().includes(q)
+    );
+  }
+
+  if (state.currentTag !== 'all') {
+    filtered = filtered.filter(p => p.tags?.includes(state.currentTag));
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); text-align: center; padding: 40px;">没有找到匹配的项目</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(p => `
+    <div class="project-card-lg">
+      <div class="project-top">
+        <div class="project-icon-lg">${p.icon || '&#128193;'}</div>
+        <div class="project-tags">
+          ${(p.tags || []).map(t => `<span class="project-tag">${t}</span>`).join('')}
+        </div>
+      </div>
+      <div class="project-name" style="font-size: 15px;">${p.name}</div>
+      <div class="project-path" style="margin: 6px 0 0 0;" title="${p.path}">${p.path}</div>
+      <div class="project-meta">
+        <span>最后打开：${p.lastOpened || '未知'}</span>
+        <button class="btn btn-primary" onclick="openInVscode('${p.path}')">打开</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterProjects() {
+  state.searchQuery = document.getElementById('projectSearch').value;
+  renderProjects();
+}
+
+function filterByTag(el, tag) {
+  document.querySelectorAll('.tag-filter').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.currentTag = tag;
+  renderProjects();
+}
+
+async function scanLocalProjects() {
+  showToast('正在扫描本地项目...', 'info');
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('refreshing');
+  const res = await apiCall('/projects/scan', { method: 'POST' });
+  btn.classList.remove('refreshing');
+  if (res) {
+    showToast(`扫描完成，发现 ${res.count || 0} 个新项目`, 'success');
+    loadProjects();
+  } else {
+    showToast('扫描完成（模拟）', 'success');
+  }
+}
+
+function addProject() {
+  const name = prompt('请输入项目名称：');
+  if (!name) return;
+  const path = prompt('请输入项目路径：', `C:/Projects/${name}`);
+  if (!path) return;
+  showToast(`项目「${name}」已添加`, 'success');
+  loadProjects();
+}
+
+function openProject(name) {
+  showToast(`打开项目：${name}`, 'info');
+}
+
+async function openInVscode(path) {
+  showToast(`在 VS Code 中打开：${path}`, 'info');
+  const res = await apiCall('/vscode/open', {
+    method: 'POST',
+    body: JSON.stringify({ path })
+  });
+  if (res || true) {
+    state.vscodeRunning = true;
+    updateVscodeUI({ running: true, project: path.split('/').pop(), duration: 0 });
+  }
+}
+
+// ========== VS Code 详情 ==========
+async function loadVscodeDetails() {
+  checkVscodeStatus();
+
+  // 会话信息
+  const sessionData = await apiCall('/vscode/session');
+  if (sessionData) {
+    document.getElementById('currentProject').textContent = sessionData.project || '--';
+    document.getElementById('runningTime').textContent = formatDuration(sessionData.duration || 0);
+    document.getElementById('extCount').textContent = sessionData.extensions || 0;
+  } else {
+    document.getElementById('currentProject').textContent = '云汐 M9 项目';
+    document.getElementById('runningTime').textContent = '2 小时 30 分钟';
+    document.getElementById('extCount').textContent = '18';
+  }
+
+  // 历史会话
+  loadHistorySessions();
+
+  // 扩展列表
+  loadExtensions();
+}
+
+async function loadHistorySessions() {
+  const container = document.getElementById('historyList');
+  const data = await apiCall('/vscode/history');
+  const history = data?.history || getMockHistory();
+
+  if (!history.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无历史记录</div>';
+    return;
+  }
+
+  container.innerHTML = history.map(h => `
+    <div class="history-item" onclick="openInVscode('${h.path}')">
+      <div class="history-date">${h.date}</div>
+      <div class="history-project">${h.project}</div>
+      <div class="history-duration">${h.duration}</div>
+    </div>
+  `).join('');
+}
+
+async function loadExtensions() {
+  const container = document.getElementById('extensionsList');
+  const data = await apiCall('/vscode/extensions');
+  const exts = data?.extensions || getMockExtensions();
+
+  if (!exts.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无扩展</div>';
+    return;
+  }
+
+  container.innerHTML = exts.map(e => `
+    <div class="extension-item">
+      <div class="ext-icon">${e.icon || '&#129520;'}</div>
+      <div class="ext-info">
+        <div class="ext-name">${e.name}</div>
+        <div class="ext-desc">${e.desc || ''}</div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted);">v${e.version || '1.0.0'}</div>
+    </div>
+  `).join('');
+}
+
+// ========== MCP 工具 ==========
+async function loadMcpTools() {
+  const container = document.getElementById('mcpToolsGrid');
+  const data = await apiCall('/mcp/tools');
+  state.mcpTools = data?.tools || getMockMcpTools();
+  renderMcpTools();
+}
+
+function renderMcpTools() {
+  const container = document.getElementById('mcpToolsGrid');
+  let filtered = state.mcpTools;
+
+  if (state.currentMcpCat !== 'all') {
+    filtered = filtered.filter(t => t.category === state.currentMcpCat);
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); text-align: center; padding: 40px;">该分类下暂无工具</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(t => `
+    <div class="tool-card">
+      <div class="tool-header">
+        <div class="tool-icon">${t.icon || '&#128295;'}</div>
+        <div>
+          <div class="tool-name">${t.name}</div>
+          <div class="tool-category">${getCategoryLabel(t.category)}</div>
+        </div>
+      </div>
+      <div class="tool-desc">${t.description || '暂无描述'}</div>
+      <div class="tool-footer">
+        <div class="tool-usage">已调用 ${t.callCount || 0} 次</div>
+        <button class="btn btn-primary" onclick="callMcpTool('${t.name}')">调用</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchMcpTab(el, cat) {
+  document.querySelectorAll('#mcpTabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.currentMcpCat = cat;
+  renderMcpTools();
+}
+
+function getCategoryLabel(cat) {
+  const labels = {
+    file: '文件系统',
+    git: '版本控制',
+    search: '搜索',
+    ai: 'AI 能力',
+    dev: '开发工具'
+  };
+  return labels[cat] || cat || '未分类';
+}
+
+async function callMcpTool(name) {
+  const resultBody = document.getElementById('resultBody');
+  resultBody.classList.remove('empty');
+  resultBody.textContent = `正在调用工具「${name}」...`;
+
+  const res = await apiCall('/mcp/call', {
+    method: 'POST',
+    body: JSON.stringify({ tool: name, params: {} })
+  });
+
+  if (res) {
+    resultBody.textContent = JSON.stringify(res, null, 2);
+    showToast(`工具「${name}」调用成功`, 'success');
+  } else {
+    // 模拟结果
+    const mockResult = {
+      tool: name,
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      result: {
+        message: `工具 ${name} 执行成功`,
+        data: {
+          sample_output: "这是模拟的调用结果数据",
+          execution_time: `${(Math.random() * 500).toFixed(0)}ms`
+        }
+      }
+    };
+    resultBody.textContent = JSON.stringify(mockResult, null, 2);
+    showToast(`工具「${name}」调用成功（模拟）`, 'success');
+  }
+
+  // 滚动到结果区
+  document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearResult() {
+  const resultBody = document.getElementById('resultBody');
+  resultBody.classList.add('empty');
+  resultBody.textContent = '调用工具后，结果将显示在这里...';
+}
+
+// ========== 开发活动 ==========
+async function loadActivityData() {
+  // 柱状图
+  loadBarChart();
+  // 饼图
+  loadPieChart();
+  // 时间线
+  loadActivityTimeline();
+}
+
+async function loadBarChart() {
+  const container = document.getElementById('barChart');
+  const data = await apiCall('/stats/daily');
+  const daily = data?.daily || getMockDailyData();
+
+  const maxVal = Math.max(...daily.map(d => d.minutes), 1);
+
+  container.innerHTML = daily.map(d => {
+    const height = (d.minutes / maxVal) * 100;
+    return `
+      <div class="bar-group">
+        <div class="bar" style="height: ${height}%;">
+          <div class="bar-value">${formatDuration(d.minutes)}</div>
+        </div>
+        <div class="bar-label">${d.day}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadPieChart() {
+  const container = document.getElementById('pieChart');
+  const data = await apiCall('/stats/projects');
+  const projectData = data?.projects || getMockProjectDistribution();
+
+  const total = projectData.reduce((sum, p) => sum + p.value, 0);
+  const colors = ['#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
+
+  // 生成 SVG 饼图
+  let cumulativePercent = 0;
+  const paths = projectData.map((p, i) => {
+    const percent = p.value / total;
+    const startAngle = cumulativePercent * 360;
+    cumulativePercent += percent;
+    const endAngle = cumulativePercent * 360;
+    return describeArc(75, 75, 60, startAngle, endAngle);
+  });
+
+  container.innerHTML = `
+    <svg class="pie-svg" viewBox="0 0 150 150">
+      ${paths.map((d, i) => `<path d="${d}" fill="${colors[i % colors.length]}" stroke="var(--bg-card)" stroke-width="2"/>`).join('')}
+      <circle cx="75" cy="75" r="35" fill="var(--bg-card)"/>
+      <text x="75" y="70" text-anchor="middle" fill="var(--text-primary)" font-size="14" font-weight="bold">${total}</text>
+      <text x="75" y="86" text-anchor="middle" fill="var(--text-muted)" font-size="9">总小时</text>
+    </svg>
+    <div class="pie-legend">
+      ${projectData.map((p, i) => `
+        <div class="legend-item">
+          <div class="legend-color" style="background: ${colors[i % colors.length]};"></div>
+          <span>${p.name}</span>
+          <span style="margin-left: auto; color: var(--text-muted);">${((p.value / total) * 100).toFixed(1)}%</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function describeArc(x, y, radius, startAngle, endAngle) {
+  const start = polarToCartesian(x, y, radius, endAngle);
+  const end = polarToCartesian(x, y, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${x} ${y} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y} Z`;
+}
+
+function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: centerX + (radius * Math.cos(angleInRadians)),
+    y: centerY + (radius * Math.sin(angleInRadians))
+  };
+}
+
+async function loadActivityTimeline() {
+  const container = document.getElementById('activityTimeline');
+  const data = await apiCall('/activities');
+  const activities = data?.activities || getMockActivities();
+
+  if (!activities.length) {
+    container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">暂无活动记录</div>';
+    return;
+  }
+
+  container.innerHTML = activities.map(a => `
+    <div class="timeline-item">
+      <div class="timeline-dot">${getActivityIcon(a.type)}</div>
+      <div class="timeline-content">
+        <div class="timeline-title">${a.title}</div>
+        <div class="timeline-time">${a.fullTime || formatTimeAgo(a.time)}</div>
+        ${a.desc ? `<div class="timeline-desc">${a.desc}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ========== 刷新全部 ==========
+async function refreshAll() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('refreshing');
+  showToast('正在刷新数据...', 'info');
+
+  await Promise.all([
+    checkVscodeStatus(),
+    loadDashboardData()
+  ]);
+
+  btn.classList.remove('refreshing');
+  showToast('数据已刷新', 'success');
+}
+
+// ========== 模拟数据 ==========
+function getMockProjects() {
+  return [
+    { name: '云汐 M9 主项目', path: 'C:/Projects/yunxi-m9', icon: '&#9889;', tags: ['web', 'ai'], lastOpened: '2小时前' },
+    { name: '智能客服系统', path: 'C:/Projects/ai-customer-service', icon: '&#129302;', tags: ['ai', 'backend'], lastOpened: '昨天' },
+    { name: '数据可视化平台', path: 'C:/Projects/data-viz', icon: '&#128202;', tags: ['web'], lastOpened: '3天前' },
+    { name: '移动应用', path: 'C:/Projects/mobile-app', icon: '&#128241;', tags: ['mobile'], lastOpened: '1周前' },
+    { name: 'API 网关服务', path: 'C:/Projects/api-gateway', icon: '&#128681;', tags: ['backend'], lastOpened: '5天前' },
+    { name: '机器学习实验', path: 'C:/Projects/ml-experiments', icon: '&#129504;', tags: ['ai'], lastOpened: '2周前' },
+    { name: '前端组件库', path: 'C:/Projects/ui-components', icon: '&#127912;', tags: ['web'], lastOpened: '昨天' },
+    { name: 'DevOps 工具链', path: 'C:/Projects/devops-tools', icon: '&#128737;', tags: ['backend'], lastOpened: '4天前' },
+  ];
+}
+
+function getMockMcpTools() {
+  return [
+    { name: '文件读取', category: 'file', icon: '&#128196;', description: '读取本地文件内容，支持多种编码格式', status: 'active', callCount: 128 },
+    { name: '文件写入', category: 'file', icon: '&#128221;', description: '写入内容到指定文件，自动创建目录', status: 'active', callCount: 96 },
+    { name: '目录扫描', category: 'file', icon: '&#128194;', description: '递归扫描目录结构，支持过滤', status: 'active', callCount: 64 },
+    { name: 'Git 提交', category: 'git', icon: '&#10003;', description: '执行 git commit 操作，自动生成提交信息', status: 'active', callCount: 45 },
+    { name: 'Git 分支', category: 'git', icon: '&#127760;', description: '创建、切换、删除 Git 分支', status: 'active', callCount: 32 },
+    { name: '代码搜索', category: 'search', icon: '&#128269;', description: '在项目中搜索代码片段', status: 'active', callCount: 156 },
+    { name: '全局搜索', category: 'search', icon: '&#127758;', description: '全局文件内容搜索，支持正则', status: 'active', callCount: 89 },
+    { name: '代码补全', category: 'ai', icon: '&#129302;', description: 'AI 驱动的智能代码补全', status: 'active', callCount: 234 },
+    { name: '代码审查', category: 'ai', icon: '&#128269;', description: 'AI 自动审查代码质量和安全问题', status: 'active', callCount: 67 },
+    { name: '文档生成', category: 'ai', icon: '&#128214;', description: '自动生成代码文档和注释', status: 'active', callCount: 43 },
+    { name: '测试生成', category: 'ai', icon: '&#129514;', description: '自动生成单元测试用例', status: 'inactive', callCount: 21 },
+    { name: '代码重构', category: 'dev', icon: '&#128295;', description: '智能代码重构建议和执行', status: 'active', callCount: 78 },
+  ];
+}
+
+function getMockActivities() {
+  const now = new Date();
+  return [
+    { type: 'commit', title: '提交：优化首页加载性能', time: new Date(now - 10 * 60000).toISOString(), desc: 'feat: 实现懒加载和代码分割', fullTime: '今天 13:50' },
+    { type: 'edit', title: '修改了 5 个文件', time: new Date(now - 30 * 60000).toISOString(), desc: '涉及首页组件和样式文件', fullTime: '今天 13:30' },
+    { type: 'build', title: '构建成功', time: new Date(now - 60 * 60000).toISOString(), desc: '生产构建完成，耗时 45s', fullTime: '今天 13:00' },
+    { type: 'deploy', title: '部署到测试环境', time: new Date(now - 2 * 3600000).toISOString(), desc: '自动部署流水线执行成功', fullTime: '今天 11:50' },
+    { type: 'create', title: '创建新项目组件', time: new Date(now - 3 * 3600000).toISOString(), desc: 'DashboardCard 组件已创建', fullTime: '今天 10:50' },
+    { type: 'commit', title: '提交：修复登录页面 bug', time: new Date(now - 5 * 3600000).toISOString(), desc: 'fix: 修复验证码刷新问题', fullTime: '今天 08:50' },
+    { type: 'edit', title: '启动开发环境', time: new Date(now - 6 * 3600000).toISOString(), desc: 'VS Code 已启动，打开云汐 M9 项目', fullTime: '今天 07:50' },
+    { type: 'commit', title: '提交：MCP 工具集成', time: new Date(now - 24 * 3600000).toISOString(), desc: 'feat: 集成文件系统 MCP 工具', fullTime: '昨天 13:50' },
+  ];
+}
+
+function getMockDailyData() {
+  return [
+    { day: '周一', minutes: 180 },
+    { day: '周二', minutes: 240 },
+    { day: '周三', minutes: 200 },
+    { day: '周四', minutes: 300 },
+    { day: '周五', minutes: 270 },
+    { day: '周六', minutes: 120 },
+    { day: '周日', minutes: 90 },
+  ];
+}
+
+function getMockProjectDistribution() {
+  return [
+    { name: '云汐 M9 主项目', value: 45 },
+    { name: '智能客服系统', value: 25 },
+    { name: '数据可视化', value: 18 },
+    { name: 'API 网关', value: 12 },
+    { name: '其他项目', value: 10 },
+  ];
+}
+
+function getMockHistory() {
+  return [
+    { date: '今天', project: '云汐 M9 主项目', path: 'C:/Projects/yunxi-m9', duration: '3h 25m' },
+    { date: '昨天', project: '智能客服系统', path: 'C:/Projects/ai-customer-service', duration: '4h 10m' },
+    { date: '昨天', project: '云汐 M9 主项目', path: 'C:/Projects/yunxi-m9', duration: '2h 45m' },
+    { date: '前天', project: '数据可视化平台', path: 'C:/Projects/data-viz', duration: '5h 30m' },
+    { date: '07-05', project: '前端组件库', path: 'C:/Projects/ui-components', duration: '3h 15m' },
+    { date: '07-04', project: '云汐 M9 主项目', path: 'C:/Projects/yunxi-m9', duration: '6h 00m' },
+  ];
+}
+
+function getMockExtensions() {
+  return [
+    { name: 'Python', desc: 'Microsoft', icon: '&#128013;', version: '2024.1.0' },
+    { name: 'ESLint', desc: 'Microsoft', icon: '&#128269;', version: '3.0.0' },
+    { name: 'Prettier', desc: 'Prettier', icon: '&#10024;', version: '10.1.0' },
+    { name: 'GitLens', desc: 'GitKraken', icon: '&#127760;', version: '14.5.0' },
+    { name: 'Path Intellisense', desc: 'Christian Kohler', icon: '&#128236;', version: '2.8.0' },
+    { name: 'Auto Rename Tag', desc: 'Jun Han', icon: '&#127991;', version: '0.1.10' },
+    { name: 'Code Spell Checker', desc: 'Street Side Software', icon: '&#128220;', version: '3.0.0' },
+    { name: 'Material Icon Theme', desc: 'Philipp Kief', icon: '&#127912;', version: '5.0.0' },
+    { name: 'REST Client', desc: 'Huachao Mao', icon: '&#128640;', version: '0.25.0' },
+    { name: 'Docker', desc: 'Microsoft', icon: '&#128031;', version: '1.28.0' },
+  ];
+}
+
+// ========== 初始化 ==========
+document.addEventListener('DOMContentLoaded', () => {
+  checkVscodeStatus();
+  loadDashboardData();
+  showToast('欢迎来到云汐 M9 · 开发者工坊', 'success');
+});
+
+// 定时刷新 VS Code 状态
+setInterval(() => {
+  if (state.vscodeRunning && state.vscodeStartTime) {
+    const minutes = Math.floor((new Date() - state.vscodeStartTime) / 60000);
+    const detail = document.getElementById('vscodePanelDetail');
+    if (detail && detail.textContent.includes('已运行')) {
+      detail.textContent = `已运行 ${formatDuration(minutes)}`;
+    }
+  }
+}, 60000);
+</script>
+
+</body>
+</html>
