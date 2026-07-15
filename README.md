@@ -1,170 +1,211 @@
-# 云汐 M8 算力调度中台
+# 云汐 (Yunxi) — AI 原生个人操作系统
 
-云汐系统统一算力管理与智能调度平台，支持 Claude Code 等工具通过 OpenAI 兼容协议接入，自动路由到 DeepSeek/Anthropic/Qwen 等多厂商算力源。
+> **一个运行在本地设备上的 AI 原生个人操作系统，13 个微服务模块化架构，让 AI 真正为你所用。**
+>
+> 🏷️ 赛道：学习工作  |  🔧 完全使用 TRAE 开发  |  📦 v0.9.1
 
-## 核心功能### 1. OpenAI 兼容代理层
+---
 
-为 Claude Code 等工具提供统一的 OpenAI 兼容 API 入口，自动协议转换和智能路由。
+## 项目简介
 
-**Claude Code 配置方式：
+**云汐 (Yunxi)** 是一套面向重度 AI 使用者、个人开发者和知识工作者的 AI 原生个人操作系统。它采用 **13 个微服务模块化架构**，全部运行在用户本地设备上，解决三大核心痛点：
 
-```bash
-export ANTHROPIC_BASE_URL=http://localhost:8000/v1
-export ANTHROPIC_API_KEY=yunxi-xxxxxxxxxxxxxx
+- **AI 工具碎片化** — 翻译、搜索、数据分析、代码生成散落在不同工具中，切换成本高
+- **云端依赖与隐私风险** — 个人数据被迫上传到第三方服务器，缺乏自主控制权
+- **AI 能力扩展困难** — 难以将通用 AI 能力适配到个人专属的工作流与知识体系中
+
+云汐通过统一的身份认证、模块化的技能集群、可视化的工作流编排，以及本地优先的数据存储，构建了一个**可扩展、可定制、数据自主**的 AI 操作系统。
+
+---
+
+## 核心亮点
+
+### 1. 13 模块微服务架构
+
+| 模块 | 端口 | 功能 | 状态 |
+|------|------|------|------|
+| M0 主理人管控台 | 8000 | 全局仪表盘、权限审计、紧急操作 | 🔒 本地私有 |
+| M1 多 Agent 集群调度 | 8001 | 联邦调度、8 子 Agent 智能路由 | ✅ 开源 |
+| M2 技能集群 | 8002 | 18+ 技能注册中心、MCP/A2A 协议接入 | ✅ 开源 |
+| M3 端云协同内核 | 8003 | 端云混合计算、离线降级、数据同步 | ✅ 开源 |
+| M4 业务场景引擎 | 8004 | 8 大场景智能识别与暖切换（工作/学习/生活/休闲） | ✅ 开源 |
+| M5 潮汐分层记忆 | 8005 | 四层潮汐记忆模型、情绪推断、睡眠巩固 | 🔒 本地私有 |
+| M6 穿戴硬件外设 | 8006 | 6 类 IoT 设备管理、SSE 实时流 | ✅ 开源 |
+| M7 积木编排平台 | 8007 | 可视化 DAG 工作流、模板市场 | ✅ 开源 |
+| M8 管理控制塔 | 8008 | 统一纳管、算力调度、巡检中心 | ✅ 开源 |
+| M9 开发者工坊 | 8009 | VSCode 管理、代码沙箱、MCP 桥接 | ✅ 开源 |
+| M10 系统卫士 | 8010 | 7×24 资源监控、GPU 潮汐调度、阈值防护 | ✅ 开源 |
+| M11 MCP 总线 | 8011 | MCP 服务注册发现、87 个工具统一路由 | ✅ 开源 |
+| M12 安全盾 | 8012 | WAF、JWT 认证、IP 控制、速率限制 | ✅ 开源 |
+
+> 🔒 **M0 和 M5 为核心私有模块**，仅保留在本地设备，不包含于本公开仓库。
+
+### 2. 内容生态市场 (v0.9.0)
+
+三大市场形成完整的技能与内容流通体系：
+
+- **M2 技能市场** — 技能打包、发布、搜索、安装、评分
+- **M7 模板市场** — 工作流模板与自定义积木的共享与复用
+- **M5 记忆共享池** — 脱敏后的记忆元数据跨设备共享（本地模块）
+
+### 3. 统一 MCP 工具总线
+
+M11 MCP 总线将各模块能力封装为 **87 个标准 MCP 工具**，实现跨模块能力调用：
+
+```
+M1.agent_list → M2.translate → M7.workflow_run → M12.security_audit
 ```
 
-Claude Code 会以为自己在和 Anthropic API 对话，实际上中台自动：
-- 转换协议格式（Anthropic ↔ OpenAI ↔ DeepSeek ↔ Qwen）
-- 智能路由到最优算力源
-- 故障自动转移
-- 统一配额和审计
+### 4. 本地优先，隐私可控
 
-### 2. 三层算力架构| 层级 | 说明 | 示例 |
-|------|------|------|
-| 边缘算力 | 本地设备/NPU | 笔记本本地模型 |
-| 云端算力 | 第三方API | DeepSeek / Anthropic / Qwen |
-| 私有化算力 | 自建服务器 | 私有部署大模型 |
+- 所有个人数据存储在本地 SQLite / FAISS 向量库
+- JWT + AES-256-GCM 加密存储
+- 端云协同支持离线降级，无网络也能用
 
-### 3. 智能路由策略
+---
 
-- **auto**: 自动最优（综合延迟、成本、健康度加权）
-- **fastest**: 最快响应优先
-- **cheapest**: 最低成本优先
-- **priority**: 按优先级调度
-- 自动故障转移（2次重试
+## 技术栈
 
-### 4. API密钥管理
+| 层级 | 技术 |
+|------|------|
+| 后端 | Python 3.10+, FastAPI, SQLAlchemy, Pydantic |
+| 前端 | Vue 3 + Vite, SPA 单页应用 |
+| AI 推理 | Ollama 本地 LLM, OpenAI 兼容协议代理 |
+| 向量检索 | FAISS |
+| 数据存储 | SQLite (本地优先), JSON 配置 |
+| 协议 | MCP, A2A, OneBot v11, OpenAI API |
+| 安全 | JWT, AES-256-GCM, WAF, 速率限制 |
+| 部署 | Docker Compose, PowerShell 脚本 |
 
-- 统一代理密钥，下游算力源密钥加密存储
-- 按密钥分组管理权限
-- RPM/TPM/日配额/月配额
-- 用量统计与审计
-
-### 5. 巡检中心
-
-- **快速巡检**: 8项核心检查，30秒内完成
-- **全面巡检**: 15+项深度检查
-- Sentinel-Lite: 轻量级巡检Agent（定时+启动自检）
-- Sentinel-Pro: 深度巡检Agent（LLM智能分析+修复方案）
-
-## 项目结构
-
-```
-yunxi-project/
-├── M8-control-tower/          # M8 控制塔（算力调度中台）
-│   └── backend/
-│       ├── main.py              # 主应用入口
-│       ├── models.py             # 数据模型
-│       ├── crypto.py            # 加密工具
-│       ├── key_manager.py       # API密钥管理
-│       ├── compute_router.py   # 算力路由引擎
-│       ├── protocol_adapter.py   # 多厂商协议适配器
-│       ├── openai_proxy.py      # OpenAI兼容代理层
-│       ├── audit_logger.py     # 审计日志
-│       ├── inspection_tools.py # 巡检工具集（10+检查项）
-│       ├── inspection_runner.py # 巡检运行器
-│       ├── routers/             # API路由
-│       │   ├── __init__.py
-│       │   ├── compute_sources.py
-│       │   ├── api_keys.py
-│       │   ├── audit.py
-│       │   ├── inspection.py
-│       │   └── dashboard.py
-│       ├── test_e2e.py        # 端到端测试
-│       └── requirements.txt
-├── M1-agent-hub/
-│   └── federation/agents/
-│       ├── sentinel_lite.py     # Sentinel-Lite 快速巡检Agent
-│       └── sentinel_pro.py     # Sentinel-Pro 全面巡检Agent
-├── frontend/
-│   └── m8/
-│       └── inspection.html      # 巡检中心前端页面
-└── shared/                      # 共享模块
-```
+---
 
 ## 快速开始
 
-### 1. 安装依赖
+### 环境要求
 
-```bash
+- Python 3.10+
+- Windows / Linux / macOS
+- (可选) Docker & Docker Compose
+- (可选) Ollama（本地 LLM 推理）
+
+### 方式一：Python 原生启动
+
+```powershell
+# 1. 克隆仓库
+git clone https://github.com/RiMuLiGZF/yunxi-project.git
+cd yunxi-project
+
+# 2. 安装各模块依赖（示例：M8）
 cd M8-control-tower/backend
 pip install -r requirements.txt
+
+# 3. 启动单个模块
+python server.py
+
+# 4. 一键启动全部模块（PowerShell）
+cd ../..
+.\scripts\start-all.ps1
 ```
 
-### 2. 启动服务
+### 方式二：Docker 部署
 
 ```bash
-python main.py
+# 一键启动全部服务
+docker-compose up -d
+
+# 查看各模块健康状态
+docker-compose ps
 ```
 
-服务启动后：
-- API 地址: `http://localhost:8000
-- API 文档: `http://localhost:8000/docs`
-- 巡检中心: `http://localhost:8000/static/inspection.html`
+### 访问入口
 
-### 3. 运行测试
+| 服务 | 地址 |
+|------|------|
+| 启动页 | http://localhost:3000 |
+| Vue3 SPA | http://localhost:5173 |
+| M8 管控台 API | http://localhost:8008/docs |
+| M11 MCP 总线 | http://localhost:8011 |
 
-```bash
-# 功能演示
-python test_e2e.py --demo
+---
 
-# 单元测试
-python test_e2e.py --test
+## 项目数据
+
+- **13 个微服务模块**（11 个开源 + 2 个私有）
+- **160+ Git 提交**
+- **~5,100 个代码文件，~144 万行代码**
+- **2,109 项测试通过**
+- **87 个 MCP 工具**
+- **13 个 Vue 3 前端页面**
+- **100+ RESTful API 端点**
+
+---
+
+## 版本演进
+
+| 版本 | 时间 | 核心交付 |
+|------|------|----------|
+| v0.6.0 | 2026-07-13 | 13 模块集群完整跑通 |
+| v0.7.0 | 2026-07-14 | Vue3 前端 + M4 多模态场景引擎 |
+| v0.8.0 | 2026-07-15 | 分布式部署 — 节点注册发现 + 跨节点消息总线 + 联邦调度 |
+| v0.9.0 | 2026-07-15 | 内容生态市场 — 技能市场 + 模板市场 + 记忆共享 + MCP 扩展 |
+| v0.9.1 | 2026-07-15 | 安全审计 — JWT 密钥去硬编码 + artifacts 保密文档排除 |
+
+---
+
+## 开发工具声明
+
+本项目从 0 到 v0.9.x 的**全部代码、架构设计、文档撰写、测试修复**均使用 **TRAE**（AI 原生 IDE）完成。
+
+开发过程中的关键里程碑：
+- 总工程师模式架构规划与模块化拆解
+- 大规模架构重构（分布式节点注册发现）
+- 测试基建修复（288 → 2,109 项测试通过）
+- v0.9.0 内容生态三大市场从零设计到完整实现
+
+---
+
+## 目录结构
+
+```
+yunxi-project/
+├── M1-agent-hub/              # 多 Agent 集群调度
+├── M2-skills-cluster/         # 技能集群 + 技能市场
+├── M3-edge-cloud/             # 端云协同内核
+├── m4-scene-engine/           # 业务场景引擎
+├── M7-workflow-builder/       # 积木编排 + 模板市场
+├── M8-control-tower/          # 管理控制塔
+├── M9-dev-workshop/           # 开发者工坊
+├── M10-system-guard/          # 系统卫士
+├── M11-mcp-bus/               # MCP 总线
+├── M12-security-shield/       # 安全盾
+├── frontend/                  # 前端集合（SPA + 各模块页面）
+├── scripts/                   # 启动/停止/健康检查脚本
+├── docs/                      # 架构文档、验收报告、迭代记录
+├── config/                    # 配置模板（.example）
+├── docker-compose.yml         # Docker 编排
+└── README.md                  # 本文件
 ```
 
-### 4. Claude Code 接入
+> 注：`M0-principal-console/` 和 `M5-tide-memory/` 为核心私有模块，未包含在本仓库中。
 
-1. 启动中台服务
-2. 创建API密钥（或使用首次启动自动生成的默认密钥）
-3. 配置 Claude Code:
+---
 
-```bash
-export ANTHROPIC_BASE_URL=http://localhost:8000/v1
-export ANTHROPIC_API_KEY=yunxi-你的密钥
-claude
-```
+## 贡献指南
 
-## 支持的厂商
+当前项目处于快速迭代期，欢迎通过 Issue 和 PR 参与贡献。
 
-| 厂商 | 聊天 | 流式 | Tool Calling | 嵌入 |
-|-----|------|------|-------------|------|
-| DeepSeek | ✅ | ✅ | ✅ | ✅ |
-| Anthropic | ✅ | ✅ | ✅ | - |
-| OpenAI | ✅ | ✅ | ✅ | ✅ |
-| 通义千问(Qwen) | ✅ | ✅ | ✅ | ✅ |
-| 智谱(Zhipu) | ✅ | ✅ | ✅ | ✅ |
-| 月之暗面(Moonshot) | ✅ | ✅ | ✅ | ✅ |
-| Gemini | ✅ | ✅ | - | - |
+- 提交前请阅读 `docs/code-style-guide.md`
+- 新功能需配套单元测试
+- API 变更需更新 `docs/api-version-spec.md`
 
-## 巡检检查项
+---
 
-### 快速巡检（8项）
-1. 系统资源检测（CPU、内存、进程）
-2. 磁盘空间检测
-3. 数据库连接检测
-4. 算力源健康检测
-5. 配置文件完整性
-6. 日志目录检测
-7. 基础网络检测
-8. API密钥状态检测
+## 许可证
 
-### 全面巡检（额外7+项）
-1. 告警统计检查
-2. 网络连通性检测
-3. 版本一致性检查
-4. 安全扫描
-5. 性能基线检查
-6. 架构一致性检查
-7. 备份状态检查
-8. 审计日志检查
+MIT License — 详见 [LICENSE](LICENSE) 文件。
 
-## 架构设计原则
+---
 
-1. **模块归属**: M8 控制塔（算力调度中台）
-2. **设计理念**: 边缘-云端-私有化三层算力统一调度
-3. **核心能力**: 协议透明转换 + 智能路由 + 故障自愈
-4. **安全保障**: 密钥加密存储 + 统一鉴权 + 全链路审计
-
-## License
-
-云汐系统内部模块
+<p align="center">
+  <sub>Built with 💙 using <a href="https://www.trae.cn/">TRAE</a></sub>
+</p>
