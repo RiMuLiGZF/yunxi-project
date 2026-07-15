@@ -989,4 +989,16 @@ def create_v2_app(
                 trace_id=trace_id,
             )
 
+    # ---- 技能市场路由 ----
+    try:
+        from skill_cluster.market import MarketRegistry, market_router
+
+        # 注入 SkillRegistry 实例，供市场上架时获取技能信息
+        if registry is not None:
+            MarketRegistry.set_skill_registry(registry)
+        app.include_router(market_router)
+        logger.info("market_router_registered")
+    except Exception as e:
+        logger.warning("market_router_register_failed", error=str(e))
+
     return app

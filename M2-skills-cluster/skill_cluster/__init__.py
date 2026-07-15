@@ -167,6 +167,7 @@ from skill_cluster.security.ast_scanner import (
     ScanResult,
     SecurityFinding,
 )
+from skill_cluster.market import MarketRegistry, market_router
 
 # create_app 是 http_api 中的工厂函数别名
 from skill_cluster.api.http import create_http_app as create_app
@@ -353,4 +354,6 @@ __all__ = [
     "ASTSecurityScanner",
     "ScanResult",
     "SecurityFinding",
+    "MarketRegistry",
+    "market_router",
 ]
