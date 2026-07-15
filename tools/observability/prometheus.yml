@@ -1,0 +1,86 @@
+# ============================================================
+# 云汐系统 - Prometheus 采集配置
+# 采集所有模块的 /api/v1/metrics 端点（端口 8000-8012）
+# ============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # ----------------------------------------------------------
+  # 云汐系统各模块指标端点
+  # ----------------------------------------------------------
+  - job_name: "yunxi-m0"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m0:8000"]
+
+  - job_name: "yunxi-m1"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m1:8001"]
+
+  - job_name: "yunxi-m2"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m2:8002"]
+
+  - job_name: "yunxi-m3"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m3:8003"]
+
+  - job_name: "yunxi-m4"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m4:8004"]
+
+  - job_name: "yunxi-m5"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m5:8005"]
+
+  - job_name: "yunxi-m6"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m6:8006"]
+
+  - job_name: "yunxi-m7"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m7:8007"]
+
+  - job_name: "yunxi-m8"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m8:8008"]
+
+  - job_name: "yunxi-m9"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m9:8009"]
+
+  - job_name: "yunxi-m10"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m10:8010"]
+
+  - job_name: "yunxi-m11"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m11:8011"]
+
+  - job_name: "yunxi-m12"
+    metrics_path: "/api/v1/metrics"
+    static_configs:
+      - targets: ["yunxi-m12:8012"]

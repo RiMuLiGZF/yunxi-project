@@ -99,6 +99,11 @@ from m10_system_guard.audit_logger import get_audit_logger
 from m10_system_guard.report_generator import get_report_generator
 from m10_system_guard.sandbox_scheduler import get_sandbox_scheduler
 from m10_system_guard.auth_middleware import M10AuthMiddleware
+from m10_system_guard.prometheus_exporter import (
+    generate_prometheus_metrics,
+    generate_metrics_json,
+    is_prometheus_available,
+)
 
 # ---------------------------------------------------------------------------
 # 加载配置
@@ -391,6 +396,23 @@ async def m8_std_config(x_m8_token: str = Header(default="")):
             "guard_policies": 4,
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# Prometheus /metrics 端点
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/metrics", tags=["Observability"], summary="Prometheus 指标")
+async def metrics_endpoint():
+    """Prometheus 格式的系统指标端点.
+
+    如果 prometheus_client 已安装，返回标准 Prometheus 文本格式；
+    否则返回 JSON 格式的模拟指标。
+    """
+    content_type, body = generate_prometheus_metrics()
+    if not is_prometheus_available():
+        return generate_metrics_json()
+    from fastapi import Response
+    return Response(content=body, media_type=content_type)
 
 
 # ---------------------------------------------------------------------------
