@@ -184,6 +184,13 @@ class M7BlockAdapter(BaseMcpAdapter):
             "m7.run_workflow": self._call_run_workflow,
             "m7.get_run_status": self._call_get_run_status,
             "m7.list_blocks": self._call_list_blocks,
+            "m7.market_templates": self._call_market_templates,
+            "m7.market_template_install": self._call_market_template_install,
+            "m7.market_template_publish": self._call_market_template_publish,
+            "m7.market_blocks": self._call_market_blocks,
+            "m7.market_block_install": self._call_market_block_install,
+            "m7.market_block_publish": self._call_market_block_publish,
+            "m7.market_search": self._call_market_search,
         }
 
         handler = tool_map.get(name)
@@ -324,6 +331,47 @@ class M7BlockAdapter(BaseMcpAdapter):
             path="/api/v1/blocks",
             params=params,
         )
+
+    def _call_market_templates(self, args: Dict[str, Any]) -> Any:
+        params: Dict[str, Any] = {}
+        for k in ("category", "page", "size"):
+            if k in args:
+                params[k] = args[k]
+        return self._request_m7("GET", "/api/v1/market/templates", params=params)
+
+    def _call_market_template_install(self, args: Dict[str, Any]) -> Any:
+        return self._request_m7("POST", f"/api/v1/market/templates/{args['template_id']}/install", json={})
+
+    def _call_market_template_publish(self, args: Dict[str, Any]) -> Any:
+        return self._request_m7("POST", "/api/v1/market/templates/publish", json={
+            "workflow_id": args["workflow_id"],
+            "description": args.get("description", ""),
+            "category": args.get("category", "general"),
+            "tags": args.get("tags", []),
+        })
+
+    def _call_market_blocks(self, args: Dict[str, Any]) -> Any:
+        params: Dict[str, Any] = {}
+        for k in ("category", "page", "size"):
+            if k in args:
+                params[k] = args[k]
+        return self._request_m7("GET", "/api/v1/market/blocks", params=params)
+
+    def _call_market_block_install(self, args: Dict[str, Any]) -> Any:
+        return self._request_m7("POST", f"/api/v1/market/blocks/{args['block_id']}/install", json={})
+
+    def _call_market_block_publish(self, args: Dict[str, Any]) -> Any:
+        return self._request_m7("POST", "/api/v1/market/blocks/publish", json={
+            "block_id": args["block_id"],
+            "description": args.get("description", ""),
+            "category": args.get("category", "general"),
+            "tags": args.get("tags", []),
+        })
+
+    def _call_market_search(self, args: Dict[str, Any]) -> Any:
+        scope = args.get("scope", "templates")
+        path = f"/api/v1/market/{scope}/search"
+        return self._request_m7("GET", path, params={"q": args.get("query", "")})
 
     # ============================================================
     # M7 API 调用封装

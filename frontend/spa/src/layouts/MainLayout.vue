@@ -119,6 +119,7 @@ const navGroups = [
       { path: '/modes', label: '场景引擎', icon: '&#9670;' },
       { path: '/modules', label: '积木平台', icon: '&#9881;' },
       { path: '/workflows', label: '工作流', icon: '&#8634;' },
+      { path: '/marketplace', label: '内容市场', icon: '&#128722;' },
     ],
   },
   {
@@ -170,6 +171,7 @@ onMounted(() => {
     Modes: '场景引擎',
     ModeDetail: '模式详情',
     Workflows: '工作流',
+    Marketplace: '内容市场',
     Monitor: '系统监控',
     Audit: '审计日志',
     Settings: '设置',

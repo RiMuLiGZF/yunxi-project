@@ -31,6 +31,7 @@ from .routers.blocks import router as blocks_router
 from .routers.templates import router as templates_router
 from .routers.runs import router as runs_router
 from .routers.custom_blocks import router as custom_blocks_router
+from .routers.market import market_router
 from .services.storage import get_storage
 
 
@@ -297,6 +298,7 @@ def create_app() -> FastAPI:
     app.include_router(templates_router)
     app.include_router(runs_router)
     app.include_router(custom_blocks_router)
+    app.include_router(market_router)
 
     # 根路径
     @app.get("/", tags=["系统"])

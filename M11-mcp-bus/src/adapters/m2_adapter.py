@@ -271,6 +271,55 @@ class M2SkillAdapter(BaseMcpAdapter):
                     "required": ["data"],
                 },
             },
+            {
+                "name": "m2.market_list",
+                "description": "浏览技能市场，获取可安装的技能包列表",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {"type": "string", "description": "分类筛选"},
+                        "tag": {"type": "string", "description": "标签筛选"},
+                        "page": {"type": "integer", "description": "页码", "default": 1},
+                        "size": {"type": "integer", "description": "每页数量", "default": 20},
+                    },
+                },
+            },
+            {
+                "name": "m2.market_search",
+                "description": "在技能市场中搜索技能",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "搜索关键词"},
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
+                "name": "m2.market_install",
+                "description": "从技能市场安装一个技能包",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "package_id": {"type": "string", "description": "技能包ID"},
+                    },
+                    "required": ["package_id"],
+                },
+            },
+            {
+                "name": "m2.market_publish",
+                "description": "将当前已注册的技能发布到市场",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "skill_id": {"type": "string", "description": "要发布的技能ID"},
+                        "description": {"type": "string", "description": "技能描述"},
+                        "category": {"type": "string", "description": "分类", "default": "general"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "标签列表", "default": []},
+                    },
+                    "required": ["skill_id"],
+                },
+            },
         ]
 
     # ============================================================
@@ -361,6 +410,10 @@ class M2SkillAdapter(BaseMcpAdapter):
             "m2.web_fetch": self._call_web_fetch,
             "m2.search": self._call_search,
             "m2.analyze_data": self._call_analyze_data,
+            "m2.market_list": self._call_market_list,
+            "m2.market_search": self._call_market_search,
+            "m2.market_install": self._call_market_install,
+            "m2.market_publish": self._call_market_publish,
         }
 
         handler = tool_map.get(name)
@@ -531,6 +584,28 @@ class M2SkillAdapter(BaseMcpAdapter):
                 },
             },
         )
+
+    def _call_market_list(self, args: Dict[str, Any]) -> Any:
+        params = {}
+        for k in ("category", "tag", "page", "size"):
+            if k in args:
+                params[k] = args[k]
+        return self._request_m2("GET", "/api/v2/market/list", params=params)
+
+    def _call_market_search(self, args: Dict[str, Any]) -> Any:
+        return self._request_m2("GET", "/api/v2/market/search", params={"q": args.get("query", "")})
+
+    def _call_market_install(self, args: Dict[str, Any]) -> Any:
+        return self._request_m2("POST", f"/api/v2/market/{args['package_id']}/install", json={})
+
+    def _call_market_publish(self, args: Dict[str, Any]) -> Any:
+        return self._request_m2("POST", "/api/v2/market/publish", json={
+            "skill_id": args["skill_id"],
+            "description": args.get("description", ""),
+            "category": args.get("category", "general"),
+            "tags": args.get("tags", []),
+            "is_public": True,
+        })
 
     # ============================================================
     # M2 API 调用封装

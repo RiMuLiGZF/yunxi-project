@@ -41,6 +41,9 @@ from tide_memory.api.m8_routes import create_m8_router
 # 导入成长系统
 from tide_memory.growth.router import GrowthAPIRouter
 
+# 导入记忆共享系统
+from tide_memory.sharing import share_router, configure_share_router
+
 # 导入全局异常处理器和认证中间件
 from tide_memory.middleware.exception_handler import register_exception_handlers
 from tide_memory.middleware.auth import FastAPIAuthMiddleware
@@ -112,6 +115,15 @@ def create_fastapi_app() -> FastAPI:
     except Exception as e:
         logger.error("成长系统初始化失败，将以降级模式启动", error=str(e))
         raise RuntimeError(f"成长系统初始化失败: {e}") from e
+
+    # 初始化记忆共享系统（注入 recall_engine / desensitizer / domain_manager）
+    logger.info("初始化记忆共享系统（导出/导入/共享池）...")
+    try:
+        configure_share_router(app_ctx)
+        logger.info("记忆共享系统初始化完成")
+    except Exception as e:
+        logger.error("记忆共享系统初始化失败，将以降级模式启动", error=str(e))
+        # 共享系统初始化失败不阻断主服务启动
 
     # 创建 FastAPI 应用
     app = FastAPI(
@@ -534,6 +546,14 @@ def create_fastapi_app() -> FastAPI:
     logger.info("m8_router_mounted", prefix="/m8", endpoints=[
         "/m8/health", "/m8/metrics", "/m8/config",
         "/m8/memory/recall", "/m8/memory/archive", "/m8/memory/stats",
+    ])
+
+    # ============ 记忆共享路由（通过 APIRouter 挂载） ============
+
+    app.include_router(share_router)
+    logger.info("share_router_mounted", prefix="/api/v1/memory/share", endpoints=[
+        "/export", "/import", "/pool", "/search",
+        "/stats/summary", "/{share_id}", "/{share_id}/rate",
     ])
 
     logger.info("M5 潮汐记忆系统 FastAPI 服务已就绪")

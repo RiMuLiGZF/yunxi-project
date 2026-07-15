@@ -137,6 +137,52 @@ class M5MemoryAdapter(BaseMcpAdapter):
                     "properties": {},
                 },
             },
+            {
+                "name": "m5.share_export",
+                "description": "导出记忆为共享包，供其他 Agent 参考",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "共享包标题", "default": "记忆分享包"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "标签列表", "default": []},
+                        "limit": {"type": "integer", "description": "导出数量限制", "default": 100},
+                    },
+                },
+            },
+            {
+                "name": "m5.share_import",
+                "description": "从共享池导入记忆包到本地",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "share_id": {"type": "string", "description": "共享包ID"},
+                    },
+                    "required": ["share_id"],
+                },
+            },
+            {
+                "name": "m5.share_list",
+                "description": "浏览记忆共享池",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {"type": "string", "description": "标签筛选"},
+                        "page": {"type": "integer", "description": "页码", "default": 1},
+                        "size": {"type": "integer", "description": "每页数量", "default": 20},
+                    },
+                },
+            },
+            {
+                "name": "m5.share_search",
+                "description": "搜索记忆共享池",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "搜索关键词"},
+                    },
+                    "required": ["query"],
+                },
+            },
         ]
 
     def call_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -207,16 +253,40 @@ class M5MemoryAdapter(BaseMcpAdapter):
             path="/api/v1/memory/stats",
         )
 
+    def _call_share_export(self, args: Dict[str, Any]) -> Any:
+        return self._request_m5("POST", "/api/v1/memory/share/export", json={
+            "title": args.get("title", "记忆分享包"),
+            "tags": args.get("tags", []),
+            "limit": args.get("limit", 100),
+        })
+
+    def _call_share_import(self, args: Dict[str, Any]) -> Any:
+        return self._request_m5("POST", "/api/v1/memory/share/import", json={
+            "share_id": args["share_id"],
+            "target_domain": "shared",
+        })
+
+    def _call_share_list(self, args: Dict[str, Any]) -> Any:
+        params = {}
+        for k in ("tag", "page", "size"):
+            if k in args:
+                params[k] = args[k]
+        return self._request_m5("GET", "/api/v1/memory/share/pool", params=params)
+
+    def _call_share_search(self, args: Dict[str, Any]) -> Any:
+        return self._request_m5("GET", "/api/v1/memory/share/search", params={"q": args.get("query", "")})
+
     def _request_m5(
         self,
         method: str,
         path: str,
         json: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         url = f"{self.m5_base_url}{path}"
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.request(method=method, url=url, json=json)
+                response = client.request(method=method, url=url, json=json, params=params)
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as e:

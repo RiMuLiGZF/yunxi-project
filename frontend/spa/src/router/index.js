@@ -65,6 +65,12 @@ const routes = [
     meta: { auth: true },
   },
   {
+    path: '/marketplace',
+    name: 'Marketplace',
+    component: () => import('../views/MarketplaceView.vue'),
+    meta: { auth: true, title: '内容市场' },
+  },
+  {
     path: '/api-docs',
     name: 'ApiDocs',
     component: () => import('../views/ApiDocsView.vue'),
