@@ -131,3 +131,17 @@ M1-agent-cluster/
 # artifacts 中引用保密模块的设计文档（避免间接暴露核心创新壁垒）
 artifacts/by-module/M5-tide-memory/
 artifacts/by-module/M1-agent-cluster/
+
+# === 归档材料：过程性文档与报告，仅保留在本地，不上传公开仓库 ===
+# 迭代报告、验收报告、检验报告、变更日志、体检报告等过程性文档
+docs/
+archive/
+health-reports/
+changelogs/
+
+# 前端产物与静态资源（构建后生成）
+frontend/spa/dist/
+
+# 运行时数据目录
+data/
+models/
