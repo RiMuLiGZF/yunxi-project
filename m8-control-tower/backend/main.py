@@ -1,4 +1,4 @@
-﻿"""
+"""
 M8 管理工作台 - 主应用入口
 """
 
@@ -18,8 +18,29 @@ from fastapi.responses import FileResponse
 
 from .config import settings
 from .models import init_db
-from .routers import auth_router, deploy_router, monitor_router, task_router, system_router, memory_router, chat_router, agents_router, growth_router, workflow_router, modules_router, work_dev_router, review_router, study_plan_router, life_management_router, emotion_comfort_router, social_relation_router, appearance_router, m6_devices_router, compute_sources_router, compute_groups_router, compute_models_router, compute_routing_router, compute_monitor_router, compute_config_router, compute_skills_router, compute_gpu_router, inspection_agents_router, watch_router, git_status_router, audit_router, modes_router, security_router, users_router, evolution_planner_router, evolution_deployer_router, evolution_auditor_router, voice_router
+from .routers import auth_router, deploy_router, monitor_router, task_router, system_router, memory_router, chat_router, agents_router, growth_router, workflow_router, modules_router, work_dev_router, review_router, study_plan_router, life_management_router, emotion_comfort_router, social_relation_router, appearance_router, m6_devices_router, compute_sources_router, compute_groups_router, compute_models_router, compute_routing_router, compute_monitor_router, compute_config_router, compute_skills_router, compute_gpu_router, inspection_agents_router, watch_router, git_status_router, audit_router, modes_router, security_router, users_router, evolution_planner_router, evolution_deployer_router, evolution_auditor_router, voice_router, voice_presets_router, m4_gateway_router, personalization_router, reminders_router
+from .m4_proxy_middleware import register_m4_proxy_middleware
+try:
+    from .middleware.waf_middleware import register_waf_middleware
+    _waf_middleware_available = True
+except ImportError:
+    _waf_middleware_available = False
 from shared.logger import get_logger
+
+# 渐进式启动编排器
+try:
+    from shared.startup_orchestrator import get_startup_orchestrator
+    _startup_orchestrator_available = True
+except ImportError:
+    _startup_orchestrator_available = False
+
+# 分布式集群管理
+try:
+    from shared.distributed.api import router as cluster_router, init_services as init_cluster_services
+    from shared.distributed import NodeConfig, NodeRegistry, MessageBus
+    _distributed_available = True
+except ImportError:
+    _distributed_available = False
 
 logger = get_logger("m8.backend")
 
@@ -31,6 +52,22 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting M8 Control Tower v{settings.version}...")
     init_db()
     logger.info("Database initialized")
+
+    # 启动渐进式编排（后台异步执行，不阻塞应用启动）
+    if _startup_orchestrator_available:
+        startup_orch = get_startup_orchestrator(self_module_key="m8")
+        # M8 自身已在运行，确保其状态为 running
+        m8_state = startup_orch.get_module_state("m8")
+        if m8_state:
+            m8_state.phase = "running"
+            m8_state.progress = 100
+            m8_state.message = "已在运行"
+        # 后台启动其他模块的渐进式编排
+        startup_orch.start_background()
+        logger.info("Progressive startup orchestrator activated")
+    else:
+        logger.warning("Startup orchestrator not available, skipping progressive startup")
+
     logger.info(f"M8 Control Tower started on {settings.host}:{settings.port}")
 
     yield
@@ -58,6 +95,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # M4 业务代理中间件（流量切换开关）
+    register_m4_proxy_middleware(app)
+
+    # WAF 安全防护中间件（对接 M12 安全盾）
+    if _waf_middleware_available:
+        _waf_mw = register_waf_middleware(app)
+        if _waf_mw:
+            logger.info("WAF 中间件已注册")
+
     # 注册路由
     app.include_router(auth_router, prefix="/api/auth", tags=["认证"])
     app.include_router(deploy_router, prefix="/api/deploy", tags=["部署中心"])
@@ -74,26 +120,4 @@ def create_app() -> FastAPI:
     app.include_router(review_router, prefix="/api/review", tags=["复盘总结"])
     app.include_router(study_plan_router, prefix="/api/study-plan", tags=["学业规划"])
     app.include_router(life_management_router, prefix="/api/life-management", tags=["生活管理"])
-    app.include_router(emotion_comfort_router, prefix="/api/emotion-comfort", tags=["情绪陪伴"])
-    app.include_router(social_relation_router, prefix="/api/social-relation", tags=["人际关系"])
-    app.include_router(appearance_router, prefix="/api/appearance", tags=["形象工坊"])
-    app.include_router(m6_devices_router, prefix="/api/v1/m6", tags=["M6穿戴设备"])
-    # ---- 算力调度中台 (M8-CS) ----
-    app.include_router(compute_sources_router, prefix="/api/compute/sources", tags=["算力调度-算力源"])
-    app.include_router(compute_gpu_router, prefix="/api/compute/gpu", tags=["GPU算力管理"])
-    app.include_router(compute_groups_router, prefix="/api/compute/groups", tags=["算力调度-密钥分组"])
-    app.include_router(compute_models_router, prefix="/api/compute/models", tags=["算力调度-模型绑定"])
-    app.include_router(compute_routing_router, prefix="/api/compute/routing", tags=["算力调度-路由调度"])
-    app.include_router(compute_monitor_router, prefix="/api/compute/monitor", tags=["算力调度-监控大盘"])
-    app.include_router(compute_config_router, prefix="/api/compute/config", tags=["算力调度-配置管理"])
-    app.include_router(compute_skills_router, prefix="/api/compute/skills", tags=["算力调度-技能绑定"])
-    # ---- 巡检Agent ----
-    app.include_router(inspection_agents_router, prefix="/api/inspection", tags=["巡检Agent"])
-    # ---- 手表交互 ----
-    app.include_router(watch_router, prefix="/api/watch", tags=["手表交互"])
-    app.include_router(git_status_router, prefix="/api/git", tags=["Git状态看板"])
-    # ---- 审计与安全 ----
-    app.include_router(audit_router, prefix="/api/audit", tags=["审计日志"])
-    app.include_router(security_router, prefix="/api/security", tags=["安全管理"])
-    # ---- 用户管理 ----
-    app.include_router(users_router, prefix="/api/users", tags
+    app.include_router(emotion_comfort_router, prefix="/api/emotion-comfort", tags=["情绪陪伴
