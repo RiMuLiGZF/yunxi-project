@@ -46,6 +46,10 @@ class TTSRequest(BaseModel):
     speed: Optional[float] = None  # 语速倍率 0.5-2.0
     pitch: Optional[float] = None  # 音调倍率 0.5-2.0
     output_format: Optional[str] = "mp3"  # mp3/wav
+    emotion: Optional[str] = None  # 情感（warm/happy/sad/calm/excited 等，仅 CosyVoice 支持）
+    instruction: Optional[str] = None  # 自定义指令（仅 CosyVoice 支持）
+    scene: Optional[str] = None  # 场景上下文（用于韵律计算）
+    voice_preset: Optional[str] = None  # 音色预设ID（CosyVoice 音色克隆用）
 
 
 class ASRRequest(BaseModel):
@@ -58,6 +62,12 @@ class VoiceConfigUpdate(BaseModel):
     voice_pitch: Optional[float] = None
     prefer_online: Optional[bool] = None
     asr_model_size: Optional[str] = None
+    # CosyVoice 配置
+    use_cosyvoice: Optional[bool] = None
+    cosyvoice_api_url: Optional[str] = None
+    cosyvoice_speaker_id: Optional[str] = None
+    cosyvoice_emotion: Optional[str] = None
+    cosyvoice_method: Optional[str] = None  # zero_shot / instruct / cross_lingual
 
 
 class WakeWordConfig(BaseModel):
@@ -92,6 +102,12 @@ def _get_config_from_db():
         'prefer_online': os.environ.get('VOICE_PREFER_ONLINE', 'true').lower() == 'true',
         'model_size': os.environ.get('ASR_MODEL_SIZE', 'small'),
         'wake_words': wake_words,
+        # CosyVoice 配置
+        'use_cosyvoice': os.environ.get('USE_COSYVOICE', 'false').lower() == 'true',
+        'cosyvoice_api_url': os.environ.get('COSYVOICE_API_URL', 'http://localhost:50000'),
+        'cosyvoice_speaker_id': os.environ.get('COSYVOICE_SPEAKER_ID', 'yunxi_default'),
+        'cosyvoice_emotion': os.environ.get('COSYVOICE_EMOTION', 'warm'),
+        'cosyvoice_method': os.environ.get('COSYVOICE_METHOD', 'instruct'),
     }
 
 
@@ -138,7 +154,10 @@ async def voice_status():
 
 @router.post("/tts/synthesize")
 async def tts_synthesize(req: TTSRequest):
-    """文本转语音（返回音频文件URL）"""
+    """文本转语音（返回音频文件URL）
+    
+    支持情感控制、场景韵律、CosyVoice 音色克隆等高级功能。
+    """
     if not _voice_available:
         raise HTTPException(status_code=500, detail="语音模块未安装")
 
@@ -153,9 +172,48 @@ async def tts_synthesize(req: TTSRequest):
     tts = get_tts_engine(config)
 
     # 生成输出文件名
-    output_file = os.path.join(_temp_audio_dir, f"tts_{uuid.uuid4().hex[:12]}.mp3")
+    ext = req.output_format if req.output_format in ['mp3', 'wav'] else 'mp3'
+    output_file = os.path.join(_temp_audio_dir, f"tts_{uuid.uuid4().hex[:12]}.{ext}")
 
-    result = await tts.synthesize(req.text, output_file)
+    # 使用韵律控制器计算情感/场景相关的指令（如果有 CosyVoice）
+    emotion = req.emotion
+    instruction = req.instruction
+    
+    # 如果指定了场景但没有指定情感，尝试从场景推断
+    if req.scene and not emotion and not instruction:
+        try:
+            from prosody_controller import get_prosody_controller
+            prosody_ctrl = get_prosody_controller()
+            instruction = prosody_ctrl.generate_cosyvoice_instruction(
+                text=req.text,
+                scene=req.scene,
+            )
+        except Exception:
+            pass
+
+    # 如果指定了音色预设，更新 TTS 引擎配置
+    if req.voice_preset:
+        try:
+            from voice_preset_manager import get_voice_preset_manager
+            preset_mgr = get_voice_preset_manager()
+            preset_info = preset_mgr.get_synthesis_params(req.voice_preset)
+            if preset_info.get('speaker_id'):
+                tts.update_config(
+                    cosyvoice_speaker_id=preset_info['speaker_id'],
+                )
+            if preset_info.get('reference_audio'):
+                tts.update_config(
+                    cosyvoice_reference_audio=preset_info['reference_audio'],
+                    cosyvoice_reference_text=preset_info.get('reference_text', ''),
+                )
+        except Exception:
+            pass
+
+    result = await tts.synthesize(
+        req.text, output_file,
+        emotion=emotion,
+        instruction=instruction,
+    )
 
     if not result.get('success'):
         raise HTTPException(status_code=500, detail=result.get('error', '语音合成失败'))
@@ -168,11 +226,13 @@ async def tts_synthesize(req: TTSRequest):
         "message": "ok",
         "data": {
             "audio_id": audio_id,
-            "audio_url": f"/api/voice/audio/{audio_id}.mp3" if audio_id else None,
+            "audio_url": f"/api/voice/audio/{audio_id}.{ext}" if audio_id else None,
             "engine": result.get('engine'),
-            "format": result.get('audio_format', 'mp3'),
+            "format": result.get('audio_format', ext),
             "duration": result.get('duration', 0),
             "text": req.text,
+            "emotion": result.get('emotion', emotion),
+            "voice_preset": req.voice_preset,
         }
     }
 
@@ -312,16 +372,41 @@ async def update_voice_config(config: VoiceConfigUpdate):
         current['voice_pitch'] = config.voice_pitch
     if config.prefer_online is not None:
         current['prefer_online'] = config.prefer_online
+    
+    # CosyVoice 配置
+    if config.use_cosyvoice is not None:
+        current['use_cosyvoice'] = config.use_cosyvoice
+    if config.cosyvoice_api_url:
+        current['cosyvoice_api_url'] = config.cosyvoice_api_url
+    if config.cosyvoice_speaker_id:
+        current['cosyvoice_speaker_id'] = config.cosyvoice_speaker_id
+    if config.cosyvoice_emotion:
+        current['cosyvoice_emotion'] = config.cosyvoice_emotion
+    if config.cosyvoice_method:
+        current['cosyvoice_method'] = config.cosyvoice_method
 
     # 更新引擎配置
     if _voice_available:
         tts = get_tts_engine()
-        tts.update_config(
+        update_kwargs = dict(
             voice_type=current['voice_type'],
             voice_speed=current['voice_speed'],
             voice_pitch=current['voice_pitch'],
             prefer_online=current['prefer_online'],
         )
+        # 添加 CosyVoice 配置
+        if 'use_cosyvoice' in current:
+            update_kwargs['use_cosyvoice'] = current['use_cosyvoice']
+        if 'cosyvoice_api_url' in current:
+            update_kwargs['cosyvoice_api_url'] = current['cosyvoice_api_url']
+        if 'cosyvoice_speaker_id' in current:
+            update_kwargs['cosyvoice_speaker_id'] = current['cosyvoice_speaker_id']
+        if 'cosyvoice_emotion' in current:
+            update_kwargs['cosyvoice_emotion'] = current['cosyvoice_emotion']
+        if 'cosyvoice_method' in current:
+            update_kwargs['cosyvoice_method'] = current['cosyvoice_method']
+        
+        tts.update_config(**update_kwargs)
 
     return {
         "code": 0,

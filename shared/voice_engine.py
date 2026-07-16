@@ -30,12 +30,24 @@ class TTSEngine:
         self._pyttsx3_engine = None
         self._fish_engine = None  # Fish Speech 引擎实例（懒加载）
         self._fish_available = None  # Fish Speech 可用性缓存（None=未检测, True/False=已检测）
+        self._cosyvoice_client = None  # CosyVoice 客户端（懒加载）
+        self._cosyvoice_available = None  # CosyVoice 可用性缓存
 
         # 基础语音参数
         self._voice_type = self.config.get('voice_type', 'warm_female')
         self._voice_speed = self.config.get('voice_speed', 1.0)
         self._voice_pitch = self.config.get('voice_pitch', 1.0)
         self._prefer_online = self.config.get('prefer_online', True)
+
+        # CosyVoice 配置（最高优先级，需显式开启）
+        self._use_cosyvoice = self.config.get('use_cosyvoice', False)
+        self._cosyvoice_api_url = self.config.get('cosyvoice_api_url', 'http://localhost:50000')
+        self._cosyvoice_speaker_id = self.config.get('cosyvoice_speaker_id', 'yunxi_default')
+        self._cosyvoice_reference_audio = self.config.get('cosyvoice_reference_audio', '')
+        self._cosyvoice_reference_text = self.config.get('cosyvoice_reference_text', 
+                                                        '希望你以后能够做的比我还好呦。')
+        self._cosyvoice_emotion = self.config.get('cosyvoice_emotion', 'warm')
+        self._cosyvoice_method = self.config.get('cosyvoice_method', 'instruct')  # zero_shot / instruct / cross_lingual
 
         # Fish Speech 配置（懒加载，use_fish_speech=True 时才尝试加载）
         self._use_fish_speech = self.config.get('use_fish_speech', False)
@@ -157,13 +169,18 @@ class TTSEngine:
         """可用引擎列表
 
         按优先级从高到低排列：
-        fish-speech > edge-tts > pyttsx3 > mock
+        cosyvoice > fish-speech > edge-tts > pyttsx3 > mock
 
+        cosyvoice 需显式配置 use_cosyvoice=True 且服务可用时出现
         fish-speech 仅在配置 use_fish_speech=True 且导入成功时出现
         """
         engines = []
 
-        # Fish Speech（最高优先级，需显式开启）
+        # CosyVoice（最高优先级，需显式开启且服务可用）
+        if self._use_cosyvoice and self._check_cosyvoice_available():
+            engines.append('cosyvoice')
+
+        # Fish Speech（需显式开启）
         if self._use_fish_speech:
             try:
                 from fish_speech.inference_engine import TTSInferenceEngine  # noqa
@@ -197,17 +214,26 @@ class TTSEngine:
         """当前使用的引擎（按优先级自动选择）"""
         engines = self.available_engines
 
-        # 最高优先级：fish-speech（需配置启用且可用）
+        # 最高优先级：CosyVoice（需配置启用且服务可用）
+        if 'cosyvoice' in engines and self._cosyvoice_available is not False:
+            # 检查是否配置了说话人或参考音频
+            has_speaker = bool(self._cosyvoice_speaker_id)
+            has_ref = bool(self._cosyvoice_reference_audio and 
+                          os.path.exists(self._cosyvoice_reference_audio))
+            if has_speaker or has_ref:
+                return 'cosyvoice'
+
+        # 第二优先级：fish-speech（需配置启用且可用）
         if 'fish-speech' in engines and self._fish_available is not False:
             # 需要检查参考音频是否配置
             if self._fish_reference_audio and os.path.exists(self._fish_reference_audio):
                 return 'fish-speech'
 
-        # 第二优先级：edge-tts（在线）
+        # 第三优先级：edge-tts（在线）
         if self._prefer_online and 'edge-tts' in engines:
             return 'edge-tts'
 
-        # 第三优先级：pyttsx3（离线系统TTS）
+        # 第四优先级：pyttsx3（离线系统TTS）
         if 'pyttsx3' in engines:
             return 'pyttsx3'
 
@@ -221,7 +247,7 @@ class TTSEngine:
     def get_voice_options(self) -> List[Dict[str, Any]]:
         """获取可用语音选项列表
 
-        返回所有音色，包含分类信息，并标记哪些音色支持 fish-speech 克隆。
+        返回所有音色，包含分类信息，并标记哪些音色支持 fish-speech 克隆和 CosyVoice。
 
         Returns:
             列表项格式：
@@ -232,6 +258,7 @@ class TTSEngine:
                 'category': str,     # 分类（普通话女声/普通话男声/方言/港澳台-粤语/...）
                 'engine': str,       # 当前引擎
                 'supports_fish_clone': bool,  # 是否支持 fish-speech 音色克隆
+                'supports_cosyvoice': bool,   # 是否支持 CosyVoice 音色克隆
             }
         """
         fish_clone_available = (
@@ -239,6 +266,7 @@ class TTSEngine:
             and self._fish_reference_audio
             and os.path.exists(self._fish_reference_audio)
         )
+        cosyvoice_available = 'cosyvoice' in self.available_engines
 
         options = []
         for key, info in self._voice_map.items():
@@ -252,6 +280,7 @@ class TTSEngine:
                 'category': info.get('category', '其他'),
                 'engine': self.current_engine,
                 'supports_fish_clone': fish_clone_available,
+                'supports_cosyvoice': cosyvoice_available,
             })
         return options
 
@@ -448,18 +477,154 @@ class TTSEngine:
             raise
 
     # ============================================================
+    # CosyVoice 引擎（HTTP 服务化调用）
+    # ============================================================
+
+    def _check_cosyvoice_available(self) -> bool:
+        """检查 CosyVoice 服务是否可用（带缓存）"""
+        if self._cosyvoice_available is not None:
+            return self._cosyvoice_available
+        
+        try:
+            from shared.cosyvoice_client import CosyVoiceClient, CosyVoiceConfig
+            cfg = CosyVoiceConfig(
+                api_url=self._cosyvoice_api_url,
+                default_speaker_id=self._cosyvoice_speaker_id,
+                default_reference_audio=self._cosyvoice_reference_audio,
+                default_reference_text=self._cosyvoice_reference_text,
+            )
+            client = CosyVoiceClient(cfg)
+            self._cosyvoice_available = client.is_available
+            if self._cosyvoice_available:
+                self._cosyvoice_client = client
+        except Exception:
+            self._cosyvoice_available = False
+        
+        return self._cosyvoice_available
+
+    def _get_cosyvoice_client(self):
+        """获取 CosyVoice 客户端（懒加载）"""
+        if self._cosyvoice_client is None:
+            if not self._check_cosyvoice_available():
+                return None
+        return self._cosyvoice_client
+
+    async def _synthesize_cosyvoice(self, text: str, output_path: Optional[str] = None,
+                                    emotion: Optional[str] = None,
+                                    instruction: Optional[str] = None) -> Dict[str, Any]:
+        """使用 CosyVoice 合成语音（零样本克隆 + 指令控制）
+
+        CosyVoice 为 HTTP 服务调用，支持零样本语音克隆和自然语言指令控制。
+        支持情感、语速、方言等细粒度控制。
+
+        Args:
+            text: 要合成的文本
+            output_path: 输出文件路径（可选）
+            emotion: 情感覆盖（warm/happy/sad/calm/excited 等）
+            instruction: 自定义指令（优先于 emotion）
+
+        Returns:
+            标准合成结果字典
+
+        Raises:
+            RuntimeError: 引擎不可用时抛出，触发降级逻辑
+        """
+        client = self._get_cosyvoice_client()
+        if client is None:
+            raise RuntimeError("CosyVoice 服务不可用")
+
+        if output_path is None:
+            tmp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            output_path = tmp_file.name
+            tmp_file.close()
+
+        method = self._cosyvoice_method
+        ref_audio = self._cosyvoice_reference_audio
+        ref_text = self._cosyvoice_reference_text
+        speaker_id = self._cosyvoice_speaker_id
+
+        try:
+            if method == 'instruct' or instruction or emotion:
+                # 指令控制模式（支持情感/语速/方言等）
+                if instruction is None:
+                    # 根据配置构建指令
+                    emotion_val = emotion or self._cosyvoice_emotion
+                    # 语速映射
+                    speed_val = 'normal'
+                    if self._voice_speed < 0.8:
+                        speed_val = 'slow'
+                    elif self._voice_speed > 1.2:
+                        speed_val = 'fast'
+                    
+                    instruction = client.build_instruction(
+                        emotion=emotion_val,
+                        speed=speed_val,
+                    )
+                
+                result = await client.synthesize_instruct_async(
+                    text=text,
+                    instruction=instruction,
+                    reference_audio_path=ref_audio if ref_audio and os.path.exists(ref_audio) else None,
+                    reference_text=ref_text,
+                    speaker_id=speaker_id,
+                    output_path=output_path,
+                )
+            elif method == 'cross_lingual':
+                # 跨语言模式
+                result = await client.synthesize_cross_lingual_async(
+                    text=text,
+                    reference_audio_path=ref_audio if ref_audio and os.path.exists(ref_audio) else None,
+                    speaker_id=speaker_id,
+                    output_path=output_path,
+                )
+            else:
+                # 零样本克隆模式（纯音色复刻，无风格控制）
+                result = await client.synthesize_zero_shot_async(
+                    text=text,
+                    reference_audio_path=ref_audio if ref_audio and os.path.exists(ref_audio) else None,
+                    reference_text=ref_text,
+                    speaker_id=speaker_id,
+                    output_path=output_path,
+                )
+
+            if not result.get('success'):
+                raise RuntimeError(result.get('error', 'CosyVoice 合成失败'))
+
+            # 补充返回字段
+            result['voice'] = self._voice_type
+            result['reference_audio'] = ref_audio
+            result['speaker_id'] = speaker_id
+            return result
+
+        except Exception as e:
+            print(f"[TTS] CosyVoice 推理失败: {e}")
+            # 清理可能生成的不完整文件
+            if output_path and os.path.exists(output_path):
+                try:
+                    os.unlink(output_path)
+                except Exception:
+                    pass
+            # 标记为不可用，后续请求直接降级
+            self._cosyvoice_available = False
+            raise
+
+    # ============================================================
     # 统一合成入口
     # ============================================================
 
-    async def synthesize(self, text: str, output_path: Optional[str] = None) -> Dict[str, Any]:
+    async def synthesize(self, text: str, output_path: Optional[str] = None,
+                         emotion: Optional[str] = None,
+                         instruction: Optional[str] = None) -> Dict[str, Any]:
         """文本转语音
 
         按优先级依次尝试各引擎，失败则自动降级。
-        优先级: fish-speech > edge-tts > pyttsx3 > mock
+        优先级: cosyvoice > fish-speech > edge-tts > pyttsx3 > mock
 
         Args:
             text: 要合成的文本
             output_path: 输出文件路径（可选，不指定则返回临时文件路径）
+            emotion: 情感参数（仅 CosyVoice 支持，如 warm/happy/sad/calm 等）
+            instruction: 自定义指令（仅 CosyVoice 支持，优先于 emotion）
 
         Returns:
             {
@@ -478,7 +643,21 @@ class TTSEngine:
         # 获取可用引擎列表（按优先级排序）
         engines = self.available_engines
 
-        # ---------- 第一级：Fish Speech（本地高质量） ----------
+        # ---------- 第一级：CosyVoice（本地高质量 + 音色克隆 + 情感控制） ----------
+        if 'cosyvoice' in engines and self._use_cosyvoice:
+            try:
+                return await self._synthesize_cosyvoice(
+                    text, output_path, 
+                    emotion=emotion,
+                    instruction=instruction,
+                )
+            except Exception as e:
+                print(f"[TTS] CosyVoice 失败，降级到 fish-speech/edge-tts: {e}")
+                # CosyVoice 失败后标记为不可用，避免后续重复尝试
+                self._cosyvoice_available = False
+                # 继续降级到下一级
+
+        # ---------- 第二级：Fish Speech（本地高质量） ----------
         if 'fish-speech' in engines and self._use_fish_speech:
             try:
                 return await self._synthesize_fish_speech(text, output_path)
@@ -630,6 +809,13 @@ class TTSEngine:
         - fish_reference_audio: Fish Speech 参考音频路径
         - fish_temperature: Fish Speech 温度参数
         - fish_model_path: Fish Speech 模型路径
+        - use_cosyvoice: 是否启用 CosyVoice
+        - cosyvoice_api_url: CosyVoice 服务地址
+        - cosyvoice_speaker_id: CosyVoice 默认说话人ID
+        - cosyvoice_reference_audio: CosyVoice 参考音频路径
+        - cosyvoice_reference_text: CosyVoice 参考音频文本
+        - cosyvoice_emotion: CosyVoice 默认情感
+        - cosyvoice_method: CosyVoice 合成方法 (zero_shot/instruct/cross_lingual)
         """
         # 基础语音参数
         if 'voice_type' in kwargs:
@@ -662,6 +848,34 @@ class TTSEngine:
         if fish_config_changed:
             self._fish_engine = None
             self._fish_available = None
+
+        # CosyVoice 参数
+        cosyvoice_config_changed = False
+        if 'use_cosyvoice' in kwargs:
+            self._use_cosyvoice = kwargs['use_cosyvoice']
+            cosyvoice_config_changed = True
+        if 'cosyvoice_api_url' in kwargs:
+            self._cosyvoice_api_url = kwargs['cosyvoice_api_url']
+            cosyvoice_config_changed = True
+        if 'cosyvoice_speaker_id' in kwargs:
+            self._cosyvoice_speaker_id = kwargs['cosyvoice_speaker_id']
+            cosyvoice_config_changed = True
+        if 'cosyvoice_reference_audio' in kwargs:
+            self._cosyvoice_reference_audio = kwargs['cosyvoice_reference_audio']
+            cosyvoice_config_changed = True
+        if 'cosyvoice_reference_text' in kwargs:
+            self._cosyvoice_reference_text = kwargs['cosyvoice_reference_text']
+            cosyvoice_config_changed = True
+        if 'cosyvoice_emotion' in kwargs:
+            self._cosyvoice_emotion = kwargs['cosyvoice_emotion']
+        if 'cosyvoice_method' in kwargs:
+            self._cosyvoice_method = kwargs['cosyvoice_method']
+            cosyvoice_config_changed = True
+
+        # CosyVoice 配置变更时重置缓存，下次调用重新检测
+        if cosyvoice_config_changed:
+            self._cosyvoice_client = None
+            self._cosyvoice_available = None
 
 
 class ASREngine:
