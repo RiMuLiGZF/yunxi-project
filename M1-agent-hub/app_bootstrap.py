@@ -59,6 +59,10 @@ from semantic_intent_v3 import SemanticIntentClassifierV3
 from otlp_exporter import OTLPExporter
 from guardrails_v2 import GuardrailsV2
 from ledger_engine import LedgerEngine
+from federation.registry import ExternalAgentRegistry
+from federation.scheduler import FederatedScheduler
+from federation.cost_controller import CostController
+from federation.privacy_guard import FederationPrivacyGuard
 
 logger = structlog.get_logger(__name__)
 
@@ -76,6 +80,10 @@ class YunxiApplication:
         self._bus = None
         self._ledger = None
         self._clone_pool = None
+        self._federation_registry = None
+        self._federation_scheduler = None
+        self._cost_controller = None
+        self._privacy_guard = None
         self._logger = logger.bind(service="yunxi_app")
 
     async def build(self) -> OrchestratorV9:
@@ -238,6 +246,11 @@ class YunxiApplication:
             except Exception as e:
                 self._logger.warning("builtin_agent_register_failed", agent_id=getattr(agent, "agent_id", "unknown"), error=str(e))
 
+        # 10.6 初始化联邦调度系统并注册所有联邦 Agent
+        # 联邦层提供外部 Agent 管理、成本控制、隐私防护等能力
+        if self.config.get_bool("federation.enabled", True):
+            self._init_federation(v9)
+
         # 11. 注册生命周期
         self._register_lifecycle(bus, registry, persistence, v9)
 
@@ -246,6 +259,301 @@ class YunxiApplication:
 
         self._logger.info("app_build_complete", version="v9")
         return v9
+
+    def _init_federation(self, v9: OrchestratorV9) -> None:
+        """[V11.0] 初始化联邦调度系统并注册所有内置联邦 Agent
+
+        包括：
+        - 6 个独立业务 Agent（Hermes/Codex/Explore/Tide/Voice/ModuleManager）
+        - 5 个模块管家 Agent（M2/M3/M4/M6/M7）
+        - 4 个基础 LLM 适配器（OpenAI/Anthropic/Gemini/Local）
+        """
+        from shared_models import ExternalAgentType, AgentPrivacyLevel, ConnectionType, LicenseType
+
+        fed_registry = ExternalAgentRegistry()
+        fed_scheduler = FederatedScheduler(fed_registry)
+        cost_controller = CostController()
+        privacy_guard = FederationPrivacyGuard()
+
+        self._federation_registry = fed_registry
+        self._federation_scheduler = fed_scheduler
+        self._cost_controller = cost_controller
+        self._privacy_guard = privacy_guard
+
+        registered_count = 0
+
+        # ── 独立业务 Agent ──────────────────────────────────
+
+        # 1. Hermes 智能代理（qwen2.5:7b，全功能Agent）
+        try:
+            fed_registry.register_agent(
+                display_name="Hermes 智能代理",
+                provider="Hermes",
+                agent_type=ExternalAgentType.CUSTOM,
+                capabilities=["代码生成", "代码审查", "问题解答", "信息检索", "任务规划",
+                              "多步推理", "工具调用", "数据分析", "文档处理", "自学习"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "per_request": 0.0, "currency": "USD"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "adapter_type": "hermes_agent",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": "qwen2.5:7b",
+                    "mcp_server_url": "http://localhost:8002/mcp/v1",
+                    "max_iterations": 8,
+                    "temperature": 0.7,
+                    "description": "Hermes Agent — 基于本地 Ollama 大模型的自进化智能代理。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="hermes", model="qwen2.5:7b")
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="hermes", error=str(e))
+
+        # 2. Codex 代码助手（本地 qwen2.5:7b）
+        try:
+            fed_registry.register_agent(
+                display_name="Codex 代码助手",
+                provider="Codex",
+                agent_type=ExternalAgentType.CODE,
+                capabilities=["代码生成", "代码审查", "Bug修复", "代码解释", "重构建议",
+                              "测试生成", "架构设计", "性能优化", "多语言支持", "MCP工具调用"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "USD"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "mode": "local",
+                    "adapter_type": "codex_agent",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": "qwen2.5:7b",
+                    "description": "Codex 代码助手 — 基于本地 qwen2.5:7b 模型驱动的代码专家。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="codex", model="qwen2.5:7b")
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="codex", error=str(e))
+
+        # 3. 小探 研究助理（qwen2.5:1.5b，轻量快速）
+        try:
+            fed_registry.register_agent(
+                display_name="小探 研究助理",
+                provider="Explore",
+                agent_type=ExternalAgentType.CUSTOM,
+                capabilities=["网页检索", "文档搜索", "信息摘要", "多源整合", "翻译辅助",
+                              "资料分类", "要点提取", "文献整理", "MCP工具调用", "快速响应"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "USD"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "adapter_type": "explore_agent",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": "qwen2.5:1.5b",
+                    "personality": "小探",
+                    "enable_tools": True,
+                    "max_iterations": 5,
+                    "temperature": 0.5,
+                    "description": "小探研究助理 — 基于本地轻量大模型的信息检索专家。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="explore", model="qwen2.5:1.5b")
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="explore", error=str(e))
+
+        # 4. 潮汐管家（M5 记忆系统，qwen2.5:3b）
+        try:
+            fed_registry.register_agent(
+                display_name="潮汐管家",
+                provider="Tide",
+                agent_type=ExternalAgentType.CUSTOM,
+                capabilities=["记忆检索", "记忆归档", "记忆巩固", "人格偏好管理", "记忆统计分析",
+                              "四层潮汐存储", "RBAC权限控制", "加密存储", "情绪记忆", "睡眠巩固"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "USD"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "adapter_type": "tide_agent",
+                    "m5_base_url": "http://localhost:8005",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": "qwen2.5:3b",
+                    "default_domain": "private",
+                    "default_layers": ["l1_shallow", "l2_deep"],
+                    "enable_llm_enhance": True,
+                    "temperature": 0.3,
+                    "description": "潮汐管家 — M5 潮汐记忆系统的智能代理。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="tide", model="qwen2.5:3b")
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="tide", error=str(e))
+
+        # 5. 云汐 人格润色（qwen2.5:1.5b）
+        try:
+            fed_registry.register_agent(
+                display_name="云汐 人格润色",
+                provider="Voice",
+                agent_type=ExternalAgentType.CUSTOM,
+                capabilities=["人格润色", "语气调节", "场景适配", "情感表达", "质量自检",
+                              "红线检测", "用户偏好管理", "多场景切换", "本地推理", "零API成本"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "USD"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "adapter_type": "voice_agent",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": "qwen2.5:1.5b",
+                    "personality_config_path": "config/yunxi_personality.yaml",
+                    "default_scene": "work_dev",
+                    "default_tone": "default",
+                    "enable_m5_persistence": False,
+                    "temperature": 0.7,
+                    "description": "云汐人格润色 Agent — 负责输出层的语气化妆。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="voice", model="qwen2.5:1.5b")
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="voice", error=str(e))
+
+        # 6. 云汐总管（M8 运维平台）
+        try:
+            module_addresses = {
+                "m1": "http://localhost:8001",
+                "m2": "http://localhost:8002",
+                "m3": "http://localhost:8003",
+                "m4": "http://localhost:8004",
+                "m5": "http://localhost:8005",
+                "m6": "http://localhost:8006",
+                "m7": "http://localhost:8007",
+                "m8": "http://localhost:8008",
+            }
+            fed_registry.register_agent(
+                display_name="云汐总管",
+                provider="ModuleManager",
+                agent_type=ExternalAgentType.CUSTOM,
+                capabilities=["健康监控", "性能指标", "配置管理", "版本升级", "升级回滚",
+                              "自动化测试", "多模块统一管控", "M8标准接口", "全局运维视图", "异常告警"],
+                cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "CNY"},
+                privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                connection_type=ConnectionType.LOCAL,
+                config={
+                    "adapter_type": "module_manager_agent",
+                    "module_addresses": module_addresses,
+                    "m8_token": "",
+                    "default_base_url": "http://localhost",
+                    "request_timeout": 10.0,
+                    "parallel_limit": 4,
+                    "description": "云汐总管 — M8 模块管理平台的智能代理。",
+                },
+                api_key="",
+                license=LicenseType.MIT,
+                confirm_license_risk=False,
+            )
+            registered_count += 1
+            self._logger.info("federation_agent_registered", agent="module_manager", modules=8)
+        except Exception as e:
+            self._logger.warning("federation_agent_register_failed", agent="module_manager", error=str(e))
+
+        # ── 模块管家 Agent ──────────────────────────────────
+
+        module_agents = [
+            {
+                "key": "m2", "name": "技能管家", "provider": "SkillManager",
+                "port": 8002, "model": "qwen2.5:1.5b",
+                "capabilities": ["技能检索", "技能推荐", "技能注册", "版本管理", "沙箱管理",
+                                 "技能发现", "技能评测", "流水线管理"],
+                "description": "技能管家 — M2 技能集群的管理专家。",
+                "url_key": "m2_base_url",
+            },
+            {
+                "key": "m3", "name": "推理管家", "provider": "InferenceManager",
+                "port": 8003, "model": "qwen2.5:1.5b",
+                "capabilities": ["模型管理", "VRAM监控", "端云调度", "推理路由", "负载均衡",
+                                 "缓存管理", "性能优化", "离线缓存"],
+                "description": "推理管家 — M3 端云协同推理的调度专家。",
+                "url_key": "m3_base_url",
+            },
+            {
+                "key": "m4", "name": "场景管家", "provider": "SceneManager",
+                "port": 8004, "model": "qwen2.5:1.5b",
+                "capabilities": ["场景识别", "场景切换", "上下文管理", "场景配置", "模式切换",
+                                 "状态管理", "工作模式", "生活模式"],
+                "description": "场景管家 — M4 场景引擎的调度师。",
+                "url_key": "m4_base_url",
+            },
+            {
+                "key": "m6", "name": "创意管家", "provider": "ContentManager",
+                "port": 8006, "model": "qwen2.5:1.5b",
+                "capabilities": ["文案生成", "创意构思", "内容排版", "图片描述", "多媒体处理",
+                                 "硬件感知", "灵感推荐", "风格调整"],
+                "description": "创意管家 — M6 创意内容的设计师。",
+                "url_key": "m6_base_url",
+            },
+            {
+                "key": "m7", "name": "安全管家", "provider": "SecurityManager",
+                "port": 8007, "model": "qwen2.5:1.5b",
+                "capabilities": ["安全审计", "隐私保护", "权限管理", "威胁检测", "数据脱敏",
+                                 "积木沙箱", "访问控制", "安全扫描"],
+                "description": "安全管家 — M7 安全防护的守护官。",
+                "url_key": "m7_base_url",
+            },
+        ]
+
+        for ma in module_agents:
+            try:
+                config = {
+                    "adapter_type": f"{ma['provider'].lower()}_agent",
+                    ma["url_key"]: f"http://localhost:{ma['port']}",
+                    "ollama_base_url": "http://localhost:11434",
+                    "model_name": ma["model"],
+                    "enable_llm": True,
+                    "temperature": 0.7,
+                    "description": ma["description"],
+                }
+                fed_registry.register_agent(
+                    display_name=ma["name"],
+                    provider=ma["provider"],
+                    agent_type=ExternalAgentType.CUSTOM,
+                    capabilities=ma["capabilities"],
+                    cost_model={"input_per_1k": 0.0, "output_per_1k": 0.0, "currency": "USD"},
+                    privacy_level=AgentPrivacyLevel.LOCAL_ONLY,
+                    connection_type=ConnectionType.LOCAL,
+                    config=config,
+                    api_key="",
+                    license=LicenseType.MIT,
+                    confirm_license_risk=False,
+                )
+                registered_count += 1
+                self._logger.info("federation_agent_registered", agent=ma["key"], name=ma["name"])
+            except Exception as e:
+                self._logger.warning(
+                    "federation_agent_register_failed",
+                    agent=ma.get("key", "unknown"),
+                    error=str(e),
+                )
+
+        self._logger.info(
+            "federation_system_initialized",
+            total_agents=registered_count,
+            scheduler="federated",
+        )
 
     def _register_lifecycle(
         self,
@@ -346,6 +654,10 @@ class YunxiApplication:
             health_monitor=self.health,
             clone_pool=self._clone_pool,
             config_manager=self.config,
+            federation_registry=self._federation_registry,
+            federation_scheduler=self._federation_scheduler,
+            cost_controller=self._cost_controller,
+            privacy_guard=self._privacy_guard,
             host=host,
             port=port,
         )

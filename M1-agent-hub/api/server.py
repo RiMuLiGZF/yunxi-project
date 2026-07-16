@@ -480,6 +480,10 @@ class YunxiAPI:
         health_monitor: Any | None = None,
         clone_pool: Any | None = None,
         config_manager: Any | None = None,
+        federation_registry: Any | None = None,
+        federation_scheduler: Any | None = None,
+        cost_controller: Any | None = None,
+        privacy_guard: Any | None = None,
         host: str = "0.0.0.0",
         port: int = 8080,
     ) -> None:
@@ -490,6 +494,10 @@ class YunxiAPI:
         self._health = health_monitor
         self._clone_pool = clone_pool
         self._config = config_manager
+        self._federation_registry = federation_registry
+        self._federation_scheduler = federation_scheduler
+        self._cost_controller = cost_controller
+        self._privacy_guard = privacy_guard
         self.host = host
         self.port = port
         self._logger = logger.bind(service="yunxi_api")
@@ -500,6 +508,10 @@ class YunxiAPI:
             message_bus=message_bus,
             health_monitor=health_monitor,
             clone_pool=clone_pool,
+            federation_registry=federation_registry,
+            federation_scheduler=federation_scheduler,
+            cost_controller=cost_controller,
+            privacy_guard=privacy_guard,
             config_manager=config_manager,
         )
         self._server_task: asyncio.Task[None] | None = None
