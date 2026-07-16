@@ -100,6 +100,115 @@ def _init_tables(conn: sqlite3.Connection) -> None:
         ON device_status_history(device_id, timestamp)
     """)
 
+    # ====================================================================
+    # 可穿戴设备表（P0 批次迁移：手表/可穿戴数据从 M8 迁到 M6）
+    # ====================================================================
+
+    # 可穿戴设备表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wearable_devices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL DEFAULT 'default',
+            name TEXT NOT NULL DEFAULT '',
+            device_type TEXT NOT NULL DEFAULT 'watch',
+            brand TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            mac_address TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'offline',
+            battery_level REAL,
+            firmware_version TEXT NOT NULL DEFAULT '',
+            last_sync_at DATETIME,
+            paired_at DATETIME,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        )
+    """)
+
+    # 可穿戴健康数据表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wearable_health_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            user_id TEXT NOT NULL DEFAULT 'default',
+            data_type TEXT NOT NULL,
+            value REAL NOT NULL DEFAULT 0,
+            unit TEXT NOT NULL DEFAULT '',
+            recorded_at DATETIME NOT NULL,
+            source TEXT NOT NULL DEFAULT 'device',
+            quality TEXT NOT NULL DEFAULT 'good',
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    # 可穿戴通知表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wearable_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            notification_id TEXT NOT NULL UNIQUE,
+            device_id TEXT NOT NULL,
+            user_id TEXT NOT NULL DEFAULT 'default',
+            title TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL DEFAULT '',
+            type TEXT NOT NULL DEFAULT 'system',
+            status TEXT NOT NULL DEFAULT 'pending',
+            source TEXT NOT NULL DEFAULT 'system',
+            delivered_at DATETIME,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    # 可穿戴设备配置表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wearable_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL DEFAULT 'default',
+            settings_json TEXT NOT NULL DEFAULT '{}',
+            updated_at DATETIME NOT NULL
+        )
+    """)
+
+    # 可穿戴设备索引
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_device_user
+        ON wearable_devices(user_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_device_type
+        ON wearable_devices(device_type)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_device_status
+        ON wearable_devices(status)
+    """)
+
+    # 健康数据索引
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_health_device_type_time
+        ON wearable_health_data(device_id, data_type, recorded_at)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_health_user
+        ON wearable_health_data(user_id)
+    """)
+
+    # 通知索引
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_notify_device
+        ON wearable_notifications(device_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_notify_status
+        ON wearable_notifications(status)
+    """)
+
+    # 设置表索引
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_wearable_settings_user
+        ON wearable_settings(user_id)
+    """)
+
     conn.commit()
 
 

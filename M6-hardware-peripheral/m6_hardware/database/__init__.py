@@ -7,10 +7,20 @@ P1-5 改造：将 SQLite 连接管理与 SQL 操作抽离为独立数据层，
 
 from .connection import DatabaseConnection, get_db
 from .repositories import DeviceStatusRepository, SensorDataRepository
+from .wearable_repository import (
+    WearableDeviceRepository,
+    WearableHealthRepository,
+    WearableNotificationRepository,
+    WearableSettingsRepository,
+)
 
 __all__ = [
     "DatabaseConnection",
     "get_db",
     "DeviceStatusRepository",
     "SensorDataRepository",
+    "WearableDeviceRepository",
+    "WearableHealthRepository",
+    "WearableNotificationRepository",
+    "WearableSettingsRepository",
 ]
