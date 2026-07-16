@@ -15,15 +15,16 @@ MODULES = [
     "M1-agent-hub",
     "M2-skills-cluster",
     "M3-edge-cloud",
-    "m4-scene-engine",
+    "M4-scene-engine",
     "M5-tide-memory",
     "M6-hardware-peripheral",
     "M7-workflow-builder",
     "M8-control-tower",
-    "M9-programming-dev",
+    "M9-dev-workshop",
     "M10-system-guard",
     "M11-mcp-bus",
     "M12-security-shield",
+    "API-Gateway",
 ]
 
 REPORT_PATH = PROJECT_ROOT / "reports" / "ci-report.md"
