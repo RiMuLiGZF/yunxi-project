@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1.0">
+  <title>云汐系统 M4 — 复盘总结模式 · 地球Online编年史</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="common/api.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       复盘总结模式 · 地球Online编年史 页面级样式
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      overflow: hidden;
+    }
+
+    /* ── Top Navigation Bar ── */
+    .top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      z-index: var(--z-header);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-shrink: 0;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.25);
+    }
+    .nav-logo-text {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo-sub {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+      margin-left: var(--spacing-xs);
+    }
+
+    .nav-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-md, 8px);
+      background: rgba(114, 46, 209, 0.08);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      color: var(--color-primary, #722ED1);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .nav-back-btn:hover {
+      background: rgba(114, 46, 209, 0.15);
+      border-color: rgba(114, 46, 209, 0.25);
+      transform: translateX(-2px);
+    }
+
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+    }
+    .nav-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(114, 46, 209, 0.06);
+    }
+    .nav-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.3);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      flex-shrink: 0;
+    }
+    .nav-status-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+    .nav-status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #00B42A; box-shadow: 0 0 4px rgba(0, 180, 42, 0.4); }
+    .status-dot.purple { background: #722ED1; box-shadow: 0 0 4px rgba(114, 46, 209, 0.4); }
+    .status-dot.blue { background: #165DFF; box-shadow: 0 0 4px rgba(22, 93, 255, 0.4); }
+
+    .nav-user-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .user-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F0E8FF, #D5B8FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: #531DAB;
+      border: 2px solid var(--color-primary-light);
+    }
+    .nav-encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #00B42A;
+      border: 1px solid rgba(0, 180, 42, 0.2);
+    }
+
+    /* ── Layout Container ── */
+    .app-layout {
+      display: flex;
+      height: 100%;
+      padding-top: var(--header-height);
+    }
+
+    /* ── Left Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: var(--z-sidebar);
+    }
+
+    .sidebar-profile {
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      text-align: center;
+    }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      margin: 0 auto var(--spacing-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    flex-shrink: 0;
+  }
+    .sidebar-user-name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .sidebar-role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+      padding: 2px 10px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .sidebar-menu {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+    .sidebar-menu-section {
+      margin-bottom: var(--spacing-xs);
+    }
+    .sidebar-menu-label {
+      padding: var(--spacing-sm) var(--spacing-base);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+    }
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-menu-item:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .sidebar-menu-item.active {
+      background: var(--color-sidebar-active-bg);
+      color: var(--color-sidebar-active);
+    }
+    .sidebar-menu-item.active .menu-icon {
+      color: var(--color-primary);
+    }
+    .menu-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+    .menu-icon svg {
+      width: 18px; height: 18px;
+    }
+
+    .sidebar-footer {
+      padding: var(--spacing-base);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-encrypt-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: #F0FFF4;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: #009A29;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+    .encrypt-dot {
+      width: 8px; height: 8px;
+      background: #00B42A;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0, 180, 42, 0.5);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .sidebar-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+      font-size: var(--font-size-xs);
+    }
+    .sidebar-collapse-btn:hover {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Confidential Mode Banner */
+    .confidential-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .confidential-banner svg { flex-shrink: 0; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+    .section-title-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+    }
+    .section-title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .section-subtitle {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+    }
+
+    /* ── Filter Controls Row ── */
+    .filter-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      margin-bottom: var(--spacing-xl);
+      flex-wrap: wrap;
+    }
+    .filter-select {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: 7px 14px;
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386909C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      line-height: 1;
+    }
+    .filter-select:hover {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(114, 46, 209, 0.08);
+    }
+    .filter-chips {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid var(--color-border);
+      background: var(--color-card-bg);
+      color: var(--color-text-secondary);
+    }
+    .filter-chip:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary-text);
+      background: var(--color-primary-lighter);
+    }
+    .filter-chip.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      border-color: var(--color-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.2);
+    }
+    .filter-chip.active:hover {
+      background: var(--color-primary-hover);
+      border-color: var(--color-primary-hover);
+      color: var(--color-text-on-primary);
+    }
+
+    /* ── Vertical Timeline Layout ── */
+    .chronicle-timeline {
+      position: relative;
+      padding: var(--spacing-lg) 0;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .chronicle-timeline::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--color-primary), rgba(114, 46, 209, 0.15));
+      transform: translateX(-50%);
+      border-radius: 1px;
+    }
+
+    /* Timeline entry row (alternating) */
+    .chronicle-entry {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: var(--spacing-2xl);
+    }
+    .chronicle-entry:last-child { margin-bottom: 0; }
+
+    /* Even entries: card on left, empty spacer right */
+    .chronicle-entry.entry-left {
+      flex-direction: row;
+      padding-right: calc(50% + 28px);
+    }
+    /* Odd entries: empty spacer left, card on right */
+    .chronicle-entry.entry-right {
+      flex-direction: row-reverse;
+      padding-left: calc(50% + 28px);
+    }
+
+    /* Date badge (centered on the timeline) */
+    .chronicle-date-badge {
+      position: absolute;
+      left: 50%;
+      top: 8px;
+      transform: translateX(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      z-index: 2;
+      box-shadow: 0 2px 10px rgba(114, 46, 209, 0.35);
+      border: 3px solid var(--color-card-bg);
+    }
+    .chronicle-date-badge .badge-month {
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      line-height: 1;
+    }
+    .chronicle-date-badge .badge-day {
+      font-size: 16px;
+      font-weight: var(--font-weight-bold);
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    /* Connector line from badge to card */
+    .chronicle-connector {
+      position: absolute;
+      top: 32px;
+      width: 28px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.3), rgba(114, 46, 209, 0.08));
+    }
+    .entry-left .chronicle-connector {
+      right: calc(50% - 24px);
+      left: auto;
+    }
+    .entry-right .chronicle-connector {
+      left: calc(50% - 24px);
+      right: auto;
+    }
+
+    /* Event card */
+    .chronicle-card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(114, 46, 209, 0.12);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-lg);
+      transition: all var(--transition-base);
+      width: 100%;
+      overflow: hidden;
+    }
+    .chronicle-card:hover {
+      box-shadow: var(--shadow-card-hover);
+      border-color: rgba(114, 46, 209, 0.22);
+    }
+    .entry-left .chronicle-card { text-align: left; }
+    .entry-right .chronicle-card { text-align: left; }
+
+    .chronicle-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-sm);
+    }
+    .chronicle-card-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      line-height: var(--line-height-tight);
+    }
+    .chronicle-card-date-text {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      white-space: nowrap;
+      font-weight: var(--font-weight-medium);
+    }
+
+    .chronicle-card-desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+      margin-bottom: var(--spacing-base);
+    }
+
+    /* Tags row */
+    .chronicle-tags {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: var(--spacing-sm);
+    }
+    .chronicle-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid;
+    }
+    .chronicle-tag.main-quest {
+      background: #F0E8FF;
+      color: #722ED1;
+      border-color: rgba(114, 46, 209, 0.2);
+    }
+    .chronicle-tag.side-quest {
+      background: #E6FFFB;
+      color: #0FC6C2;
+      border-color: rgba(15, 198, 194, 0.2);
+    }
+    .chronicle-tag.achievement {
+      background: #FFF7E6;
+      color: #D48806;
+      border-color: rgba(212, 136, 6, 0.2);
+    }
+    .chronicle-tag.critical-decision {
+      background: #FFECE8;
+      color: #CB2634;
+      border-color: rgba(245, 63, 63, 0.2);
+    }
+
+    /* Difficulty dots */
+    .chronicle-difficulty {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .difficulty-label {
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+    .difficulty-dots {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .difficulty-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--color-border);
+    }
+    .difficulty-dot.filled {
+      background: #722ED1;
+      box-shadow: 0 0 4px rgba(114, 46, 209, 0.3);
+    }
+
+    /* Privacy overlay on cards */
+    .chronicle-privacy-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(247, 240, 255, 0.72);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border-radius: var(--radius-lg);
+      gap: var(--spacing-sm);
+      z-index: 3;
+      cursor: pointer;
+      transition: all var(--transition-base);
+    }
+    .chronicle-privacy-overlay:hover {
+      background: rgba(247, 240, 255, 0.82);
+    }
+    .chronicle-privacy-overlay .lock-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(114, 46, 209, 0.1);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-primary-text);
+    }
+    .chronicle-privacy-overlay .lock-text {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-primary-text);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chronicle-privacy-overlay .lock-hint {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+
+    /* Blurred content underneath overlay */
+    .chronicle-card-content {
+      transition: filter var(--transition-base);
+    }
+    .chronicle-card.has-lock .chronicle-card-content {
+      filter: blur(3px);
+      user-select: none;
+    }
+
+    /* Unlocked card glow */
+    .chronicle-card.unlocked {
+      border-color: rgba(114, 46, 209, 0.25);
+    }
+    .chronicle-card.unlocked .unlocked-badge {
+      display: inline-flex;
+    }
+    .unlocked-badge {
+      display: none;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #009A29;
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+
+    /* ── Pagination ── */
+    .chronicle-pagination {
+      display: flex;
+      justify-content: center;
+      padding: var(--spacing-xl) 0 var(--spacing-2xl);
+    }
+    .load-more-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px 28px;
+      background: var(--color-card-bg);
+      color: var(--color-primary-text);
+      border: 1px solid rgba(114, 46, 209, 0.25);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .load-more-btn:hover {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      border-color: var(--color-primary);
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.25);
+      transform: translateY(-1px);
+    }
+
+    /* ── Scrollbar styling ── */
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb {
+      background: rgba(114, 46, 209, 0.15);
+      border-radius: 3px;
+    }
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(114, 46, 209, 0.25);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fade-in-up 0.4s ease both;
+    }
+    .animate-in-1 { animation-delay: 0.05s; }
+    .animate-in-2 { animation-delay: 0.1s; }
+    .animate-in-3 { animation-delay: 0.15s; }
+    .animate-in-4 { animation-delay: 0.2s; }
+    .animate-in-5 { animation-delay: 0.25s; }
+    .animate-in-6 { animation-delay: 0.3s; }
+    .animate-in-7 { animation-delay: 0.35s; }
+    .animate-in-8 { animation-delay: 0.4s; }
+    .animate-in-9 { animation-delay: 0.45s; }
+    .animate-in-10 { animation-delay: 0.5s; }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: var(--spacing-xl);
+      padding-top: var(--spacing-base);
+    }
+    .pagination-btn {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      background: var(--color-card-bg);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pagination-btn:hover:not(:disabled) {
+      border-color: var(--color-primary-light);
+      color: var(--color-primary-text);
+      background: var(--color-primary-lighter);
+    }
+    .pagination-btn.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      border-color: var(--color-primary);
+    }
+    .pagination-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .pagination-info {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      margin: 0 var(--spacing-sm);
+    }
+
+    /* ── Chronicle Detail Modal ── */
+    .chronicle-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .chronicle-modal-overlay.show { display: flex; }
+    .chronicle-modal {
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 560px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 28px;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .chronicle-modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(114, 46, 209, 0.08);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-tertiary);
+      transition: all var(--transition-fast);
+    }
+    .chronicle-modal-close:hover {
+      background: rgba(114, 46, 209, 0.15);
+      color: var(--color-primary-text);
+    }
+    .chronicle-modal-title {
+      font-size: 20px;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin-bottom: 8px;
+    }
+    .chronicle-modal-date {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      margin-bottom: 16px;
+    }
+    .chronicle-modal-desc {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .chronicle-modal-section {
+      margin-bottom: 16px;
+    }
+    .chronicle-modal-section-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Chronological Filter ── */
+    .chronicle-filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+    .chronicle-filter-tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .chronicle-filter-tab {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .chronicle-filter-tab:hover {
+      color: var(--color-primary-text);
+      background: var(--color-primary-lighter);
+    }
+    .chronicle-filter-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <!-- Left: Logo -->
+    <div class="nav-logo">
+      <div class="nav-logo-icon">汐</div>
+      <span class="nav-logo-text">云汐<span class="nav-logo-sub">M4 业务引擎</span></span>
+    </div>
+
+    <a href="review-summary.html" class="nav-back-btn" title="返回复盘主页">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>复盘主页</span>
+    </a>
+
+    <!-- Center: Mode Tabs -->
+    <nav class="nav-tabs">
+      <a class="nav-tab" href="main-chat.html">💬 对话</a>
+      <a class="nav-tab" href="work-dev.html">工作开发</a>
+      <a class="nav-tab" href="study-plan.html">学业规划</a>
+      <a class="nav-tab active" href="review-summary.html">复盘总结</a>
+      <a class="nav-tab" href="social-relation.html">人际关系</a>
+      <a class="nav-tab" href="emotion-comfort.html">情绪安慰</a>
+      <a class="nav-tab" href="life-management.html">生活管理</a>
+    </nav>
+
+    <!-- Right: Status & User -->
+    <div class="nav-right">
+      <div class="nav-status-group">
+        <div class="nav-status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot purple"></span>
+          <span>M5 72%</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot blue"></span>
+          <span>3 设备</span>
+        </div>
+      </div>
+      <div class="nav-user-area">
+        <div class="nav-encrypt-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密
+        </div>
+        <div class="user-avatar">汐</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">汐</div>
+        <div class="sidebar-user-name">汐舟主理</div>
+        <div class="sidebar-role-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          复盘模式
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a class="sidebar-menu-item" href="main-chat.html">
+          <span class="menu-icon">💬</span>
+          对话主页
+        </a>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">成长体系</div>
+
+          <!-- Item 1: 地球Online编年史 (ACTIVE) -->
+          <a class="sidebar-menu-item active" href="growth-chronicle.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            地球Online编年史
+          </a>
+
+          <!-- Item 2: 成就勋章殿堂 -->
+          <a class="sidebar-menu-item" href="growth-achievements.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+            </span>
+            成就勋章殿堂
+          </a>
+
+          <!-- Item 3: 心智天赋树 -->
+          <a class="sidebar-menu-item" href="growth-talent-tree.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="2" r="2"/><circle cx="6" cy="14" r="2"/></svg>
+            </span>
+            心智天赋树
+          </a>
+
+          <!-- Item 4: 潮汐专属历法 -->
+          <a class="sidebar-menu-item" href="growth-tide-calendar.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+            潮汐专属历法
+          </a>
+
+          <!-- Item 5: 记忆回响对比 -->
+          <a class="sidebar-menu-item" href="growth-memory-echo.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            记忆回响对比
+          </a>
+
+          <!-- Item 6: 赛季征程 -->
+          <a class="sidebar-menu-item" href="growth-season-journey.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></polygon></svg>
+            </span>
+            赛季征程
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-encrypt-status">
+          <span class="encrypt-dot"></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密存储已启用
+        </div>
+        <button class="sidebar-collapse-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          收起侧栏
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- Confidential Mode Banner -->
+      <div class="confidential-banner animate-in animate-in-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        涉密模式 — 所有成长记录仅存储于本地加密区域，M5 记忆模块已隔离
+      </div>
+
+      <!-- ── Section Header ── -->
+      <div class="section-header animate-in animate-in-1">
+        <div class="section-title-group">
+          <div class="section-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            地球Online编年史
+          </div>
+          <span class="section-subtitle">记录你在地球Online中每一个关键时刻</span>
+        </div>
+        <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">共 8 条记录</span>
+      </div>
+
+      <!-- ── Filter Controls ── -->
+      <div class="filter-controls animate-in animate-in-2">
+        <select class="filter-select">
+          <option value="2025" selected>2025年</option>
+          <option value="2024">2024年</option>
+          <option value="2023">2023年</option>
+        </select>
+        <div class="filter-chips">
+          <span class="filter-chip active">全部</span>
+          <span class="filter-chip">主线任务</span>
+          <span class="filter-chip">支线副本</span>
+          <span class="filter-chip">成就解锁</span>
+          <span class="filter-chip">关键决策</span>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           VERTICAL TIMELINE
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="chronicle-timeline" id="chronicleTimeline">
+
+        <!-- Entry 1: 2025.01.15 — LEFT (unlocked) -->
+        <div class="chronicle-entry entry-left animate-in animate-in-3">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">01月</span>
+            <span class="badge-day">15</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card unlocked">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="unlocked-badge">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  已解锁
+                </span>
+                <span class="chronicle-card-date-text">2025.01.15</span>
+              </div>
+              <div class="chronicle-card-title">开启新的职业副本</div>
+              <div class="chronicle-card-desc">进入新团队，接受全新技术栈挑战。从熟悉的舒适区迈向未知领域，这是成长旅程的重要起点。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag main-quest">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  主线任务
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 2: 2025.02.28 — RIGHT (locked) -->
+        <div class="chronicle-entry entry-right animate-in animate-in-4">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">02月</span>
+            <span class="badge-day">28</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card has-lock">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="chronicle-card-date-text">2025.02.28</span>
+              </div>
+              <div class="chronicle-card-title">完成架构师试炼</div>
+              <div class="chronicle-card-desc">通过首次系统架构评审，在技术深度与广度之间找到了平衡点，获得了导师认可。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag side-quest">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h6"/></svg>
+                  支线副本
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot"></span>
+                </span>
+              </div>
+            </div>
+            <div class="chronicle-privacy-overlay">
+              <div class="lock-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <span class="lock-text">🔒 点击解锁完整内容</span>
+              <span class="lock-hint">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 3: 2025.03.15 — LEFT (locked) -->
+        <div class="chronicle-entry entry-left animate-in animate-in-5">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">03月</span>
+            <span class="badge-day">15</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card has-lock">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="chronicle-card-date-text">2025.03.15</span>
+              </div>
+              <div class="chronicle-card-title" style="color: #CB2634;">拒绝不合理需求</div>
+              <div class="chronicle-card-desc">在面对明显超出合理范围的需求时，选择了坚持原则并明确表达立场，付出了沟通成本。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag critical-decision">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  关键决策
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                </span>
+              </div>
+            </div>
+            <div class="chronicle-privacy-overlay">
+              <div class="lock-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <span class="lock-text">🔒 点击解锁完整内容</span>
+              <span class="lock-hint">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 4: 2025.04.01 — RIGHT (unlocked) -->
+        <div class="chronicle-entry entry-right animate-in animate-in-6">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">04月</span>
+            <span class="badge-day">01</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card unlocked">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="unlocked-badge">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  已解锁
+                </span>
+                <span class="chronicle-card-date-text">2025.04.01</span>
+              </div>
+              <div class="chronicle-card-title">解锁「持续学习」成就</div>
+              <div class="chronicle-card-desc">连续100天保持学习记录，解锁隐藏成就勋章。坚持的力量在时间的长河中悄然发酵。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag achievement">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  成就解锁
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot"></span>
+                  <span class="difficulty-dot"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 5: 2025.05.20 — LEFT (locked) -->
+        <div class="chronicle-entry entry-left animate-in animate-in-7">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">05月</span>
+            <span class="badge-day">20</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card has-lock">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="chronicle-card-date-text">2025.05.20</span>
+              </div>
+              <div class="chronicle-card-title">团队危机化解</div>
+              <div class="chronicle-card-desc">主导跨部门协作，成功交付关键项目。在压力与不确定性中展现了领导力与协调能力。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag main-quest">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  主线任务
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                </span>
+              </div>
+            </div>
+            <div class="chronicle-privacy-overlay">
+              <div class="lock-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <span class="lock-text">🔒 点击解锁完整内容</span>
+              <span class="lock-hint">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 6: 2025.06.10 — RIGHT (locked) -->
+        <div class="chronicle-entry entry-right animate-in animate-in-8">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">06月</span>
+            <span class="badge-day">10</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card has-lock">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="chronicle-card-date-text">2025.06.10</span>
+              </div>
+              <div class="chronicle-card-title">认知升级：突破舒适区</div>
+              <div class="chronicle-card-desc">完成一次深层次的自我认知升级，识别并主动打破长期以来的思维定式，开启新的心智模式。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag achievement">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  成就解锁
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                </span>
+              </div>
+            </div>
+            <div class="chronicle-privacy-overlay">
+              <div class="lock-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <span class="lock-text">🔒 点击解锁完整内容</span>
+              <span class="lock-hint">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 7: 2025.06.25 — LEFT (unlocked) -->
+        <div class="chronicle-entry entry-left animate-in animate-in-9">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">06月</span>
+            <span class="badge-day">25</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card unlocked">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="unlocked-badge">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  已解锁
+                </span>
+                <span class="chronicle-card-date-text">2025.06.25</span>
+              </div>
+              <div class="chronicle-card-title">开启云汐系统内测</div>
+              <div class="chronicle-card-desc">正式接入云汐系统内测通道，开始使用 M4 引擎的复盘总结模式，探索数据驱动的自我成长路径。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag side-quest">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h6"/></svg>
+                  支线副本
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot"></span>
+                  <span class="difficulty-dot"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 8: 2025.06.30 — RIGHT (locked) -->
+        <div class="chronicle-entry entry-right animate-in animate-in-10">
+          <div class="chronicle-date-badge">
+            <span class="badge-month">06月</span>
+            <span class="badge-day">30</span>
+          </div>
+          <div class="chronicle-connector"></div>
+          <div class="chronicle-card has-lock">
+            <div class="chronicle-card-content">
+              <div class="chronicle-card-header">
+                <span class="chronicle-card-date-text">2025.06.30</span>
+              </div>
+              <div class="chronicle-card-title" style="color: #CB2634;">赛季总结：S12赛季</div>
+              <div class="chronicle-card-desc">完成S12赛季总结复盘，制定下赛季成长目标与关键里程碑计划。</div>
+              <div class="chronicle-tags">
+                <span class="chronicle-tag critical-decision">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  关键决策
+                </span>
+              </div>
+              <div class="chronicle-difficulty">
+                <span class="difficulty-label">难度</span>
+                <span class="difficulty-dots">
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot filled"></span>
+                  <span class="difficulty-dot"></span>
+                </span>
+              </div>
+            </div>
+            <div class="chronicle-privacy-overlay">
+              <div class="lock-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <span class="lock-text">🔒 点击解锁完整内容</span>
+              <span class="lock-hint">需要身份验证</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /chronicle-timeline -->
+
+      <!-- ── Pagination ── -->
+      <div class="pagination" id="chroniclePagination"></div>
+
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       Chronicle Detail Modal
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="chronicle-modal-overlay" id="chronicleModalOverlay" onclick="closeChronicleModal(event)">
+    <div class="chronicle-modal" onclick="event.stopPropagation()">
+      <button class="chronicle-modal-close" onclick="closeChronicleModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="chronicle-modal-title" id="chronicleModalTitle">记录标题</div>
+      <div class="chronicle-modal-date" id="chronicleModalDate">2025.01.15</div>
+      <div class="chronicle-modal-desc" id="chronicleModalDesc">记录描述</div>
+      <div class="chronicle-modal-section">
+        <div class="chronicle-modal-section-label">标签</div>
+        <div class="chronicle-tags" id="chronicleModalTags"></div>
+      </div>
+      <div class="chronicle-modal-section" id="chronicleModalGitSection" style="display:none;">
+        <div class="chronicle-modal-section-label">Git 提交记录</div>
+        <div id="chronicleModalGitContent" style="font-family: monospace; font-size: 13px; color: var(--color-text-secondary); background: var(--color-bg-page); padding: 12px; border-radius: 8px;">
+          加载中...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // 编年史记录数据（API 数据）
+    let chronicleData = [];
+    // 分页状态
+    let currentPage = 1;
+    const pageSize = 5;
+    let totalPages = 1;
+    let totalCount = 0;
+    // 筛选状态
+    let currentTypeFilter = 'all';
+    let currentYearFilter = '2025';
+    // 数据是否已加载
+    let chronicleDataLoaded = false;
+
+    // 降级用的模拟数据
+    const fallbackChronicleData = [
+      { id: 1, date: '2025.01.15', month: 'JAN', day: '15', title: '觉醒时刻：项目启动', type: 'main-quest', typeText: '主线任务', difficulty: '入门', desc: '正式启动"地球Online"自我成长项目，完成系统初始化与基础配置。确立三大主线方向：技术深度、心智成长、身体健康。\n\n这一天，你在日记本上写下了第一行字："从今天起，我要成为更好的自己。"简单的一句话，却承载着无限的可能。', tags: ['项目启动', '里程碑'], hasGit: true, gitCommits: ['feat: 初始化项目结构', 'docs: 添加项目说明文档'] },
+      { id: 2, date: '2025.02.03', month: 'FEB', day: '03', title: '技能突破：深度学习入门', type: 'side-quest', typeText: '支线副本', difficulty: '普通', desc: '完成深度学习基础课程，掌握神经网络核心原理。从线性回归到CNN，一步步揭开AI的神秘面纱。\n\n过程中遇到了梯度消失、过拟合等经典问题，通过反复实验和查阅资料，最终一一攻克。', tags: ['深度学习', 'AI'], hasGit: true, gitCommits: ['feat: 添加CNN图像分类模型', 'fix: 修复训练过程中的梯度消失问题'] },
+      { id: 3, date: '2025.02.20', month: 'FEB', day: '20', title: '关键决策：职业方向选择', type: 'critical-decision', typeText: '关键决策', difficulty: '困难', desc: '经过两周的深度思考与多方咨询，最终决定深耕前端工程化方向。这是一个基于自身优势、市场趋势和个人兴趣综合考量后的决定。\n\n放弃了看似更"热门"的算法岗，选择了更能发挥创造力的前端方向。现在回想起来，这是最适合自己的路。', tags: ['职业规划', '决策'], hasGit: false, gitCommits: [] },
+      { id: 4, date: '2025.03.12', month: 'MAR', day: '12', title: '成就解锁：首个开源项目', type: 'achievement', typeText: '成就解锁', difficulty: '普通', desc: '第一个开源项目获得 100+ Star！这是对技术能力和社区贡献的双重认可。\n\n项目始于一个简单的想法——让组件库的使用更加便捷。经过三个版本的迭代，终于得到了大家的认可。', tags: ['开源', '成就'], hasGit: true, gitCommits: ['release: v1.0.0 正式发布', 'feat: 新增主题定制功能'] },
+      { id: 5, date: '2025.04.05', month: 'APR', day: '05', title: '心智成长：情绪觉察练习', type: 'main-quest', typeText: '主线任务', difficulty: '普通', desc: '坚持30天情绪日记，建立对自身情绪模式的深度觉察。从一开始的"后知后觉"，到逐渐能够"当知当觉"。\n\n发现自己在压力下的典型反应模式，也找到了最适合自己的调节方式——散步+写作。', tags: ['心智', '情绪'], hasGit: false, gitCommits: [] },
+      { id: 6, date: '2025.05.18', month: 'MAY', day: '18', title: '技术攻坚：性能优化实战', type: 'side-quest', typeText: '支线副本', difficulty: '困难', desc: '主导项目性能优化，首屏加载时间从 3.2s 降至 0.8s。涉及代码分割、懒加载、资源压缩、CDN配置等多个维度。\n\n这次攻坚让我深刻理解了"性能是产品体验的基石"这句话的含义。', tags: ['性能优化', '前端'], hasGit: true, gitCommits: ['perf: 实现路由级代码分割', 'perf: 优化图片资源，启用WebP格式'] },
+      { id: 7, date: '2025.06.01', month: 'JUN', day: '01', title: '新征程：云汐系统构想诞生', type: 'main-quest', typeText: '主线任务', difficulty: '史诗', desc: '构想"云汐"个人成长系统的雏形。从一个简单的需求——"我需要一个更好用的复盘工具"开始，逐步扩展成一个综合性的个人成长平台。\n\n"云汐"这个名字取自"云淡风轻，潮汐有信"，寓意在变化中保持内心的平静与节奏。', tags: ['云汐', '里程碑'], hasGit: true, gitCommits: ['feat: 云汐项目初始化', 'docs: 撰写产品需求文档'] },
+      { id: 8, date: '2025.07.01', month: 'JUL', day: '01', title: '持续进化：半年复盘', type: 'achievement', typeText: '成就解锁', difficulty: '史诗', desc: '上半年总结：完成了8个主要项目，学习了3门新课程，读了12本书，认识了20位新朋友。\n\n成长不是线性的，但回头看时，每一步都算数。感谢那个坚持的自己，也感谢所有帮助过我的人。', tags: ['复盘', '半年总结'], hasGit: false, gitCommits: [] }
+    ];
+
+    // ===== API 相关函数 =====
+
+    // 从 API 加载纪事列表
+    async function loadChronicles(page = 1, size = 5, category = '', year = '') {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', page);
+        params.set('size', size);
+        if (category && category !== 'all') params.set('category', category);
+        if (year) params.set('year', year);
+
+        const data = await YunxiAPI.request('GET', '/growth/chronicle?' + params.toString());
+
+        // 处理返回格式
+        const list = data.list || data.items || data.records || (Array.isArray(data) ? data : []);
+        const total = data.total !== undefined ? data.total : (data.total_count || (Array.isArray(data) ? data.length : list.length));
+
+        // 转换数据格式
+        chronicleData = list.map(item => ({
+          id: item.id,
+          date: item.date || item.created_at || '',
+          title: item.title || item.name || '',
+          type: item.category || item.type || 'main-quest',
+          typeText: item.category_text || item.typeText || getTypeText(item.category || item.type),
+          difficulty: item.difficulty || '普通',
+          desc: item.content || item.description || item.desc || '',
+          tags: item.tags || [],
+          hasGit: item.has_git !== undefined ? item.has_git : !!(item.git_commits && item.git_commits.length > 0),
+          gitCommits: item.git_commits || item.commits || []
+        }));
+
+        totalCount = total;
+        totalPages = Math.ceil(total / size) || 1;
+        currentPage = page;
+        chronicleDataLoaded = true;
+
+        return { list: chronicleData, total, totalPages };
+      } catch (error) {
+        // 降级到模拟数据
+        if (!chronicleDataLoaded) {
+          chronicleData = fallbackChronicleData;
+          totalCount = fallbackChronicleData.length;
+          totalPages = Math.ceil(fallbackChronicleData.length / pageSize);
+          YunxiAPI.showToast('纪事数据加载失败，使用本地数据', 'warning');
+        }
+        return { list: chronicleData, total: chronicleData.length, totalPages: Math.ceil(chronicleData.length / pageSize) };
+      }
+    }
+
+    // 获取纪事详情
+    async function loadChronicleDetail(id) {
+      try {
+        const data = await YunxiAPI.request('GET', `/growth/chronicle/${id}`);
+        const item = {
+          id: data.id || id,
+          date: data.date || data.created_at || '',
+          title: data.title || '',
+          type: data.category || data.type || 'main-quest',
+          typeText: data.category_text || getTypeText(data.category || data.type),
+          difficulty: data.difficulty || '普通',
+          desc: data.content || data.description || '',
+          tags: data.tags || [],
+          hasGit: data.has_git !== undefined ? data.has_git : !!(data.git_commits && data.git_commits.length > 0),
+          gitCommits: data.git_commits || data.commits || []
+        };
+
+        // 更新本地数据
+        const index = chronicleData.findIndex(d => d.id === id);
+        if (index >= 0) {
+          chronicleData[index] = item;
+        }
+
+        return item;
+      } catch (error) {
+        // 降级：从本地数据找
+        return chronicleData.find(d => d.id === id) || null;
+      }
+    }
+
+    // 新增纪事
+    async function createChronicle(chronicData) {
+      try {
+        const body = {
+          title: chronicData.title,
+          content: chronicData.content || chronicData.desc,
+          category: chronicData.category || chronicData.type,
+          tags: chronicData.tags || []
+        };
+        const data = await YunxiAPI.request('POST', '/growth/chronicle', { body });
+        // 重新加载列表
+        await loadChronicles(currentPage, pageSize, currentTypeFilter, currentYearFilter);
+        return { success: true, data };
+      } catch (error) {
+        YunxiAPI.showToast('创建失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 更新纪事
+    async function updateChronicle(id, chronicData) {
+      try {
+        const body = {
+          title: chronicData.title,
+          content: chronicData.content || chronicData.desc,
+          category: chronicData.category || chronicData.type,
+          tags: chronicData.tags || []
+        };
+        const data = await YunxiAPI.request('PUT', `/growth/chronicle/${id}`, { body });
+        // 重新加载列表
+        await loadChronicles(currentPage, pageSize, currentTypeFilter, currentYearFilter);
+        return { success: true, data };
+      } catch (error) {
+        YunxiAPI.showToast('更新失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 删除纪事
+    async function deleteChronicle(id) {
+      try {
+        await YunxiAPI.request('DELETE', `/growth/chronicle/${id}`);
+        // 从本地数据移除
+        chronicleData = chronicleData.filter(d => d.id !== id);
+        // 如果当前页为空，回到上一页
+        if (chronicleData.length === 0 && currentPage > 1) {
+          currentPage--;
+        }
+        // 重新加载
+        await loadChronicles(currentPage, pageSize, currentTypeFilter, currentYearFilter);
+        return { success: true };
+      } catch (error) {
+        YunxiAPI.showToast('删除失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 获取类型文本
+    function getTypeText(type) {
+      const map = {
+        'main-quest': '主线任务',
+        'side-quest': '支线副本',
+        'achievement': '成就解锁',
+        'critical-decision': '关键决策'
+      };
+      return map[type] || type || '其他';
+    }
+
+    // 获取筛选后的数据
+    function getFilteredData() {
+      return chronicleData.filter(item => {
+        const typeMatch = currentTypeFilter === 'all' || item.type === currentTypeFilter;
+        const yearMatch = !currentYearFilter || item.date.startsWith(currentYearFilter);
+        return typeMatch && yearMatch;
+      });
+    }
+
+    // 获取当前页数据
+    function getCurrentPageData() {
+      const filtered = getFilteredData();
+      const start = (currentPage - 1) * pageSize;
+      return filtered.slice(start, start + pageSize);
+    }
+
+    // 渲染分页
+    function renderPagination() {
+      const filtered = getFilteredData();
+      const total = chronicleDataLoaded ? totalPages : Math.ceil(filtered.length / pageSize);
+      const pagination = document.getElementById('chroniclePagination');
+
+      if (total <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      html += `<button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>`;
+
+      const maxVisible = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+      let endPage = Math.min(total, startPage + maxVisible - 1);
+      if (endPage - startPage + 1 < maxVisible) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+      }
+
+      html += `<button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === total ? 'disabled' : ''}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+      html += `<span class="pagination-info">第 ${currentPage} / ${total} 页</span>`;
+
+      pagination.innerHTML = html;
+    }
+
+    // 切换页面
+    function changePage(page) {
+      const filtered = getFilteredData();
+      const total = chronicleDataLoaded ? totalPages : Math.ceil(filtered.length / pageSize);
+      if (page < 1 || page > total) return;
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          if (chronicleDataLoaded) {
+            // 从 API 加载对应页
+            await loadChronicles(page, pageSize, currentTypeFilter, currentYearFilter);
+          } else {
+            currentPage = page;
+          }
+          renderTimeline();
+          renderPagination();
+          YunxiAPI.showToast(`已切换到第 ${page} 页`, 'info');
+        },
+        { showError: true, loadingText: '加载中...' }
+      );
+    }
+
+    // 渲染时间轴
+    function renderTimeline() {
+      const timeline = document.getElementById('chronicleTimeline');
+      const pageData = getCurrentPageData();
+
+      // 隐藏所有现有条目
+      const allEntries = timeline.querySelectorAll('.chronicle-entry');
+      allEntries.forEach(entry => {
+        entry.style.display = 'none';
+      });
+
+      // 显示当前页的条目（使用现有DOM或动态创建）
+      // 简化实现：使用现有DOM元素，根据数据顺序显示
+      pageData.forEach((item, index) => {
+        // 查找对应的entry（通过日期匹配或位置匹配）
+        const entries = Array.from(allEntries);
+        const existingEntry = entries.find(e => {
+          const titleEl = e.querySelector('.chronicle-card-title');
+          return titleEl && titleEl.textContent.trim() === item.title;
+        });
+
+        if (existingEntry) {
+          existingEntry.style.display = '';
+          existingEntry.setAttribute('data-id', item.id);
+          // 绑定点击事件
+          const card = existingEntry.querySelector('.chronicle-card');
+          if (card && !card._hasClickHandler) {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => openChronicleDetail(item.id));
+            card._hasClickHandler = true;
+          }
+        }
+      });
+    }
+
+    // 打开记录详情
+    function openChronicleDetail(id) {
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          // 从 API 加载详情
+          const item = await loadChronicleDetail(id);
+          if (!item) {
+            YunxiAPI.showToast('记录不存在', 'error');
+            return;
+          }
+
+          document.getElementById('chronicleModalTitle').textContent = item.title || '';
+          document.getElementById('chronicleModalDate').textContent = item.date || '';
+          document.getElementById('chronicleModalDesc').textContent = item.desc || '';
+
+          const tagsContainer = document.getElementById('chronicleModalTags');
+          tagsContainer.innerHTML = (item.tags || []).map(t => `<span class="chronicle-tag ${item.type}">${t}</span>`).join('');
+
+          const gitSection = document.getElementById('chronicleModalGitSection');
+          if (item.hasGit && item.gitCommits && item.gitCommits.length > 0) {
+            gitSection.style.display = '';
+            document.getElementById('chronicleModalGitContent').innerHTML =
+              item.gitCommits.map(c => `<div style="padding: 4px 0; border-bottom: 1px solid var(--color-border-light);">${c}</div>`).join('');
+          } else {
+            gitSection.style.display = 'none';
+          }
+
+          document.getElementById('chronicleModalOverlay').classList.add('show');
+          YunxiAPI.showToast(`查看「${item.title}」详情`, 'info');
+        },
+        { showError: true, loadingText: '加载记录详情...' }
+      );
+    }
+
+    // 关闭详情弹窗
+    function closeChronicleModal(e) {
+      if (e && e.target !== document.getElementById('chronicleModalOverlay')) return;
+      document.getElementById('chronicleModalOverlay').classList.remove('show');
+    }
+
+    // 切换类型筛选
+    function filterByType(type) {
+      currentTypeFilter = type;
+      currentPage = 1;
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          // 从 API 加载筛选后的数据
+          await loadChronicles(1, pageSize, type, currentYearFilter);
+          renderTimeline();
+          renderPagination();
+          const count = getFilteredData().length;
+          YunxiAPI.showToast(`筛选完成，共 ${count} 条记录`, 'info');
+        },
+        { showError: true, loadingText: '筛选中...' }
+      );
+    }
+
+    // 初始化数据
+    async function initChronicleData() {
+      try {
+        await loadChronicles(1, pageSize, 'all', currentYearFilter);
+        renderTimeline();
+        renderPagination();
+      } catch (error) {
+        // 已在 loadChronicles 中处理降级
+        renderTimeline();
+        renderPagination();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 先用降级数据初始化
+      chronicleData = [...fallbackChronicleData];
+
+      // Sidebar menu item click handling
+      document.querySelectorAll('.sidebar-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!item.getAttribute('href') || item.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.sidebar-menu-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      // Nav tab click handling
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          if (!tab.getAttribute('href') || tab.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        });
+      });
+
+      // Filter chip click handling
+      document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+
+          const typeMap = {
+            '全部': 'all',
+            '主线任务': 'main-quest',
+            '支线副本': 'side-quest',
+            '成就解锁': 'achievement',
+            '关键决策': 'critical-decision'
+          };
+          const type = typeMap[chip.textContent.trim()] || 'all';
+          filterByType(type);
+        });
+      });
+
+      // Year select change
+      const yearSelect = document.querySelector('.filter-select');
+      if (yearSelect) {
+        yearSelect.addEventListener('change', () => {
+          currentYearFilter = yearSelect.value;
+          currentPage = 1;
+
+          YunxiAPI.withValidation(
+            {},
+            async () => {
+              // 从 API 加载对应年份的数据
+              await loadChronicles(1, pageSize, currentTypeFilter, currentYearFilter);
+              renderTimeline();
+              renderPagination();
+              YunxiAPI.showToast(`已切换到 ${currentYearFilter} 年`, 'info');
+            },
+            { showError: true, loadingText: '切换年份中...' }
+          );
+        });
+      }
+
+      // Privacy overlay click handling
+      document.querySelectorAll('.chronicle-privacy-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const card = overlay.closest('.chronicle-card');
+          if (card) {
+            card.classList.remove('has-lock');
+            card.classList.add('unlocked');
+            overlay.style.opacity = '0';
+            overlay.style.transform = 'scale(0.95)';
+            setTimeout(() => overlay.remove(), 300);
+            const header = card.querySelector('.chronicle-card-header');
+            if (header) {
+              const badge = document.createElement('span');
+              badge.className = 'unlocked-badge';
+              badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>已解锁';
+              badge.style.display = 'inline-flex';
+              header.prepend(badge);
+            }
+            YunxiAPI.showToast('记录已解锁', 'success');
+          }
+        });
+      });
+
+      // 初始化渲染（先用降级数据）
+      renderTimeline();
+      renderPagination();
+
+      // 给所有可点击卡片绑定事件
+      document.querySelectorAll('.chronicle-card').forEach((card, index) => {
+        const item = fallbackChronicleData[index];
+        if (item && !card._hasClickHandler) {
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', () => openChronicleDetail(item.id));
+          card._hasClickHandler = true;
+        }
+      });
+
+      // 从 API 加载真实数据
+      initChronicleData();
+
+      // 同步按钮状态
+      YunxiAPI.updateButtonsBySystemStatus();
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1.0">
+  <title>云汐系统 M4 — 成长体系 · 潮汐专属历法</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="common/api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       潮汐专属历法 · 页面级样式
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      overflow: hidden;
+    }
+
+    /* ── Top Navigation Bar ── */
+    .top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      z-index: var(--z-header);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-shrink: 0;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.25);
+    }
+    .nav-logo-text {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo-sub {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+      margin-left: var(--spacing-xs);
+    }
+
+    .nav-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-md, 8px);
+      background: rgba(114, 46, 209, 0.08);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      color: var(--color-primary, #722ED1);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .nav-back-btn:hover {
+      background: rgba(114, 46, 209, 0.15);
+      border-color: rgba(114, 46, 209, 0.25);
+      transform: translateX(-2px);
+    }
+
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+    }
+    .nav-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(114, 46, 209, 0.06);
+    }
+    .nav-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.3);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      flex-shrink: 0;
+    }
+    .nav-status-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+    .nav-status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #00B42A; box-shadow: 0 0 4px rgba(0, 180, 42, 0.4); }
+    .status-dot.purple { background: #722ED1; box-shadow: 0 0 4px rgba(114, 46, 209, 0.4); }
+    .status-dot.blue { background: #165DFF; box-shadow: 0 0 4px rgba(22, 93, 255, 0.4); }
+
+    .nav-user-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .user-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F0E8FF, #D5B8FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: #531DAB;
+      border: 2px solid var(--color-primary-light);
+    }
+    .nav-encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #00B42A;
+      border: 1px solid rgba(0, 180, 42, 0.2);
+    }
+
+    /* ── Layout Container ── */
+    .app-layout {
+      display: flex;
+      height: 100%;
+      padding-top: var(--header-height);
+    }
+
+    /* ── Left Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: var(--z-sidebar);
+    }
+
+    .sidebar-profile {
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      text-align: center;
+    }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      margin: 0 auto var(--spacing-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    flex-shrink: 0;
+  }
+    .sidebar-user-name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .sidebar-role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+      padding: 2px 10px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .sidebar-menu {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+    .sidebar-menu-section {
+      margin-bottom: var(--spacing-xs);
+    }
+    .sidebar-menu-label {
+      padding: var(--spacing-sm) var(--spacing-base);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+    }
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-menu-item:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .sidebar-menu-item.active {
+      background: var(--color-sidebar-active-bg);
+      color: var(--color-sidebar-active);
+    }
+    .sidebar-menu-item.active .menu-icon {
+      color: var(--color-primary);
+    }
+    .menu-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+    .menu-icon svg {
+      width: 18px; height: 18px;
+    }
+
+    .sidebar-footer {
+      padding: var(--spacing-base);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-encrypt-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: #F0FFF4;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: #009A29;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+    .encrypt-dot {
+      width: 8px; height: 8px;
+      background: #00B42A;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0, 180, 42, 0.5);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .sidebar-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+      font-size: var(--font-size-xs);
+    }
+    .sidebar-collapse-btn:hover {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Confidential Mode Banner */
+    .confidential-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .confidential-banner svg { flex-shrink: 0; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    /* ── Glass Card Base ── */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      transition: all var(--transition-base);
+    }
+    .glass-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    /* ── Page Header: Month Navigation ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+    .page-title {
+      font-size: var(--font-size-3xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .page-title-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #722ED1, #5B8FF9);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    }
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+    }
+    .month-nav-btn {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: rgba(255,255,255,0.7);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .month-nav-btn:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-color: var(--color-primary-light);
+    }
+    .month-nav-label {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      min-width: 120px;
+      text-align: center;
+    }
+
+    /* ── Two-Column Layout ── */
+    .calendar-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: var(--spacing-base);
+      align-items: start;
+    }
+
+    /* ── Calendar Grid ── */
+    .calendar-card {
+      padding: var(--spacing-lg);
+    }
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 6px;
+    }
+    .calendar-weekday {
+      text-align: center;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-tertiary);
+      padding: var(--spacing-xs) 0;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .calendar-day {
+      position: relative;
+      min-height: 82px;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      background: rgba(255,255,255,0.4);
+    }
+    .calendar-day:hover {
+      background: var(--color-primary-lighter);
+      border-color: var(--color-glass-border);
+    }
+    .calendar-day.empty {
+      background: transparent;
+      cursor: default;
+    }
+    .calendar-day.empty:hover {
+      background: transparent;
+      border-color: transparent;
+    }
+    .calendar-day.today {
+      background: var(--color-primary-light);
+      border-color: rgba(114, 46, 209, 0.25);
+    }
+    .calendar-day.today .day-number {
+      background: var(--color-primary);
+      color: #fff;
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+    }
+    .calendar-day.other-month {
+      opacity: 0.35;
+    }
+    .day-number {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      margin-bottom: 4px;
+    }
+    .day-moon {
+      margin-bottom: 3px;
+    }
+    .day-moon svg {
+      display: block;
+    }
+    .day-emotion-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-bottom: 3px;
+    }
+    .day-emotion-dot.good { background: #00B42A; }
+    .day-emotion-dot.neutral { background: #FF7D00; }
+    .day-emotion-dot.bad { background: #F53F3F; }
+    .day-energy-bar {
+      width: 100%;
+      height: 3px;
+      background: var(--color-border-light);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .day-energy-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #722ED1, #9254DE);
+    }
+    .day-event-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--color-primary);
+    }
+
+    /* ── Right Panel ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-base);
+    }
+
+    /* Phase Card */
+    .phase-card {
+      padding: var(--spacing-xl);
+      text-align: center;
+    }
+    .phase-card-title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      margin-bottom: var(--spacing-base);
+    }
+    .moon-phase-viz {
+      width: 120px; height: 120px;
+      margin: 0 auto var(--spacing-base);
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .moon-phase-viz .moon-outer {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F7F0FF, #E8DFFF);
+      position: relative;
+      box-shadow: 0 0 24px rgba(114, 46, 209, 0.15), 0 0 48px rgba(114, 46, 209, 0.08);
+    }
+    .moon-phase-viz .moon-shadow {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(114, 46, 209, 0.4), rgba(91, 143, 249, 0.3));
+      /* Waning: left half visible, right half shadow */
+      clip-path: ellipse(25px 50px at 75px 50px);
+    }
+    .moon-phase-viz .moon-ring {
+      position: absolute;
+      top: -6px; left: -6px;
+      width: 112px; height: 112px;
+      border-radius: 50%;
+      border: 1px solid rgba(114, 46, 209, 0.12);
+    }
+    .moon-phase-viz .moon-ring-2 {
+      position: absolute;
+      top: -14px; left: -14px;
+      width: 128px; height: 128px;
+      border-radius: 50%;
+      border: 1px solid rgba(114, 46, 209, 0.06);
+    }
+    .phase-name {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary-text);
+      margin-bottom: var(--spacing-xs);
+    }
+    .phase-desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--spacing-base);
+      line-height: var(--line-height-relaxed);
+    }
+    .phase-activities {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--spacing-xs);
+    }
+    .phase-activity-tag {
+      padding: 4px 12px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(114, 46, 209, 0.12);
+    }
+
+    /* Trend Chart Card */
+    .chart-card {
+      padding: var(--spacing-lg);
+    }
+    .chart-container {
+      position: relative;
+      height: 200px;
+      margin-top: var(--spacing-sm);
+      background: rgba(114, 46, 209, 0.03);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-sm);
+    }
+
+    /* Weekly Stats */
+    .weekly-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--spacing-sm);
+    }
+    .weekly-stat-card {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--color-glass-border);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-sm) var(--spacing-base);
+      text-align: center;
+    }
+    .weekly-stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .weekly-stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+    .weekly-stat-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      color: #fff;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      margin-top: 2px;
+    }
+    .streak-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: var(--font-size-xs);
+      color: #FF7D00;
+      font-weight: var(--font-weight-medium);
+      margin-top: 2px;
+    }
+
+    /* ── Day Detail Popup (Privacy) ── */
+    .day-detail-popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+      z-index: var(--z-modal-backdrop);
+      align-items: center;
+      justify-content: center;
+    }
+    .day-detail-popup-overlay.show {
+      display: flex;
+    }
+    .day-detail-popup {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-modal);
+      padding: var(--spacing-2xl);
+      width: 400px;
+      text-align: center;
+      animation: popup-in 0.25s ease;
+    }
+    @keyframes popup-in {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .popup-blur-preview {
+      position: relative;
+      margin: var(--spacing-base) 0;
+      min-height: 100px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .popup-blur-content {
+      filter: blur(6px);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-relaxed);
+      padding: var(--spacing-base);
+      background: var(--color-border-light);
+      border-radius: var(--radius-md);
+    }
+    .popup-lock-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(247, 240, 255, 0.65);
+      backdrop-filter: blur(2px);
+      gap: var(--spacing-xs);
+    }
+    .popup-lock-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    }
+    .popup-lock-text {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-primary-text);
+    }
+    .popup-close-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-base);
+      padding: 8px 20px;
+      border-radius: var(--radius-md);
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .popup-close-btn:hover {
+      background: var(--color-primary);
+      color: #fff;
+    }
+
+    /* ── Scrollbar styling ── */
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb {
+      background: rgba(114, 46, 209, 0.15);
+      border-radius: 3px;
+    }
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(114, 46, 209, 0.25);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fade-in-up 0.4s ease both;
+    }
+    .animate-in-1 { animation-delay: 0.05s; }
+    .animate-in-2 { animation-delay: 0.1s; }
+    .animate-in-3 { animation-delay: 0.15s; }
+    .animate-in-4 { animation-delay: 0.2s; }
+    .animate-in-5 { animation-delay: 0.25s; }
+    .animate-in-6 { animation-delay: 0.3s; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <!-- Left: Logo -->
+    <div class="nav-logo">
+      <div class="nav-logo-icon">汐</div>
+      <span class="nav-logo-text">云汐<span class="nav-logo-sub">M4 业务引擎</span></span>
+    </div>
+
+    <a href="review-summary.html" class="nav-back-btn" title="返回复盘主页">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>复盘主页</span>
+    </a>
+
+    <!-- Center: Mode Tabs -->
+    <nav class="nav-tabs">
+      <a class="nav-tab" href="main-chat.html">💬 对话</a>
+      <a class="nav-tab" href="work-dev.html">工作开发</a>
+      <a class="nav-tab" href="study-plan.html">学业规划</a>
+      <a class="nav-tab active" href="review-summary.html">复盘总结</a>
+      <a class="nav-tab" href="social-relation.html">人际关系</a>
+      <a class="nav-tab" href="emotion-comfort.html">情绪安慰</a>
+      <a class="nav-tab" href="life-management.html">生活管理</a>
+    </nav>
+
+    <!-- Right: Status & User -->
+    <div class="nav-right">
+      <div class="nav-status-group">
+        <div class="nav-status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot purple"></span>
+          <span>M5 72%</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot blue"></span>
+          <span>3 设备</span>
+        </div>
+      </div>
+      <div class="nav-user-area">
+        <div class="nav-encrypt-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密
+        </div>
+        <div class="user-avatar">汐</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">汐</div>
+        <div class="sidebar-user-name">汐舟主理</div>
+        <div class="sidebar-role-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          复盘模式
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a class="sidebar-menu-item" href="main-chat.html">
+          <span class="menu-icon">💬</span>
+          对话主页
+        </a>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">成长体系</div>
+          <a class="sidebar-menu-item" href="growth-chronicle.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            </span>
+            地球Online编年史
+          </a>
+          <a class="sidebar-menu-item" href="growth-achievements.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+            </span>
+            成就勋章殿堂
+          </a>
+          <a class="sidebar-menu-item" href="growth-talent-tree.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4-4 8-7.5 8-12a8 8 0 1 0-16 0c0 4.5 4 8 8 12z"/><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+            </span>
+            心智天赋树
+          </a>
+          <a class="sidebar-menu-item active" href="growth-tide-calendar.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+            </span>
+            潮汐专属历法
+          </a>
+          <a class="sidebar-menu-item" href="growth-memory-echo.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            记忆回响对比
+          </a>
+          <a class="sidebar-menu-item" href="growth-season-journey.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span>
+            赛季征程
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-encrypt-status">
+          <span class="encrypt-dot"></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密存储已启用
+        </div>
+        <button class="sidebar-collapse-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          收起侧栏
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- Confidential Mode Banner -->
+      <div class="confidential-banner animate-in animate-in-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        涉密模式 — 所有成长数据仅存储于本地加密区域，M5 记忆模块已隔离
+      </div>
+
+      <!-- Page Header -->
+      <div class="page-header animate-in animate-in-1">
+        <div class="page-title">
+          <div class="page-title-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+          </div>
+          潮汐专属历法
+        </div>
+        <div class="month-nav">
+          <button class="month-nav-btn" id="prevMonthBtn" onclick="changeMonth(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="month-nav-label" id="monthNavLabel">2025年 6月</span>
+          <button class="month-nav-btn" id="nextMonthBtn" onclick="changeMonth(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Two-Column Layout -->
+      <div class="calendar-layout">
+
+        <!-- ═══ Left: Month Calendar ═══ -->
+        <div class="glass-card calendar-card animate-in animate-in-2">
+          <!-- Weekday Headers -->
+          <div class="calendar-weekdays">
+            <div class="calendar-weekday">周一</div>
+            <div class="calendar-weekday">周二</div>
+            <div class="calendar-weekday">周三</div>
+            <div class="calendar-weekday">周四</div>
+            <div class="calendar-weekday">周五</div>
+            <div class="calendar-weekday">周六</div>
+            <div class="calendar-weekday">周日</div>
+          </div>
+
+          <!-- Calendar Grid -->
+          <div class="calendar-grid" id="calendarGrid">
+            <!-- Row 1: Jun 1 (Sun) => cols 1-6 empty, Jun 1 in col 7 -->
+            <div class="calendar-day empty"></div>
+            <div class="calendar-day empty"></div>
+            <div class="calendar-day empty"></div>
+            <div class="calendar-day empty"></div>
+            <div class="calendar-day empty"></div>
+            <div class="calendar-day empty"></div>
+            <!-- Jun 1 = Sunday -->
+            <div class="calendar-day" data-day="1" onclick="showDayDetail(1)">
+              <div class="day-number">1</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:70%"></div></div>
+            </div>
+
+            <!-- Row 2: Jun 2 (Mon) - Jun 8 (Sun) -->
+            <div class="calendar-day" data-day="2" onclick="showDayDetail(2)">
+              <div class="day-number">2</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 1 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:65%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="3" onclick="showDayDetail(3)">
+              <div class="day-number">3</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:80%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="4" onclick="showDayDetail(4)">
+              <div class="day-number">4</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:55%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="5" onclick="showDayDetail(5)">
+              <div class="day-number">5</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:50%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="6" onclick="showDayDetail(6)">
+              <div class="day-number">6</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot bad"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:35%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="7" onclick="showDayDetail(7)">
+              <div class="day-number">7</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 0 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:72%"></div></div>
+            </div>
+
+            <!-- Row 3: Jun 9 (Mon) - Jun 15 (Sun) -->
+            <div class="calendar-day" data-day="9" onclick="showDayDetail(9)">
+              <div class="day-number">9</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:78%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="10" onclick="showDayDetail(10)">
+              <div class="day-number">10</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:85%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="11" onclick="showDayDetail(11)">
+              <div class="day-number">11</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:60%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="12" onclick="showDayDetail(12)">
+              <div class="day-number">12</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:52%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="13" onclick="showDayDetail(13)">
+              <div class="day-number">13</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 0 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot bad"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:38%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="14" onclick="showDayDetail(14)">
+              <div class="day-number">14</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:75%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="15" onclick="showDayDetail(15)">
+              <div class="day-number">15</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:82%"></div></div>
+            </div>
+
+            <!-- Row 4: Jun 16 (Mon) - Jun 22 (Sun) -->
+            <div class="calendar-day" data-day="16" onclick="showDayDetail(16)">
+              <div class="day-number">16</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:70%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="17" onclick="showDayDetail(17)">
+              <div class="day-number">17</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:58%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="18" onclick="showDayDetail(18)">
+              <div class="day-number">18</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 0 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:55%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="19" onclick="showDayDetail(19)">
+              <div class="day-number">19</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot bad"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:40%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="20" onclick="showDayDetail(20)">
+              <div class="day-number">20</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:76%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="21" onclick="showDayDetail(21)">
+              <div class="day-number">21</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:80%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="22" onclick="showDayDetail(22)">
+              <div class="day-number">22</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:60%"></div></div>
+            </div>
+
+            <!-- Row 5: Jun 23 (Mon) - Jun 29 (Sun) -->
+            <div class="calendar-day" data-day="23" onclick="showDayDetail(23)">
+              <div class="day-number">23</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 0 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:68%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="24" onclick="showDayDetail(24)">
+              <div class="day-number">24</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:72%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="25" onclick="showDayDetail(25)">
+              <div class="day-number">25</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot neutral"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:62%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="26" onclick="showDayDetail(26)">
+              <div class="day-number">26</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:74%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="27" onclick="showDayDetail(27)">
+              <div class="day-number">27</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86909C" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/></svg>
+              </div>
+              <div class="day-emotion-dot bad"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:42%"></div></div>
+            </div>
+            <div class="calendar-day" data-day="28" onclick="showDayDetail(28)">
+              <div class="day-number">28</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M12 3 A9 9 0 0 0 12 21" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:78%"></div></div>
+              <div class="day-event-dot"></div>
+            </div>
+            <div class="calendar-day" data-day="29" onclick="showDayDetail(29)">
+              <div class="day-number">29</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#C4B5FD" stroke="#86909C" stroke-width="1.5"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:85%"></div></div>
+            </div>
+
+            <!-- Row 6: Jun 30 (Mon) -->
+            <div class="calendar-day today" data-day="30" onclick="showDayDetail(30)">
+              <div class="day-event-dot"></div>
+              <div class="day-number">30</div>
+              <div class="day-moon">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#86909C" stroke-width="1.5"/><path d="M3 12 A9 9 0 0 1 21 12" fill="#C4B5FD" stroke="none"/></svg>
+              </div>
+              <div class="day-emotion-dot good"></div>
+              <div class="day-energy-bar"><div class="day-energy-fill" style="width:76%"></div></div>
+            </div>
+            <!-- Jul 1-5 (other month) -->
+            <div class="calendar-day other-month">
+              <div class="day-number">1</div>
+            </div>
+            <div class="calendar-day other-month">
+              <div class="day-number">2</div>
+            </div>
+            <div class="calendar-day other-month">
+              <div class="day-number">3</div>
+            </div>
+            <div class="calendar-day other-month">
+              <div class="day-number">4</div>
+            </div>
+            <div class="calendar-day other-month">
+              <div class="day-number">5</div>
+            </div>
+            <div class="calendar-day other-month">
+              <div class="day-number">6</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ Right: Phase & Trend Panel ═══ -->
+        <div class="right-panel">
+
+          <!-- Today's Phase Card -->
+          <div class="glass-card phase-card animate-in animate-in-3">
+            <div class="phase-card-title">当日潮汐相位</div>
+            <div class="moon-phase-viz">
+              <div class="moon-ring-2"></div>
+              <div class="moon-ring"></div>
+              <div class="moon-outer">
+                <div class="moon-shadow"></div>
+              </div>
+            </div>
+            <div class="phase-name">下弦月</div>
+            <div class="phase-desc">适合回顾与总结，复盘效果提升 20%</div>
+            <div class="phase-activities">
+              <span class="phase-activity-tag">复盘总结</span>
+              <span class="phase-activity-tag">决策审视</span>
+              <span class="phase-activity-tag">情绪记录</span>
+            </div>
+          </div>
+
+          <!-- Emotion & Energy Trend Chart -->
+          <div class="glass-card chart-card animate-in animate-in-4">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--spacing-xs);">
+              <div>
+                <div style="font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); display: flex; align-items: center; gap: var(--spacing-sm);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  情绪与精力趋势
+                </div>
+                <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); margin-top: 2px;">近7日数据追踪</div>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Weekly Summary Stats -->
+          <div class="animate-in animate-in-5">
+            <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-bottom: var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-xs);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              本周数据概览
+            </div>
+            <div class="weekly-stats">
+              <div class="weekly-stat-card">
+                <div class="weekly-stat-value">6.8</div>
+                <div class="weekly-stat-label">本周情绪均值</div>
+                <div style="font-size: 10px; color: var(--color-text-tertiary);">/ 10</div>
+              </div>
+              <div class="weekly-stat-card">
+                <div class="weekly-stat-badge">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  周三
+                </div>
+                <div class="weekly-stat-label">精力峰值日</div>
+              </div>
+              <div class="weekly-stat-card">
+                <div class="weekly-stat-value">18</div>
+                <div class="weekly-stat-label">连续记录</div>
+                <div class="streak-indicator">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4-4 8-7.5 8-12a8 8 0 1 0-16 0c0 4.5 4 8 8 12z"/></svg>
+                  天
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /right-panel -->
+      </div><!-- /calendar-layout -->
+
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       DAY DETAIL POPUP (Privacy: blurred content)
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="day-detail-popup-overlay" id="dayDetailOverlay" onclick="closeDayDetail(event)">
+    <div class="day-detail-popup" onclick="event.stopPropagation()">
+      <div style="font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+        6月 <span id="popupDayNum">30</span> 日 详细记录
+      </div>
+      <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); margin-top: 4px;">复盘总结模式 · 加密存储</div>
+      <div class="popup-blur-preview">
+        <div class="popup-blur-content" id="popupDayContent">
+          今天完成了项目的阶段性复盘，情绪整体稳定。下午进行了一次深度决策回溯，发现了一些认知偏差的苗头。晚上整理了本周的情绪数据，发现精力值在周中达到峰值。明天计划...
+        </div>
+        <div class="popup-lock-overlay" id="popupLockOverlay">
+          <div class="popup-lock-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <span class="popup-lock-text">解锁查看当日详细记录</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 16px;">
+        <button class="popup-close-btn" id="checkInBtn" onclick="toggleCheckIn()" style="flex: 1; justify-content: center; background: linear-gradient(135deg, var(--color-primary) 0%, #9F7AEA 100%); color: white; border: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="checkInBtnText">打卡</span>
+        </button>
+        <button class="popup-close-btn" onclick="closeDayDetail()" style="flex: 1; justify-content: center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          关闭
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // 当前日期
+    let currentYear = 2025;
+    let currentMonth = 5; // 0-indexed, 5 = June
+    let selectedDay = null;
+    // 每日详情数据
+    let dayDetails = {};
+    // 日历统计数据
+    let calendarStats = null;
+    // 数据是否已加载
+    let calendarDataLoaded = false;
+
+    // ===== API 相关函数 =====
+
+    // 从 API 加载月历数据
+    async function loadCalendarMonth(year, month) {
+      try {
+        // month 参数：API 可能使用 1-indexed
+        const apiMonth = month + 1;
+        const data = await YunxiAPI.request('GET', `/growth/calendar/${year}/${apiMonth}`);
+
+        // 处理返回格式
+        // 预期格式: { days: { '1': { mood, energy, checked_in, summary, tags, note }, ... }, stats: {...} }
+        const daysData = data.days || data.data || data.items || {};
+        const monthData = {};
+
+        // 转换数据格式
+        Object.keys(daysData).forEach(day => {
+          const d = daysData[day];
+          monthData[parseInt(day)] = {
+            mood: d.mood !== undefined ? d.mood : 0,
+            energy: d.energy !== undefined ? d.energy : 0,
+            checkedIn: d.checked_in !== undefined ? d.checked_in : d.checkedIn || false,
+            summary: d.summary || d.content || d.note || '',
+            note: d.note || d.summary || '',
+            tags: d.tags || []
+          };
+        });
+
+        const key = `${year}-${month}`;
+        dayDetails[key] = monthData;
+
+        // 如果有统计数据，更新
+        if (data.stats) {
+          calendarStats = data.stats;
+        }
+
+        calendarDataLoaded = true;
+        return monthData;
+      } catch (error) {
+        // 降级：生成模拟数据
+        if (!calendarDataLoaded || !dayDetails[`${year}-${month}`]) {
+          generateMockData(year, month);
+          if (!calendarDataLoaded) {
+            YunxiAPI.showToast('日历数据加载失败，使用本地数据', 'warning');
+          }
+        }
+        return dayDetails[`${year}-${month}`] || {};
+      }
+    }
+
+    // 打卡
+    async function checkInAPI(dateStr, mood, note = '') {
+      try {
+        const body = { date: dateStr, mood: mood };
+        if (note) body.note = note;
+
+        const data = await YunxiAPI.request('POST', '/growth/calendar/checkin', { body });
+
+        // 更新本地数据
+        const key = `${currentYear}-${currentMonth}`;
+        if (!dayDetails[key]) dayDetails[key] = {};
+
+        const dayNum = parseInt(dateStr.split('-')[2]) || parseInt(dateStr.split('/')[2]);
+        if (dayNum) {
+          dayDetails[key][dayNum] = {
+            ...(dayDetails[key][dayNum] || {}),
+            checkedIn: true,
+            mood: mood || dayDetails[key][dayNum]?.mood || 0,
+            note: note || dayDetails[key][dayNum]?.note || ''
+          };
+        }
+
+        // 刷新统计
+        loadCalendarStats();
+
+        return { success: true, data };
+      } catch (error) {
+        YunxiAPI.showToast('打卡失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 获取日历统计
+    async function loadCalendarStats() {
+      try {
+        const data = await YunxiAPI.request('GET', '/growth/calendar/stats');
+        calendarStats = data;
+        return data;
+      } catch (error) {
+        // 降级：从本地数据计算
+        const monthData = dayDetails[`${currentYear}-${currentMonth}`] || {};
+        const checkedInDays = Object.values(monthData).filter(d => d.checkedIn).length;
+        calendarStats = {
+          total_days: Object.keys(monthData).length,
+          checked_days: checkedInDays,
+          streak: 0,
+          avg_mood: 0,
+          avg_energy: 0
+        };
+        return calendarStats;
+      }
+    }
+
+    // 生成模拟数据（降级用）
+    function generateMockData(year, month) {
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const monthData = {};
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const seed = (year * 10000) + (month * 100) + day;
+        const mood = Math.floor((Math.sin(seed) * 0.5 + 0.5) * 6) + 3; // 3-8
+        const energy = Math.floor((Math.cos(seed * 0.7) * 0.5 + 0.5) * 6) + 3; // 3-8
+        const checkedIn = day <= 30 && day % 3 !== 0; // 模拟大部分已打卡
+        const summaries = [
+          '今天完成了项目的阶段性复盘，情绪整体稳定。下午进行了一次深度决策回溯，发现了一些认知偏差的苗头。',
+          '上午状态很好，高效完成了三个重要任务。午后有点犯困，喝了杯咖啡后恢复状态。晚上去跑步放松了一下。',
+          '今天和团队进行了头脑风暴，产生了很多有趣的想法。虽然最终方案还没确定，但过程很有启发。',
+          '休息日，睡到自然醒。下午读了一本关于认知心理学的书，做了很多笔记。晚上和朋友聚餐聊了很多。',
+          '压力比较大的一天，项目deadline临近。通过深呼吸和短暂休息调节了情绪，最终按时完成了任务。',
+          '学习了新技术，一开始有点难，但慢慢找到感觉了。晚上做了总结笔记，感觉收获很大。',
+          '今天状态一般，精力不太集中。调整了工作计划，把简单的任务先完成了。明天再处理复杂的。'
+        ];
+        const summary = summaries[seed % summaries.length];
+
+        monthData[day] = {
+          mood: mood,
+          energy: energy,
+          checkedIn: checkedIn,
+          summary: summary,
+          tags: day % 2 === 0 ? ['深度工作', '学习'] : ['沟通', '复盘']
+        };
+      }
+
+      dayDetails[`${year}-${month}`] = monthData;
+    }
+
+    // 获取某天的数据
+    function getDayData(year, month, day) {
+      const key = `${year}-${month}`;
+      if (!dayDetails[key]) {
+        generateMockData(year, month);
+      }
+      return dayDetails[key]?.[day];
+    }
+
+    // 切换月份
+    function changeMonth(delta) {
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          currentMonth += delta;
+          if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+          } else if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+          }
+
+          // 更新月份标签
+          document.getElementById('monthNavLabel').textContent =
+            `${currentYear}年 ${currentMonth + 1}月`;
+
+          // 从 API 加载月历数据
+          await loadCalendarMonth(currentYear, currentMonth);
+
+          // 重新渲染日历
+          renderCalendar();
+
+          YunxiAPI.showToast(`已切换到 ${currentYear}年${currentMonth + 1}月`, 'info');
+        },
+        { showError: true, loadingText: '切换月份中...' }
+      );
+    }
+
+    // 渲染日历
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      if (!grid) return;
+
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      // 转换为周一开头 (0=Monday in our calendar)
+      const firstDayMonday = firstDay === 0 ? 6 : firstDay - 1;
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const today = new Date();
+      const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+      const todayDate = today.getDate();
+
+      let html = '';
+
+      // 空白天数
+      for (let i = 0; i < firstDayMonday; i++) {
+        html += '<div class="calendar-day empty"></div>';
+      }
+
+      // 日期
+      for (let day = 1; day <= daysInMonth; day++) {
+        const isToday = isCurrentMonth && day === todayDate;
+        const dayData = getDayData(currentYear, currentMonth, day);
+        const hasMood = dayData && dayData.mood > 0;
+        const moodColor = dayData ? getMoodColor(dayData.mood) : '';
+        const checkedIn = dayData?.checkedIn;
+
+        let dayClasses = 'calendar-day';
+        if (isToday) dayClasses += ' today';
+        if (checkedIn) dayClasses += ' checked-in';
+
+        html += `<div class="${dayClasses}" data-day="${day}" onclick="showDayDetail(${day})">
+          <span class="day-number">${day}</span>
+          ${hasMood ? `<span class="day-mood-dot" style="background: ${moodColor}; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%;"></span>` : ''}
+          ${checkedIn ? `<span style="position:absolute;top:6px;right:6px;color:var(--color-success-text);font-size:10px;">✓</span>` : ''}
+        </div>`;
+      }
+
+      grid.innerHTML = html;
+    }
+
+    // 根据心情值获取颜色
+    function getMoodColor(mood) {
+      if (mood >= 8) return '#00B42A';
+      if (mood >= 6) return '#14C9C9';
+      if (mood >= 4) return '#F7BA1E';
+      return '#F53F3F';
+    }
+
+    // 显示当日详情
+    function showDayDetail(day) {
+      selectedDay = day;
+      const dayData = getDayData(currentYear, currentMonth, day);
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          document.getElementById('popupDayNum').textContent = day;
+          document.querySelector('#dayDetailOverlay > div > div:first-child').innerHTML =
+            `${currentMonth + 1}月 <span id="popupDayNum">${day}</span> 日 详细记录`;
+
+          // 更新内容
+          const contentEl = document.getElementById('popupDayContent');
+          if (dayData) {
+            contentEl.textContent = dayData.summary || dayData.note || '';
+          }
+
+          // 更新打卡按钮状态
+          updateCheckInButton(dayData?.checkedIn);
+
+          document.getElementById('dayDetailOverlay').classList.add('show');
+        },
+        { showError: true, loadingText: '加载当日详情...' }
+      );
+    }
+
+    // 更新打卡按钮状态
+    function updateCheckInButton(checkedIn) {
+      const btn = document.getElementById('checkInBtn');
+      const btnText = document.getElementById('checkInBtnText');
+      if (checkedIn) {
+        btn.style.background = 'var(--color-success-bg)';
+        btn.style.color = 'var(--color-success-text)';
+        btnText.textContent = '已打卡';
+        btn.querySelector('svg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+      } else {
+        btn.style.background = 'linear-gradient(135deg, var(--color-primary) 0%, #9F7AEA 100%)';
+        btn.style.color = 'white';
+        btnText.textContent = '打卡';
+        btn.querySelector('svg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+      }
+    }
+
+    // 切换打卡状态
+    function toggleCheckIn() {
+      if (selectedDay === null) return;
+
+      const dayData = getDayData(currentYear, currentMonth, selectedDay);
+      if (!dayData) return;
+
+      // 如果已经打卡，提示已打卡
+      if (dayData.checkedIn) {
+        YunxiAPI.showToast('今日已打卡', 'info');
+        return;
+      }
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          // 构造日期字符串
+          const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+          // 默认心情值 7
+          const mood = dayData.mood || 7;
+
+          const result = await checkInAPI(dateStr, mood);
+          if (!result.success) {
+            throw new Error(result.error || '打卡失败');
+          }
+
+          updateCheckInButton(true);
+          renderCalendar();
+
+          YunxiAPI.showToast(`${currentMonth + 1}月${selectedDay}日 打卡成功！`, 'success');
+        },
+        { showError: true, loadingText: '打卡中...' }
+      );
+    }
+
+    function closeDayDetail(e) {
+      if (e && e.target !== document.getElementById('dayDetailOverlay')) return;
+      document.getElementById('dayDetailOverlay').classList.remove('show');
+      selectedDay = null;
+    }
+
+    // 初始化数据
+    async function initCalendarData() {
+      try {
+        // 并行加载月历和统计
+        await Promise.all([
+          loadCalendarMonth(currentYear, currentMonth),
+          loadCalendarStats()
+        ]);
+        renderCalendar();
+      } catch (error) {
+        // 已在各函数中处理降级
+        renderCalendar();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 先生成模拟数据（避免页面空白）
+      generateMockData(currentYear, currentMonth);
+
+      // 初始化日历
+      renderCalendar();
+
+      // Chart.js: Emotion & Energy Trend
+      const ctx = document.getElementById('trendChart').getContext('2d');
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['06/24', '06/25', '06/26', '06/27', '06/28', '06/29', '06/30'],
+          datasets: [
+            {
+              label: '情绪指数',
+              data: [6.5, 5.8, 7.2, 4.5, 7.8, 8.2, 7.4],
+              borderColor: '#722ED1',
+              backgroundColor: 'rgba(114, 46, 209, 0.08)',
+              borderWidth: 2.5,
+              pointRadius: 5,
+              pointBackgroundColor: '#fff',
+              pointBorderColor: '#722ED1',
+              pointBorderWidth: 2,
+              pointHoverRadius: 7,
+              pointHoverBackgroundColor: '#722ED1',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              fill: true,
+              tension: 0.35,
+            },
+            {
+              label: '精力值',
+              data: [7.2, 6.2, 7.4, 4.2, 7.8, 8.5, 7.6],
+              borderColor: '#14C9C9',
+              backgroundColor: 'rgba(20, 201, 201, 0.05)',
+              borderWidth: 2.5,
+              pointRadius: 5,
+              pointBackgroundColor: '#fff',
+              pointBorderColor: '#14C9C9',
+              pointBorderWidth: 2,
+              pointHoverRadius: 7,
+              pointHoverBackgroundColor: '#14C9C9',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              fill: true,
+              tension: 0.35,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: {
+                boxWidth: 10,
+                boxHeight: 10,
+                borderRadius: 5,
+                useBorderRadius: true,
+                padding: 12,
+                font: {
+                  size: 11,
+                  family: "'Inter', 'PingFang SC', sans-serif",
+                  weight: 500,
+                },
+                color: '#86909C',
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(255,255,255,0.95)',
+              titleColor: '#1D2129',
+              bodyColor: '#4E5969',
+              borderColor: 'rgba(114, 46, 209, 0.15)',
+              borderWidth: 1,
+              cornerRadius: 8,
+              padding: 10,
+              titleFont: { size: 12, weight: 600 },
+              bodyFont: { size: 11 },
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.dataset.label + ': ' + ctx.parsed.y + ' / 10';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                color: 'rgba(114, 46, 209, 0.06)',
+                drawBorder: false,
+              },
+              ticks: {
+                color: '#86909C',
+                font: { size: 10, family: "'Inter', sans-serif" },
+                padding: 6,
+              },
+              border: { display: false }
+            },
+            y: {
+              min: 0,
+              max: 10,
+              grid: {
+                color: 'rgba(114, 46, 209, 0.06)',
+                drawBorder: false,
+              },
+              ticks: {
+                color: '#86909C',
+                font: { size: 10, family: "'Inter', sans-serif" },
+                padding: 8,
+                stepSize: 2,
+              },
+              border: { display: false }
+            }
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          onClick: function(e, elements) {
+            if (elements && elements.length > 0) {
+              const index = elements[0].index;
+              const dayStr = this.data.labels[index];
+              const day = parseInt(dayStr.split('/')[1]);
+              showDayDetail(day);
+            }
+          }
+        }
+      });
+
+      // Sidebar menu item click handling
+      document.querySelectorAll('.sidebar-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!item.getAttribute('href') || item.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.sidebar-menu-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      // Nav tab click handling
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          if (!tab.getAttribute('href') || tab.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        });
+      });
+
+      // 点击遮罩解锁查看详情
+      const lockOverlay = document.getElementById('popupLockOverlay');
+      if (lockOverlay) {
+        lockOverlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          YunxiAPI.withValidation(
+            {},
+            async () => {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              lockOverlay.style.opacity = '0';
+              setTimeout(() => {
+                lockOverlay.style.display = 'none';
+              }, 300);
+              YunxiAPI.showToast('已解锁当日详情', 'success');
+            },
+            { showError: true, loadingText: '身份验证中...' }
+          );
+        });
+      }
+
+      // 从 API 加载真实数据
+      initCalendarData();
+
+      // 同步按钮状态
+      YunxiAPI.updateButtonsBySystemStatus();
+    });
+  </script>
+
+</body>
+</html>

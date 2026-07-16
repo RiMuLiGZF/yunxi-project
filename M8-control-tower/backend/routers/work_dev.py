@@ -2357,11 +2357,11 @@ _VSCODE_WORKSPACES = {
         "path": "C:/Yunxi/workspace/yunxi-project/frontend",
         "icon": "🎨",
     },
-    "m9-programming": {
-        "id": "m9-programming",
-        "name": "M9 编程开发",
-        "path": "C:/Yunxi/workspace/yunxi-project/M9-programming-dev",
-        "icon": "⚙️",
+    "m9-dev-workshop": {
+        "id": "m9-dev-workshop",
+        "name": "M9 开发工坊",
+        "path": "C:/Yunxi/workspace/yunxi-project/M9-dev-workshop",
+        "icon": "🛠️",
     },
 }
 

@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1.0">
+  <title>云汐系统 M4 — 复盘总结模式 · 赛季征程</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="common/api.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       复盘总结模式 · 赛季征程 页面级样式
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+      overflow: hidden;
+    }
+
+    /* ── Top Navigation Bar ── */
+    .top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-header-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--spacing-xl);
+      z-index: var(--z-header);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      flex-shrink: 0;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.25);
+    }
+    .nav-logo-text {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nav-logo-sub {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-normal);
+      margin-left: var(--spacing-xs);
+    }
+
+    .nav-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-md, 8px);
+      background: rgba(114, 46, 209, 0.08);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      color: var(--color-primary, #722ED1);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .nav-back-btn:hover {
+      background: rgba(114, 46, 209, 0.15);
+      border-color: rgba(114, 46, 209, 0.25);
+      transform: translateX(-2px);
+    }
+
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--color-primary-lighter);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+    }
+    .nav-tab:hover {
+      color: var(--color-primary-text);
+      background: rgba(114, 46, 209, 0.06);
+    }
+    .nav-tab.active {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+      box-shadow: 0 2px 6px rgba(114, 46, 209, 0.3);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      flex-shrink: 0;
+    }
+    .nav-status-group {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-base);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+    .nav-status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.green { background: #00B42A; box-shadow: 0 0 4px rgba(0, 180, 42, 0.4); }
+    .status-dot.purple { background: #722ED1; box-shadow: 0 0 4px rgba(114, 46, 209, 0.4); }
+    .status-dot.blue { background: #165DFF; box-shadow: 0 0 4px rgba(22, 93, 255, 0.4); }
+
+    .nav-user-area {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .user-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F0E8FF, #D5B8FF);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: #531DAB;
+      border: 2px solid var(--color-primary-light);
+    }
+    .nav-encrypt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #E8FFEA;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: #00B42A;
+      border: 1px solid rgba(0, 180, 42, 0.2);
+    }
+
+    /* ── Layout Container ── */
+    .app-layout {
+      display: flex;
+      height: 100%;
+      padding-top: var(--header-height);
+    }
+
+    /* ── Left Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border-light);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: var(--z-sidebar);
+    }
+
+    .sidebar-profile {
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--color-border-light);
+      text-align: center;
+    }
+    .sidebar-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5B8DEF, #8B7CF0);
+      margin: 0 auto var(--spacing-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+    flex-shrink: 0;
+  }
+    .sidebar-user-name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .sidebar-role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+      padding: 2px 10px;
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .sidebar-menu {
+      flex: 1;
+      padding: var(--spacing-sm) var(--spacing-sm);
+    }
+    .sidebar-menu-section {
+      margin-bottom: var(--spacing-xs);
+    }
+    .sidebar-menu-label {
+      padding: var(--spacing-sm) var(--spacing-base);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-wide);
+    }
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 10px var(--spacing-base);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-menu-item:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary-text);
+    }
+    .sidebar-menu-item.active {
+      background: var(--color-sidebar-active-bg);
+      color: var(--color-sidebar-active);
+    }
+    .sidebar-menu-item.active .menu-icon {
+      color: var(--color-primary);
+    }
+    .menu-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+    .menu-icon svg {
+      width: 18px; height: 18px;
+    }
+
+    .sidebar-footer {
+      padding: var(--spacing-base);
+      border-top: 1px solid var(--color-border-light);
+    }
+    .sidebar-encrypt-status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: #F0FFF4;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: #009A29;
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(0, 180, 42, 0.15);
+    }
+    .encrypt-dot {
+      width: 8px; height: 8px;
+      background: #00B42A;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0, 180, 42, 0.5);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .sidebar-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+      font-size: var(--font-size-xs);
+    }
+    .sidebar-collapse-btn:hover {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--spacing-xl);
+      min-width: 0;
+    }
+
+    /* Confidential Mode Banner */
+    .confidential-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-base);
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.08), rgba(114, 46, 209, 0.03));
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .confidential-banner svg { flex-shrink: 0; }
+
+    /* ── Glass Card Base ── */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      transition: all var(--transition-base);
+    }
+    .glass-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    /* ── Section Header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    /* ── Season Selector ── */
+    .season-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 8px 16px;
+      background: rgba(114, 46, 209, 0.06);
+      border: 1px solid rgba(114, 46, 209, 0.15);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .season-selector:hover {
+      background: rgba(114, 46, 209, 0.1);
+      border-color: rgba(114, 46, 209, 0.25);
+    }
+    .season-selector-text {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-primary-text);
+    }
+    .season-selector-hint {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* ── Progress Overview Bar ── */
+    .progress-overview {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      margin-bottom: var(--spacing-lg);
+    }
+    .progress-info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .progress-label {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .progress-label-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .progress-countdown {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-medium);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .countdown-number {
+      color: #722ED1;
+      font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-md);
+    }
+
+    .progress-bar-container {
+      position: relative;
+      height: 12px;
+      background: rgba(114, 46, 209, 0.08);
+      border-radius: 6px;
+      overflow: visible;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 68%;
+      background: linear-gradient(90deg, #722ED1, #9254DE, #B37FEB);
+      border-radius: 6px;
+      position: relative;
+      box-shadow: 0 0 12px rgba(114, 46, 209, 0.3);
+    }
+
+    /* Milestone dots on progress bar */
+    .milestone {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+    }
+    .milestone-dot {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      position: relative;
+    }
+    .milestone-dot.passed {
+      background: #00B42A;
+      color: #fff;
+      box-shadow: 0 0 8px rgba(0, 180, 42, 0.4);
+    }
+    .milestone-dot.upcoming {
+      background: var(--color-border);
+      color: var(--color-text-tertiary);
+      border: 2px solid rgba(114, 46, 209, 0.2);
+      box-shadow: 0 0 8px rgba(114, 46, 209, 0.15);
+    }
+    .milestone-label {
+      position: absolute;
+      top: 26px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-tertiary);
+    }
+    .milestone-dot.passed + .milestone-label {
+      color: #009A29;
+    }
+
+    /* Current position marker */
+    .current-position {
+      position: absolute;
+      left: 68%;
+      top: -18px;
+      transform: translateX(-50%);
+      z-index: 4;
+    }
+    .current-marker-arrow {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #722ED1;
+      margin: 0 auto;
+      filter: drop-shadow(0 2px 4px rgba(114, 46, 209, 0.4));
+    }
+    .current-marker-dot {
+      width: 10px; height: 10px;
+      background: #722ED1;
+      border-radius: 50%;
+      margin: -2px auto 0;
+      box-shadow: 0 0 8px rgba(114, 46, 209, 0.6);
+      animation: pulse-position 2s ease-in-out infinite;
+    }
+    @keyframes pulse-position {
+      0%, 100% { box-shadow: 0 0 8px rgba(114, 46, 209, 0.6); }
+      50% { box-shadow: 0 0 16px rgba(114, 46, 209, 0.8); }
+    }
+    .current-marker-label {
+      text-align: center;
+      margin-top: 4px;
+      font-size: 10px;
+      font-weight: var(--font-weight-semibold);
+      color: #722ED1;
+    }
+
+    /* ── Phase Grid ── */
+    .phase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-base);
+      margin-bottom: var(--spacing-lg);
+    }
+    .phase-card {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+      transition: all var(--transition-base);
+      position: relative;
+      overflow: hidden;
+    }
+    .phase-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+    .phase-card.status-completed {
+      border-left: 3px solid #00B42A;
+    }
+    .phase-card.status-active {
+      border-left: 3px solid #722ED1;
+    }
+    .phase-card.status-active::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(114, 46, 209, 0.04), transparent);
+      pointer-events: none;
+    }
+    .phase-card.status-locked {
+      border-left: 3px solid var(--color-border);
+      opacity: 0.75;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-base);
+    }
+    .phase-title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .phase-badge {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-bold);
+      flex-shrink: 0;
+    }
+    .phase-badge.completed {
+      background: linear-gradient(135deg, #00B42A, #23C343);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 180, 42, 0.3);
+    }
+    .phase-badge.active {
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(114, 46, 209, 0.3);
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { box-shadow: 0 2px 8px rgba(114, 46, 209, 0.3); }
+      50% { box-shadow: 0 2px 16px rgba(114, 46, 209, 0.5); }
+    }
+    .phase-badge.locked {
+      background: var(--color-border-light);
+      color: var(--color-text-tertiary);
+    }
+    .phase-name {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+    .phase-date {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 1px;
+    }
+    .phase-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-semibold);
+      flex-shrink: 0;
+    }
+    .phase-status.completed {
+      background: #E8FFEA;
+      color: #009A29;
+    }
+    .phase-status.active {
+      background: #F0E8FF;
+      color: #722ED1;
+      animation: pulse-status 2s ease-in-out infinite;
+    }
+    @keyframes pulse-status {
+      0%, 100% { box-shadow: none; }
+      50% { box-shadow: 0 0 8px rgba(114, 46, 209, 0.2); }
+    }
+    .phase-status.locked {
+      background: var(--color-border-light);
+      color: var(--color-text-tertiary);
+    }
+
+    /* ── Task List ── */
+    .task-list {
+      list-style: none;
+      padding: 0;
+    }
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-sm);
+      padding: 8px var(--spacing-sm);
+      border-radius: var(--radius-sm);
+      transition: background var(--transition-fast);
+      position: relative;
+    }
+    .task-item:hover {
+      background: rgba(114, 46, 209, 0.03);
+    }
+    .task-item.current {
+      background: rgba(114, 46, 209, 0.06);
+      border-left: 3px solid #722ED1;
+      padding-left: calc(var(--spacing-sm) - 3px);
+    }
+    .task-checkbox {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .task-checkbox.checked {
+      background: #00B42A;
+      box-shadow: 0 1px 4px rgba(0, 180, 42, 0.3);
+    }
+    .task-checkbox.unchecked {
+      border: 2px solid var(--color-border);
+      background: transparent;
+    }
+    .task-checkbox.current {
+      border: 2px solid #722ED1;
+      background: rgba(114, 46, 209, 0.1);
+    }
+    .task-text {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: 1.5;
+    }
+    .task-text.done {
+      text-decoration: line-through;
+      color: var(--color-text-tertiary);
+    }
+
+    /* ── Privacy Lock Overlay ── */
+    .phase-lock-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(247, 240, 255, 0.65);
+      backdrop-filter: blur(3px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      z-index: 2;
+      border-radius: var(--radius-lg);
+    }
+    .lock-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(114, 46, 209, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-primary-text);
+    }
+    .lock-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ── Medal Section ── */
+    .medal-section {
+      background: rgba(255, 255, 255, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      box-shadow: var(--shadow-card);
+      padding: var(--spacing-xl);
+    }
+    .medal-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+    }
+    .medal-section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .medal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--spacing-base);
+    }
+    .medal-card {
+      background: rgba(255, 255, 255, 0.50);
+      backdrop-filter: blur(8px);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-glass-border);
+      padding: var(--spacing-lg);
+      text-align: center;
+      transition: all var(--transition-base);
+      position: relative;
+    }
+    .medal-card:hover {
+      box-shadow: var(--shadow-card-hover);
+    }
+    .medal-card.earned {
+      border-color: rgba(114, 46, 209, 0.3);
+      background: rgba(114, 46, 209, 0.04);
+    }
+    .medal-card.locked {
+      opacity: 0.8;
+    }
+
+    .medal-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      margin: 0 auto var(--spacing-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .medal-icon-inner {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+    .medal-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid transparent;
+    }
+    .medal-card.earned .medal-icon {
+      box-shadow: 0 0 20px rgba(114, 46, 209, 0.25), 0 4px 12px rgba(114, 46, 209, 0.15);
+    }
+    .medal-card.earned .medal-icon-inner {
+      background: linear-gradient(135deg, #722ED1, #9254DE);
+      color: #fff;
+    }
+    .medal-card.earned .medal-ring {
+      border-color: rgba(114, 46, 209, 0.2);
+      border-style: dashed;
+      animation: spin-slow 12s linear infinite;
+    }
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .medal-card.locked .medal-icon {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    .medal-card.locked .medal-icon-inner {
+      background: var(--color-border-light);
+      color: var(--color-text-tertiary);
+    }
+    .medal-card.locked .medal-ring {
+      border-color: var(--color-border);
+    }
+
+    .medal-lock-badge {
+      position: absolute;
+      top: -2px; right: -2px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--color-border-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .medal-name {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin-bottom: 6px;
+    }
+    .medal-status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: var(--font-weight-semibold);
+    }
+    .medal-status-tag.earned {
+      background: linear-gradient(135deg, rgba(114, 46, 209, 0.12), rgba(114, 46, 209, 0.06));
+      color: #722ED1;
+    }
+    .medal-status-tag.progress {
+      background: var(--color-border-light);
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Scrollbar styling ── */
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb {
+      background: rgba(114, 46, 209, 0.15);
+      border-radius: 3px;
+    }
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(114, 46, 209, 0.25);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fade-in-up 0.4s ease both;
+    }
+    .animate-in-1 { animation-delay: 0.05s; }
+    .animate-in-2 { animation-delay: 0.1s; }
+    .animate-in-3 { animation-delay: 0.15s; }
+    .animate-in-4 { animation-delay: 0.2s; }
+    .animate-in-5 { animation-delay: 0.25s; }
+    .animate-in-6 { animation-delay: 0.3s; }
+    .animate-in-7 { animation-delay: 0.35s; }
+    .animate-in-8 { animation-delay: 0.4s; }
+    .animate-in-9 { animation-delay: 0.45s; }
+
+    /* ── Season Dropdown ── */
+    .season-dropdown {
+      position: relative;
+    }
+    .season-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 240px;
+      background: var(--color-card-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      z-index: 100;
+      overflow: hidden;
+    }
+    .season-dropdown-menu.show { display: block; }
+    .season-dropdown-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .season-dropdown-item:last-child { border-bottom: none; }
+    .season-dropdown-item:hover {
+      background: var(--color-primary-lighter);
+    }
+    .season-dropdown-item.active {
+      background: var(--color-primary-lighter);
+      color: var(--color-primary-text);
+    }
+    .season-dropdown-item-title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: 2px;
+    }
+    .season-dropdown-item-sub {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+    }
+
+    /* ── Claim Reward Button ── */
+    .claim-reward-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: linear-gradient(135deg, var(--color-primary) 0%, #9F7AEA 100%);
+      color: white;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .claim-reward-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(114, 46, 209, 0.3);
+    }
+    .claim-reward-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .claim-reward-btn.claimed {
+      background: var(--color-success-bg);
+      color: var(--color-success-text);
+    }
+
+    /* ── Task Item Interactive ── */
+    .task-item {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <!-- Left: Logo -->
+    <div class="nav-logo">
+      <div class="nav-logo-icon">汐</div>
+      <span class="nav-logo-text">云汐<span class="nav-logo-sub">M4 业务引擎</span></span>
+    </div>
+
+    <a href="review-summary.html" class="nav-back-btn" title="返回复盘主页">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>复盘主页</span>
+    </a>
+
+    <!-- Center: Mode Tabs -->
+    <nav class="nav-tabs">
+      <a class="nav-tab" href="main-chat.html">💬 对话</a>
+      <a class="nav-tab" href="work-dev.html">工作开发</a>
+      <a class="nav-tab" href="study-plan.html">学业规划</a>
+      <a class="nav-tab active" href="review-summary.html">复盘总结</a>
+      <a class="nav-tab" href="social-relation.html">人际关系</a>
+      <a class="nav-tab" href="emotion-comfort.html">情绪安慰</a>
+      <a class="nav-tab" href="life-management.html">生活管理</a>
+    </nav>
+
+    <!-- Right: Status & User -->
+    <div class="nav-right">
+      <div class="nav-status-group">
+        <div class="nav-status-item">
+          <span class="status-dot green"></span>
+          <span>在线</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot purple"></span>
+          <span>M5 72%</span>
+        </div>
+        <div class="nav-status-item">
+          <span class="status-dot blue"></span>
+          <span>3 设备</span>
+        </div>
+      </div>
+      <div class="nav-user-area">
+        <div class="nav-encrypt-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密
+        </div>
+        <div class="user-avatar">汐</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">汐</div>
+        <div class="sidebar-user-name">汐舟主理</div>
+        <div class="sidebar-role-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          复盘模式
+        </div>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a class="sidebar-menu-item" href="main-chat.html">
+          <span class="menu-icon">💬</span>
+          对话主页
+        </a>
+        <div class="sidebar-menu-section">
+          <div class="sidebar-menu-label">成长体系</div>
+          <a class="sidebar-menu-item" href="growth-chronicle.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            地球Online编年史
+          </a>
+          <a class="sidebar-menu-item" href="growth-achievements.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span>
+            成就勋章殿堂
+          </a>
+          <a class="sidebar-menu-item" href="growth-talent-tree.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/><path d="M5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75L5 17z"/></svg>
+            </span>
+            心智天赋树
+          </a>
+          <a class="sidebar-menu-item" href="growth-tide-calendar.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+            </span>
+            潮汐专属历法
+          </a>
+          <a class="sidebar-menu-item" href="growth-memory-echo.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            记忆回响对比
+          </a>
+          <a class="sidebar-menu-item active" href="growth-season-journey.html">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            </span>
+            赛季征程
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-encrypt-status">
+          <span class="encrypt-dot"></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          本地加密存储已启用
+        </div>
+        <button class="sidebar-collapse-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          收起侧栏
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- Confidential Mode Banner -->
+      <div class="confidential-banner animate-in animate-in-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        涉密模式 — 所有复盘数据仅存储于本地加密区域，M5 记忆模块已隔离
+      </div>
+
+      <!-- ── Section Header: Title + Season Selector ── -->
+      <div class="section-header animate-in animate-in-2">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          赛季征程
+        </div>
+        <div class="season-dropdown">
+          <div class="season-selector" id="seasonSelectorBtn" onclick="toggleSeasonDropdown(event)">
+            <span class="season-selector-text" id="currentSeasonText">S12 赛季 (2025.04 — 2025.06)</span>
+            <span class="season-selector-hint">
+              切换赛季
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+          <div class="season-dropdown-menu" id="seasonDropdownMenu">
+            <div class="season-dropdown-item active" data-season="s12" onclick="switchSeason('s12')">
+              <div class="season-dropdown-item-title">S12 赛季 · 觉醒之夏</div>
+              <div class="season-dropdown-item-sub">2025.04 — 2025.06 · 进行中</div>
+            </div>
+            <div class="season-dropdown-item" data-season="s11" onclick="switchSeason('s11')">
+              <div class="season-dropdown-item-title">S11 赛季 · 破茧之春</div>
+              <div class="season-dropdown-item-sub">2025.01 — 2025.03 · 已完成</div>
+            </div>
+            <div class="season-dropdown-item" data-season="s10" onclick="switchSeason('s10')">
+              <div class="season-dropdown-item-title">S10 赛季 · 沉淀之冬</div>
+              <div class="season-dropdown-item-sub">2024.10 — 2024.12 · 已完成</div>
+            </div>
+            <div class="season-dropdown-item" data-season="s9" onclick="switchSeason('s9')">
+              <div class="season-dropdown-item-title">S9 赛季 · 收获之秋</div>
+              <div class="season-dropdown-item-sub">2024.07 — 2024.09 · 已完成</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 2. Progress Overview Bar ── -->
+      <div class="progress-overview animate-in animate-in-3">
+        <div class="progress-info-row">
+          <div class="progress-label">
+            赛季进度:
+            <span class="progress-label-value">68%</span>
+          </div>
+          <div class="progress-countdown">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            剩余 <span class="countdown-number">28</span> 天
+          </div>
+        </div>
+
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill"></div>
+
+          <!-- Current position marker at 68% -->
+          <div class="current-position">
+            <div class="current-marker-arrow"></div>
+            <div class="current-marker-dot"></div>
+            <div class="current-marker-label">当前</div>
+          </div>
+
+          <!-- Milestone: 开赛 at ~0% -->
+          <div class="milestone" style="left: 0%;">
+            <div class="milestone-dot passed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="milestone-label">开赛</div>
+          </div>
+
+          <!-- Milestone: 中期 at ~50% -->
+          <div class="milestone" style="left: 50%;">
+            <div class="milestone-dot passed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="milestone-label">中期</div>
+          </div>
+
+          <!-- Milestone: 结算 at ~100% -->
+          <div class="milestone" style="left: 100%;">
+            <div class="milestone-dot upcoming">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <div class="milestone-label">结算</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 3. Six-Phase Task List (2 columns x 3 rows) ── -->
+      <div class="phase-grid">
+
+        <!-- P1: 认知觉醒期 — 已完成 (unlocked) -->
+        <div class="phase-card status-completed animate-in animate-in-4">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge completed">P1</div>
+              <div>
+                <div class="phase-name">认知觉醒期</div>
+                <div class="phase-date">04.01 — 04.15</div>
+              </div>
+            </div>
+            <span class="phase-status completed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              已完成
+            </span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">完成初始评估</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">设定赛季目标</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">建立复盘习惯</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text done">完成第一次深度复盘</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P2: 技能积累期 — 已完成 (unlocked) -->
+        <div class="phase-card status-completed animate-in animate-in-5">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge completed">P2</div>
+              <div>
+                <div class="phase-name">技能积累期</div>
+                <div class="phase-date">04.16 — 04.30</div>
+              </div>
+            </div>
+            <span class="phase-status completed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              已完成
+            </span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">学习情绪识别技巧</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">完成5次决策分析</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text done">掌握认知偏差框架</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P3: 实践检验期 — 已完成 (unlocked) -->
+        <div class="phase-card status-completed animate-in animate-in-6">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge completed">P3</div>
+              <div>
+                <div class="phase-name">实践检验期</div>
+                <div class="phase-date">05.01 — 05.20</div>
+              </div>
+            </div>
+            <span class="phase-status completed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              已完成
+            </span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">应对真实冲突场景</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">记录10次情绪日记</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">完成风险评估训练</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P4: 深度突破期 — 进行中 (LOCKED with overlay) -->
+        <div class="phase-card status-active animate-in animate-in-7">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge active">P4</div>
+              <div>
+                <div class="phase-name">深度突破期</div>
+                <div class="phase-date">05.21 — 06.10</div>
+              </div>
+            </div>
+            <span class="phase-status active">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              进行中
+            </span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox checked">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="task-text done">突破舒适区挑战</span>
+            </li>
+            <li class="task-item current">
+              <span class="task-checkbox current"></span>
+              <span class="task-text">完成高级复盘</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">解锁新天赋节点</span>
+            </li>
+          </ul>
+          <!-- Privacy Lock Overlay -->
+          <div class="phase-lock-overlay">
+            <div class="lock-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <span class="lock-label">赛季数据仅本地加密存储</span>
+          </div>
+        </div>
+
+        <!-- P5: 巩固提升期 — 未开始 (LOCKED with overlay) -->
+        <div class="phase-card status-locked animate-in animate-in-8">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge locked">P5</div>
+              <div>
+                <div class="phase-name">巩固提升期</div>
+                <div class="phase-date">06.11 — 06.25</div>
+              </div>
+            </div>
+            <span class="phase-status locked">未开始</span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">巩固已学技能</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">帮助他人复盘</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">完成赛季总结</span>
+            </li>
+          </ul>
+          <!-- Privacy Lock Overlay -->
+          <div class="phase-lock-overlay">
+            <div class="lock-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <span class="lock-label">赛季数据仅本地加密存储</span>
+          </div>
+        </div>
+
+        <!-- P6: 赛季结算 — 未开始 (LOCKED with overlay) -->
+        <div class="phase-card status-locked animate-in animate-in-9">
+          <div class="phase-header">
+            <div class="phase-title-row">
+              <div class="phase-badge locked">P6</div>
+              <div>
+                <div class="phase-name">赛季结算</div>
+                <div class="phase-date">06.26 — 06.30</div>
+              </div>
+            </div>
+            <span class="phase-status locked">未开始</span>
+          </div>
+          <ul class="task-list">
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">赛季成就统计</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">获取限定勋章</span>
+            </li>
+            <li class="task-item">
+              <span class="task-checkbox unchecked"></span>
+              <span class="task-text">开启下一赛季</span>
+            </li>
+          </ul>
+          <!-- Privacy Lock Overlay -->
+          <div class="phase-lock-overlay">
+            <div class="lock-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <span class="lock-label">赛季数据仅本地加密存储</span>
+          </div>
+        </div>
+
+      </div><!-- /phase-grid -->
+
+      <!-- ── 4. Limited Edition Medal Display ── -->
+      <div class="medal-section animate-in animate-in-9">
+        <div class="medal-section-header">
+          <div class="medal-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            赛季限定勋章
+          </div>
+          <span style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">S12 赛季专属</span>
+        </div>
+
+        <div class="medal-grid">
+          <!-- Medal 1: S12 赛季先锋 — Earned -->
+          <div class="medal-card earned">
+            <div class="medal-icon">
+              <div class="medal-ring"></div>
+              <div class="medal-icon-inner">S12</div>
+            </div>
+            <div class="medal-name">S12 赛季先锋</div>
+            <span class="medal-status-tag earned">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              已获得
+            </span>
+          </div>
+
+          <!-- Medal 2: 复盘大师 — Not yet earned -->
+          <div class="medal-card locked">
+            <div class="medal-icon">
+              <div class="medal-ring"></div>
+              <div class="medal-lock-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="medal-icon-inner">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a7 7 0 0 0-5.4 11.4c.8 1.5 2 2.8 3.4 3.8V22l3.5-2.5c.5.1 1 .1 1.5.1a7 7 0 0 0 7-7 7 7 0 0 0-10-6.6z"/></svg>
+              </div>
+            </div>
+            <div class="medal-name">复盘大师</div>
+            <span class="medal-status-tag progress">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              进度 80%
+            </span>
+          </div>
+
+          <!-- Medal 3: 全节点点亮 — Not yet earned -->
+          <div class="medal-card locked">
+            <div class="medal-icon">
+              <div class="medal-ring"></div>
+              <div class="medal-lock-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="medal-icon-inner">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              </div>
+            </div>
+            <div class="medal-name">全节点点亮</div>
+            <span class="medal-status-tag progress">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              进度 62%
+            </span>
+          </div>
+        </div>
+      </div><!-- /medal-section -->
+
+    </main>
+  </div><!-- /app-layout -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // 赛季数据（API 数据，初始为空）
+    let seasonData = {};
+    // 已领取的奖励记录
+    let claimedRewards = {};
+    // 当前赛季 ID
+    let currentSeason = 's12';
+    // 赛季任务列表（按赛季+阶段存储）
+    let seasonTasks = {};
+    // 数据是否已加载
+    let seasonDataLoaded = false;
+
+    // 降级用的模拟数据
+    const fallbackSeasonData = {
+      s12: {
+        id: 's12',
+        name: 'S12 赛季 · 觉醒之夏',
+        period: '2025.04 — 2025.06',
+        status: 'active',
+        progress: 68,
+        days_left: 28,
+        phases: [
+          { id: 'p1', name: '启程阶段', status: 'completed', tasks: 4, completed: 4, reward: '初心勋章' },
+          { id: 'p2', name: '深耕阶段', status: 'completed', tasks: 3, completed: 3, reward: '匠人徽章' },
+          { id: 'p3', name: '突破阶段', status: 'active', tasks: 3, completed: 1, reward: '破茧之翼' },
+          { id: 'p4', name: '升华阶段', status: 'locked', tasks: 3, completed: 0, reward: '赛季MVP' }
+        ]
+      },
+      s11: {
+        id: 's11',
+        name: 'S11 赛季 · 破茧之春',
+        period: '2025.01 — 2025.03',
+        status: 'completed',
+        progress: 100,
+        days_left: 0,
+        phases: [
+          { id: 'p1', name: '启程阶段', status: 'completed', tasks: 4, completed: 4, reward: '初心勋章' },
+          { id: 'p2', name: '深耕阶段', status: 'completed', tasks: 3, completed: 3, reward: '匠人徽章' },
+          { id: 'p3', name: '突破阶段', status: 'completed', tasks: 3, completed: 3, reward: '破茧之翼' },
+          { id: 'p4', name: '升华阶段', status: 'completed', tasks: 3, completed: 3, reward: '赛季MVP' }
+        ]
+      },
+      s10: {
+        id: 's10',
+        name: 'S10 赛季 · 沉淀之冬',
+        period: '2024.10 — 2024.12',
+        status: 'completed',
+        progress: 100,
+        days_left: 0,
+        phases: [
+          { id: 'p1', name: '启程阶段', status: 'completed', tasks: 4, completed: 4, reward: '初心勋章' },
+          { id: 'p2', name: '深耕阶段', status: 'completed', tasks: 3, completed: 3, reward: '匠人徽章' },
+          { id: 'p3', name: '突破阶段', status: 'completed', tasks: 3, completed: 3, reward: '破茧之翼' },
+          { id: 'p4', name: '升华阶段', status: 'completed', tasks: 3, completed: 3, reward: '赛季MVP' }
+        ]
+      },
+      s9: {
+        id: 's9',
+        name: 'S9 赛季 · 收获之秋',
+        period: '2024.07 — 2024.09',
+        status: 'completed',
+        progress: 92,
+        days_left: 0,
+        phases: [
+          { id: 'p1', name: '启程阶段', status: 'completed', tasks: 4, completed: 4, reward: '初心勋章' },
+          { id: 'p2', name: '深耕阶段', status: 'completed', tasks: 3, completed: 3, reward: '匠人徽章' },
+          { id: 'p3', name: '突破阶段', status: 'completed', tasks: 3, completed: 3, reward: '破茧之翼' },
+          { id: 'p4', name: '升华阶段', status: 'completed', tasks: 3, completed: 2, reward: '赛季MVP' }
+        ]
+      }
+    };
+
+    const fallbackClaimedRewards = {
+      s12: { p1: true, p2: true, p3: false, p4: false },
+      s11: { p1: true, p2: true, p3: true, p4: true },
+      s10: { p1: true, p2: true, p3: true, p4: true },
+      s9: { p1: true, p2: true, p3: true, p4: false }
+    };
+
+    // ===== API 相关函数 =====
+
+    // 获取当前赛季
+    async function loadCurrentSeason() {
+      try {
+        const data = await YunxiAPI.request('GET', '/growth/season/current');
+        const seasonId = data.id || data.season_id || 's12';
+        currentSeason = seasonId;
+
+        // 转换数据格式
+        const season = {
+          id: seasonId,
+          name: data.name || data.title || '',
+          period: data.period || data.date_range || '',
+          status: data.status || (data.is_active ? 'active' : 'completed'),
+          progress: data.progress !== undefined ? data.progress : 0,
+          days_left: data.days_left !== undefined ? data.days_left : 0,
+          phases: data.phases || data.stages || []
+        };
+
+        seasonData[seasonId] = season;
+        seasonDataLoaded = true;
+        return season;
+      } catch (error) {
+        // 降级
+        if (!seasonDataLoaded) {
+          seasonData = { ...fallbackSeasonData };
+          claimedRewards = JSON.parse(JSON.stringify(fallbackClaimedRewards));
+          currentSeason = 's12';
+        }
+        return seasonData[currentSeason];
+      }
+    }
+
+    // 获取历史赛季列表
+    async function loadSeasonHistory() {
+      try {
+        const data = await YunxiAPI.request('GET', '/growth/season/history');
+        const seasons = Array.isArray(data) ? data : (data.list || data.items || []);
+
+        seasons.forEach(s => {
+          const sid = s.id || s.season_id;
+          if (!sid) return;
+          seasonData[sid] = {
+            id: sid,
+            name: s.name || s.title || '',
+            period: s.period || s.date_range || '',
+            status: s.status || (s.is_active ? 'active' : 'completed'),
+            progress: s.progress !== undefined ? s.progress : 0,
+            days_left: s.days_left !== undefined ? s.days_left : 0,
+            phases: s.phases || s.stages || []
+          };
+        });
+
+        return seasons;
+      } catch (error) {
+        return Object.values(seasonData);
+      }
+    }
+
+    // 获取赛季任务列表
+    async function loadSeasonTasks(seasonId, type = '') {
+      try {
+        const params = type ? `?type=${type}` : '';
+        const data = await YunxiAPI.request('GET', `/growth/season/tasks${params}`);
+        const tasks = Array.isArray(data) ? data : (data.list || data.items || []);
+
+        const key = seasonId + '_' + (type || 'all');
+        seasonTasks[key] = tasks;
+        return tasks;
+      } catch (error) {
+        return seasonTasks[seasonId + '_' + (type || 'all')] || [];
+      }
+    }
+
+    // 完成任务
+    async function completeTaskAPI(taskId) {
+      try {
+        const data = await YunxiAPI.request('POST', `/growth/season/tasks/${taskId}/complete`);
+        return { success: true, data };
+      } catch (error) {
+        YunxiAPI.showToast('任务完成失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 领取奖励
+    async function claimRewardAPI(taskIdOrPhaseId, isPhase = false) {
+      try {
+        const data = await YunxiAPI.request('POST', `/growth/season/tasks/${taskIdOrPhaseId}/claim`);
+        return { success: true, data };
+      } catch (error) {
+        YunxiAPI.showToast('领取奖励失败：' + error.message, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // 切换赛季下拉菜单
+    function toggleSeasonDropdown(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('seasonDropdownMenu');
+      menu.classList.toggle('show');
+    }
+
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', () => {
+      const menu = document.getElementById('seasonDropdownMenu');
+      if (menu) menu.classList.remove('show');
+    });
+
+    // 切换赛季
+    function switchSeason(seasonId) {
+      if (currentSeason === seasonId) return;
+
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          currentSeason = seasonId;
+          const season = seasonData[seasonId];
+          if (!season) return;
+
+          // 更新当前赛季文本
+          document.getElementById('currentSeasonText').textContent =
+            `${seasonId.toUpperCase()} 赛季 (${season.period || ''})`;
+
+          // 更新下拉菜单选中状态
+          document.querySelectorAll('.season-dropdown-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-season') === seasonId) {
+              item.classList.add('active');
+            }
+          });
+
+          // 更新进度条
+          const progressFill = document.querySelector('.progress-bar-fill');
+          if (progressFill) progressFill.style.width = (season.progress || 0) + '%';
+
+          const progressLabelValue = document.querySelector('.progress-label-value');
+          if (progressLabelValue) progressLabelValue.textContent = (season.progress || 0) + '%';
+
+          const countdownNumber = document.querySelector('.countdown-number');
+          if (countdownNumber) countdownNumber.textContent = season.days_left || 0;
+
+          // 更新阶段卡片状态（通过修改 class）
+          const phaseCards = document.querySelectorAll('.phase-card');
+          const phases = season.phases || [];
+          phaseCards.forEach((card, index) => {
+            const phase = phases[index];
+            if (!phase) return;
+
+            card.classList.remove('status-completed', 'status-active', 'status-locked');
+            card.classList.add('status-' + phase.status);
+
+            const badge = card.querySelector('.phase-badge');
+            if (badge) {
+              badge.classList.remove('completed', 'active', 'locked');
+              badge.classList.add(phase.status);
+              const badgeText = badge.querySelector('span');
+              if (badgeText) {
+                const statusMap = { completed: '已完成', active: '进行中', locked: '未解锁' };
+                badgeText.textContent = statusMap[phase.status] || phase.status;
+              }
+            }
+
+            const statusText = card.querySelector('.phase-status');
+            if (statusText) {
+              statusText.classList.remove('completed', 'active', 'locked');
+              statusText.classList.add(phase.status);
+            }
+          });
+
+          // 关闭下拉菜单
+          document.getElementById('seasonDropdownMenu').classList.remove('show');
+
+          // 重新绑定奖励领取按钮
+          bindClaimButtons();
+
+          YunxiAPI.showToast(`已切换到${season.name}`, 'info');
+        },
+        { showError: true, loadingText: '切换赛季中...' }
+      );
+    }
+
+    // 绑定任务点击事件
+    function bindTaskItems() {
+      const taskItems = document.querySelectorAll('.task-item');
+      taskItems.forEach((item, index) => {
+        if (item._hasClickHandler) return;
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // 只允许当前阶段的任务切换
+          const phaseCard = item.closest('.phase-card');
+          if (phaseCard && phaseCard.classList.contains('status-locked')) {
+            YunxiAPI.showToast('该阶段尚未解锁', 'warning');
+            return;
+          }
+
+          const taskId = item.getAttribute('data-task-id') || ('task_' + index);
+
+          YunxiAPI.withValidation(
+            {},
+            async () => {
+              const isDone = item.classList.contains('completed');
+
+              if (!isDone) {
+                // 调用完成任务 API
+                const result = await completeTaskAPI(taskId);
+                if (!result.success) {
+                  throw new Error(result.error || '完成失败');
+                }
+
+                item.classList.remove('current');
+                item.classList.add('completed');
+                YunxiAPI.showToast('任务状态已更新：已完成', 'success');
+              } else {
+                YunxiAPI.showToast('任务已完成', 'info');
+              }
+            },
+            { showError: true, loadingText: '更新中...' }
+          );
+        });
+        item._hasClickHandler = true;
+      });
+    }
+
+    // 绑定奖励领取按钮
+    function bindClaimButtons() {
+      const medalCards = document.querySelectorAll('.medal-card');
+      const season = seasonData[currentSeason];
+      if (!season) return;
+
+      const phases = season.phases || [];
+      const claimed = claimedRewards[currentSeason] || {};
+
+      medalCards.forEach((card, index) => {
+        const phase = phases[index];
+        if (!phase) return;
+
+        // 移除旧的按钮
+        const oldBtn = card.querySelector('.claim-reward-btn');
+        if (oldBtn) oldBtn.remove();
+
+        const isClaimed = claimed[phase.id];
+        const canClaim = phase.status === 'completed' && !isClaimed;
+
+        // 创建领取按钮
+        const btn = document.createElement('button');
+        btn.className = 'claim-reward-btn';
+        if (isClaimed) {
+          btn.classList.add('claimed');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>已领取';
+          btn.disabled = true;
+        } else if (canClaim) {
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>领取奖励';
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            claimReward(phase.id, phase.reward);
+          });
+        } else {
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>未解锁';
+          btn.disabled = true;
+        }
+
+        // 添加到卡片中
+        const medalName = card.querySelector('.medal-name');
+        if (medalName && medalName.parentNode) {
+          btn.style.marginTop = '8px';
+          btn.style.width = '100%';
+          btn.style.justifyContent = 'center';
+          card.appendChild(btn);
+        }
+      });
+    }
+
+    // 领取奖励
+    function claimReward(phaseId, rewardName) {
+      YunxiAPI.withValidation(
+        {},
+        async () => {
+          const result = await claimRewardAPI(phaseId, true);
+          if (!result.success) {
+            throw new Error(result.error || '领取失败');
+          }
+
+          // 更新本地领取状态
+          if (!claimedRewards[currentSeason]) {
+            claimedRewards[currentSeason] = {};
+          }
+          claimedRewards[currentSeason][phaseId] = true;
+          bindClaimButtons();
+          YunxiAPI.showToast(`恭喜获得「${rewardName}」！`, 'success');
+        },
+        { showError: true, loadingText: '领取奖励中...' }
+      );
+    }
+
+    // 初始化数据
+    async function initSeasonData() {
+      try {
+        // 并行加载当前赛季和历史赛季
+        const [current, history] = await Promise.all([
+          loadCurrentSeason(),
+          loadSeasonHistory()
+        ]);
+
+        // 更新UI
+        applySeasonDataToUI();
+      } catch (error) {
+        // 降级处理已在 loadCurrentSeason 中完成
+        applySeasonDataToUI();
+      }
+    }
+
+    // 应用赛季数据到UI
+    function applySeasonDataToUI() {
+      const season = seasonData[currentSeason];
+      if (!season) return;
+
+      // 更新当前赛季文本
+      const currentSeasonText = document.getElementById('currentSeasonText');
+      if (currentSeasonText) {
+        currentSeasonText.textContent = `${(season.id || currentSeason).toUpperCase()} 赛季 (${season.period || ''})`;
+      }
+
+      // 更新进度条
+      const progressFill = document.querySelector('.progress-bar-fill');
+      if (progressFill) progressFill.style.width = (season.progress || 0) + '%';
+
+      const progressLabelValue = document.querySelector('.progress-label-value');
+      if (progressLabelValue) progressLabelValue.textContent = (season.progress || 0) + '%';
+
+      const countdownNumber = document.querySelector('.countdown-number');
+      if (countdownNumber) countdownNumber.textContent = season.days_left || 0;
+
+      // 更新阶段卡片
+      const phaseCards = document.querySelectorAll('.phase-card');
+      const phases = season.phases || [];
+      phaseCards.forEach((card, index) => {
+        const phase = phases[index];
+        if (!phase) return;
+
+        card.classList.remove('status-completed', 'status-active', 'status-locked');
+        card.classList.add('status-' + phase.status);
+
+        const badge = card.querySelector('.phase-badge');
+        if (badge) {
+          badge.classList.remove('completed', 'active', 'locked');
+          badge.classList.add(phase.status);
+          const badgeText = badge.querySelector('span');
+          if (badgeText) {
+            const statusMap = { completed: '已完成', active: '进行中', locked: '未解锁' };
+            badgeText.textContent = statusMap[phase.status] || phase.status;
+          }
+        }
+
+        const statusText = card.querySelector('.phase-status');
+        if (statusText) {
+          statusText.classList.remove('completed', 'active', 'locked');
+          statusText.classList.add(phase.status);
+        }
+      });
+
+      // 绑定奖励领取按钮
+      bindClaimButtons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 先用降级数据初始化
+      seasonData = { ...fallbackSeasonData };
+      claimedRewards = JSON.parse(JSON.stringify(fallbackClaimedRewards));
+
+      // Sidebar menu item click handling
+      document.querySelectorAll('.sidebar-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!item.getAttribute('href') || item.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.sidebar-menu-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      // Nav tab click handling
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          if (!tab.getAttribute('href') || tab.getAttribute('href') === '#') {
+            e.preventDefault();
+          }
+          document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        });
+      });
+
+      // 绑定任务点击
+      bindTaskItems();
+
+      // 绑定奖励领取按钮
+      bindClaimButtons();
+
+      // 阶段卡片点击反馈
+      document.querySelectorAll('.phase-card').forEach(card => {
+        card.addEventListener('click', () => {
+          if (card.classList.contains('status-locked')) {
+            YunxiAPI.showToast('该阶段尚未解锁', 'warning');
+          }
+        });
+      });
+
+      // 从 API 加载真实数据
+      initSeasonData();
+
+      // 同步按钮状态
+      YunxiAPI.updateButtonsBySystemStatus();
+    });
+  </script>
+
+</body>
+</html>

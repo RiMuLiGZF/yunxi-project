@@ -1,0 +1,31 @@
+﻿# M4 场景引擎配置示例
+# 复制为 config.yaml 并修改
+
+# 基础配置
+basic:
+  default_scene: emotional     # 默认场景 ID
+  auto_switch: true            # 是否自动切换场景
+  switch_threshold: 0.7        # 切换置信度阈值 (0-1)
+  keyword_threshold: 0.7       # 关键词识别阈值 (0-1)
+  max_history: 100             # 最大历史记录数
+
+# LLM 增强配置
+llm:
+  enabled: false               # 是否启用 LLM 增强识别
+  base_url: ""                 # LLM 服务地址
+  model: ""                    # LLM 模型名称
+  api_key: ""                  # API 密钥
+
+# 数据存储
+storage:
+  data_path: "./data"          # 数据持久化路径
+  persist_scenes: true         # 是否持久化场景配置
+
+# 安全
+security:
+  admin_token: ""              # M8 管理令牌（空则开发模式自动放行）
+
+# 日志
+logging:
+  level: INFO                  # 日志级别: DEBUG/INFO/WARNING/ERROR
+  format: json                 # 日志格式: json/text

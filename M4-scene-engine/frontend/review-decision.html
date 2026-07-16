@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="review-summary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>决策回溯 — 云汐复盘模式</title>
+  <link rel="stylesheet" href="./colors_and_type.css">
+  <script src="common/api.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      background: var(--color-page-bg);
+    }
+    .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .top-bar {
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: var(--color-header-bg); border-bottom: 1px solid var(--color-header-border);
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      color: var(--color-text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px;
+      transition: all .2s;
+    }
+    .back-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+    .page-title { font-size: 16px; font-weight: 600; }
+    .main-body { flex: 1; overflow: auto; padding: 24px; }
+
+    .content-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+    .card {
+      background: var(--color-card-bg); border: 1px solid var(--color-border);
+      border-radius: 12px; padding: 20px;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .card-title { font-size: 15px; font-weight: 600; }
+
+    .btn-primary {
+      background: var(--color-primary); color: white; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; font-weight: 500; transition: opacity .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-secondary {
+      background: var(--color-card-bg); color: var(--color-text-primary);
+      border: 1px solid var(--color-border); border-radius: 8px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-secondary:hover { background: var(--color-hover-bg); }
+
+    .decision-list { display: flex; flex-direction: column; gap: 10px; }
+    .decision-item {
+      padding: 14px; border-radius: 10px; border: 1px solid var(--color-border);
+      cursor: pointer; transition: all .2s;
+    }
+    .decision-item:hover { background: var(--color-hover-bg); border-color: var(--color-primary-light); }
+    .decision-item.active {
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+    .decision-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .decision-meta {
+      display: flex; gap: 10px; font-size: 11px; color: var(--color-text-tertiary);
+    }
+    .decision-status {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500;
+    }
+    .decision-status.pending { background: rgba(255,125,0,0.1); color: #FF7D00; }
+    .decision-status.done { background: rgba(0,180,42,0.1); color: #00B42A; }
+
+    .detail-section { margin-bottom: 20px; }
+    .detail-section-title {
+      font-size: 13px; font-weight: 600; margin-bottom: 10px;
+      color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .option-list { display: flex; flex-direction: column; gap: 10px; }
+    .option-card {
+      padding: 14px; border-radius: 10px; border: 2px solid var(--color-border);
+      background: var(--color-page-bg); transition: all .2s;
+    }
+    .option-card.selected {
+      border-color: var(--color-primary);
+      background: var(--color-primary-light);
+    }
+    .option-card.rejected {
+      opacity: 0.5;
+    }
+    .option-name { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .option-pros-cons {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;
+    }
+    .option-pros { color: #00B42A; }
+    .option-cons { color: #F53F3F; }
+
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before {
+      content: ''; position: absolute; left: 7px; top: 0; bottom: 0;
+      width: 2px; background: var(--color-border);
+    }
+    .timeline-item { position: relative; padding-bottom: 20px; }
+    .timeline-item::before {
+      content: ''; position: absolute; left: -21px; top: 4px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--color-primary); border: 2px solid var(--color-card-bg);
+    }
+    .timeline-date { font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 4px; }
+    .timeline-content { font-size: 13px; }
+
+    .emotion-indicator {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .emotion-bar {
+      flex: 1; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden;
+    }
+    .emotion-fill { height: 100%; background: linear-gradient(90deg, #00B42A, #FF7D00, #F53F3F); border-radius: 4px; }
+    .emotion-label { font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; }
+
+    .bias-card {
+      padding: 12px; border-radius: 8px; background: var(--color-page-bg);
+      border-left: 3px solid var(--color-primary);
+      margin-bottom: 8px;
+    }
+    .bias-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .bias-desc { font-size: 12px; color: var(--color-text-secondary); }
+    .bias-suggestions { font-size: 11px; color: var(--color-text-tertiary); margin-top: 6px; line-height: 1.5; }
+
+    .action-bar {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      padding: 12px 0;
+      border-top: 1px solid var(--color-border);
+      margin-top: 12px;
+    }
+
+    .risk-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .risk-tag.high { background: rgba(245,63,63,0.1); color: #F53F3F; }
+    .risk-tag.medium { background: rgba(255,125,0,0.1); color: #FF7D00; }
+    .risk-tag.low { background: rgba(0,180,42,0.1); color: #00B42A; }
+    .risk-tag.none { background: rgba(150,150,150,0.1); color: #969696; }
+
+    textarea, input[type="text"] {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--color-border); border-radius: 8px;
+      background: var(--color-page-bg); color: var(--color-text-primary);
+      font-size: 13px; font-family: inherit; outline: none;
+    }
+    textarea:focus, input:focus { border-color: var(--color-primary); }
+    textarea { min-height: 80px; resize: vertical; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="top-bar">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="back-btn" onclick="location.href='review-summary.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          返回复盘模式
+        </div>
+        <div class="page-title">决策回溯</div>
+      </div>
+      <div>
+        <button class="btn-primary" onclick="showNewDecision()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          新建决策
+        </button>
+      </div>
+    </div>
+    <div class="main-body">
+      <div class="content-grid">
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">决策列表</div>
+              <span style="font-size:12px;color:var(--color-text-tertiary);" id="decision-count">0 项</span>
+            </div>
+            <div class="decision-list" id="decision-list"></div>
+          </div>
+        </div>
+
+        <div id="detail-panel">
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-header">
+              <div>
+                <div class="card-title" id="detail-title">选择一个决策查看详情</div>
+                <div style="font-size:12px;color:var(--color-text-tertiary);margin-top:4px;" id="detail-date"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn-secondary" id="decision-delete-btn" onclick="deleteDecision()" style="color:#F53F3F;border-color:rgba(245,63,63,0.3);display:none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                  删除
+                </button>
+                <span class="decision-status" id="detail-status">待决策</span>
+              </div>
+            </div>
+            <div id="detail-description" style="font-size:14px;line-height:1.6;color:var(--color-text-secondary);">
+              从左侧选择一个决策记录，查看完整的决策过程和结果。
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px;" id="options-card" style="display:none;">
+            <div class="detail-section-title">可选方案</div>
+            <div class="option-list" id="options-list"></div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px;" id="emotion-card" style="display:none;">
+            <div class="detail-section-title">决策时的情绪状态</div>
+            <div class="emotion-indicator">
+              <div class="emotion-bar">
+                <div class="emotion-fill" id="emotion-fill" style="width:50%;"></div>
+              </div>
+              <span class="emotion-label" id="emotion-label">中等</span>
+            </div>
+            <div style="font-size:12px;color:var(--color-text-tertiary);margin-top:8px;">
+              情绪越平静，决策越理性。高情绪状态下建议延迟决策。
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px;" id="bias-card" style="display:none;">
+            <div class="detail-section-title">认知偏差检测</div>
+            <div id="bias-list"></div>
+          </div>
+
+          <div class="card" id="timeline-card" style="display:none;">
+            <div class="detail-section-title">决策时间线</div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let decisions = [];
+    let currentId = null;
+
+    async function loadDecisions() {
+      try {
+        const res = await YunxiAPI.request('GET', 'review/decisions');
+        decisions = res.data;
+        document.getElementById('decision-count').textContent = decisions.length + ' 项';
+        const listEl = document.getElementById('decision-list');
+        if (decisions.length === 0) {
+          listEl.innerHTML = '<div style="color:var(--color-text-tertiary);text-align:center;padding:30px;font-size:13px;">暂无决策记录<br><br><button class="btn-secondary" onclick="showNewDecision()" style="margin:0 auto;">开始记录</button></div>';
+          return;
+        }
+        listEl.innerHTML = decisions.map(d => {
+          const rawStatus = d.status || (d.final_choice ? 'completed' : 'pending');
+          const status = (rawStatus === 'completed') ? 'done' : 'pending';
+          const statusMap = { pending: '待决策', executing: '进行中', completed: '已完成' };
+          const statusText = statusMap[rawStatus] || '待决策';
+          return `
+            <div class="decision-item ${d.id === currentId ? 'active' : ''}" onclick="selectDecision(${d.id})">
+              <div class="decision-title">${d.title}</div>
+              <div class="decision-meta">
+                <span class="decision-status ${status}">${statusText}</span>
+                <span>${new Date(d.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        if (decisions.length > 0) {
+          selectDecision(decisions[0].id);
+        }
+      } catch (e) {
+        console.error('加载决策列表失败', e);
+      }
+    }
+
+    async function selectDecision(id) {
+      currentId = id;
+      const decision = decisions.find(d => d.id === id);
+      if (!decision) return;
+      var deleteBtn = document.getElementById('decision-delete-btn');
+      if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+
+      document.querySelectorAll('.decision-item').forEach(el => {
+        el.classList.toggle('active', el.textContent.includes(decision.title));
+      });
+
+      document.getElementById('detail-title').textContent = decision.title;
+      document.getElementById('detail-date').textContent = new Date(decision.created_at).toLocaleString();
+      document.getElementById('detail-description').textContent = decision.description;
+      const rawStatus = decision.status || (decision.final_choice ? 'completed' : 'pending');
+      const status = (rawStatus === 'completed') ? 'done' : 'pending';
+      const statusMap = { pending: '待决策', executing: '进行中', completed: '已完成' };
+      const statusText = statusMap[rawStatus] || '待决策';
+      const statusEl = document.getElementById('detail-status');
+      statusEl.className = 'decision-status ' + status;
+      statusEl.textContent = statusText;
+
+      // 选项
+      document.getElementById('options-card').style.display = 'block';
+      const optionsHtml = decision.options.map((opt, i) => {
+        const isSelected = opt === decision.final_choice;
+        const isRejected = decision.final_choice && !isSelected;
+        return `
+          <div class="option-card ${isSelected ? 'selected' : ''} ${isRejected ? 'rejected' : ''}">
+            <div class="option-name">${opt}${isSelected ? ' ✓' : ''}</div>
+            <div class="option-pros-cons">
+              <div class="option-pros">✓ 优势点</div>
+              <div class="option-cons">✗ 风险</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('options-list').innerHTML = optionsHtml;
+
+      // 情绪
+      document.getElementById('emotion-card').style.display = 'block';
+      const emoLevel = decision.emotion_level || 5;
+      document.getElementById('emotion-fill').style.width = (emoLevel * 10) + '%';
+      document.getElementById('emotion-label').textContent = emoLevel > 7 ? '高情绪' : emoLevel > 4 ? '中等' : '平静';
+
+      // 偏差检测（调用真实 API）
+      document.getElementById('bias-card').style.display = 'block';
+      document.getElementById('bias-list').innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--color-text-tertiary);">偏差检测中...</div>';
+      loadBiasAnalysis(decision.description);
+
+      // 时间线
+      document.getElementById('timeline-card').style.display = 'block';
+      const timelineItems = [
+        { date: new Date(decision.created_at).toLocaleDateString(), content: '提出决策问题：' + decision.title },
+        { date: '分析阶段', content: '列出 ' + decision.options.length + ' 个可选方案' },
+      ];
+      if (decision.final_choice) {
+        timelineItems.push({ date: '决策完成', content: '最终选择：' + decision.final_choice });
+      }
+      if (decision.result) {
+        timelineItems.push({ date: '结果记录', content: decision.result });
+      }
+      document.getElementById('timeline').innerHTML = timelineItems.map(function(item) {
+        return '<div class="timeline-item"><div class="timeline-date">' + item.date + '</div><div class="timeline-content">' + item.content + '</div></div>';
+      }).join('');
+
+      // 更新操作按钮状态
+      updateActionButtons();
+    }
+
+    async function deleteDecision() {
+      if (!currentId) return;
+      var confirmed = await YunxiAPI.showConfirm('确定要删除这条决策记录吗？此操作不可恢复。', '删除决策');
+      if (!confirmed) return;
+      try {
+        await YunxiAPI.request('DELETE', 'review/decisions/' + currentId);
+        YunxiAPI.showToast('删除成功', 'success');
+        currentId = null;
+        // 重置详情面板
+        document.getElementById('detail-title').textContent = '选择一个决策查看详情';
+        document.getElementById('detail-date').textContent = '';
+        document.getElementById('detail-description').textContent = '';
+        document.getElementById('options-card').style.display = 'none';
+        document.getElementById('emotion-card').style.display = 'none';
+        document.getElementById('bias-card').style.display = 'none';
+        document.getElementById('timeline-card').style.display = 'none';
+        var deleteBtn = document.getElementById('decision-delete-btn');
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        var statusEl = document.getElementById('detail-status');
+        statusEl.className = 'decision-status pending';
+        statusEl.textContent = '待决策';
+        loadDecisions();
+      } catch (e) {
+        YunxiAPI.showToast('删除失败: ' + (e.message || '未知错误'), 'error');
+      }
+    }
+
+    function showNewDecision() {
+      const title = prompt('请输入决策标题：');
+      if (!title) return;
+      const desc = prompt('请输入决策描述（可选）：', '') || '';
+      const optionsStr = prompt('请输入选项（用逗号分隔）：', '选项A,选项B,选项C');
+      if (!optionsStr) return;
+      const options = optionsStr.split(',').map(s => s.trim()).filter(s => s);
+
+      YunxiAPI.request('POST', 'review/decisions', {
+        title,
+        description: desc,
+        options,
+      }).then(() => {
+        YunxiAPI.showToast('决策记录创建成功', 'success');
+        loadDecisions();
+      }).catch(() => {
+        YunxiAPI.showToast('创建失败', 'error');
+      });
+    }
+
+    // ===== 偏差检测 =====
+    async function loadBiasAnalysis(text) {
+      try {
+        const res = await YunxiAPI.request('POST', 'review/biases/analyze', {
+          text: text,
+        });
+        const data = res.data || res;
+        const biasDetails = data.bias_details || [];
+        const riskLevel = data.risk_level || 'none';
+        const suggestions = data.suggestions || [];
+
+        const riskLabels = { high: '高风险', medium: '中风险', low: '低风险', none: '无风险' };
+
+        if (biasDetails.length === 0) {
+          document.getElementById('bias-list').innerHTML = `
+            <div style="text-align:center;padding:16px;">
+              <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px;">
+                <span class="risk-tag ${riskLevel}">${riskLabels[riskLevel] || '无风险'}</span>
+              </div>
+              <div style="font-size:12px;color:var(--color-text-tertiary);">
+                ${suggestions[0] || '未检测到明显的认知偏差'}
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        const biasHtml = `
+          <div style="margin-bottom:12px;padding:10px;background:var(--color-page-bg);border-radius:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:12px;font-weight:500;">风险评估</span>
+              <span class="risk-tag ${riskLevel}">${riskLabels[riskLevel] || '检测中'}</span>
+            </div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:4px;">
+              检测到 ${biasDetails.length} 种潜在偏差
+            </div>
+          </div>
+          ${biasDetails.map(b => `
+            <div class="bias-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div class="bias-name">${b.name}</div>
+                <span class="risk-tag ${b.level}">${b.level === 'high' ? '高' : b.level === 'medium' ? '中' : '低'}</span>
+              </div>
+              <div class="bias-desc">${b.description}</div>
+              <div class="bias-suggestions">
+                💡 ${b.suggestions ? b.suggestions[0] : '建议保持理性思考'}
+              </div>
+            </div>
+          `).join('')}
+          ${suggestions.length > 0 ? `
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border);">
+              <div style="font-size:12px;font-weight:500;margin-bottom:8px;">改进建议</div>
+              <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.8;">
+                ${suggestions.slice(0, 4).map((s, i) => `<div>${i + 1}. ${s}</div>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        `;
+        document.getElementById('bias-list').innerHTML = biasHtml;
+      } catch (e) {
+        document.getElementById('bias-list').innerHTML = `
+          <div style="text-align:center;padding:16px;font-size:12px;color:var(--color-text-tertiary);">
+            偏差检测暂不可用
+          </div>
+        `;
+      }
+    }
+
+    // ===== 决策状态切换 =====
+    async function toggleStatus() {
+      if (!currentId) return;
+      const decision = decisions.find(d => d.id === currentId);
+      if (!decision) return;
+
+      const currentStatus = decision.status || (decision.final_choice ? 'completed' : 'pending');
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      const actionText = newStatus === 'completed' ? '标记完成' : '重新评估';
+
+      const confirmed = await YunxiAPI.showConfirm(
+        `确定要将此决策${actionText}吗？`,
+        '确认操作'
+      );
+      if (!confirmed) return;
+
+      try {
+        await YunxiAPI.request('PUT', `review/decisions/${currentId}`, {
+          status: newStatus,
+        });
+        YunxiAPI.showToast(`已${actionText}`, 'success');
+        await loadDecisions();
+        // 重新选中当前决策
+        selectDecision(currentId);
+      } catch (e) {
+        YunxiAPI.showToast('操作失败: ' + (e.message || '未知错误'), 'error');
+      }
+    }
+
+    // ===== 记录结果弹窗 =====
+    function showRecordResult() {
+      if (!currentId) return;
+      const decision = decisions.find(d => d.id === currentId);
+      if (!decision) return;
+
+      const result = prompt('请输入决策结果/执行情况：', decision.result || '');
+      if (result === null) return;
+
+      YunxiAPI.request('PUT', `review/decisions/${currentId}`, {
+        result: result,
+      }).then(async function() {
+        YunxiAPI.showToast('结果已记录', 'success');
+        await loadDecisions();
+        selectDecision(currentId);
+      }).catch(function(e) {
+        YunxiAPI.showToast('记录失败: ' + (e.message || '未知错误'), 'error');
+      });
+    }
+
+    // ===== 设置最终选择弹窗 =====
+    function showSetFinalChoice() {
+      if (!currentId) return;
+      const decision = decisions.find(d => d.id === currentId);
+      if (!decision || !decision.options || decision.options.length === 0) {
+        YunxiAPI.showToast('暂无可选方案', 'warning');
+        return;
+      }
+
+      const optionsText = decision.options.map(function(opt, i) {
+        return (i + 1) + '. ' + opt;
+      }).join('\n');
+      const choiceStr = prompt(
+        '请选择最终方案（输入选项编号）：\n\n' + optionsText,
+        '1'
+      );
+      if (choiceStr === null || choiceStr === '') return;
+
+      const idx = parseInt(choiceStr) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= decision.options.length) {
+        YunxiAPI.showToast('无效的选项编号', 'error');
+        return;
+      }
+
+      const finalChoice = decision.options[idx];
+      YunxiAPI.request('PUT', `review/decisions/${currentId}`, {
+        final_choice: finalChoice,
+        status: 'completed',
+      }).then(async function() {
+        YunxiAPI.showToast('最终选择已设置', 'success');
+        await loadDecisions();
+        selectDecision(currentId);
+      }).catch(function(e) {
+        YunxiAPI.showToast('设置失败: ' + (e.message || '未知错误'), 'error');
+      });
+    }
+
+    // ===== 更新操作按钮状态 =====
+    function updateActionButtons() {
+      const decision = decisions.find(d => d.id === currentId);
+      if (!decision) {
+        document.getElementById('detail-actions').style.display = 'none';
+        return;
+      }
+      document.getElementById('detail-actions').style.display = 'flex';
+
+      const status = decision.status || (decision.final_choice ? 'completed' : 'pending');
+      const toggleBtn = document.getElementById('btn-toggle-text');
+      if (status === 'completed') {
+        toggleBtn.textContent = '重新评估';
+      } else {
+        toggleBtn.textContent = '标记完成';
+      }
+    }
+
+    // 初始化
+    loadDecisions();
+  </script>
+</body>
+</html>
