@@ -18,6 +18,8 @@ from shared.long_term_memory import get_long_term_memory
 from shared.autonomous_learning import get_autonomous_learning_engine
 from shared.personality_engine import get_personality_engine
 from shared.skill_evolution import get_skill_evolution_engine
+from shared.tool_system import get_tool_registry
+from shared.agent_engine import get_agent_engine
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -368,6 +370,7 @@ async def brain_overview(current_user: dict = Depends(get_current_user)):
     skill_evo = _get_skill_evo_engine()
     if skill_evo:
         overview["features"]["skill_evolution"] = True
+        overview["features"]["agent_tools"] = True
         overview["skill_stats"] = skill_evo.get_growth_report(user_id)
     
     return ApiResponse(code=0, message="ok", data=overview)
@@ -541,3 +544,135 @@ async def update_plan_progress(
         raise HTTPException(status_code=404, detail="计划不存在")
     
     return ApiResponse(code=0, message="进度已更新")
+
+
+# ==================== Agent工具接口 ====================
+
+_agent_engine_cache = None
+_tool_registry_cache = None
+
+
+def _get_agent_engine_api():
+    """获取Agent引擎（API用懒加载）"""
+    global _agent_engine_cache
+    if _agent_engine_cache is None:
+        try:
+            _agent_engine_cache = get_agent_engine()
+        except Exception:
+            _agent_engine_cache = False
+    return _agent_engine_cache if _agent_engine_cache else None
+
+
+def _get_tool_registry_api():
+    """获取工具注册表（API用懒加载）"""
+    global _tool_registry_cache
+    if _tool_registry_cache is None:
+        try:
+            # 确保内置工具已注册
+            from shared.builtin_tools import _ensure_registered
+            _ensure_registered()
+            _tool_registry_cache = get_tool_registry()
+        except Exception:
+            _tool_registry_cache = False
+    return _tool_registry_cache if _tool_registry_cache else None
+
+
+@router.get("/tools/list")
+async def list_tools(
+    category: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取可用工具列表"""
+    registry = _get_tool_registry_api()
+    if not registry:
+        raise HTTPException(status_code=500, detail="工具系统不可用")
+    
+    tools = registry.list_tools(category=category)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "tools": [t.get_description_for_llm() for t in tools],
+        "total": len(tools),
+        "categories": list(set(t.category for t in tools)),
+    })
+
+
+@router.get("/tools/stats")
+async def tool_stats(current_user: dict = Depends(get_current_user)):
+    """获取工具调用统计"""
+    registry = _get_tool_registry_api()
+    if not registry:
+        raise HTTPException(status_code=500, detail="工具系统不可用")
+    
+    stats = registry.get_stats()
+    history = registry.get_call_history(limit=20)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "stats": stats,
+        "recent_calls": history,
+    })
+
+
+@router.post("/tools/call/{tool_name}")
+async def call_tool(
+    tool_name: str,
+    params: Optional[Dict[str, Any]] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """调用指定工具"""
+    registry = _get_tool_registry_api()
+    if not registry:
+        raise HTTPException(status_code=500, detail="工具系统不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    context = {"user_id": user_id}
+    
+    result = registry.call_tool(tool_name, params or {}, context=context)
+    
+    return ApiResponse(code=0 if result.success else 1,
+                       message="ok" if result.success else result.error or "调用失败",
+                       data=result.to_dict())
+
+
+class AgentRunRequest(BaseModel):
+    query: str
+    available_tools: Optional[List[str]] = None
+
+
+@router.post("/agent/run")
+async def agent_run(
+    req: AgentRunRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """执行Agent任务"""
+    engine = _get_agent_engine_api()
+    if not engine:
+        raise HTTPException(status_code=500, detail="Agent引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    context = {"user_id": user_id}
+    
+    result = engine.run(
+        query=req.query,
+        context=context,
+        available_tools=req.available_tools,
+    )
+    
+    return ApiResponse(code=0 if result.success else 1,
+                       message="ok" if result.success else result.error or "执行失败",
+                       data=result.to_dict())
+
+
+@router.get("/agent/stats")
+async def agent_stats(current_user: dict = Depends(get_current_user)):
+    """获取Agent统计信息"""
+    engine = _get_agent_engine_api()
+    if not engine:
+        raise HTTPException(status_code=500, detail="Agent引擎不可用")
+    
+    stats = engine.get_stats()
+    history = engine.get_execution_history(limit=10)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "stats": stats,
+        "recent_executions": history,
+    })

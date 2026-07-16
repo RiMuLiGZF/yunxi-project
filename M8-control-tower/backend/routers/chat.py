@@ -26,6 +26,7 @@ from shared.reasoning_engine import get_cot_engine, ReasoningMode
 from shared.autonomous_learning import get_autonomous_learning_engine
 from shared.personality_engine import get_personality_engine
 from shared.skill_evolution import get_skill_evolution_engine
+from shared.agent_engine import get_agent_engine
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -106,6 +107,8 @@ _learning_engine = None
 _personality_engine = None
 # 技能进化引擎（懒加载）
 _skill_evo_engine = None
+# Agent执行引擎（懒加载）
+_agent_engine = None
 
 
 def _get_learning_engine():
@@ -139,6 +142,52 @@ def _get_skill_evo_engine():
         except Exception:
             _skill_evo_engine = False
     return _skill_evo_engine if _skill_evo_engine else None
+
+
+def _get_agent_engine():
+    """获取Agent执行引擎（懒加载）"""
+    global _agent_engine
+    if _agent_engine is None:
+        try:
+            _agent_engine = get_agent_engine()
+        except Exception:
+            _agent_engine = False
+    return _agent_engine if _agent_engine else None
+
+
+def _should_use_agent(message: str) -> bool:
+    """判断是否需要使用Agent工具
+    
+    简单的启发式判断：检测问题是否需要工具辅助
+    """
+    if not message or len(message) < 2:
+        return False
+    
+    msg = message.lower()
+    
+    # 需要工具的典型模式
+    tool_patterns = [
+        # 计算
+        r'计算', r'等于多少', r'结果是',
+        r'\d+\s*[+\-*/]\s*\d+',
+        r'平方|立方|根号',
+        # 时间
+        r'几点了', r'现在几点', r'今天几号', r'星期几',
+        r'什么日期', r'当前时间',
+        # 记忆
+        r'我之前说', r'还记得吗', r'你记得', r'我告诉过你',
+        r'回忆一下', r'记不记得',
+        # 知识
+        r'什么是', r'解释一下', r'查一下', r'告诉我.*原理',
+        # 文本分析
+        r'分析.*文本', r'有多少字', r'关键词提取',
+    ]
+    
+    for pattern in tool_patterns:
+        if re.search(pattern, msg):
+            return True
+    
+    return False
 
 # M5 记忆服务配置
 M5_BASE_URL = os.environ.get("M5_BASE_URL", "http://localhost:8005")
@@ -535,6 +584,23 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
             except Exception:
                 pass
         
+        # === Agent智能体：检测是否需要工具辅助 ===
+        agent_result = None
+        agent_engine = _get_agent_engine()
+        if agent_engine and _should_use_agent(req.message):
+            try:
+                agent_result = agent_engine.run(
+                    query=req.message,
+                    context={"user_id": user_id, "conversation_id": conversation_id},
+                )
+                # 如果Agent成功且有工具使用，将结果融入回复
+                if agent_result and agent_result.tools_used:
+                    # 简单融合：在回复末尾附加工具发现的信息
+                    tool_info = f"\n\n（我使用了 {', '.join(agent_result.tools_used)} 工具来帮助你）"
+                    reply += tool_info
+            except Exception:
+                pass
+        
         # === 自我进化：对话后学习 ===
         
         # 1. 自主学习：从对话中提取知识
@@ -594,6 +660,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     "autonomous_learning": _get_learning_engine() is not None,
                     "personality": _get_personality_engine() is not None,
                     "skill_evolution": _get_skill_evo_engine() is not None,
+                    "agent_tools": _get_agent_engine() is not None,
                 },
             },
         )
