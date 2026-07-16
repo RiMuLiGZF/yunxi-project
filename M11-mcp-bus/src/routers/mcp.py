@@ -12,19 +12,63 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import secrets
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from ..models import McpCallRequest, McpToolListResponse, McpToolResponse
 from ..services.registry import mcp_registry
 from ..services.router import mcp_router
 from ..services.sse_manager import sse_manager
+from ..middleware.auth import get_current_api_key, ApiKey
 
 router = APIRouter(tags=["mcp"])
+
+logger = logging.getLogger(__name__)
+
+# MCP 端点是否需要鉴权（默认需要，可通过环境变量关闭用于纯内部部署）
+MCP_REQUIRE_AUTH = os.getenv("MCP_REQUIRE_AUTH", "true").lower() in ("true", "1", "yes")
+
+
+def _check_mcp_auth(request: Request) -> Optional[ApiKey]:
+    """检查 MCP 请求鉴权.
+    
+    如果 MCP_REQUIRE_AUTH=false，则允许匿名访问（仅内部部署建议）。
+    否则要求有效的 API Key。
+    
+    Returns:
+        ApiKey 对象或 None（未鉴权）
+    """
+    if not MCP_REQUIRE_AUTH:
+        # 匿名模式，返回一个虚拟的 anonymous key
+        return ApiKey(
+            id=0,
+            name="anonymous",
+            key_hash="",
+            scopes=["mcp:read", "mcp:call"],
+            is_active=True,
+            created_at=0,
+        )
+    
+    # 从 header 中提取 API Key（同步方式，因为 get_current_api_key 是 async）
+    # 这里手动实现一次简单检查
+    api_key_header = request.headers.get("x-api-key", "")
+    auth_header = request.headers.get("authorization", "")
+    
+    token = api_key_header
+    if not token and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    
+    if not token:
+        return None
+    
+    # 调用注册中心验证
+    from ..services.api_key_store import api_key_store
+    return api_key_store.validate_key(token)
 
 
 # ============================================================
@@ -44,7 +88,18 @@ async def mcp_endpoint(request: Request) -> Dict[str, Any]:
     - `resources/read`: 读取资源内容
     - `prompts/list`: 获取提示词列表
     - `prompts/get`: 获取提示词详情
+    
+    安全：需要有效的 API Key（X-API-Key 或 Authorization: Bearer）。
+    可通过 MCP_REQUIRE_AUTH=false 关闭鉴权（仅纯内部部署建议）。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        return _jsonrpc_error(
+            None, -32099,
+            "Unauthorized: Valid API Key required (X-API-Key header or Authorization: Bearer token)"
+        )
+    
     try:
         body = await request.json()
     except Exception:
@@ -586,7 +641,7 @@ async def _handle_prompts_get(params: Dict[str, Any]) -> Dict[str, Any]:
 # ============================================================
 
 @router.get("/mcp/sse", summary="MCP SSE 连接端点")
-async def mcp_sse_endpoint() -> StreamingResponse:
+async def mcp_sse_endpoint(request: Request) -> StreamingResponse:
     """MCP SSE 传输协议端点.
 
     客户端通过 GET 请求建立 SSE 长连接，
@@ -597,7 +652,18 @@ async def mcp_sse_endpoint() -> StreamingResponse:
     - 连接建立后，首条消息为 endpoint 事件，包含 session_id
     - 后续通过 message 事件推送 JSON-RPC 响应
     - 定期发送心跳注释保持连接
+    
+    安全：需要有效的 API Key。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Valid API Key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # 创建会话
     session = await sse_manager.create_session()
     if not session:
@@ -728,6 +794,7 @@ async def mcp_sse_message(session_id: str, request: Request) -> Dict[str, Any]:
 
 @router.get("/api/v1/tools", response_model=McpToolListResponse, summary="REST 获取工具列表")
 async def rest_list_tools(
+    request: Request,
     server_id: Optional[int] = Query(None, description="按服务器过滤"),
     category: Optional[str] = Query(None, description="按分类过滤"),
     keyword: Optional[str] = Query(None, description="关键词搜索"),
@@ -738,7 +805,18 @@ async def rest_list_tools(
 
     工具名格式：{server_name}.{tool_name}
     支持分页、过滤、搜索。
+    
+    安全：需要有效的 API Key。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Valid API Key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     tools, total, categories = mcp_registry.get_all_tools(
         server_id=server_id,
         category=category,
@@ -770,14 +848,29 @@ async def rest_list_tools(
 
 
 @router.post("/api/v1/tools/{tool_name}/call", summary="REST 调用工具")
-async def rest_call_tool(tool_name: str, body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def rest_call_tool(
+    tool_name: str,
+    request: Request,
+    body: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """REST 风格调用工具.
 
     工具名格式：{server_name}.{tool_name}
 
     请求体为工具调用参数（JSON 对象）。
     返回执行结果和元数据。
+    
+    安全：需要有效的 API Key。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Valid API Key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     arguments = body or {}
 
     result = mcp_router.call_tool(
@@ -803,11 +896,22 @@ async def rest_call_tool(tool_name: str, body: Optional[Dict[str, Any]] = None) 
 
 
 @router.get("/api/v1/tools/{tool_name}", response_model=McpToolResponse, summary="REST 获取工具详情")
-async def rest_get_tool(tool_name: str) -> McpToolResponse:
+async def rest_get_tool(tool_name: str, request: Request) -> McpToolResponse:
     """REST 风格获取工具详情.
 
     工具名格式：{server_name}.{tool_name}
+    
+    安全：需要有效的 API Key。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Valid API Key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     result = mcp_registry.get_tool_by_name(tool_name)
     if not result:
         raise HTTPException(status_code=404, detail=f"工具不存在: {tool_name}")

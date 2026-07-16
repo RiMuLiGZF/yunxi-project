@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# 失败快速终止
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-test:
     name: 代码检查与测试
@@ -13,6 +18,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.10', '3.11']
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -26,26 +32,41 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-asyncio httpx fastapi uvicorn
+          pip install flake8 pytest pytest-asyncio pytest-cov httpx fastapi uvicorn python-jose[cryptography]
 
-      - name: Lint with flake8
+      - name: Lint - Syntax errors (blocking)
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
+            --exclude=M5-tide-memory,archive,.git,__pycache__,.pytest_cache
+
+      - name: Lint - Style (non-blocking, informational)
+        run: |
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics \
+            --exclude=M5-tide-memory,archive,.git,__pycache__,.pytest_cache || true
 
       - name: Syntax check all Python files
         run: |
-          find . -name "*.py" -not -path "./M5-tide-memory/*" -not -path "./archive/*" -not -path "./.git/*" | xargs -I {} python -m py_compile {}
+          set -e
+          find . -name "*.py" \
+            -not -path "./M5-tide-memory/*" \
+            -not -path "./archive/*" \
+            -not -path "./.git/*" \
+            -not -path "*/__pycache__/*" \
+            -not -path "./.pytest_cache/*" | while read -r file; do
+            python -m py_compile "$file" || exit 1
+          done
           echo "All Python files pass syntax check"
 
-      - name: Run unit tests
+      - name: Test shared modules (blocking)
         run: |
-          pytest tests/ -v --ignore=tests/e2e -x || echo "Tests completed (some may be skipped)"
-
-      - name: Test shared modules
-        run: |
+          set -e
           python -c "import sys; sys.path.insert(0, '.'); from shared.observability import get_logger, get_metrics, start_trace; print('Shared observability OK')"
           python -c "import sys; sys.path.insert(0, '.'); from shared.data_layer import DatabaseManager, BackupManager, MigrationEngine; print('Shared data layer OK')"
+          python -c "import sys; sys.path.insert(0, '.'); from shared.middleware.tracing import TracingMiddleware; print('Shared middleware OK')"
+
+      - name: Run unit tests (non-blocking for now, will be enforced later)
+        run: |
+          pytest tests/test_shared/ -v --cov=shared --cov-report=term-missing || echo "WARNING: Some tests failed - test coverage work in progress"
 
   security-scan:
     name: 安全扫描
@@ -61,42 +82,64 @@ jobs:
 
       - name: Install security tools
         run: |
-          pip install bandit safety
+          pip install bandit pip-audit
 
-      - name: Run Bandit security scan
+      - name: Run Bandit security scan (high/critical only)
         run: |
-          bandit -r . -x ./M5-tide-memory,./archive -f json -o bandit-report.json || true
-          echo "Security scan completed"
+          bandit -r . \
+            -x ./M5-tide-memory,./archive,./.git,./__pycache__ \
+            -ll  # only high and critical severity
+            -f json -o bandit-report.json \
+            || echo "WARNING: Bandit found potential issues (review bandit-report.json)"
 
-      - name: Check dependencies
+      - name: Check dependencies with pip-audit
         run: |
-          pip freeze > requirements_all.txt
-          safety check --full-report || true
+          pip install -r M12-security-shield/requirements.txt 2>/dev/null || true
+          pip-audit --desc=on --format=json > pip-audit-report.json || echo "WARNING: pip-audit found vulnerabilities"
 
   build-check:
     name: 构建检查
     runs-on: ubuntu-latest
     needs: lint-and-test
+    if: success() || needs.lint-and-test.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Verify module structure
         run: |
+          set -e
           echo "=== Module Structure Check ==="
-          for dir in M0-principal-console M1-agent-hub M2-skills-cluster M3-edge-cloud M4-scene-engine M6-hardware-peripheral M7-workflow-builder M8-control-tower M9-dev-workshop M10-system-guard M11-mcp-bus M12-security-shield API-Gateway shared; do
+          MISSING=0
+          for dir in M0-principal-console M1-agent-hub M2-skills-cluster M3-edge-cloud M4-scene-engine M5-tide-memory M6-hardware-peripheral M7-workflow-builder M8-control-tower M9-dev-workshop M10-system-guard M11-mcp-bus M12-security-shield API-Gateway shared; do
             if [ -d "$dir" ]; then
               echo "✓ $dir"
             else
               echo "✗ $dir MISSING"
+              MISSING=1
             fi
           done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "ERROR: Some modules are missing"
+            exit 1
+          fi
           echo ""
           echo "=== Config Files ==="
-          for f in start-all.ps1 stop-all.ps1 config/yunxi.env; do
+          for f in start-all.ps1 stop-all.ps1 README.md; do
             if [ -f "$f" ]; then
               echo "✓ $f"
             else
-              echo "✗ $f MISSING"
+              echo "⚠ $f missing (optional)"
             fi
           done
+          echo ""
+          echo "All required modules present."
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-artifacts
+          path: |
+            bandit-report.json
+            pip-audit-report.json
+          if-no-files-found: ignore

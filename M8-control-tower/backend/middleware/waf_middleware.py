@@ -258,14 +258,19 @@ class WafMiddleware(BaseHTTPMiddleware):
         user_agent = request.headers.get("user-agent", "")
 
         # 读取请求体（只在 block 模式或有 body 时读取）
-        # 注意：读取 body 会消耗 stream，需要特殊处理
+        # 注意：读取 body 会消耗 stream，需要重建 request body
         body = ""
+        body_bytes = b""
         if request.method in ("POST", "PUT", "PATCH"):
             try:
                 body_bytes = await request.body()
                 if body_bytes:
                     # 只取前 10KB 用于检测，避免大 body 影响性能
                     body = body_bytes[:10240].decode("utf-8", errors="ignore")
+                
+                # 重建请求体流（关键：否则后续路由拿不到body）
+                # 通过覆盖 request._receive 来重新播放 body
+                await self._rebuild_request_body(request, body_bytes)
             except Exception:
                 pass
 
@@ -305,6 +310,48 @@ class WafMiddleware(BaseHTTPMiddleware):
             return client.host
 
         return ""
+
+    async def _rebuild_request_body(self, request: Request, body_bytes: bytes):
+        """
+        重建请求体流
+        
+        Starlette 的 Request.body() 会消耗底层 receive 流，
+        后续路由再次读取时会得到空body。
+        通过覆盖 request._receive 来重新播放 body 数据。
+        
+        Args:
+            request: 请求对象
+            body_bytes: 原始请求体字节
+        """
+        if not body_bytes:
+            return
+        
+        # 构建 ASGI message 序列
+        # 参考 starlette.requests.Request 的 body 实现
+        from starlette.requests import HTTPConnection
+        try:
+            # 保存原始 receive
+            original_receive = request._receive
+            
+            # 标记 body 是否已被消费
+            consumed = False
+            
+            async def receive():
+                nonlocal consumed
+                if not consumed:
+                    consumed = True
+                    return {
+                        "type": "http.request",
+                        "body": body_bytes,
+                        "more_body": False,
+                    }
+                # 后续消息（如 disconnect）
+                return await original_receive()
+            
+            request._receive = receive
+        except Exception:
+            # 重建失败不影响主流程，静默降级
+            pass
 
     async def _check_and_block(self, request: Request, call_next, request_info: dict):
         """拦截模式：同步检测，发现攻击返回 403
