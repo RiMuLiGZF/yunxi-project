@@ -6,7 +6,7 @@ structlog>=23.0.0
 httpx>=0.25.0
 
 # 补充依赖
-uvicorn
-pydantic-settings
-psutil
-SQLAlchemy
+uvicorn==0.30.6
+pydantic-settings==2.5.2
+psutil==6.0.0
+SQLAlchemy==2.0.35

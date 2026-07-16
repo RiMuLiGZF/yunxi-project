@@ -6,5 +6,5 @@ sse-starlette>=1.8.0
 httpx>=0.25.0
 
 # 补充依赖
-uvicorn
-psutil
+uvicorn==0.30.6
+psutil==6.0.0

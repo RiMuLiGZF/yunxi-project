@@ -392,3 +392,175 @@ def normalize_whitespace(text: str) -> str:
     if not text:
         return ""
     return re.sub(r'\s+', ' ', text).strip()
+
+
+# ===========================================================================
+# 日志脱敏
+# ===========================================================================
+
+# 敏感数据模式（用于自动检测和脱敏）
+_SENSITIVE_PATTERNS = [
+    # JWT Token
+    (r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}', '***JWT***'),
+    # Bearer Token
+    (r'(?i)(bearer\s+)[A-Za-z0-9._-]{16,}', r'\1***'),
+    # API Key
+    (r'(?i)(api[_-]?key\s*[=:]\s*)[A-Za-z0-9_\-]{16,}', r'\1***'),
+    # Password
+    (r'(?i)(password\s*[=:]\s*)\S+', r'\1***'),
+    (r'(?i)(passwd\s*[=:]\s*)\S+', r'\1***'),
+    (r'(?i)(pwd\s*[=:]\s*)\S+', r'\1***'),
+    # Secret
+    (r'(?i)(secret\s*[=:]\s*)[A-Za-z0-9_\-]{8,}', r'\1***'),
+    (r'(?i)(token\s*[=:]\s*)[A-Za-z0-9_\-]{8,}', r'\1***'),
+    # 手机号（中国）
+    (r'(?<!\d)1[3-9]\d{9}(?!\d)', '1*********'),
+    # 邮箱（保留首字母和域名）
+    (r'([a-zA-Z])[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', r'\1***@\2'),
+    # 身份证号（18位）
+    (r'(?<!\d)\d{6}\d{8}\d{4}(?!\d)', '**********'),
+    # 银行卡号（16-19位）
+    (r'(?<!\d)(\d{4})\d{8,11}(\d{4})(?!\d)', r'\1********\2'),
+    # IP 地址（可选脱敏）
+    # IPv4 保留前两段
+    (r'(\d{1,3}\.\d{1,3}\.)\d{1,3}\.\d{1,3}', r'\1***.***'),
+]
+
+
+def mask_sensitive_data(text: str) -> str:
+    """自动检测并脱敏日志中的敏感数据.
+    
+    支持自动检测和脱敏：
+    - JWT Token
+    - Bearer Token / API Key
+    - Password / Secret
+    - 手机号、邮箱、身份证号、银行卡号
+    - IP 地址
+    
+    Args:
+        text: 原始日志文本
+    
+    Returns:
+        脱敏后的文本
+    """
+    if not text:
+        return text
+    
+    result = str(text)
+    for pattern, replacement in _SENSITIVE_PATTERNS:
+        result = re.sub(pattern, replacement, result)
+    
+    return result
+
+
+def mask_dict_sensitive(
+    data: Dict[str, Any],
+    sensitive_keys: Optional[List[str]] = None,
+    mask_value: str = "***",
+) -> Dict[str, Any]:
+    """脱敏字典中的敏感字段.
+    
+    Args:
+        data: 原始字典
+        sensitive_keys: 敏感字段名列表（不区分大小写），默认包含常见敏感字段
+        mask_value: 脱敏后的值
+    
+    Returns:
+        脱敏后的字典
+    """
+    if not data:
+        return data
+    
+    if sensitive_keys is None:
+        sensitive_keys = [
+            "password", "passwd", "pwd", "secret", "token",
+            "api_key", "apikey", "access_key", "access_token",
+            "refresh_token", "private_key", "public_key",
+            "authorization", "auth", "cookie", "session",
+            "credit_card", "card_number", "cvv", "cvc",
+            "ssn", "id_card", "id_number",
+            "phone", "mobile", "email",
+            "address", "location",
+        ]
+    
+    sensitive_lower = {k.lower() for k in sensitive_keys}
+    
+    result = {}
+    for key, value in data.items():
+        if key.lower() in sensitive_lower:
+            result[key] = mask_value
+        elif isinstance(value, dict):
+            result[key] = mask_dict_sensitive(value, sensitive_keys, mask_value)
+        elif isinstance(value, str) and key.lower() not in {"name", "title", "content", "message", "description"}:
+            # 字符串值也进行模式脱敏
+            result[key] = mask_sensitive_data(value)
+        else:
+            result[key] = value
+    
+    return result
+
+
+def mask_email(email: str, keep_chars: int = 1) -> str:
+    """脱敏邮箱地址.
+    
+    Args:
+        email: 邮箱地址
+        keep_chars: 保留的首字母数量
+    
+    Returns:
+        脱敏后的邮箱
+    """
+    if not email or "@" not in email:
+        return email
+    
+    username, domain = email.split("@", 1)
+    if len(username) <= keep_chars:
+        return f"{username[0]}***@{domain}"
+    
+    return f"{username[:keep_chars]}***@{domain}"
+
+
+def mask_phone(phone: str) -> str:
+    """脱敏手机号.
+    
+    Args:
+        phone: 手机号
+    
+    Returns:
+        脱敏后的手机号（保留前3后4位）
+    """
+    if not phone:
+        return phone
+    
+    digits = re.sub(r'\D', '', phone)
+    if len(digits) == 11:
+        return f"{digits[:3]}****{digits[-4:]}"
+    
+    # 其他长度：保留前后各2位
+    if len(digits) > 4:
+        return f"{digits[:2]}***{digits[-2:]}"
+    
+    return "***"
+
+
+def mask_string(s: str, keep_start: int = 2, keep_end: int = 2, mask_char: str = "*") -> str:
+    """通用字符串脱敏.
+    
+    Args:
+        s: 原始字符串
+        keep_start: 保留开头字符数
+        keep_end: 保留结尾字符数
+        mask_char: 脱敏字符
+    
+    Returns:
+        脱敏后的字符串
+    """
+    if not s:
+        return s
+    
+    length = len(s)
+    if length <= keep_start + keep_end:
+        return mask_char * length
+    
+    return s[:keep_start] + mask_char * (length - keep_start - keep_end) + s[-keep_end:]
+

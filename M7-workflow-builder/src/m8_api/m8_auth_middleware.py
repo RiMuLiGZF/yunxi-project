@@ -45,18 +45,24 @@ class M8AuthMiddleware(BaseHTTPMiddleware):
         self._expected_token = os.environ.get(token_env_var, "")
         self._env_mode = os.environ.get("M7_ENV", "development")
         self._token_env_var = token_env_var
+        self._is_dev_token = False  # 是否为自动生成的开发token
 
+        # 生产环境：必须配置，无配置直接启动失败
         if self._env_mode == "production" and not self._expected_token:
             raise RuntimeError(
                 f"[M7] 生产环境必须配置 {token_env_var} 环境变量"
             )
 
+        # 开发环境：未配置时生成随机token（避免硬编码默认值）
         if not self._expected_token:
+            import secrets
+            self._expected_token = "dev-" + secrets.token_hex(16)
+            self._is_dev_token = True
             print(
-                f"[M7] 警告: {token_env_var} 未配置，开发模式下将使用默认 token"
+                f"[M7] ⚠️  开发模式：{token_env_var} 未配置，已生成临时 token\n"
+                f"       临时 Token: {self._expected_token}\n"
+                f"       请通过 {token_env_var} 环境变量设置自定义 token"
             )
-            # 开发模式下使用默认 token
-            self._expected_token = "m7-dev-token-default"
 
     def is_whitelisted(self, path: str) -> bool:
         """判断路径是否在白名单中.

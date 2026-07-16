@@ -2453,9 +2453,9 @@ async def launch_vscode(req: dict):
     try:
         code_cmd = info["path"]
         if workspace_path and os.path.exists(workspace_path):
-            subprocess.Popen([code_cmd, workspace_path], shell=True)
+            subprocess.Popen([code_cmd, workspace_path])
         else:
-            subprocess.Popen([code_cmd], shell=True)
+            subprocess.Popen([code_cmd])
         import time
         time.sleep(2)
         instances = _get_vscode_instances()
@@ -2481,7 +2481,7 @@ async def open_file_in_vscode(req: dict):
     try:
         code_cmd = info["path"]
         goto_arg = f"{file_path}:{line}" if line > 0 else file_path
-        subprocess.Popen([code_cmd, "--goto", goto_arg], shell=True)
+        subprocess.Popen([code_cmd, "--goto", goto_arg])
         return {"code": 0, "message": "已在 VS Code 中打开", "data": {"file": file_path, "line": line}}
     except Exception as e:
         return {"code": 500, "message": f"打开失败: {str(e)}", "data": None}
