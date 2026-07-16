@@ -23,6 +23,9 @@ from shared.multimodal import get_multimodal_engine, VisionTaskType
 from shared.long_term_memory import get_long_term_memory, MemoryType, MemoryImportance
 from shared.rag_knowledge import get_rag_knowledge_base
 from shared.reasoning_engine import get_cot_engine, ReasoningMode
+from shared.autonomous_learning import get_autonomous_learning_engine
+from shared.personality_engine import get_personality_engine
+from shared.skill_evolution import get_skill_evolution_engine
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -95,6 +98,47 @@ def _get_cot_engine():
         except Exception:
             _cot_engine = False
     return _cot_engine if _cot_engine else None
+
+
+# 自主学习引擎（懒加载）
+_learning_engine = None
+# 人格引擎（懒加载）
+_personality_engine = None
+# 技能进化引擎（懒加载）
+_skill_evo_engine = None
+
+
+def _get_learning_engine():
+    """获取自主学习引擎（懒加载）"""
+    global _learning_engine
+    if _learning_engine is None:
+        try:
+            _learning_engine = get_autonomous_learning_engine()
+        except Exception:
+            _learning_engine = False
+    return _learning_engine if _learning_engine else None
+
+
+def _get_personality_engine():
+    """获取人格引擎（懒加载）"""
+    global _personality_engine
+    if _personality_engine is None:
+        try:
+            _personality_engine = get_personality_engine()
+        except Exception:
+            _personality_engine = False
+    return _personality_engine if _personality_engine else None
+
+
+def _get_skill_evo_engine():
+    """获取技能进化引擎（懒加载）"""
+    global _skill_evo_engine
+    if _skill_evo_engine is None:
+        try:
+            _skill_evo_engine = get_skill_evolution_engine()
+        except Exception:
+            _skill_evo_engine = False
+    return _skill_evo_engine if _skill_evo_engine else None
 
 # M5 记忆服务配置
 M5_BASE_URL = os.environ.get("M5_BASE_URL", "http://localhost:8005")
@@ -336,6 +380,15 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 personalization_context = profile_mgr.get_personalized_prompt(user_id, "")
             except Exception:
                 pass
+        
+        # 从人格引擎获取人格提示词
+        personality_context = ""
+        personality_engine = _get_personality_engine()
+        if personality_engine:
+            try:
+                personality_context = personality_engine.generate_personality_prompt(user_id)
+            except Exception:
+                pass
 
         # 根据模式构建系统提示词
         mode = req.mode or "main-chat"
@@ -358,6 +411,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 {ltm_context}
 {rag_context}
 {personalization_context}
+{personality_context}
 
 请用温暖、柔软、有温度的语气回应用户。"""
         elif mode == "study-plan":
@@ -386,6 +440,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 {ltm_context}
 {rag_context}
 {personalization_context}
+{personality_context}
 
 请用专业、亲切、有条理的语气回应用户，给出的规划建议要具体、可操作。"""
         else:
@@ -399,6 +454,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 {ltm_context}
 {rag_context}
 {personalization_context}
+{personality_context}
 
 请记住用户告诉你的重要信息（如昵称、喜好、重要事件等），在后续对话中自然地提及。"""
 
@@ -478,6 +534,48 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 )
             except Exception:
                 pass
+        
+        # === 自我进化：对话后学习 ===
+        
+        # 1. 自主学习：从对话中提取知识
+        learning_engine = _get_learning_engine()
+        if learning_engine:
+            try:
+                learning_engine.extract_from_conversation(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    user_message=req.message,
+                    assistant_reply=reply,
+                    mode=mode,
+                )
+            except Exception:
+                pass
+        
+        # 2. 人格沉淀：从交互中更新人格特质
+        pers_engine = _get_personality_engine()
+        if pers_engine:
+            try:
+                pers_engine.update_from_interaction(
+                    user_id=user_id,
+                    user_message=req.message,
+                    assistant_reply=reply,
+                    interaction_type="chat",
+                )
+            except Exception:
+                pass
+        
+        # 3. 技能进化：从用户反馈中调整能力评分
+        skill_evo = _get_skill_evo_engine()
+        if skill_evo:
+            try:
+                skill_evo.process_user_message_for_feedback(
+                    user_id=user_id,
+                    user_message=req.message,
+                    assistant_reply=reply,
+                    conversation_id=conversation_id,
+                )
+            except Exception:
+                pass
 
         return ApiResponse(
             code=0,
@@ -493,6 +591,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     "long_term_memory": _get_ltm() is not None,
                     "rag_knowledge": _get_rag_kb() is not None,
                     "cot_reasoning": _get_cot_engine() is not None,
+                    "autonomous_learning": _get_learning_engine() is not None,
+                    "personality": _get_personality_engine() is not None,
+                    "skill_evolution": _get_skill_evo_engine() is not None,
                 },
             },
         )

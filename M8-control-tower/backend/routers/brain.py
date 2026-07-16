@@ -15,6 +15,9 @@ sys.path.insert(0, str(project_root))
 
 from shared.rag_knowledge import get_rag_knowledge_base
 from shared.long_term_memory import get_long_term_memory
+from shared.autonomous_learning import get_autonomous_learning_engine
+from shared.personality_engine import get_personality_engine
+from shared.skill_evolution import get_skill_evolution_engine
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -23,6 +26,9 @@ router = APIRouter()
 # 懒加载
 _rag_kb = None
 _ltm = None
+_learning_engine = None
+_personality_engine = None
+_skill_evo_engine = None
 
 
 def _get_rag():
@@ -43,6 +49,36 @@ def _get_ltm():
         except Exception:
             _ltm = False
     return _ltm if _ltm else None
+
+
+def _get_learning_engine():
+    global _learning_engine
+    if _learning_engine is None:
+        try:
+            _learning_engine = get_autonomous_learning_engine()
+        except Exception:
+            _learning_engine = False
+    return _learning_engine if _learning_engine else None
+
+
+def _get_personality_engine():
+    global _personality_engine
+    if _personality_engine is None:
+        try:
+            _personality_engine = get_personality_engine()
+        except Exception:
+            _personality_engine = False
+    return _personality_engine if _personality_engine else None
+
+
+def _get_skill_evo_engine():
+    global _skill_evo_engine
+    if _skill_evo_engine is None:
+        try:
+            _skill_evo_engine = get_skill_evolution_engine()
+        except Exception:
+            _skill_evo_engine = False
+    return _skill_evo_engine if _skill_evo_engine else None
 
 
 # ==================== 请求模型 ====================
@@ -318,4 +354,190 @@ async def brain_overview(current_user: dict = Depends(get_current_user)):
         overview["features"]["rag_knowledge"] = True
         overview["knowledge_stats"] = rag.get_stats()
     
+    # 自我进化状态
+    learning = _get_learning_engine()
+    if learning:
+        overview["features"]["autonomous_learning"] = True
+        overview["learning_stats"] = learning.get_stats(user_id)
+    
+    personality = _get_personality_engine()
+    if personality:
+        overview["features"]["personality"] = True
+        overview["personality_stats"] = personality.get_growth_stats(user_id)
+    
+    skill_evo = _get_skill_evo_engine()
+    if skill_evo:
+        overview["features"]["skill_evolution"] = True
+        overview["skill_stats"] = skill_evo.get_growth_report(user_id)
+    
     return ApiResponse(code=0, message="ok", data=overview)
+
+
+# ==================== 自主学习 ====================
+
+@router.get("/learning/stats")
+async def learning_stats(current_user: dict = Depends(get_current_user)):
+    """获取自主学习统计"""
+    engine = _get_learning_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="学习引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    stats = engine.get_stats(user_id)
+    
+    return ApiResponse(code=0, message="ok", data=stats)
+
+
+@router.get("/learning/items")
+async def learning_items(
+    status: Optional[str] = None,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取学习条目列表"""
+    engine = _get_learning_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="学习引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    items = engine.get_items(user_id, status=status, limit=limit)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "items": [i.to_dict() for i in items],
+        "total": len(items),
+    })
+
+
+@router.post("/learning/{item_id}/verify")
+async def verify_learning_item(
+    item_id: str,
+    is_correct: bool = True,
+    feedback: str = "",
+    current_user: dict = Depends(get_current_user),
+):
+    """验证学习条目"""
+    engine = _get_learning_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="学习引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    success = engine.verify_item(user_id, item_id, is_correct, feedback)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="学习条目不存在")
+    
+    return ApiResponse(code=0, message="验证完成")
+
+
+@router.get("/learning/pending")
+async def pending_review(
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取待审核的学习条目"""
+    engine = _get_learning_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="学习引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    items = engine.get_pending_review(user_id, limit=limit)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "items": [i.to_dict() for i in items],
+        "total": len(items),
+    })
+
+
+# ==================== 人格成长 ====================
+
+@router.get("/personality/profile")
+async def personality_profile(current_user: dict = Depends(get_current_user)):
+    """获取人格画像"""
+    engine = _get_personality_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="人格引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    profile = engine.generate_personality_description(user_id)
+    
+    return ApiResponse(code=0, message="ok", data=profile)
+
+
+@router.get("/personality/growth")
+async def personality_growth(current_user: dict = Depends(get_current_user)):
+    """获取人格成长统计"""
+    engine = _get_personality_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="人格引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    stats = engine.get_growth_stats(user_id)
+    
+    return ApiResponse(code=0, message="ok", data=stats)
+
+
+# ==================== 技能进化 ====================
+
+@router.get("/skills/radar")
+async def skill_radar(current_user: dict = Depends(get_current_user)):
+    """获取能力雷达图数据"""
+    engine = _get_skill_evo_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="技能进化引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    radar = engine.get_skill_radar(user_id)
+    
+    return ApiResponse(code=0, message="ok", data=radar)
+
+
+@router.get("/skills/growth")
+async def skill_growth_report(current_user: dict = Depends(get_current_user)):
+    """获取技能成长报告"""
+    engine = _get_skill_evo_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="技能进化引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    report = engine.get_growth_report(user_id)
+    
+    return ApiResponse(code=0, message="ok", data=report)
+
+
+@router.get("/skills/plans")
+async def skill_improvement_plans(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取改进计划列表"""
+    engine = _get_skill_evo_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="技能进化引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    plans = engine.get_improvement_plans(user_id, status=status)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "plans": [p.to_dict() for p in plans],
+        "total": len(plans),
+    })
+
+
+@router.post("/skills/plans/{plan_id}/progress")
+async def update_plan_progress(
+    plan_id: str,
+    progress: float,
+    current_user: dict = Depends(get_current_user),
+):
+    """更新改进计划进度"""
+    engine = _get_skill_evo_engine()
+    if not engine:
+        raise HTTPException(status_code=500, detail="技能进化引擎不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    success = engine.update_plan_progress(user_id, plan_id, progress)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="计划不存在")
+    
+    return ApiResponse(code=0, message="进度已更新")
