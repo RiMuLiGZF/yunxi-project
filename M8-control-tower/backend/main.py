@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 
 from .config import settings
 from .models import init_db
-from .routers import auth_router, deploy_router, monitor_router, task_router, system_router, memory_router, chat_router, agents_router, growth_router, workflow_router, modules_router, work_dev_router, review_router, study_plan_router, life_management_router, emotion_comfort_router, social_relation_router, appearance_router, m6_devices_router, compute_sources_router, compute_groups_router, compute_models_router, compute_routing_router, compute_monitor_router, compute_config_router, compute_skills_router, compute_gpu_router, inspection_agents_router, watch_router, git_status_router, audit_router, modes_router, security_router, users_router, evolution_planner_router, evolution_deployer_router, evolution_auditor_router, voice_router, voice_presets_router, m4_gateway_router, personalization_router, reminders_router
+from .routers import auth_router, deploy_router, monitor_router, task_router, system_router, memory_router, chat_router, agents_router, growth_router, workflow_router, modules_router, work_dev_router, review_router, study_plan_router, life_management_router, emotion_comfort_router, social_relation_router, appearance_router, m6_devices_router, compute_sources_router, compute_groups_router, compute_models_router, compute_routing_router, compute_monitor_router, compute_config_router, compute_skills_router, compute_gpu_router, inspection_agents_router, watch_router, git_status_router, audit_router, modes_router, security_router, users_router, evolution_planner_router, evolution_deployer_router, evolution_auditor_router, voice_router, voice_presets_router, m4_gateway_router, personalization_router, reminders_router, brain_router
 from .m4_proxy_middleware import register_m4_proxy_middleware
 try:
     from .middleware.waf_middleware import register_waf_middleware
@@ -165,6 +165,8 @@ def create_app() -> FastAPI:
     app.include_router(personalization_router, prefix="/api/personalization", tags=["个性化设置"])
     # ---- 主动提醒与情景感知 ----
     app.include_router(reminders_router, prefix="/api/reminders", tags=["主动提醒"])
+    # ---- 云汐大脑 ----
+    app.include_router(brain_router, prefix="/api/brain", tags=["云汐大脑"])
 
     # ---- 分布式集群管理 ----
     if _distributed_available:

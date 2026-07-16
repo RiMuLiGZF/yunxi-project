@@ -20,6 +20,9 @@ from shared.llm_client import LLMClient
 from shared.module_client import get_module_registry
 from shared.user_profile import get_user_profile_manager
 from shared.multimodal import get_multimodal_engine, VisionTaskType
+from shared.long_term_memory import get_long_term_memory, MemoryType, MemoryImportance
+from shared.rag_knowledge import get_rag_knowledge_base
+from shared.reasoning_engine import get_cot_engine, ReasoningMode
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -31,6 +34,12 @@ registry = get_module_registry()
 _profile_mgr = None
 # 多模态引擎（懒加载）
 _multimodal_engine = None
+# 长期记忆（懒加载）
+_ltm = None
+# RAG知识库（懒加载）
+_rag_kb = None
+# 思维链引擎（懒加载）
+_cot_engine = None
 
 
 def _get_profile_mgr():
@@ -53,6 +62,39 @@ def _get_multimodal_engine():
         except Exception:
             _multimodal_engine = False  # 标记为不可用
     return _multimodal_engine if _multimodal_engine else None
+
+
+def _get_ltm():
+    """获取长期记忆管理器（懒加载）"""
+    global _ltm
+    if _ltm is None:
+        try:
+            _ltm = get_long_term_memory()
+        except Exception:
+            _ltm = False
+    return _ltm if _ltm else None
+
+
+def _get_rag_kb():
+    """获取RAG知识库（懒加载）"""
+    global _rag_kb
+    if _rag_kb is None:
+        try:
+            _rag_kb = get_rag_knowledge_base()
+        except Exception:
+            _rag_kb = False
+    return _rag_kb if _rag_kb else None
+
+
+def _get_cot_engine():
+    """获取思维链引擎（懒加载）"""
+    global _cot_engine
+    if _cot_engine is None:
+        try:
+            _cot_engine = get_cot_engine()
+        except Exception:
+            _cot_engine = False
+    return _cot_engine if _cot_engine else None
 
 # M5 记忆服务配置
 M5_BASE_URL = os.environ.get("M5_BASE_URL", "http://localhost:8005")
@@ -121,6 +163,100 @@ async def _archive_memory(content: str, user_id: str = "default", tags: list = N
     except Exception:
         pass
 
+
+def _recall_long_term_memory(query: str, user_id: str = "default", limit: int = 5) -> str:
+    """从长期记忆系统检索相关记忆
+    
+    Returns:
+        格式化的记忆文本（如果没有返回空字符串）
+    """
+    ltm = _get_ltm()
+    if not ltm:
+        return ""
+    
+    try:
+        memories = ltm.search(
+            user_id=user_id,
+            query=query,
+            min_strength=0.3,
+            limit=limit,
+            sort_by="relevance",
+        )
+        
+        if not memories:
+            return ""
+        
+        mem_lines = []
+        for mem in memories:
+            # 强化记忆（被检索到了）
+            ltm.reinforce_memory(user_id, mem.memory_id)
+            
+            type_label = {
+                "fact": "事实",
+                "event": "事件",
+                "person": "人物",
+                "knowledge": "知识",
+                "preference": "偏好",
+                "conversation": "对话",
+                "goal": "目标",
+                "emotion": "情感",
+            }.get(mem.memory_type, "记忆")
+            
+            mem_lines.append(f"- [{type_label}] {mem.title}：{mem.content[:150]}")
+        
+        return "\n长期记忆：\n" + "\n".join(mem_lines)
+    except Exception:
+        return ""
+
+
+def _build_rag_context(query: str, category: str = "general") -> str:
+    """构建RAG知识库上下文
+    
+    Returns:
+        格式化的RAG上下文（如果没有返回空字符串）
+    """
+    rag = _get_rag_kb()
+    if not rag:
+        return ""
+    
+    try:
+        context, results = rag.build_context(query, category=category, max_chunks=3)
+        if context and results:
+            sources = [f"第{i+1}条" for i in range(len(results))]
+            return f"\n知识库参考（{len(results)}条）：\n{context}"
+    except Exception:
+        pass
+    
+    return ""
+
+
+def _apply_cot_enhancement(query: str, mode: str = "main-chat") -> str:
+    """应用思维链增强
+    
+    如果问题需要推理，返回CoT增强的prompt；否则返回原问题
+    """
+    cot = _get_cot_engine()
+    if not cot:
+        return query
+    
+    try:
+        # 判断是否需要CoT
+        reasoning_mode = cot.determine_reasoning_mode(query, preference="auto")
+        
+        if reasoning_mode in [ReasoningMode.COT.value, ReasoningMode.PLAN.value, ReasoningMode.REFLECT.value]:
+            # 判断领域
+            domain = "general"
+            if any(kw in query for kw in ["代码", "编程", "函数", "算法", "bug", "python", "java"]):
+                domain = "coding"
+            elif any(kw in query for kw in ["计算", "数学", "等于", "方程", "概率"]):
+                domain = "math"
+            
+            return cot.build_cot_prompt(query, mode=reasoning_mode, domain=domain)
+    except Exception:
+        pass
+    
+    return query
+
 # 内存中的会话存储（MVP）
 _conversations = {}
 
@@ -185,6 +321,12 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
         # 从 M5 检索相关记忆
         user_id = current_user.get("user_id", "default") if current_user else "default"
         memory_context = await _recall_memory(req.message, user_id)
+        
+        # 从长期记忆系统检索
+        ltm_context = _recall_long_term_memory(req.message, user_id)
+        
+        # 从RAG知识库检索
+        rag_context = _build_rag_context(req.message)
 
         # 从用户画像获取个性化提示词
         personalization_context = ""
@@ -213,6 +355,8 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{ltm_context}
+{rag_context}
 {personalization_context}
 
 请用温暖、柔软、有温度的语气回应用户。"""
@@ -239,6 +383,8 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{ltm_context}
+{rag_context}
 {personalization_context}
 
 请用专业、亲切、有条理的语气回应用户，给出的规划建议要具体、可操作。"""
@@ -250,6 +396,8 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{ltm_context}
+{rag_context}
 {personalization_context}
 
 请记住用户告诉你的重要信息（如昵称、喜好、重要事件等），在后续对话中自然地提及。"""
@@ -261,7 +409,12 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
     # 添加历史消息（最近20条）
     for msg in conv["messages"][-20:]:
-        history.append({"role": msg["role"], "content": msg["content"]})
+        content = msg["content"]
+        # 对最后一条用户消息应用CoT增强（如果是当前这条消息）
+        if msg["role"] == "user" and msg == conv["messages"][-1] and not req.system_prompt:
+            mode = req.mode or "main-chat"
+            content = _apply_cot_enhancement(content, mode)
+        history.append({"role": msg["role"], "content": content})
 
     try:
         # 调用千问大模型
@@ -286,6 +439,26 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
             user_id=user_id,
             tags=["conversation", req.mode or "main-chat"]
         )
+        
+        # 保存到长期记忆系统（每5轮保存一次摘要，或消息足够长时保存）
+        ltm = _get_ltm()
+        if ltm and len(conv["messages"]) % 10 == 0:
+            try:
+                # 提取最近几轮对话的要点
+                recent_msgs = conv["messages"][-10:]
+                summary_text = "\n".join(
+                    f"{'用户' if m['role'] == 'user' else '云汐'}：{m['content'][:100]}"
+                    for m in recent_msgs
+                )
+                ltm.save_conversation_summary(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    summary=f"对话摘要（{len(recent_msgs)}轮）",
+                    key_points=[req.message[:80], reply[:80]],
+                    emotions=[],
+                )
+            except Exception:
+                pass
 
         # 用户画像学习：记录交互 + 学习偏好
         if profile_mgr:
@@ -316,6 +489,11 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 "mode": req.mode,
                 "model": llm.config.model if hasattr(llm, 'config') else "qwen2.5:7b",
                 "memory_available": await _check_m5_available(),
+                "brain_features": {
+                    "long_term_memory": _get_ltm() is not None,
+                    "rag_knowledge": _get_rag_kb() is not None,
+                    "cot_reasoning": _get_cot_engine() is not None,
+                },
             },
         )
     except Exception as e:
