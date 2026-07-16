@@ -431,6 +431,13 @@ class InferenceRouter:
     - 当 use_three_tier_router=True 时，启用 3B+7B+云端 的三层规则调度器
     - 由 shared.model_router.ThreeTierModelRouter 提供底层能力
     - 向后兼容：默认关闭，不影响现有逻辑
+
+    [V12.1] 增强调度能力：
+    - 显存感知调度（VRAM-aware scheduling）
+    - 模型优先级队列（P0-P3 四级）
+    - 低显存自动降级（auto_degrade）
+    - 动态上下文调整（dynamic context window）
+    - 预测性预热（predictive preloading）
     """
 
     def __init__(
@@ -440,6 +447,11 @@ class InferenceRouter:
         default_local_model: str = "mock-model",
         default_cloud_model: str = "gpt-4o-mini",
         use_three_tier_router: bool = False,  # [V12.0] 是否启用三层模型架构
+        enable_vram_awareness: bool = True,   # [V12.1] 启用显存感知
+        enable_priority_queue: bool = True,   # [V12.1] 启用优先级队列
+        enable_auto_degrade: bool = True,     # [V12.1] 启用自动降级
+        enable_dynamic_ctx: bool = True,      # [V12.1] 启用动态上下文
+        enable_preload: bool = False,         # [V12.1] 启用预测性预热（默认关闭）
     ) -> None:
         self._inference = inference_interface
         self._rotation = model_rotation
@@ -449,8 +461,31 @@ class InferenceRouter:
         self._three_tier_router: Any | None = None  # 惰性初始化
         self._logger = logger.bind(service="inference_router")
 
+        # [V12.1] 增强功能开关（通过环境变量也可控制）
+        self._enable_vram = enable_vram_awareness
+        self._enable_pq = enable_priority_queue
+        self._enable_degrade = enable_auto_degrade
+        self._enable_dctx = enable_dynamic_ctx
+        self._enable_preload = enable_preload
+
+        # [V12.1] 调度统计
+        self._scheduling_stats: dict[str, Any] = {
+            "total_routed": 0,
+            "vram_triggered_degrade": 0,
+            "ctx_adjustments": 0,
+            "preload_hits": 0,
+            "preload_misses": 0,
+        }
+
         if self._use_three_tier:
-            self._logger.info("three_tier_router_enabled")
+            self._logger.info(
+                "three_tier_router_enabled",
+                vram_awareness=self._enable_vram,
+                priority_queue=self._enable_pq,
+                auto_degrade=self._enable_degrade,
+                dynamic_ctx=self._enable_dctx,
+                preload=self._enable_preload,
+            )
 
     def select_provider(
         self,
@@ -553,7 +588,7 @@ class InferenceRouter:
         messages: list[dict[str, Any]],
         task_complexity_hint: str = "medium",
     ) -> dict[str, Any]:
-        """通过三层模型架构调度器路由
+        """通过三层模型架构调度器路由（V12.1 增强版）
 
         Args:
             messages: 消息列表
@@ -561,9 +596,13 @@ class InferenceRouter:
                                   用于在自动分类基础上做偏移
 
         Returns:
-            标准推理结果字典
+            标准推理结果字典，包含增强的调度信息
         """
         router = await self._get_three_tier_router()
+        self._scheduling_stats["total_routed"] += 1
+
+        # 记录调用前的降级计数，用于计算本次是否发生降级
+        pre_degrade_count = router.stats().get("degradation_count", 0)
 
         # 根据复杂度提示选择调用方式
         if task_complexity_hint == "low":
@@ -577,28 +616,138 @@ class InferenceRouter:
         # 获取路由决策信息
         stats = router.stats()
 
+        # 统计本次请求是否触发了降级
+        post_degrade_count = stats.get("degradation_count", 0)
+        degraded_this_request = post_degrade_count > pre_degrade_count
+
+        # 同步调度统计
+        if stats.get("vram_triggered_degradations", 0):
+            self._scheduling_stats["vram_triggered_degrade"] = stats["vram_triggered_degradations"]
+        if stats.get("ctx_shrink_count", 0):
+            self._scheduling_stats["ctx_adjustments"] = stats["ctx_shrink_count"]
+        if stats.get("preload_hit_count", 0):
+            self._scheduling_stats["preload_hits"] = stats["preload_hit_count"]
+        if stats.get("preload_miss_count", 0):
+            self._scheduling_stats["preload_misses"] = stats["preload_miss_count"]
+
+        # 确定实际使用的模型
+        actual_model = stats.get("tier0_model", "unknown")
+        actual_tier = 0
+        if stats.get("tier1_loaded") and not stats.get("tier0_loaded"):
+            actual_model = stats.get("tier1_model", "unknown")
+            actual_tier = 1
+        if degraded_this_request and stats.get("degradation_stats", {}).get("reason_breakdown"):
+            # 如果发生了降级，尝试从最近的降级记录推断
+            pass
+
         return {
-            "model": stats.get("tier0_model", "unknown"),  # 简化：实际应该从响应中获取
+            "model": actual_model,
+            "tier": actual_tier,
             "content": content,
             "usage": {
                 "prompt_tokens": 0,  # 规则版调度器暂不统计 token
                 "completion_tokens": 0,
             },
             "router_info": {
-                "mode": "three_tier",
+                "mode": "three_tier_v12",
                 "total_requests": stats.get("total_requests", 0),
                 "degradation_count": stats.get("degradation_count", 0),
+                "degraded_this_request": degraded_this_request,
+                # V12.1 增强信息
+                "vram_status": stats.get("vram_status"),
+                "degradation_stats": stats.get("degradation_stats"),
+                "context_window_k": stats.get("context_window_k"),
+                "priority_queue_enabled": stats.get("priority_queue_enabled", False),
             },
         }
 
     def stats(self) -> dict[str, Any]:
+        """获取调度器统计信息（V12.1 增强版）"""
         base_stats = {
             "default_local": self._default_local,
             "default_cloud": self._default_cloud,
             "inference_interface_connected": self._inference is not None,
             "rotation_manager_connected": self._rotation is not None,
             "three_tier_router_enabled": self._use_three_tier,
+            # V12.1 增强功能开关
+            "features": {
+                "vram_awareness": self._enable_vram,
+                "priority_queue": self._enable_pq,
+                "auto_degrade": self._enable_degrade,
+                "dynamic_ctx": self._enable_dctx,
+                "preload": self._enable_preload,
+            },
+            # V12.1 调度统计
+            "scheduling_stats": dict(self._scheduling_stats),
         }
         if self._use_three_tier and self._three_tier_router is not None:
             base_stats["three_tier_router"] = self._three_tier_router.stats()
         return base_stats
+
+    # ── [V12.1] 增强调度能力接口 ───────────────────────
+
+    async def get_vram_status(self) -> dict[str, Any] | None:
+        """获取当前显存状态
+
+        Returns:
+            显存状态字典，包含 total_gb / used_gb / free_gb / usage_ratio / source
+            未启用三层路由时返回 None
+        """
+        if not self._use_three_tier or not self._enable_vram:
+            return None
+        router = await self._get_three_tier_router()
+        try:
+            vram = await router.get_vram_usage()
+            return vram.to_dict()
+        except Exception as exc:
+            self._logger.warning("get_vram_status_failed", error=str(exc))
+            return None
+
+    async def preload_for_task(self, task_type: str) -> bool:
+        """预测性预热：根据任务类型提前预热对应模型
+
+        Args:
+            task_type: 任务类型（simple/medium/complex）
+
+        Returns:
+            True 表示预热已启动或已预热
+        """
+        if not self._use_three_tier or not self._enable_preload:
+            return False
+        router = await self._get_three_tier_router()
+        return await router.preload_for_task(task_type)
+
+    async def get_degradation_stats(self) -> dict[str, Any] | None:
+        """获取降级统计信息"""
+        if not self._use_three_tier:
+            return None
+        router = await self._get_three_tier_router()
+        return router.get_degradation_stats()
+
+    async def get_unload_candidates(self) -> list[int]:
+        """获取当前可卸载的模型列表（按优先级从低到高）"""
+        if not self._use_three_tier:
+            return []
+        router = await self._get_three_tier_router()
+        return router.get_unload_candidates()
+
+    async def evict_low_priority(self, needed_gb: float) -> int:
+        """卸载低优先级模型以释放显存
+
+        Args:
+            needed_gb: 需要释放的显存（GB）
+
+        Returns:
+            实际卸载的模型数量
+        """
+        if not self._use_three_tier or not self._enable_vram:
+            return 0
+        router = await self._get_three_tier_router()
+        return await router.evict_low_priority_models(needed_gb)
+
+    async def get_context_window(self, task_type: str, tier: int) -> int | None:
+        """获取指定任务和层级的 context window 大小"""
+        if not self._use_three_tier or not self._enable_dctx:
+            return None
+        router = await self._get_three_tier_router()
+        return router.get_context_window_for_task(task_type, tier)
