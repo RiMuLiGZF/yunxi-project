@@ -7,21 +7,13 @@
    数据定义
    ============================================================ */
 
-// Splash 层状态消息 - 启动检测序列
-const SPLASH_MESSAGES = [
-  { main: '正在启动云汐系统', sub: '正在初始化系统组件…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M1 感知中枢…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M2 情绪引擎…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M3 行为决策…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M4 呼吸节律…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M5 潮汐记忆…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M6 成长进化…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M7 隐私守护…' },
-  { main: '正在启动云汐系统', sub: '正在检查 M8 控制塔…' },
-  { main: '正在启动云汐系统', sub: '正在检测大模型服务…' },
-  { main: '正在启动云汐系统', sub: '正在加载个人偏好…' },
-  { main: '正在启动云汐系统', sub: '准备就绪，即将进入…' },
-];
+// Splash 层 - 模块状态图标 SVG
+const MODULE_STATUS_ICONS = {
+  waiting: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg>`,
+  starting: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`,
+  running: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  failed: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+};
 
 // 场景卡片数据
 const SCENE_CARDS = [
@@ -187,73 +179,397 @@ function transitionLayer(fromId, toId) {
 }
 
 /* ============================================================
-   Layer 1: Splash 逻辑
+   Layer 1: Splash 逻辑 — API 驱动的真实启动进度
    ============================================================ */
 
+// Splash 状态管理
+let splashPollTimer = null;
+let splashConnectTimer = null;
+let splashDataCache = null;
+let moduleListExpanded = false;
+
+/**
+ * 启动 Splash 层：先尝试连接 API，失败则每秒重试
+ */
 function startSplash() {
-  const statusMainEl = document.getElementById('splash-status-main');
-  const statusSubEl = document.getElementById('splash-status-sub');
+  // 初始状态：显示连接中
+  const connectingEl = document.getElementById('splash-connecting-text');
+  const progressSection = document.getElementById('splash-progress-section');
+  const modulePanel = document.getElementById('splash-module-panel');
 
-  // 状态消息轮换 - 每条消息显示约 1.5 秒
-  let msgIndex = 0;
-  const totalMessages = SPLASH_MESSAGES.length;
-  
-  // 初始化第一条消息
-  if (statusMainEl && SPLASH_MESSAGES[0]) {
-    statusMainEl.textContent = SPLASH_MESSAGES[0].main;
+  // 绑定展开/收起按钮
+  bindModuleToggle();
+
+  // 首次尝试连接
+  tryConnectAPI();
+}
+
+/**
+ * 尝试连接控制塔 API，失败则每秒重试
+ */
+function tryConnectAPI() {
+  fetchStartupProgress()
+    .then(data => {
+      // 连接成功，进入轮询模式
+      onAPIConnected(data);
+    })
+    .catch(() => {
+      // 连接失败，1 秒后重试
+      splashConnectTimer = setTimeout(tryConnectAPI, 1000);
+    });
+}
+
+/**
+ * API 连接成功后，切换到进度显示并开始轮询
+ */
+function onAPIConnected(data) {
+  splashDataCache = data;
+
+  const connectingEl = document.getElementById('splash-connecting-text');
+  const progressSection = document.getElementById('splash-progress-section');
+  const modulePanel = document.getElementById('splash-module-panel');
+
+  // 隐藏连接中提示，显示进度区域
+  if (connectingEl) {
+    connectingEl.style.opacity = '0';
+    setTimeout(() => { connectingEl.style.display = 'none'; }, 300);
   }
-  if (statusSubEl && SPLASH_MESSAGES[0]) {
-    statusSubEl.textContent = SPLASH_MESSAGES[0].sub;
+  if (progressSection) {
+    progressSection.style.display = 'flex';
+    requestAnimationFrame(() => {
+      progressSection.style.opacity = '1';
+      progressSection.style.transform = 'translateY(0)';
+    });
+  }
+  if (modulePanel) {
+    modulePanel.style.display = 'block';
+    requestAnimationFrame(() => {
+      modulePanel.style.opacity = '1';
+    });
   }
 
-  // 消息切换间隔
-  const msgInterval = setInterval(() => {
-    msgIndex++;
-    if (msgIndex >= totalMessages) {
-      msgIndex = totalMessages - 1; // 停在最后一条
-      clearInterval(msgInterval);
-      return;
+  // 渲染首次数据
+  renderSplashProgress(data);
+  renderModuleList(data);
+
+  // 检查是否已经就绪
+  if (checkReady(data)) {
+    onStartupComplete();
+    return;
+  }
+
+  // 开始 500ms 轮询
+  startPolling();
+}
+
+/**
+ * 开始 500ms 轮询进度
+ */
+function startPolling() {
+  if (splashPollTimer) clearInterval(splashPollTimer);
+  splashPollTimer = setInterval(pollProgress, 500);
+}
+
+/**
+ * 停止轮询
+ */
+function stopPolling() {
+  if (splashPollTimer) {
+    clearInterval(splashPollTimer);
+    splashPollTimer = null;
+  }
+  if (splashConnectTimer) {
+    clearTimeout(splashConnectTimer);
+    splashConnectTimer = null;
+  }
+}
+
+/**
+ * 单次轮询
+ */
+async function pollProgress() {
+  try {
+    const data = await fetchStartupProgress();
+    splashDataCache = data;
+    renderSplashProgress(data);
+    renderModuleList(data);
+
+    if (checkReady(data)) {
+      stopPolling();
+      onStartupComplete();
     }
+  } catch (e) {
+    // 轮询中断（API 暂时不可用），静默处理，继续下一次
+    console.warn('启动进度轮询失败:', e.message);
+  }
+}
 
-    // 淡出效果：先淡出旧文字，再淡入新文字
-    if (statusSubEl) {
-      statusSubEl.style.opacity = '0';
+/**
+ * 调用启动进度 API
+ * API 响应格式（预期）：
+ * {
+ *   code: 0,
+ *   data: {
+ *     progress: 45,           // 0-100
+ *     current_module: "M2 情绪引擎",
+ *     is_ready: false,
+ *     tiers: [
+ *       { id: "tier0", name: "Tier 0 基础设施", is_ready: true, modules: [...] },
+ *       { id: "tier1", name: "Tier 1 核心能力", is_ready: false, modules: [...] },
+ *       { id: "tier2", name: "Tier 2 扩展能力", is_ready: false, modules: [...] }
+ *     ]
+ *   }
+ * }
+ * 每个 module: { id, name, status: "waiting"|"starting"|"running"|"failed", error_msg? }
+ */
+async function fetchStartupProgress() {
+  try {
+    // 使用 YunxiAPI 如果可用，否则直接 fetch
+    if (typeof YunxiAPI !== 'undefined' && YunxiAPI.request) {
+      return await YunxiAPI.request('GET', '/system/startup/progress');
+    }
+    const response = await fetch('/api/system/startup/progress', { cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    if (data.code !== 0) throw new Error(data.message || 'API 错误');
+    return data.data;
+  } catch (e) {
+    throw e;
+  }
+}
+
+/**
+ * 渲染进度条、百分比、当前模块、阶段指示
+ */
+function renderSplashProgress(data) {
+  // 进度条
+  const progressFill = document.getElementById('splash-progress-fill');
+  const progressPercent = document.getElementById('splash-progress-percent');
+  const pct = Math.max(0, Math.min(100, data.progress || 0));
+  if (progressFill) {
+    progressFill.style.width = pct + '%';
+  }
+  if (progressPercent) {
+    progressPercent.textContent = Math.round(pct) + '%';
+  }
+
+  // 当前模块
+  const currentModuleEl = document.getElementById('splash-current-module');
+  if (currentModuleEl && data.current_module) {
+    if (currentModuleEl.textContent !== data.current_module) {
+      currentModuleEl.style.opacity = '0';
       setTimeout(() => {
-        if (SPLASH_MESSAGES[msgIndex]) {
-          if (statusMainEl) {
-            statusMainEl.textContent = SPLASH_MESSAGES[msgIndex].main;
-          }
-          statusSubEl.textContent = SPLASH_MESSAGES[msgIndex].sub;
-        }
-        statusSubEl.style.opacity = '0.85';
-      }, 200);
+        currentModuleEl.textContent = data.current_module;
+        currentModuleEl.style.opacity = '1';
+      }, 150);
     }
-  }, 1200);
+  }
 
-  // 总启动时间：根据消息数量计算，每条约 1.2 秒，最后再加 1 秒缓冲
-  const totalDuration = totalMessages * 1200 + 800;
+  // Tier 阶段指示
+  updateTierIndicator(data);
+}
 
-  setTimeout(() => {
-    clearInterval(msgInterval);
-    // 自动启用访客模式（本地演示用），不强制登录
-    if (typeof YunxiAPI !== 'undefined') {
-      if (!YunxiAPI.isLoggedIn()) {
-        // 设置访客 token 和用户信息
-        try {
-          localStorage.setItem('yunxi_token', 'guest_' + Date.now());
-          localStorage.setItem('yunxi_user', JSON.stringify({
-            username: 'guest',
-            nickname: '汐舟主理',
-            role: 'user'
-          }));
-        } catch (e) {
-          console.warn('设置访客模式失败:', e);
-        }
+/**
+ * 更新 Tier 阶段指示器
+ */
+function updateTierIndicator(data) {
+  const tiers = data.tiers || [];
+  tiers.forEach((tier, index) => {
+    const pill = document.querySelector(`.tier-pill--${index}`);
+    if (!pill) return;
+
+    pill.classList.remove('tier-pill--active', 'tier-pill--done', 'tier-pill--pending');
+
+    if (tier.is_ready) {
+      pill.classList.add('tier-pill--done');
+    } else {
+      // 找到第一个未完成的 tier 作为当前活跃
+      const prevReady = index === 0 || (tiers[index - 1] && tiers[index - 1].is_ready);
+      if (prevReady) {
+        pill.classList.add('tier-pill--active');
+      } else {
+        pill.classList.add('tier-pill--pending');
       }
     }
-    // 进入模式选择层
-    transitionLayer('splash-layer', 'mode-selector-layer');
-  }, totalDuration);
+  });
+}
+
+/**
+ * 渲染模块列表（按 tier 分组）
+ */
+function renderModuleList(data) {
+  const listEl = document.getElementById('splash-module-list');
+  if (!listEl) return;
+
+  const tiers = data.tiers || [];
+
+  listEl.innerHTML = tiers.map((tier, tierIdx) => {
+    const modules = tier.modules || [];
+    return `
+      <div class="module-tier" data-tier="${tierIdx}">
+        <div class="module-tier__header">
+          <span class="module-tier__name">${tier.name || ('Tier ' + tierIdx)}</span>
+          <span class="module-tier__status ${tier.is_ready ? 'tier-ready' : 'tier-pending'}">
+            ${tier.is_ready ? '已就绪' : '启动中'}
+          </span>
+        </div>
+        <div class="module-items">
+          ${modules.map(mod => `
+            <div class="module-item module-item--${mod.status || 'waiting'}" 
+                 data-module-id="${mod.id}" 
+                 role="listitem"
+                 ${mod.status === 'failed' ? 'tabindex="0" title="点击重试"' : ''}>
+              <span class="module-item__icon module-status--${mod.status || 'waiting'}">
+                ${MODULE_STATUS_ICONS[mod.status || 'waiting'] || MODULE_STATUS_ICONS.waiting}
+              </span>
+              <span class="module-item__name">${mod.name || mod.id}</span>
+              ${mod.status === 'failed' ? `
+                <button class="module-item__retry" data-module-id="${mod.id}" title="重试启动" aria-label="重试 ${mod.name}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                </button>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 绑定失败模块的重试按钮
+  bindRetryButtons();
+}
+
+/**
+ * 绑定模块列表展开/收起
+ */
+function bindModuleToggle() {
+  const toggleBtn = document.getElementById('splash-module-toggle');
+  const listEl = document.getElementById('splash-module-list');
+  if (!toggleBtn || !listEl) return;
+
+  toggleBtn.addEventListener('click', () => {
+    moduleListExpanded = !moduleListExpanded;
+    toggleBtn.setAttribute('aria-expanded', moduleListExpanded);
+    const toggleText = toggleBtn.querySelector('.toggle-text');
+    const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+
+    if (moduleListExpanded) {
+      listEl.style.maxHeight = '400px';
+      listEl.style.opacity = '1';
+      if (toggleText) toggleText.textContent = '收起启动详情';
+      if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+    } else {
+      listEl.style.maxHeight = '0';
+      listEl.style.opacity = '0';
+      if (toggleText) toggleText.textContent = '查看启动详情';
+      if (toggleIcon) toggleIcon.style.transform = 'rotate(0deg)';
+    }
+  });
+}
+
+/**
+ * 绑定失败模块的重试按钮
+ */
+function bindRetryButtons() {
+  document.querySelectorAll('.module-item__retry').forEach(btn => {
+    if (btn._bound) return;
+    btn._bound = true;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const moduleId = btn.getAttribute('data-module-id');
+      if (moduleId) retryModule(moduleId);
+    });
+  });
+
+  // 失败模块整行点击也可重试
+  document.querySelectorAll('.module-item--failed').forEach(item => {
+    if (item._bound) return;
+    item._bound = true;
+    item.addEventListener('click', () => {
+      const moduleId = item.getAttribute('data-module-id');
+      if (moduleId) retryModule(moduleId);
+    });
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const moduleId = item.getAttribute('data-module-id');
+        if (moduleId) retryModule(moduleId);
+      }
+    });
+  });
+}
+
+/**
+ * 重试启动指定模块
+ */
+async function retryModule(moduleId) {
+  try {
+    if (typeof YunxiAPI !== 'undefined' && YunxiAPI.restartModule) {
+      await YunxiAPI.restartModule(moduleId);
+    } else {
+      await fetch('/api/system/modules/' + moduleId + '/restart', { method: 'POST' });
+    }
+    showToast('正在重试启动 ' + moduleId + '…', '#7B8CDE', 1500);
+  } catch (e) {
+    showToast('重试失败：' + (e.message || '未知错误'), '#FF6B6B', 2000);
+  }
+}
+
+/**
+ * 检查 Tier0 + Tier1 是否已就绪
+ */
+function checkReady(data) {
+  const tiers = data.tiers || [];
+  const tier0 = tiers[0];
+  const tier1 = tiers[1];
+
+  // 如果 API 直接返回 is_ready=true，也视为就绪
+  if (data.is_ready) return true;
+
+  // 必须 Tier0 和 Tier1 都就绪
+  if (tier0 && tier0.is_ready && tier1 && tier1.is_ready) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * 启动完成处理
+ */
+function onStartupComplete() {
+  // 设置进度为 100%
+  const progressFill = document.getElementById('splash-progress-fill');
+  const progressPercent = document.getElementById('splash-progress-percent');
+  const currentModuleEl = document.getElementById('splash-current-module');
+
+  if (progressFill) progressFill.style.width = '100%';
+  if (progressPercent) progressPercent.textContent = '100%';
+  if (currentModuleEl) currentModuleEl.textContent = '启动完成';
+
+  // 自动启用访客模式（本地演示用），不强制登录
+  if (typeof YunxiAPI !== 'undefined') {
+    if (!YunxiAPI.isLoggedIn()) {
+      try {
+        localStorage.setItem('yunxi_token', 'guest_' + Date.now());
+        localStorage.setItem('yunxi_user', JSON.stringify({
+          username: 'guest',
+          nickname: '汐舟主理',
+          role: 'user'
+        }));
+      } catch (e) {
+        console.warn('设置访客模式失败:', e);
+      }
+    }
+  }
+
+  // 短暂延迟后切换到问候层
+  setTimeout(() => {
+    transitionLayer('splash-layer', 'greeting-layer');
+  }, 800);
 }
 
 /* ============================================================

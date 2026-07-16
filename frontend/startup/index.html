@@ -22,16 +22,70 @@
   <section id="splash-layer" class="layer layer--active" role="status" aria-label="系统加载">
     <div class="splash-bg"></div>
     <div class="splash-content">
+
+      <!-- Logo & Title -->
       <div class="splash-logo-wrap">
-        <img id="splash-logo" class="splash-logo" src="./yunxi-splash.png" alt="云汐 Logo" style="display:none;">
+        <div class="splash-logo-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.5 0 2.5-1 2.5-2.5 0-.6-.2-1.2-.6-1.7-.3-.4-.5-.9-.5-1.4 0-1.4 1.1-2.5 2.5-2.5H17c2.8 0 5-2.2 5-5 0-4.4-4.5-8-10-8z"/>
+          </svg>
+        </div>
+        <h1 class="splash-title">云汐系统启动中</h1>
+        <p class="splash-subtitle" id="splash-connecting-text">正在连接控制塔…</p>
       </div>
-      <div class="splash-status-container">
-        <p class="splash-status-main" id="splash-status-main">正在启动云汐系统</p>
-        <p class="splash-status-sub" id="splash-status-sub">正在初始化系统组件…</p>
-        <div class="splash-dots">
-          <span></span><span></span><span></span>
+
+      <!-- Progress Section -->
+      <div class="splash-progress-section" id="splash-progress-section" style="display:none;">
+        <!-- Progress Bar -->
+        <div class="splash-progress-wrap">
+          <div class="splash-progress-bar">
+            <div class="splash-progress-fill" id="splash-progress-fill"></div>
+          </div>
+          <span class="splash-progress-percent" id="splash-progress-percent">0%</span>
+        </div>
+
+        <!-- Current Module -->
+        <div class="splash-current-module">
+          <span class="splash-current-label">正在启动</span>
+          <span class="splash-current-name" id="splash-current-module">初始化中…</span>
+          <span class="splash-dots splash-dots--inline">
+            <span></span><span></span><span></span>
+          </span>
+        </div>
+
+        <!-- Tier Phase Indicator -->
+        <div class="splash-tier-indicator" id="splash-tier-indicator">
+          <div class="tier-pill tier-pill--0 tier-pill--active" data-tier="0">
+            <span class="tier-dot"></span>
+            <span class="tier-name">Tier 0 · 基础设施</span>
+          </div>
+          <div class="tier-connector"></div>
+          <div class="tier-pill tier-pill--1" data-tier="1">
+            <span class="tier-dot"></span>
+            <span class="tier-name">Tier 1 · 核心能力</span>
+          </div>
+          <div class="tier-connector"></div>
+          <div class="tier-pill tier-pill--2" data-tier="2">
+            <span class="tier-dot"></span>
+            <span class="tier-name">Tier 2 · 扩展能力</span>
+          </div>
         </div>
       </div>
+
+      <!-- Module List (Expandable) -->
+      <div class="splash-module-panel" id="splash-module-panel" style="display:none;">
+        <button class="splash-module-toggle" id="splash-module-toggle" aria-expanded="false" aria-controls="splash-module-list">
+          <span class="toggle-text">查看启动详情</span>
+          <svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="splash-module-list" id="splash-module-list" role="list" aria-label="模块启动状态">
+          <!-- JS populates module tiers and items -->
+        </div>
+      </div>
+
+      <!-- Footer -->
       <div class="splash-footer">
         <span class="splash-footer-text">本系统由汐舟主理开发</span>
       </div>

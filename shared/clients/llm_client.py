@@ -2,6 +2,11 @@
 云汐系统 - 统一大模型客户端 LLMClient
 支持多后端切换：DeepSeek API / OpenAI API / 本地 Ollama
 统一接口：chat(messages) -> str
+
+支持三层模型架构路由模式（通过 LLM_USE_ROUTER=true 启用）：
+  - Tier 0: 3B 模型（常驻，处理简单任务）
+  - Tier 1: 7B 模型（按需，处理中等任务）
+  - Tier 2: 云端 API（兜底，处理复杂任务）
 """
 
 import json
@@ -279,6 +284,11 @@ class LLMClient:
     """
     统一大模型客户端
     支持多后端切换，配置驱动
+    支持三层模型架构路由模式（可选，通过 LLM_USE_ROUTER 环境变量启用）
+
+    两种模式：
+    1. 单模型模式（默认）：所有请求走同一个 provider
+    2. 三层路由模式（LLM_USE_ROUTER=true）：根据任务复杂度自动路由到 3B/7B/云端
     """
 
     _instance = None
@@ -292,9 +302,20 @@ class LLMClient:
         if hasattr(self, "_initialized") and self._initialized:
             return
         self._config = get_config()
-        self._provider = self._create_provider()
+
+        # 检查是否启用三层路由模式
+        self._use_router = getattr(self._config, "llm_use_router", False)
+        self._router = None
+
+        if self._use_router:
+            # 三层路由模式：惰性初始化 router（需要 async 初始化）
+            logger.info("LLMClient running in three-tier router mode")
+        else:
+            # 单模型模式
+            self._provider = self._create_provider()
+            logger.info(f"LLMClient initialized with provider: {self._config.llm_provider}")
+
         self._initialized = True
-        logger.info(f"LLMClient initialized with provider: {self._config.llm_provider}")
 
     def _create_provider(self) -> BaseLLMProvider:
         """根据配置创建 LLM 提供方"""
@@ -323,6 +344,13 @@ class LLMClient:
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
+    async def _get_router(self):
+        """获取三层路由调度器（惰性初始化）"""
+        if self._router is None:
+            from ..model_router import get_model_router_async
+            self._router = await get_model_router_async()
+        return self._router
+
     async def chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """
         对话接口
@@ -336,7 +364,13 @@ class LLMClient:
         """
         start_time = time.time()
         try:
-            result = await self._provider.chat(messages, **kwargs)
+            if self._use_router:
+                # 三层路由模式
+                router = await self._get_router()
+                result = await router.chat(messages, **kwargs)
+            else:
+                # 单模型模式
+                result = await self._provider.chat(messages, **kwargs)
             elapsed = time.time() - start_time
             logger.debug(f"LLM chat completed in {elapsed:.2f}s")
             return result
@@ -344,6 +378,42 @@ class LLMClient:
             elapsed = time.time() - start_time
             logger.error(f"LLM chat failed after {elapsed:.2f}s: {e}")
             raise
+
+    async def chat_simple(self, messages: List[Dict[str, str]], **kwargs) -> str:
+        """
+        强制使用 3B 轻量模型（仅路由模式下有效）
+
+        适用于简单对话、状态查询等轻量任务。
+        非路由模式下回退到普通 chat。
+        """
+        if self._use_router:
+            router = await self._get_router()
+            return await router.chat_simple(messages, **kwargs)
+        return await self.chat(messages, **kwargs)
+
+    async def chat_heavy(self, messages: List[Dict[str, str]], **kwargs) -> str:
+        """
+        强制使用 7B 主力模型（仅路由模式下有效）
+
+        适用于代码生成、分析总结等需要一定推理能力的任务。
+        非路由模式下回退到普通 chat。
+        """
+        if self._use_router:
+            router = await self._get_router()
+            return await router.chat_heavy(messages, **kwargs)
+        return await self.chat(messages, **kwargs)
+
+    async def chat_cloud(self, messages: List[Dict[str, str]], **kwargs) -> str:
+        """
+        强制使用云端 API 模型（仅路由模式下有效）
+
+        适用于复杂专业任务、创意写作等。
+        非路由模式下回退到普通 chat。
+        """
+        if self._use_router:
+            router = await self._get_router()
+            return await router.chat_cloud(messages, **kwargs)
+        return await self.chat(messages, **kwargs)
 
     async def chat_stream(self, messages: List[Dict[str, str]], **kwargs) -> AsyncIterator[str]:
         """
@@ -375,10 +445,16 @@ class LLMClient:
         """
         切换 LLM 提供方（运行时切换）
 
+        注意：路由模式下此方法仅影响 fallback 行为，
+        实际路由由 ThreeTierModelRouter 控制。
+
         Args:
             provider: 提供方名称 (deepseek/openai/ollama)
             **kwargs: 额外配置参数
         """
+        if self._use_router:
+            logger.warning("switch_provider called in router mode, use router config instead")
+            return
         self._config.llm_provider = provider
         if "api_key" in kwargs:
             self._config.llm_api_key = kwargs["api_key"]
@@ -388,6 +464,12 @@ class LLMClient:
             self._config.llm_model = kwargs["model"]
         self._provider = self._create_provider()
         logger.info(f"LLM provider switched to: {provider}")
+
+    def get_router_stats(self) -> dict:
+        """获取三层路由调度器的统计信息（仅路由模式下有效）"""
+        if not self._use_router or self._router is None:
+            return {"router_mode": False}
+        return self._router.stats()
 
 
 def get_llm_client() -> LLMClient:

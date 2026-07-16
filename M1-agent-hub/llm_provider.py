@@ -426,6 +426,11 @@ class InferenceRouter:
 
     负责"本地/云端路由决策"和"模型选择"，不执行实际推理。
     根据任务特征、网络状态、预算等因素选择最优推理路径。
+
+    [V12.0] 新增三层模型架构支持：
+    - 当 use_three_tier_router=True 时，启用 3B+7B+云端 的三层规则调度器
+    - 由 shared.model_router.ThreeTierModelRouter 提供底层能力
+    - 向后兼容：默认关闭，不影响现有逻辑
     """
 
     def __init__(
@@ -434,12 +439,18 @@ class InferenceRouter:
         model_rotation: Any | None = None,  # ModelRotationManager 实例
         default_local_model: str = "mock-model",
         default_cloud_model: str = "gpt-4o-mini",
+        use_three_tier_router: bool = False,  # [V12.0] 是否启用三层模型架构
     ) -> None:
         self._inference = inference_interface
         self._rotation = model_rotation
         self._default_local = default_local_model
         self._default_cloud = default_cloud_model
+        self._use_three_tier = use_three_tier_router
+        self._three_tier_router: Any | None = None  # 惰性初始化
         self._logger = logger.bind(service="inference_router")
+
+        if self._use_three_tier:
+            self._logger.info("three_tier_router_enabled")
 
     def select_provider(
         self,
@@ -472,6 +483,18 @@ class InferenceRouter:
         # 默认 -> 云端标准模型
         return {"provider_type": "cloud", "model": self._default_cloud}
 
+    async def _get_three_tier_router(self):
+        """获取三层路由调度器（惰性异步初始化）"""
+        if self._three_tier_router is None:
+            try:
+                from shared.model_router import get_model_router_async
+                self._three_tier_router = await get_model_router_async()
+                self._logger.info("three_tier_router_initialized")
+            except ImportError as exc:
+                self._logger.warning("three_tier_router_import_failed", error=str(exc))
+                raise
+        return self._three_tier_router
+
     async def route_inference(
         self,
         messages: list[dict[str, Any]],
@@ -483,7 +506,14 @@ class InferenceRouter:
 
         1. 决策：选择 provider_type 和 model
         2. 委托：通过 InferenceInterface 调用模块3执行推理
+
+        [V12.0] 如果启用了三层路由模式，则使用 ThreeTierModelRouter 进行更精细的调度。
         """
+        # [V12.0] 三层模型架构模式
+        if self._use_three_tier:
+            return await self._route_via_three_tier(messages, task_complexity)
+
+        # 原有逻辑（向后兼容）
         decision = self.select_provider(
             task_complexity=task_complexity,
             network_available=network_available,
@@ -518,10 +548,57 @@ class InferenceRouter:
             },
         }
 
-    def stats(self) -> dict[str, Any]:
+    async def _route_via_three_tier(
+        self,
+        messages: list[dict[str, Any]],
+        task_complexity_hint: str = "medium",
+    ) -> dict[str, Any]:
+        """通过三层模型架构调度器路由
+
+        Args:
+            messages: 消息列表
+            task_complexity_hint: 复杂度提示（low/medium/high），
+                                  用于在自动分类基础上做偏移
+
+        Returns:
+            标准推理结果字典
+        """
+        router = await self._get_three_tier_router()
+
+        # 根据复杂度提示选择调用方式
+        if task_complexity_hint == "low":
+            content = await router.chat_simple(messages)
+        elif task_complexity_hint == "high":
+            content = await router.chat_cloud(messages)
+        else:
+            # medium 或其他：走自动分类路由
+            content = await router.chat(messages)
+
+        # 获取路由决策信息
+        stats = router.stats()
+
         return {
+            "model": stats.get("tier0_model", "unknown"),  # 简化：实际应该从响应中获取
+            "content": content,
+            "usage": {
+                "prompt_tokens": 0,  # 规则版调度器暂不统计 token
+                "completion_tokens": 0,
+            },
+            "router_info": {
+                "mode": "three_tier",
+                "total_requests": stats.get("total_requests", 0),
+                "degradation_count": stats.get("degradation_count", 0),
+            },
+        }
+
+    def stats(self) -> dict[str, Any]:
+        base_stats = {
             "default_local": self._default_local,
             "default_cloud": self._default_cloud,
             "inference_interface_connected": self._inference is not None,
             "rotation_manager_connected": self._rotation is not None,
+            "three_tier_router_enabled": self._use_three_tier,
         }
+        if self._use_three_tier and self._three_tier_router is not None:
+            base_stats["three_tier_router"] = self._three_tier_router.stats()
+        return base_stats

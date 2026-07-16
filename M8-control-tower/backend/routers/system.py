@@ -20,11 +20,13 @@ from ..auth import get_current_user
 from ..crypto import encrypt as crypto_encrypt, decrypt as crypto_decrypt, mask_api_key
 from shared.module_client import get_module_registry, ModuleStatus
 from shared.process_manager import get_process_manager, ProcessStatus
+from shared.startup_orchestrator import get_startup_orchestrator
 from .users import router as users_router
 
 router = APIRouter()
 registry = get_module_registry()
 process_mgr = get_process_manager()
+startup_orch = get_startup_orchestrator(self_module_key="m8")
 
 # 包含用户管理子路由（路径：/api/system/users/*）
 router.include_router(users_router, tags=["用户管理"])
@@ -915,4 +917,168 @@ async def test_llm_connection(current_user: dict = Depends(get_current_user)):
             "has_key": True,
             "key_length": len(api_key),
         },
+    )
+
+
+# ==================== 渐进式启动进度接口 ====================
+
+def _format_startup_progress_for_frontend(progress: dict) -> dict:
+    """将 StartupOrchestrator 的进度格式转换为前端期望的格式
+    
+    前端期望格式:
+    {
+        progress: 0-100,
+        current_module: "模块名",
+        is_ready: bool,          // Tier0 + Tier1 是否就绪
+        tiers: [
+            { id: "tier0", name: "Tier 0 基础设施", is_ready: true, modules: [...] },
+            { id: "tier1", name: "Tier 1 核心能力", is_ready: false, modules: [...] },
+            ...
+        ]
+    }
+    每个 module: { id, name, status: "waiting"|"starting"|"running"|"failed", error_msg? }
+    """
+    # 状态映射
+    status_map = {
+        "pending": "waiting",
+        "starting": "starting",
+        "running": "running",
+        "error": "failed",
+        "skipped": "running",  # 跳过的也算完成
+    }
+    
+    # Tier 名称映射
+    tier_names = {
+        0: "Tier 0 基础设施",
+        1: "Tier 1 核心能力",
+        2: "Tier 2 扩展能力",
+        3: "Tier 3 即用模块",
+    }
+    
+    # 构建 tiers
+    tiers = []
+    modules_list = progress.get("modules", [])
+    module_map = {m["key"]: m for m in modules_list}
+    
+    # 从 TIER_MODULES 获取层级信息（从 startup_orchestrator 导入）
+    try:
+        from shared.startup_orchestrator import TIER_MODULES
+    except ImportError:
+        TIER_MODULES = {
+            0: ["m8", "m10", "m12"],
+            1: ["m1", "m5", "m2"],
+            2: ["m4", "m7", "m3"],
+            3: ["m6", "m0", "m11"],
+        }
+    
+    for tier_id in sorted(TIER_MODULES.keys()):
+        module_keys = TIER_MODULES[tier_id]
+        tier_modules = []
+        tier_ready = True
+        
+        for key in module_keys:
+            mod = module_map.get(key, {})
+            status = status_map.get(mod.get("status", "pending"), "waiting")
+            if status in ("waiting", "starting", "failed"):
+                tier_ready = False
+            tier_modules.append({
+                "id": key,
+                "name": mod.get("name", key),
+                "status": status,
+                "error_msg": mod.get("message", "") if status == "failed" else None,
+            })
+        
+        tiers.append({
+            "id": f"tier{tier_id}",
+            "name": tier_names.get(tier_id, f"Tier {tier_id}"),
+            "is_ready": tier_ready,
+            "modules": tier_modules,
+        })
+    
+    # 找当前正在启动的模块
+    current_module = ""
+    for mod in modules_list:
+        if mod.get("status") == "starting":
+            current_module = mod.get("name", mod.get("key", ""))
+            break
+    
+    # Tier0 + Tier1 是否就绪
+    is_ready = (
+        len(tiers) >= 2 
+        and tiers[0]["is_ready"] 
+        and tiers[1]["is_ready"]
+    )
+    
+    return {
+        "progress": progress.get("percent", 0),
+        "current_module": current_module,
+        "is_ready": is_ready,
+        "tiers": tiers,
+        "total": progress.get("total", 0),
+        "completed": progress.get("completed", 0),
+        "is_finished": progress.get("is_finished", False),
+    }
+
+
+@router.get("/startup/progress")
+async def get_startup_progress():
+    """获取启动进度（公开接口，无需鉴权）
+
+    供启动引导页轮询使用，返回整体进度及各模块的详细启动状态。
+    """
+    progress = startup_orch.get_progress()
+    formatted = _format_startup_progress_for_frontend(progress)
+    return ApiResponse.success(data=formatted)
+
+
+@router.post("/startup/retry/{module_key}")
+async def retry_startup_module(
+    module_key: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """重试启动某个模块
+
+    仅对启动失败或已跳过的模块有效，M8 自身不可重试。
+    """
+    result = await startup_orch.retry_module(module_key)
+    if not result.get("success"):
+        return ApiResponse.error(message=result.get("message", "重试失败"))
+    return ApiResponse.success(
+        message=result.get("message", "重试启动已触发"),
+        data=result.get("module"),
+    )
+
+
+@router.post("/startup/skip/{module_key}")
+async def skip_startup_module(
+    module_key: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """跳过某个模块
+
+    标记为 skipped，不计入失败统计，整体流程继续推进。
+    M8 自身不可跳过，已运行的模块不可跳过。
+    """
+    result = await startup_orch.skip_module(module_key)
+    if not result.get("success"):
+        return ApiResponse.error(message=result.get("message", "跳过失败"))
+    return ApiResponse.success(
+        message=result.get("message", "模块已跳过"),
+        data=result.get("module"),
+    )
+
+
+@router.post("/startup/restart")
+async def restart_startup_flow(current_user: dict = Depends(get_current_user)):
+    """重新执行整个启动流程
+
+    取消当前正在进行的启动任务，重置所有模块状态（M8 自身保持 running），
+    然后从 Tier 0 开始重新渐进式启动所有模块。
+    """
+    result = await startup_orch.restart_all()
+    if not result.get("success"):
+        return ApiResponse.error(message=result.get("message", "重启启动流程失败"))
+    return ApiResponse.success(
+        message=result.get("message", "已重新启动渐进式编排"),
+        data=result.get("progress"),
     )
