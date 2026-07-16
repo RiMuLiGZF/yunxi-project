@@ -128,7 +128,9 @@ class SocialService:
             x = int(300 + radius * math.cos(angle))
             y = int(200 + radius * math.sin(angle))
 
-            color = _RELATION_COLOR_MAP.get(c.get("relation", ""), "#13C2C2")
+            color = _RELATION_COLOR_MAP.get(c.get("relationship_type", ""), "#13C2C2")
+            relation_type = c.get("relationship_type", "其他")
+            closeness = c.get("importance", c.get("closeness", 50))
 
             nodes.append({
                 "id": c["id"],
@@ -137,11 +139,15 @@ class SocialService:
                 "y": y,
                 "level": level,
                 "color": color,
+                "closeness": closeness,
+                "relation": relation_type,
+                "avatar": c.get("avatar", ""),
             })
             links.append({
                 "source": 0,
                 "target": c["id"],
                 "strength": round(closeness / 100, 2),
+                "relation": relation_type,
             })
 
         return {"nodes": nodes, "links": links}

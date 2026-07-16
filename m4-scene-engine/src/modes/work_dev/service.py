@@ -162,6 +162,8 @@ class WorkDevService:
             user_id: 用户 ID
         """
         self.repo = WorkDevRepository(db, user_id=user_id)
+        # M1 感知中枢 API 地址（接入真实 AI）
+        self.m1_base_url = os.environ.get("M1_BASE_URL", "http://localhost:8001").rstrip("/")
 
     # -----------------------------------------------------------------------
     # 概览统计
@@ -933,8 +935,7 @@ class WorkDevService:
     ) -> dict[str, Any]:
         """AI 代码操作（生成/审查/调试/优化/重构/解释/测试生成）.
 
-        支持 LLM 动态生成与模板匹配两种模式。
-        当 M4_ENABLE_LLM=true 时优先调用 LLM，失败时回退到模板匹配。
+        优先调用 M1 感知中枢真实 AI 生成代码，失败时回退到模板匹配。
 
         Args:
             prompt: 需求描述
@@ -947,69 +948,51 @@ class WorkDevService:
         if operation_type not in VALID_OPERATIONS:
             operation_type = "generate"
 
-        # 判断是否启用 LLM
-        enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
+        # 优先调用 M1 真实 AI
         is_fallback = True
         model_name = "template-matching"
+        reply_content = ""
 
-        if enable_llm:
-            try:
-                code = await self._call_llm_for_codegen(prompt, language)
-                is_fallback = False
-                model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
-            except Exception as e:
-                logger.warning("LLM codegen failed, falling back to template", error=str(e))
-                code = self._fallback_generate_code(prompt, language, operation_type)
-        else:
+        try:
+            reply_content = await self._call_m1_for_code(
+                prompt, language, operation_type,
+            )
+            is_fallback = False
+            model_name = "M1-感知中枢"
+        except Exception as e:
+            logger.warning("M1 codegen failed, falling back to template", error=str(e))
+            # 降级：模板匹配
             code = self._fallback_generate_code(prompt, language, operation_type)
+            lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
+            op_names = {
+                "generate": "生成", "review": "审查", "debug": "调试",
+                "optimize": "优化", "refactor": "重构", "explain": "解释", "test": "测试",
+            }
+            op_name = op_names.get(operation_type, "操作")
+            reply_content = (
+                f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
+                f"```{language}\n{code}\n```\n\n"
+                f"**说明：**\n"
+                f"- 代码包含基本的输入验证\n"
+                f"- 已添加必要的注释说明\n\n"
+                f"（M1 服务暂不可用，当前为模板匹配模式）"
+            )
 
         # 记录使用统计
         self.repo.record_usage(
             action_type="generate",
             operation_type=operation_type,
             language=language,
-            tokens_used=len(prompt) + len(code) if enable_llm else len(prompt) + len(code),
+            tokens_used=len(prompt) + len(reply_content),
             is_fallback=is_fallback,
         )
-
-        lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
-        op_names = {
-            "generate": "生成",
-            "review": "审查",
-            "debug": "调试",
-            "optimize": "优化",
-            "refactor": "重构",
-            "explain": "解释",
-            "test": "测试",
-        }
-        op_name = op_names.get(operation_type, "操作")
-
-        if enable_llm and not is_fallback:
-            content = (
-                f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
-                f"```{language}\n{code}\n```\n\n"
-                f"**说明：**\n"
-                f"- 代码由大模型动态生成（{model_name}）\n"
-                f"- 请仔细审查代码后再使用\n"
-                f"- 如需修改，请提供更详细的描述"
-            )
-        else:
-            content = (
-                f"根据你的需求，我{op_name}了以下{lang_name}代码：\n\n"
-                f"```{language}\n{code}\n```\n\n"
-                f"**说明：**\n"
-                f"- 代码包含基本的输入验证\n"
-                f"- 已添加必要的注释说明\n\n"
-                f"（当前为模板匹配模式，接入大模型后可获得更智能的回复）"
-            )
 
         return {
             "language": language,
             "operation": operation_type,
-            "content": content,
-            "code": code,
-            "is_fallback": is_fallback,
+            "content": reply_content,
             "model": model_name,
+            "is_fallback": is_fallback,
         }
 
     async def _archive_to_m5(
@@ -1194,8 +1177,7 @@ fn main() {{
     ) -> dict[str, Any]:
         """代码对话（多轮）.
 
-        支持 LLM 动态生成与模板匹配两种模式。
-        当 M4_ENABLE_LLM=true 时优先调用 LLM，失败时回退到模板匹配。
+        优先调用 M1 感知中枢真实 AI 生成代码，失败时回退到模板匹配。
 
         Args:
             message: 用户消息
@@ -1216,37 +1198,27 @@ fn main() {{
         # 添加用户消息
         self.repo.append_message(conversation_id, "user", message)
 
-        # 判断是否启用 LLM
-        enable_llm = os.environ.get("M4_ENABLE_LLM", "false").lower() == "true"
+        # 优先调用 M1 真实 AI
         is_fallback = True
         model_name = "template-matching"
+        reply = ""
 
-        if enable_llm:
-            try:
-                code = await self._call_llm_for_codegen(message, language, context_code)
-                is_fallback = False
-                model_name = os.environ.get("LLM_CODEGEN_MODEL", "qwen2.5-coder:7b")
-            except Exception as e:
-                logger.warning("LLM code chat failed, falling back to template", error=str(e))
-                code = self._fallback_generate_code(message, language, "generate")
-        else:
-            code = self._fallback_generate_code(message, language, "generate")
-
-        lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
-
-        if enable_llm and not is_fallback:
-            reply = (
-                f"好的，我来帮你处理这个问题。\n\n"
-                f"这是一个{lang_name}示例：\n\n"
-                f"```{language}\n{code}\n```\n\n"
-                f"（由 {model_name} 动态生成，请仔细审查后再使用）"
+        try:
+            reply = await self._call_m1_for_code(
+                message, language, "generate", context_code,
             )
-        else:
+            is_fallback = False
+            model_name = "M1-感知中枢"
+        except Exception as e:
+            logger.warning("M1 code chat failed, falling back to template", error=str(e))
+            # 降级：模板匹配
+            code = self._fallback_generate_code(message, language, "generate")
+            lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
             reply = (
                 f"好的，我来帮你处理这个问题。\n\n"
                 f"这是一个{lang_name}示例：\n\n"
                 f"```{language}\n{code}\n```\n\n"
-                f"（当前为模板模式，接入大模型后可获得更智能的对话体验）"
+                f"（M1 服务暂不可用，当前为模板模式）"
             )
 
         # 添加 AI 回复
@@ -1483,7 +1455,77 @@ fn main() {{
         return activities[:limit]
 
     # -----------------------------------------------------------------------
-    # LLM 代码生成
+    # M1 真实 AI 代码生成
+    # -----------------------------------------------------------------------
+
+    async def _call_m1_for_code(
+        self,
+        prompt: str,
+        language: str = "python",
+        operation_type: str = "generate",
+        context: str = "",
+    ) -> str:
+        """调用 M1 感知中枢生成代码.
+
+        通过 HTTP 调用 M1 的 /api/v1/chat 接口，传入代码生成需求，
+        获取 M1 大模型生成的代码结果。失败时抛出异常供上层降级处理。
+
+        Args:
+            prompt: 用户需求描述
+            language: 目标编程语言
+            operation_type: 操作类型（generate/review/debug/optimize/refactor/explain/test）
+            context: 上下文代码（可选）
+
+        Returns:
+            M1 返回的代码文本
+
+        Raises:
+            Exception: 网络错误或 M1 返回异常时抛出
+        """
+        op_names = {
+            "generate": "生成",
+            "review": "审查",
+            "debug": "调试",
+            "optimize": "优化",
+            "refactor": "重构",
+            "explain": "解释",
+            "test": "测试",
+        }
+        op_name = op_names.get(operation_type, "生成")
+        lang_name = LANGUAGE_CONFIG.get(language, {}).get("name", language)
+
+        # 构建用户输入（包含角色设定和具体需求）
+        user_input = (
+            f"你是一个专业的 {lang_name} 开发助手。"
+            f"请帮我{op_name}以下{lang_name}代码相关的需求：\n\n"
+            f"{prompt}"
+        )
+        if context:
+            user_input += f"\n\n参考上下文代码：\n{context}"
+        user_input += f"\n\n请直接输出{op_name}后的完整代码，用```包裹。"
+
+        payload = {
+            "user_input": user_input,
+            "trace_id": f"m4_workdev_{int(time.time())}_{uuid.uuid4().hex[:6]}",
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{self.m1_base_url}/api/v1/chat",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        reply = data.get("reply") or data.get("data", {}).get("reply", "")
+        if not reply or len(reply.strip()) < 5:
+            raise ValueError(f"M1 返回空回复: {data}")
+
+        return reply.strip()
+
+    # -----------------------------------------------------------------------
+    # LLM 代码生成（兼容 Ollama / OpenAI 格式，备用）
     # -----------------------------------------------------------------------
 
     async def _call_llm_for_codegen(

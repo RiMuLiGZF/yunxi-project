@@ -241,7 +241,24 @@ class OrchestratorV9:
         # [P2-003] 步骤2.5：V3 意图分类结果注入处理链
         sanitized_input = guard_result.sanitized_text
         v3_intent = self._run_intent(sanitized_input)
-        kwargs["override_intent"] = v3_intent
+        # 只有 V3 置信度足够高且不是 fallback 时，才覆盖 V2 的分类结果
+        # 否则让 V2 自己分类，避免低质量结果覆盖准确分类
+        v3_confidence = v3_intent.get("confidence", 0.0)
+        v3_intent_name = v3_intent.get("intent", "fallback")
+        if v3_intent_name != "fallback" and v3_confidence >= self._intent.min_confidence:
+            kwargs["override_intent"] = v3_intent
+            self._logger.debug(
+                "v3_intent_override",
+                intent=v3_intent_name,
+                confidence=v3_confidence,
+            )
+        else:
+            self._logger.debug(
+                "v3_intent_skipped",
+                intent=v3_intent_name,
+                confidence=v3_confidence,
+                reason="low_confidence_or_fallback",
+            )
 
         # [P3-005] 步骤2.6：BudgetManager 预算检查点
         if not self._run_budget(

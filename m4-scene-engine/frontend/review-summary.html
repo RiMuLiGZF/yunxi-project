@@ -1406,9 +1406,27 @@
     init() {
       document.querySelectorAll('.sidebar-menu-item, .sidebar .nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
+          const href = item.getAttribute('href');
+          const dataPanel = item.getAttribute('data-panel');
+
+          // 内部面板切换：阻止默认行为，切换 active 状态
+          if (dataPanel) {
+            e.preventDefault();
+            document.querySelectorAll('.sidebar-menu-item, .sidebar .nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            const label = item.textContent.trim();
+            YunxiAPI.showToast('已切换到: ' + label, 'success');
+            return;
+          }
+
+          // 有 href 且是页面跳转：正常跳转（不阻止默认行为）
+          if (href && href !== '#' && !href.startsWith('javascript:')) {
+            // 允许默认跳转行为，不用 preventDefault
+            return;
+          }
+
+          // 其他情况（无 href 的纯按钮）：阻止默认，显示提示
           e.preventDefault();
-          document.querySelectorAll('.sidebar-menu-item, .sidebar .nav-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
           const label = item.textContent.trim();
           YunxiAPI.showToast('已切换到: ' + label, 'success');
         });

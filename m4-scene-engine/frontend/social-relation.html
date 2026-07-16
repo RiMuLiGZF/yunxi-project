@@ -1761,7 +1761,14 @@
               <div class="graph-panel">
                 <div class="graph-panel-header">
                   <span class="graph-panel-title">&#127760; 关系图谱总览</span>
-                  <button class="graph-panel-action">全屏查看</button>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <input id="graphSearchInput" type="text" placeholder="搜索联系人..." 
+                      style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,125,151,0.2); background: rgba(255,255,255,0.8); font-size: 12px; color: #4A5F80; width: 120px; outline: none; transition: all 0.2s;"
+                      onfocus="this.style.borderColor='#FF7D97'; this.style.boxShadow='0 0 0 3px rgba(255,125,151,0.1)';"
+                      onblur="this.style.borderColor='rgba(255,125,151,0.2)'; this.style.boxShadow='none';"
+                      oninput="RelationGraph.search(this.value)">
+                    <button class="graph-panel-action">全屏查看</button>
+                  </div>
                 </div>
                 <div class="graph-canvas">
                   <div id="relationGraph" style="width:100%;height:100%;"></div>
@@ -2863,10 +2870,38 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ═══════════════════════════════════════════════════════════
-// v3.0 — ECharts Force-Directed Relationship Graph（数据来自 SocialData）
+// v4.0 — 增强版人际关系图谱（图例筛选+头像+全屏+智能布局）
 // ═══════════════════════════════════════════════════════════
 const RelationGraph = {
   chart: null,
+  fullscreenMode: false,
+  _originalParent: null,
+  _filterTypes: null,  // null = 全部显示，数组 = 筛选的关系类型
+  _searchKeyword: '',
+
+  // 关系类型颜色映射（与后端保持一致）
+  _relationColors: {
+    '家人': '#F5222D',
+    '亲密好友': '#EB2F96',
+    '朋友': '#FF7D97',
+    '同事': '#52C41A',
+    '同学': '#722ED1',
+    '导师': '#FAAD14',
+    '合作伙伴': '#FA8C16',
+    '其他': '#13C2C2',
+  },
+
+  // 关系类型 emoji 映射
+  _relationEmoji: {
+    '家人': '🏠',
+    '亲密好友': '💖',
+    '朋友': '👫',
+    '同事': '💼',
+    '同学': '🎓',
+    '导师': '📚',
+    '合作伙伴': '🤝',
+    '其他': '✨',
+  },
 
   init() {
     const graphDom = document.getElementById('relationGraph');
@@ -2874,7 +2909,7 @@ const RelationGraph = {
     this.chart = echarts.init(graphDom, null, { renderer: 'canvas' });
     window.__relationGraph = this.chart;
 
-    // Double-click to show person card
+    // 单击选中高亮，双击查看详情
     this.chart.on('dblclick', (params) => {
       if (params.dataType === 'node') {
         const name = params.name;
@@ -2886,10 +2921,234 @@ const RelationGraph = {
       }
     });
 
+    // 图例点击筛选
+    this.chart.on('legendselectchanged', (params) => {
+      this._handleLegendChange(params);
+    });
+
+    // 绑定全屏按钮
+    this._bindFullscreenButton();
+
     // Resize handling
     window.addEventListener('resize', () => {
       if (this.chart) this.chart.resize();
     });
+
+    // ESC 退出全屏
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.fullscreenMode) {
+        this.exitFullscreen();
+      }
+    });
+  },
+
+  // 绑定全屏按钮事件
+  _bindFullscreenButton() {
+    const btn = document.querySelector('.graph-panel-action');
+    if (btn && !btn.__graphBound) {
+      btn.__graphBound = true;
+      btn.addEventListener('click', () => {
+        if (this.fullscreenMode) {
+          this.exitFullscreen();
+        } else {
+          this.enterFullscreen();
+        }
+      });
+    }
+  },
+
+  // 进入全屏模式
+  enterFullscreen() {
+    const graphDom = document.getElementById('relationGraph');
+    if (!graphDom) return;
+
+    // 保存原父节点
+    this._originalParent = graphDom.parentNode;
+
+    // 创建全屏遮罩
+    const overlay = document.createElement('div');
+    overlay.id = 'graphFullscreenOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #FFF5F7 0%, #FFF0E5 50%, #F5F0FF 100%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+    `;
+
+    // 顶部工具栏
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,125,151,0.15);
+      flex-shrink: 0;
+    `;
+    toolbar.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 18px; font-weight: 600; color: #1A2B4A;">🌐 人际关系图谱</span>
+        <span style="font-size: 12px; color: #86909C;">点击图例筛选 · 滚轮缩放 · 拖拽移动 · 双击查看详情</span>
+      </div>
+      <button id="closeFullscreenBtn" style="
+        padding: 8px 20px;
+        border-radius: 8px;
+        border: 1px solid #FF7D97;
+        background: rgba(255,125,151,0.1);
+        color: #FF7D97;
+        font-size: 13px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">退出全屏 (Esc)</button>
+    `;
+
+    // 图谱容器
+    const container = document.createElement('div');
+    container.style.cssText = 'flex: 1; min-height: 0; padding: 20px;';
+    container.id = 'graphFullscreenContainer';
+
+    overlay.appendChild(toolbar);
+    overlay.appendChild(container);
+    document.body.appendChild(overlay);
+
+    // 移动图谱 DOM
+    container.appendChild(graphDom);
+    graphDom.style.width = '100%';
+    graphDom.style.height = '100%';
+
+    // 绑定关闭按钮
+    document.getElementById('closeFullscreenBtn').addEventListener('click', () => {
+      this.exitFullscreen();
+    });
+
+    this.fullscreenMode = true;
+    const btn = document.querySelector('.graph-panel-action');
+    if (btn) btn.textContent = '退出全屏';
+
+    // 重新渲染
+    setTimeout(() => {
+      if (this.chart) this.chart.resize();
+    }, 50);
+  },
+
+  // 退出全屏模式
+  exitFullscreen() {
+    const overlay = document.getElementById('graphFullscreenOverlay');
+    const graphDom = document.getElementById('relationGraph');
+    if (!overlay || !graphDom || !this._originalParent) return;
+
+    // 移回原位置
+    this._originalParent.appendChild(graphDom);
+    graphDom.style.width = '100%';
+    graphDom.style.height = '100%';
+
+    // 移除遮罩
+    overlay.remove();
+
+    this.fullscreenMode = false;
+    const btn = document.querySelector('.graph-panel-action');
+    if (btn) btn.textContent = '全屏查看';
+
+    // 重新渲染
+    setTimeout(() => {
+      if (this.chart) this.chart.resize();
+    }, 50);
+  },
+
+  // 处理图例点击筛选
+  _handleLegendChange(params) {
+    const selected = params.selected || {};
+    const selectedTypes = [];
+    for (const [name, isSelected] of Object.entries(selected)) {
+      if (isSelected && name !== '自我') {
+        selectedTypes.push(name);
+      }
+    }
+    // 如果所有关系类型都取消了，显示全部
+    if (selectedTypes.length === 0) {
+      this._filterTypes = null;
+    } else {
+      this._filterTypes = selectedTypes;
+    }
+    this._applyFilter();
+  },
+
+  // 应用筛选
+  _applyFilter() {
+    if (!this.chart || !SocialData.cache.relationGraph) return;
+
+    const graphData = SocialData.cache.relationGraph;
+    const { nodes, links } = graphData;
+
+    // 筛选节点
+    let filteredNodes = nodes;
+    let filteredLinks = links;
+
+    // 按关系类型筛选
+    if (this._filterTypes) {
+      // 先找出符合条件的连线
+      const validNodeIds = new Set();
+      // 中心节点始终显示
+      const centerNode = nodes.find(n => n.level === 0 || n.id === 'me' || n.name === '我');
+      if (centerNode) validNodeIds.add(centerNode.id);
+
+      filteredLinks = links.filter(link => {
+        const relation = link.relation || '';
+        // 检查关系类型是否在筛选列表中（模糊匹配）
+        const match = this._filterTypes.some(type =>
+          relation.includes(type) || type.includes(relation)
+        );
+        if (match) {
+          validNodeIds.add(link.source);
+          validNodeIds.add(link.target);
+          return true;
+        }
+        return false;
+      });
+
+      filteredNodes = nodes.filter(n => validNodeIds.has(n.id));
+    }
+
+    // 按关键词搜索
+    if (this._searchKeyword) {
+      const kw = this._searchKeyword.toLowerCase();
+      const matchedNodeIds = new Set();
+      const centerNode = filteredNodes.find(n => n.level === 0 || n.id === 'me' || n.name === '我');
+      if (centerNode) matchedNodeIds.add(centerNode.id);
+
+      filteredNodes.forEach(n => {
+        if (n.name.toLowerCase().includes(kw)) {
+          matchedNodeIds.add(n.id);
+        }
+      });
+
+      filteredLinks = filteredLinks.filter(link =>
+        matchedNodeIds.has(link.source) || matchedNodeIds.has(link.target)
+      );
+      filteredNodes = filteredNodes.filter(n => matchedNodeIds.has(n.id));
+    }
+
+    const converted = this._convertGraphData({ nodes: filteredNodes, links: filteredLinks });
+    this.chart.setOption({
+      series: [{
+        data: converted.nodes,
+        links: converted.links,
+      }]
+    });
+  },
+
+  // 搜索联系人
+  search(keyword) {
+    this._searchKeyword = keyword || '';
+    this._applyFilter();
   },
 
   // 将 API 数据转换为 ECharts 格式
@@ -2898,62 +3157,138 @@ const RelationGraph = {
     const pinkMain = '#FF7D97';
     const pinkDeep = '#F55778';
 
+    // 建立 ID → name 映射（处理数字 ID 和字符串 ID 两种情况）
+    const idToName = {};
+    nodes.forEach(node => {
+      idToName[node.id] = node.name;
+    });
+
+    // 收集所有关系类型
+    const relationTypes = new Set();
+    links.forEach(link => {
+      if (link.relation) relationTypes.add(link.relation);
+    });
+
     // 转换节点
     const echartsNodes = nodes.map(node => {
       const isCenter = node.level === 0 || node.id === 'me' || node.name === '我';
       const color = node.color || pinkMain;
       const closeness = node.closeness || 0;
-      const size = isCenter ? 52 : (20 + closeness * 0.2);
+      const size = isCenter ? 56 : (22 + closeness * 0.25);
+
+      // 获取关系类型
+      const relation = node.relation || '';
+      const emoji = isCenter ? '🌟' : (this._relationEmoji[relation] || '👤');
 
       if (isCenter) {
         return {
           name: node.name,
           symbolSize: size,
-          category: 0,
+          category: '自我',
+          value: closeness,
+          relation: '',
+          emoji: emoji,
           itemStyle: {
             color: {
               type: 'radial', x: 0.4, y: 0.35, r: 0.8,
               colorStops: [
-                { offset: 0, color: '#FFA0B4' },
-                { offset: 1, color: pinkDeep }
+                { offset: 0, color: '#FFB6C6' },
+                { offset: 0.6, color: '#FF7D97' },
+                { offset: 1, color: '#F55778' }
               ]
             },
-            shadowBlur: 20,
-            shadowColor: 'rgba(255,125,151,0.5)'
+            shadowBlur: 25,
+            shadowColor: 'rgba(255,125,151,0.6)',
+            borderColor: '#fff',
+            borderWidth: 3,
           },
-          label: { fontSize: 14, fontWeight: 'bold', color: '#fff' }
+          label: {
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: '#fff',
+            formatter: '🌟',
+            fontSize: 20,
+            position: 'inside',
+          }
         };
       }
+
+      // 普通节点：带颜色的圆形 + emoji
       return {
         name: node.name,
         symbolSize: size,
-        category: 1,
+        category: relation || '其他',
         value: closeness,
-        itemStyle: { color: color }
+        relation: relation,
+        emoji: emoji,
+        itemStyle: {
+          color: color,
+          shadowBlur: 10,
+          shadowColor: color + '40',
+          borderColor: '#fff',
+          borderWidth: 2,
+        },
+        label: {
+          show: true,
+          formatter: emoji,
+          fontSize: 14,
+          position: 'inside',
+          color: '#fff',
+        }
       };
     });
 
     // 转换连线
     const echartsLinks = links.map(link => {
       const strength = link.strength || 0.5;
-      const isCoreLink = (link.source === 'me' || link.source === '我') ||
-                          (link.target === 'me' || link.target === '我');
+      // 将 ID 转换为 name（兼容数字 ID 和字符串 ID）
+      const sourceName = idToName[link.source] || link.source;
+      const targetName = idToName[link.target] || link.target;
+      const isCoreLink = (link.source === 'me' || link.source === '我' || link.source === 0) ||
+                          (link.target === 'me' || link.target === '我' || link.target === 0);
       const lineColor = isCoreLink
-        ? 'rgba(255,125,151,' + (0.3 + strength * 0.3) + ')'
-        : 'rgba(200,200,220,' + (0.2 + strength * 0.15) + ')';
+        ? 'rgba(255,125,151,' + (0.35 + strength * 0.35) + ')'
+        : 'rgba(150,160,180,' + (0.2 + strength * 0.2) + ')';
       return {
-        source: link.source,
-        target: link.target,
+        source: sourceName,
+        target: targetName,
         lineStyle: {
           width: 1 + strength * 2.5,
           color: lineColor,
-          type: isCoreLink ? 'solid' : 'dashed'
+          type: isCoreLink ? 'solid' : 'dashed',
+          curveness: 0.1,
         },
-        value: link.relation || ''
+        value: link.relation || '',
+        label: {
+          show: false,
+          formatter: link.relation || '',
+          fontSize: 10,
+          color: '#86909C',
+        }
       };
     });
 
     return { nodes: echartsNodes, links: echartsLinks };
+  },
+
+  // 构建图例数据
+  _buildLegend(graphData) {
+    const { links } = graphData;
+    const typeSet = new Set();
+    typeSet.add('自我');
+
+    links.forEach(link => {
+      if (link.relation) {
+        // 提取主要关系类型
+        let type = link.relation;
+        if (type.includes('好友') || type.includes('亲密')) type = '亲密好友';
+        if (type === '朋友' && !typeSet.has('亲密好友')) type = '朋友';
+        typeSet.add(type);
+      }
+    });
+
+    const legendData = Array.from(typeSet);
+    return legendData;
   },
 
   async loadData() {
@@ -2962,23 +3297,63 @@ const RelationGraph = {
 
     const graphData = SocialData.cache.relationGraph || await SocialData.fetchRelationGraph();
     const converted = this._convertGraphData(graphData);
+    const legendData = this._buildLegend(graphData);
 
-    const pinkMain = '#FF7D97';
-    const pinkLight = '#FF9FB4';
+    // 构建 categories（每个关系类型一个 category）
+    const categories = legendData.map(name => {
+      const color = name === '自我' ? '#FF7D97' : (this._relationColors[name] || '#13C2C2');
+      return { name, itemStyle: { color } };
+    });
 
     const option = {
+      color: legendData.map(name =>
+        name === '自我' ? '#FF7D97' : (this._relationColors[name] || '#13C2C2')
+      ),
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        borderColor: 'rgba(100,150,220,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: 'rgba(255,125,151,0.2)',
+        borderWidth: 1,
+        padding: [10, 14],
         textStyle: { color: '#1A2B4A', fontSize: 12, fontFamily: 'Inter, PingFang SC, sans-serif' },
-        formatter: function(params) {
+        extraCssText: 'border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);',
+        formatter: (params) => {
           if (params.dataType === 'node') {
             const intimacy = params.data.value || '';
-            return '<b>' + params.name + '</b>' + (intimacy ? '<br>亲密度：' + intimacy + '%' : '');
+            const relation = params.data.relation || '';
+            const emoji = params.data.emoji || '👤';
+            let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-size:18px;">${emoji}</span>
+              <b style="font-size:14px;color:#1A2B4A;">${params.name}</b>
+            </div>`;
+            if (relation) html += `<div style="color:#FF7D97;font-size:11px;margin-bottom:4px;">${relation}</div>`;
+            if (intimacy) html += `<div style="color:#86909C;font-size:11px;">亲密度：${intimacy}%</div>`;
+            html += `<div style="color:#C9CDD4;font-size:10px;margin-top:6px;">双击查看详情</div>`;
+            return html;
           }
           const rel = params.data.value || '';
-          return params.data.source + ' ↔ ' + params.data.target + (rel ? '<br>关系：' + rel : '');
+          return `<b>${params.data.source}</b> ↔ <b>${params.data.target}</b>` +
+                 (rel ? `<br><span style="color:#FF7D97;">${rel}</span>` : '');
+        }
+      },
+      legend: {
+        show: true,
+        type: 'scroll',
+        orient: 'vertical',
+        right: 16,
+        top: 'center',
+        itemWidth: 12,
+        itemHeight: 12,
+        itemGap: 10,
+        textStyle: {
+          color: '#4A5F80',
+          fontSize: 12,
+          fontFamily: 'Inter, PingFang SC, sans-serif',
+        },
+        data: legendData,
+        tooltip: {
+          show: true,
+          formatter: (params) => `点击${params.name ? '隐藏' : '显示'}该类型关系`,
         }
       },
       series: [{
@@ -2986,41 +3361,49 @@ const RelationGraph = {
         layout: 'force',
         data: converted.nodes,
         links: converted.links,
-        categories: [
-          { name: '自我', itemStyle: { color: pinkMain } },
-          { name: '核心圈', itemStyle: { color: pinkLight } }
-        ],
+        categories: categories,
         roam: true,
         draggable: true,
+        focusNodeAdjacency: true,
         label: {
           show: true,
           color: '#4A5F80',
           fontSize: 11,
           fontFamily: 'Inter, PingFang SC, sans-serif',
           position: 'bottom',
-          distance: 8,
-          formatter: function(params) {
-            return params.name;
-          }
+          distance: 6,
+          fontWeight: 500,
+          formatter: (params) => params.name,
         },
         force: {
-          repulsion: 320,
-          edgeLength: [100, 200],
-          gravity: 0.1,
+          repulsion: 450,
+          edgeLength: [120, 250],
+          gravity: 0.08,
           layoutAnimation: true,
-          friction: 0.6
+          friction: 0.55,
+          edgeForce: 0.3,
         },
         emphasis: {
           focus: 'adjacency',
-          lineStyle: { width: 3 },
-          itemStyle: { shadowBlur: 15, shadowColor: 'rgba(255,125,151,0.6)' },
-          label: { fontSize: 13, fontWeight: 'bold' }
+          scale: 1.3,
+          lineStyle: { width: 4 },
+          itemStyle: {
+            shadowBlur: 20,
+            shadowColor: 'rgba(255,125,151,0.7)',
+          },
+          label: {
+            fontSize: 13,
+            fontWeight: 'bold',
+            color: '#1A2B4A',
+          }
         },
         lineStyle: {
-          curveness: 0.15
+          curveness: 0.1,
+          opacity: 0.8,
         },
-        animationDuration: 1500,
-        animationEasingUpdate: 'quinticInOut'
+        animationDuration: 1200,
+        animationEasingUpdate: 'cubicOut',
+        animationDurationUpdate: 800,
       }]
     };
 

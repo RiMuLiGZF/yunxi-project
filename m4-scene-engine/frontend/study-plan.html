@@ -1754,13 +1754,20 @@
         tab.addEventListener('click', (e) => {
           e.preventDefault();
           const href = tab.getAttribute('href');
-          if (href && !href.includes('study-plan')) {
-            YunxiAPI.showLoading('切换模式中...');
-            setTimeout(() => {
-              YunxiAPI.hideLoading();
-              window.location.href = href;
-            }, 300);
+          if (!href) return;
+
+          // 当前页面：给出提示，不跳转
+          if (href.includes('study-plan')) {
+            YunxiAPI.showToast('当前就在学业规划模式', 'info');
+            return;
           }
+
+          // 其他模式：显示加载动画后跳转
+          YunxiAPI.showLoading('切换模式中...');
+          setTimeout(() => {
+            YunxiAPI.hideLoading();
+            window.location.href = href;
+          }, 300);
         });
       });
     }
@@ -1774,12 +1781,25 @@
       // 菜单项点击
       document.querySelectorAll('.sidebar-menu .menu-item').forEach(function(item) {
         item.addEventListener('click', function(e) {
-          e.preventDefault();
           var view = item.dataset.view;
+          var href = item.getAttribute('href');
+
+          // 内部视图切换：有 data-view 的走 ViewRouter
           if (view) {
+            e.preventDefault();
             self.setActiveMenuItem(view);
             ViewRouter.switchView(view);
+            return;
           }
+
+          // 外部页面跳转：有 href 且不是 #/javascript 的，正常跳转
+          if (href && href !== '#' && !href.startsWith('javascript:')) {
+            // 允许默认跳转行为，不 preventDefault
+            return;
+          }
+
+          // 其他情况：阻止默认
+          e.preventDefault();
         });
       });
 
@@ -1820,7 +1840,7 @@
 
   // ===== 视图路由管理器 =====
   const ViewRouter = {
-    currentView: 'goal-breakdown',
+    currentView: null,
 
     init() {
       // 默认显示目标拆解视图

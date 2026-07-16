@@ -184,20 +184,41 @@ class LLMClient:
                 import httpx
                 # 构建上下文（最近 10 条消息，用于多轮对话）
                 context_messages = messages[-10:]
-                system_prompt = (
-                    "你是云汐，一个温暖、贴心、有智慧的AI助手。"
-                    "你的性格温柔、乐观、善解人意，总是用积极的态度回应用户。"
-                    "你的回答要自然、亲切，像朋友一样和用户聊天。"
-                )
 
-                # 将消息列表转换为对话历史字符串
+                # 提取系统提示词
+                system_prompt_text = ""
+                for msg in context_messages:
+                    if msg.get("role") == "system":
+                        system_prompt_text = msg.get("content", "")
+                        break
+
+                # 如果没有系统提示词，使用默认的
+                if not system_prompt_text:
+                    system_prompt_text = (
+                        "你是云汐，一个温暖、贴心、有智慧的AI助手。"
+                        "你的性格温柔、乐观、善解人意，总是用积极的态度回应用户。"
+                        "你的回答要自然、亲切，像朋友一样和用户聊天。"
+                    )
+
+                # 将消息列表转换为对话历史字符串（排除 system 和最后一条用户消息）
                 history_text = ""
-                for msg in context_messages[:-1]:  # 排除最后一条（当前用户输入）
-                    role_name = "用户" if msg.get("role") == "user" else "云汐"
+                for msg in context_messages[:-1]:
+                    role = msg.get("role", "")
+                    if role == "system":
+                        continue
+                    role_name = "用户" if role == "user" else "云汐"
                     history_text += f"{role_name}: {msg.get('content', '')}\n"
 
+                # 拼接完整的用户输入（包含系统提示词 + 历史对话 + 当前用户消息）
+                full_input = ""
+                if system_prompt_text:
+                    full_input += f"【角色设定】{system_prompt_text}\n\n"
+                if history_text:
+                    full_input += f"【对话历史】\n{history_text}\n"
+                full_input += f"用户: {user_message}\n云汐:"
+
                 payload = {
-                    "user_input": user_message,
+                    "user_input": full_input,
                     "trace_id": f"m4_{int(__import__('time').time())}",
                 }
 

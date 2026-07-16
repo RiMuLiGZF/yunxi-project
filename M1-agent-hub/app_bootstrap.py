@@ -143,7 +143,7 @@ class YunxiApplication:
             )
         if self.config.get_bool("plugin_loader.enabled", True):
             v5_kwargs["plugin_loader"] = PluginLoader(
-                plugin_dir=self.config.get_str("plugin_loader.plugin_dir", "./plugins"),
+                plugin_dir=self.config.get_str("plugin_loader.plugin_dir", "./agents"),
                 watch_interval=self.config.get_float("plugin_loader.watch_interval", 10.0),
                 auto_reload=self.config.get_bool("plugin_loader.auto_reload", True),
             )
@@ -182,13 +182,38 @@ class YunxiApplication:
             enable_pii_sanitize=self.config.get_bool("guardrails.enable_pii", True),
         )
 
+        v3_classifier = SemanticIntentClassifierV3()
+
         v9 = OrchestratorV9(
             orchestrator_v8=v8,
-            intent_classifier=SemanticIntentClassifierV3(),
+            intent_classifier=v3_classifier,
             otlp_exporter=otlp,
             guardrails=guardrails,
             ledger=LedgerEngine(),
         )
+
+        # 训练 V3 语义意图分类器（从 V2 规则中提取训练样本）
+        # V2 分类器的关键词规则作为 V3 TF-IDF 分类器的初始训练数据
+        v2_classifier = classifier
+        training_samples: dict[str, list[str]] = {}
+        for rule in v2_classifier._rules:
+            intent = rule.intent
+            if intent not in training_samples:
+                training_samples[intent] = []
+            training_samples[intent].extend(rule.keywords)
+            # 每个关键词生成一些变体样本（简单组合）
+            for kw in rule.keywords:
+                training_samples[intent].append(f"帮我{kw}")
+                training_samples[intent].append(f"我想{kw}")
+                training_samples[intent].append(f"需要{kw}")
+
+        if training_samples:
+            v3_classifier.train(training_samples)
+            self._logger.info(
+                "v3_classifier_trained",
+                intents=list(training_samples.keys()),
+                total_samples=sum(len(v) for v in training_samples.values()),
+            )
 
         self.orchestrator = v9
 
@@ -196,6 +221,22 @@ class YunxiApplication:
         self._registry = registry
         self._bus = bus
         self._ledger = v9._ledger if hasattr(v9, '_ledger') else LedgerEngine()
+
+        # 10.5 手动注册内置 Agent（从 ./agents 目录加载）
+        # 插件系统因目录配置问题可能加载失败，这里直接 import 并注册，确保核心 Agent 可用
+        from agents.agent_emotion import EmotionAgent
+        from agents.agent_dev import DevAgent
+        from agents.agent_note import NoteAgent
+        from agents.agent_review import ReviewAgent
+
+        builtin_agents = [EmotionAgent(), DevAgent(), NoteAgent(), ReviewAgent()]
+        for agent in builtin_agents:
+            try:
+                if hasattr(registry, "register_sync"):
+                    registry.register_sync(agent)
+                    self._logger.info("builtin_agent_registered", agent_id=agent.agent_id)
+            except Exception as e:
+                self._logger.warning("builtin_agent_register_failed", agent_id=getattr(agent, "agent_id", "unknown"), error=str(e))
 
         # 11. 注册生命周期
         self._register_lifecycle(bus, registry, persistence, v9)
@@ -216,7 +257,33 @@ class YunxiApplication:
         """注册生命周期钩子"""
 
         async def start_plugins() -> None:
-            await v9.load_plugins()
+            # 优先使用 V5 的 plugin_loader 加载（如果存在）
+            plugin_loader = getattr(v9, "_plugin_loader", None)
+            if plugin_loader is None:
+                # 从 V9 逐层向下找 plugin_loader
+                v8 = getattr(v9, "_v8", None)
+                v7 = getattr(v8, "_v7", None) if v8 else None
+                v5 = getattr(v7, "_v5", None) if v7 else None
+                plugin_loader = getattr(v5, "_plugin_loader", None) if v5 else None
+
+            if plugin_loader is not None:
+                try:
+                    # 调试：打印 plugin_dir 和扫描到的文件
+                    plugin_dir = getattr(plugin_loader, "plugin_dir", None)
+                    scanned = plugin_loader.scan() if hasattr(plugin_loader, "scan") else []
+                    logger.info(
+                        "plugin_loader_debug",
+                        plugin_dir=str(plugin_dir),
+                        scanned_files=[f.name for f in scanned],
+                    )
+                    loaded = await plugin_loader.load_all(registry)
+                    logger.info("plugins_loaded", count=len(loaded))
+                except Exception as e:
+                    logger.error("plugin_load_failed", error=str(e))
+                    import traceback
+                    logger.error("plugin_load_traceback", traceback=traceback.format_exc())
+            else:
+                logger.warning("plugin_loader_not_found")
 
         async def shutdown_bus() -> None:
             await bus.shutdown()

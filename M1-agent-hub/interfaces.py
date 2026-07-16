@@ -13,7 +13,7 @@ import uuid
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Literal, Optional
 
 from pydantic import BaseModel, Field
 
