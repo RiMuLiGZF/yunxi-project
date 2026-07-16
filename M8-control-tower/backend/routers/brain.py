@@ -371,6 +371,7 @@ async def brain_overview(current_user: dict = Depends(get_current_user)):
     if skill_evo:
         overview["features"]["skill_evolution"] = True
         overview["features"]["agent_tools"] = True
+        overview["features"]["multi_agent_team"] = True
         overview["skill_stats"] = skill_evo.get_growth_report(user_id)
     
     return ApiResponse(code=0, message="ok", data=overview)
@@ -675,4 +676,92 @@ async def agent_stats(current_user: dict = Depends(get_current_user)):
     return ApiResponse(code=0, message="ok", data={
         "stats": stats,
         "recent_executions": history,
+    })
+
+
+# ==================== 多Agent团队接口 ====================
+
+_agent_team_cache = None
+
+
+def _get_agent_team_api():
+    """获取多Agent团队（API用懒加载）"""
+    global _agent_team_cache
+    if _agent_team_cache is None:
+        try:
+            from shared.agent_team import _ensure_team_registered
+            _ensure_team_registered()
+            from shared.multi_agent import get_agent_team
+            _agent_team_cache = get_agent_team()
+        except Exception:
+            _agent_team_cache = False
+    return _agent_team_cache if _agent_team_cache else None
+
+
+@router.get("/team/profile")
+async def team_profile(current_user: dict = Depends(get_current_user)):
+    """获取Agent团队简介"""
+    team = _get_agent_team_api()
+    if not team:
+        raise HTTPException(status_code=500, detail="Agent团队不可用")
+    
+    profile = team.get_team_profile()
+    return ApiResponse(code=0, message="ok", data=profile)
+
+
+class TeamQueryRequest(BaseModel):
+    query: str
+
+
+@router.post("/team/query")
+async def team_query(
+    req: TeamQueryRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """团队协作处理查询"""
+    team = _get_agent_team_api()
+    if not team:
+        raise HTTPException(status_code=500, detail="Agent团队不可用")
+    
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+    context = {"user_id": user_id}
+    
+    result = team.handle_query(req.query, context=context)
+    
+    return ApiResponse(code=0 if result.success else 1,
+                       message="ok" if result.success else result.error or "执行失败",
+                       data=result.to_dict())
+
+
+@router.get("/team/stats")
+async def team_stats(current_user: dict = Depends(get_current_user)):
+    """获取团队统计信息"""
+    team = _get_agent_team_api()
+    if not team:
+        raise HTTPException(status_code=500, detail="Agent团队不可用")
+    
+    stats = team.get_stats()
+    history = team.get_task_history(limit=20)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "stats": stats,
+        "recent_tasks": history,
+    })
+
+
+@router.get("/team/tasks")
+async def team_tasks(
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取团队任务历史"""
+    team = _get_agent_team_api()
+    if not team:
+        raise HTTPException(status_code=500, detail="Agent团队不可用")
+    
+    tasks = team.get_task_history(limit=limit)
+    
+    return ApiResponse(code=0, message="ok", data={
+        "tasks": tasks,
+        "total": len(tasks),
     })

@@ -27,6 +27,7 @@ from shared.autonomous_learning import get_autonomous_learning_engine
 from shared.personality_engine import get_personality_engine
 from shared.skill_evolution import get_skill_evolution_engine
 from shared.agent_engine import get_agent_engine
+from shared.multi_agent import get_agent_team
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -109,6 +110,8 @@ _personality_engine = None
 _skill_evo_engine = None
 # Agent执行引擎（懒加载）
 _agent_engine = None
+# 多Agent团队（懒加载）
+_agent_team = None
 
 
 def _get_learning_engine():
@@ -155,6 +158,20 @@ def _get_agent_engine():
     return _agent_engine if _agent_engine else None
 
 
+def _get_agent_team():
+    """获取多Agent团队（懒加载）"""
+    global _agent_team
+    if _agent_team is None:
+        try:
+            # 确保团队已注册
+            from shared.agent_team import _ensure_team_registered
+            _ensure_team_registered()
+            _agent_team = get_agent_team()
+        except Exception:
+            _agent_team = False
+    return _agent_team if _agent_team else None
+
+
 def _should_use_agent(message: str) -> bool:
     """判断是否需要使用Agent工具
     
@@ -188,6 +205,41 @@ def _should_use_agent(message: str) -> bool:
             return True
     
     return False
+
+
+def _should_use_team(message: str) -> bool:
+    """判断是否需要多Agent团队协作
+    
+    复杂任务、多维度问题、需要多方协作时触发
+    """
+    if not message or len(message) < 10:
+        return False
+    
+    msg = message.lower()
+    
+    # 复杂任务信号
+    team_patterns = [
+        # 明确要求协作
+        r'团队.*一起', r'大家.*一起', r'组织.*分析',
+        # 多维度要求
+        r'既要.*又要', r'一方面.*另一方面',
+        r'分析.*并且.*方案', r'调研.*然后.*写',
+        # 复杂任务类型
+        r'综合分析', r'全面.*调研', r'深度分析',
+        r'策划方案', r'项目.*方案',
+        # 长文本问题
+    ]
+    
+    for pattern in team_patterns:
+        if re.search(pattern, msg):
+            return True
+    
+    # 长文本问题（>80字）可能是复杂任务
+    if len(message) > 80:
+        return True
+    
+    return False
+
 
 # M5 记忆服务配置
 M5_BASE_URL = os.environ.get("M5_BASE_URL", "http://localhost:8005")
@@ -595,9 +647,23 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 )
                 # 如果Agent成功且有工具使用，将结果融入回复
                 if agent_result and agent_result.tools_used:
-                    # 简单融合：在回复末尾附加工具发现的信息
                     tool_info = f"\n\n（我使用了 {', '.join(agent_result.tools_used)} 工具来帮助你）"
                     reply += tool_info
+            except Exception:
+                pass
+        
+        # === 多Agent团队协作：复杂任务触发 ===
+        team_result = None
+        agent_team = _get_agent_team()
+        if agent_team and _should_use_team(req.message):
+            try:
+                team_result = agent_team.handle_query(
+                    query=req.message,
+                    context={"user_id": user_id, "conversation_id": conversation_id},
+                )
+                if team_result and team_result.success and len(team_result.agents_involved) > 1:
+                    team_info = f"\n\n（我组织了 {len(team_result.agents_involved)} 位Agent协作完成任务：{', '.join(team_result.agents_involved)}）"
+                    reply += team_info
             except Exception:
                 pass
         
@@ -661,6 +727,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     "personality": _get_personality_engine() is not None,
                     "skill_evolution": _get_skill_evo_engine() is not None,
                     "agent_tools": _get_agent_engine() is not None,
+                    "multi_agent_team": _get_agent_team() is not None,
                 },
             },
         )
