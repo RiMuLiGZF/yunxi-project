@@ -1,0 +1,181 @@
+"""
+云汐 API 网关 - 主入口
+"""
+import time
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+
+from .config import settings
+from .middleware.auth import AuthMiddleware
+from .middleware.rate_limit import RateLimitMiddleware
+from .services.proxy_service import get_proxy_service
+
+# 配置日志
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("yunxi-gateway")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期"""
+    # 启动时
+    logger.info(f"Starting Yunxi API Gateway on {settings.host}:{settings.port}...")
+    logger.info(f"Loaded {len(settings.routes)} module routes")
+    yield
+    # 关闭时
+    proxy = get_proxy_service()
+    await proxy.close()
+    logger.info("Yunxi API Gateway stopped")
+
+
+app = FastAPI(
+    title="云汐 API 网关",
+    description="Yunxi API Gateway - 统一接入层，负责路由转发、认证鉴权、限流熔断",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS 中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 速率限制中间件
+app.add_middleware(RateLimitMiddleware)
+
+# 认证中间件
+app.add_middleware(AuthMiddleware)
+
+
+@app.get("/health")
+async def health_check():
+    """网关健康检查"""
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "status": "healthy",
+            "service": "yunxi-api-gateway",
+            "version": "1.0.0",
+            "routes_count": len(settings.routes),
+            "timestamp": int(time.time()),
+        },
+    }
+
+
+@app.get("/m8/health")
+async def m8_health():
+    """M8标准健康检查接口"""
+    proxy = get_proxy_service()
+    circuit_stats = proxy._circuit_breaker.get_stats()
+    
+    healthy_count = sum(
+        1 for s in circuit_stats.values() if s["state"] == "closed"
+    )
+    
+    return {
+        "code": 0,
+        "message": "healthy",
+        "data": {
+            "status": "healthy",
+            "version": "1.0.0",
+            "uptime": 0,
+            "modules": {
+                "total": len(settings.routes),
+                "healthy": healthy_count,
+                "circuit_breakers": circuit_stats,
+            },
+        },
+    }
+
+
+@app.get("/m8/metrics")
+async def m8_metrics():
+    """M8标准指标接口"""
+    from .services.rate_limiter import get_rate_limiter
+    
+    rate_stats = get_rate_limiter().get_stats()
+    proxy = get_proxy_service()
+    circuit_stats = proxy._circuit_breaker.get_stats()
+    
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "rate_limit": rate_stats,
+            "circuit_breakers": circuit_stats,
+            "routes_count": len(settings.routes),
+        },
+    }
+
+
+@app.get("/routes")
+async def list_routes():
+    """列出所有路由配置"""
+    return {
+        "code": 0,
+        "message": "success",
+        "data": [
+            {
+                "key": r.key,
+                "name": r.name,
+                "prefix": r.prefix,
+                "target": r.target_url,
+                "enabled": r.enabled,
+                "timeout": r.timeout,
+            }
+            for r in settings.routes
+        ],
+    }
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+async def proxy_request(request: Request, path: str):
+    """
+    通用代理转发
+    
+    将请求根据路径前缀转发到对应的模块服务。
+    例如：
+      /m8/api/v1/chat  →  M8 控制塔 /api/v1/chat
+      /m1/agents       →  M1 Agent集群 /agents
+    """
+    full_path = "/" + path
+    proxy = get_proxy_service()
+    
+    # 获取客户端IP
+    client_ip = request.client.host if request.client else "unknown"
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        client_ip = xff.split(",")[0].strip()
+    
+    # 读取请求体
+    body = await request.body()
+    
+    # 转发请求
+    status_code, response_headers, response_body = await proxy.forward_request(
+        method=request.method,
+        path=full_path,
+        headers=dict(request.headers),
+        query_params=dict(request.query_params),
+        body=body,
+        client_ip=client_ip,
+    )
+    
+    return Response(
+        content=response_body,
+        status_code=status_code,
+        headers=response_headers,
+    )
+
+
+logger.info("Yunxi API Gateway initialized")
