@@ -136,7 +136,7 @@ class ModuleStartupInfo:
     """单个模块的启动状态信息"""
 
     __slots__ = ("key", "name", "tier", "port", "status", "message",
-                 "start_time", "ready_time", "error")
+                 "start_time", "ready_time", "error", "phase", "progress")
 
     def __init__(self, key: str, name: str, tier: int, port: int):
         self.key = key
@@ -148,6 +148,8 @@ class ModuleStartupInfo:
         self.start_time: Optional[float] = None
         self.ready_time: Optional[float] = None
         self.error: Optional[str] = None
+        self.phase = "pending"
+        self.progress = 0
 
     def to_dict(self) -> dict:
         """序列化为字典（用于前端展示）"""
@@ -481,6 +483,22 @@ class StartupOrchestrator:
         with self._lock:
             return self._build_progress_locked()
 
+    def get_module_state(self, module_key: str) -> Optional[ModuleStartupInfo]:
+        """
+        获取指定模块的状态信息。
+
+        Args:
+            module_key: 模块标识（如 "m8", "m5"）
+
+        Returns:
+            ModuleStartupInfo 对象，如果模块不存在则返回 None
+        """
+        with self._lock:
+            for info in self._modules:
+                if info.key == module_key:
+                    return info
+            return None
+
     def _build_progress_locked(self) -> dict:
         """构建进度字典（调用方需已持有 _lock）"""
         completed = 0
@@ -632,6 +650,7 @@ _orchestrator: Optional[StartupOrchestrator] = None
 def get_startup_orchestrator(
     module_timeout: int = DEFAULT_MODULE_TIMEOUT,
     project_root: Optional[Path] = None,
+    self_module_key: Optional[str] = None,
 ) -> StartupOrchestrator:
     """
     获取全局启动编排器单例。
@@ -639,6 +658,7 @@ def get_startup_orchestrator(
     Args:
         module_timeout: 单个模块启动超时（秒）
         project_root: 项目根目录
+        self_module_key: 当前模块标识（可选，用于日志标识）
 
     Returns:
         StartupOrchestrator 单例
