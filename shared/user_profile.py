@@ -530,6 +530,45 @@ class UserProfileManager:
             sorted_hours = sorted(hours.items(), key=lambda x: x[1], reverse=True)
             return [h for h, _ in sorted_hours]
     
+    def get_voice_preferences(self, user_id: str) -> Dict[str, Any]:
+        """获取用户的语音偏好设置
+        
+        Returns:
+            包含 voice, speed, emotion, pitch 等偏好的字典
+        """
+        profile = self.get_profile(user_id)
+        defaults = {
+            "voice": "default",
+            "speed": 1.0,
+            "emotion": "neutral",
+            "pitch": 1.0,
+            "volume": 1.0,
+        }
+        
+        with self._lock:
+            voice_prefs = profile.preferences.get(PreferenceCategory.VOICE.value, {})
+            for key in defaults:
+                if key in voice_prefs and voice_prefs[key].confidence > 0.3:
+                    defaults[key] = voice_prefs[key].value
+        
+        return defaults
+    
+    def set_voice_preference(self, user_id: str, key: str, value: Any):
+        """设置用户的语音偏好
+        
+        Args:
+            user_id: 用户ID
+            key: 偏好键（voice/speed/emotion/pitch/volume）
+            value: 偏好值
+        """
+        self.set_preference(
+            user_id,
+            PreferenceCategory.VOICE.value,
+            key,
+            value,
+            source="explicit",
+        )
+    
     def get_all_users(self) -> List[Dict[str, Any]]:
         """获取所有用户列表"""
         with self._lock:

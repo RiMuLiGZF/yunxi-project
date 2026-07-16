@@ -153,15 +153,33 @@ async def voice_status():
 # ===== TTS 语音合成 =====
 
 @router.post("/tts/synthesize")
-async def tts_synthesize(req: TTSRequest):
+async def tts_synthesize(req: TTSRequest, user_id: Optional[str] = None):
     """文本转语音（返回音频文件URL）
     
     支持情感控制、场景韵律、CosyVoice 音色克隆等高级功能。
+    如果提供了 user_id，会自动从用户画像中应用语音偏好。
     """
     if not _voice_available:
         raise HTTPException(status_code=500, detail="语音模块未安装")
 
     config = _get_config_from_db()
+    
+    # 从用户画像加载语音偏好（如果有user_id）
+    if user_id:
+        try:
+            from shared.user_profile import get_user_profile_manager
+            profile_mgr = get_user_profile_manager()
+            voice_prefs = profile_mgr.get_voice_preferences(user_id)
+            # 用户未显式指定时使用画像偏好
+            if not req.voice_type and voice_prefs.get("voice") and voice_prefs["voice"] != "default":
+                config['voice_type'] = voice_prefs["voice"]
+            if not req.speed and voice_prefs.get("speed"):
+                config['voice_speed'] = voice_prefs["speed"]
+            if not req.pitch and voice_prefs.get("pitch"):
+                config['voice_pitch'] = voice_prefs["pitch"]
+        except Exception:
+            pass  # 画像不可用时静默降级
+    
     if req.voice_type:
         config['voice_type'] = req.voice_type
     if req.speed:

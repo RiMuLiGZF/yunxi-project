@@ -18,12 +18,41 @@ sys.path.insert(0, str(project_root))
 
 from shared.llm_client import LLMClient
 from shared.module_client import get_module_registry
+from shared.user_profile import get_user_profile_manager
+from shared.multimodal import get_multimodal_engine, VisionTaskType
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
 router = APIRouter()
 llm = LLMClient()
 registry = get_module_registry()
+
+# 用户画像管理器（懒加载）
+_profile_mgr = None
+# 多模态引擎（懒加载）
+_multimodal_engine = None
+
+
+def _get_profile_mgr():
+    """获取用户画像管理器（懒加载）"""
+    global _profile_mgr
+    if _profile_mgr is None:
+        try:
+            _profile_mgr = get_user_profile_manager()
+        except Exception:
+            _profile_mgr = False  # 标记为不可用
+    return _profile_mgr if _profile_mgr else None
+
+
+def _get_multimodal_engine():
+    """获取多模态引擎（懒加载）"""
+    global _multimodal_engine
+    if _multimodal_engine is None:
+        try:
+            _multimodal_engine = get_multimodal_engine()
+        except Exception:
+            _multimodal_engine = False  # 标记为不可用
+    return _multimodal_engine if _multimodal_engine else None
 
 # M5 记忆服务配置
 M5_BASE_URL = os.environ.get("M5_BASE_URL", "http://localhost:8005")
@@ -110,6 +139,16 @@ class ChatMessage(BaseModel):
     timestamp: Optional[float] = None
 
 
+class ChatImageMessage(BaseModel):
+    """带图片的聊天消息"""
+    message: str
+    image_base64: str  # base64编码的图片
+    conversation_id: str = "default"
+    mode: str = "main-chat"
+    task_type: str = "general"  # general/caption/ocr/object_detection
+    system_prompt: Optional[str] = None
+
+
 @router.post("/send")
 async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_current_user)):
     """发送消息到千问大模型"""
@@ -144,7 +183,17 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
         user_name = user_nickname or current_user.get("username", "朋友") if current_user else "朋友"
 
         # 从 M5 检索相关记忆
-        memory_context = await _recall_memory(req.message, current_user.get("user_id", "default") if current_user else "default")
+        user_id = current_user.get("user_id", "default") if current_user else "default"
+        memory_context = await _recall_memory(req.message, user_id)
+
+        # 从用户画像获取个性化提示词
+        personalization_context = ""
+        profile_mgr = _get_profile_mgr()
+        if profile_mgr:
+            try:
+                personalization_context = profile_mgr.get_personalized_prompt(user_id, "")
+            except Exception:
+                pass
 
         # 根据模式构建系统提示词
         mode = req.mode or "main-chat"
@@ -164,6 +213,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{personalization_context}
 
 请用温暖、柔软、有温度的语气回应用户。"""
         elif mode == "study-plan":
@@ -189,6 +239,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{personalization_context}
 
 请用专业、亲切、有条理的语气回应用户，给出的规划建议要具体、可操作。"""
         else:
@@ -199,6 +250,7 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
 
 当前用户的称呼：{user_name}
 {memory_context}
+{personalization_context}
 
 请记住用户告诉你的重要信息（如昵称、喜好、重要事件等），在后续对话中自然地提及。"""
 
@@ -234,6 +286,25 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
             user_id=user_id,
             tags=["conversation", req.mode or "main-chat"]
         )
+
+        # 用户画像学习：记录交互 + 学习偏好
+        if profile_mgr:
+            try:
+                profile_mgr.record_interaction(
+                    user_id,
+                    "chat",
+                    req.message,
+                    metadata={"mode": mode, "conversation_id": conversation_id}
+                )
+                # 从交互中学习偏好（异步不阻塞，这里同步执行，耗时很短）
+                profile_mgr.learn_from_interaction(
+                    user_id,
+                    req.message,
+                    reply,
+                    feedback=None
+                )
+            except Exception:
+                pass
 
         return ApiResponse(
             code=0,
@@ -395,3 +466,175 @@ async def create_conversation(current_user: dict = Depends(get_current_user)):
             "created_at": time.time(),
         },
     )
+
+
+@router.post("/send-with-image")
+async def chat_send_with_image(req: ChatImageMessage, current_user: dict = Depends(get_current_user)):
+    """发送带图片的消息 - 多模态理解 + 对话回复"""
+    conversation_id = req.conversation_id or "default"
+    user_id = current_user.get("user_id", "default") if current_user else "default"
+
+    # 获取或创建会话
+    if conversation_id not in _conversations:
+        _conversations[conversation_id] = {
+            "id": conversation_id,
+            "messages": [],
+            "created_at": time.time(),
+            "mode": req.mode,
+        }
+
+    conv = _conversations[conversation_id]
+
+    # 多模态引擎处理图片
+    multimodal_engine = _get_multimodal_engine()
+    image_description = ""
+    image_analysis = None
+
+    if multimodal_engine and req.image_base64:
+        try:
+            # 清理base64前缀（如果有）
+            img_data = req.image_base64
+            if img_data.startswith("data:image"):
+                img_data = img_data.split(",", 1)[1]
+
+            # 调用多模态引擎
+            task_type = req.task_type or VisionTaskType.GENERAL.value
+            result = await multimodal_engine.understand_image(
+                image_input=img_data,
+                task_type=task_type,
+                prompt=req.message if req.message else None,
+            )
+
+            if result.success:
+                image_analysis = result.result
+                # 提取描述文本
+                if isinstance(result.result, dict):
+                    image_description = result.result.get("description", "") or result.result.get("text", "") or str(result.result)
+                else:
+                    image_description = str(result.result)
+            else:
+                image_description = f"[图片理解失败: {result.error}]"
+        except Exception as e:
+            image_description = f"[图片处理异常: {str(e)}]"
+
+    # 构建带图片上下文的用户消息
+    user_content = req.message
+    if image_description:
+        user_content = f"用户发送了一张图片，图片内容描述：\n{image_description}\n\n用户的问题：{req.message}" if req.message else f"用户发送了一张图片，图片内容描述：\n{image_description}\n\n请描述这张图片的内容。"
+
+    # 添加用户消息
+    user_msg = {
+        "role": "user",
+        "content": user_content,
+        "timestamp": time.time(),
+        "has_image": True,
+        "image_analysis": image_analysis,
+    }
+    conv["messages"].append(user_msg)
+
+    # 构建系统提示词
+    user_name = ""
+    if current_user:
+        user_nickname = current_user.get("nickname", "")
+        user_name = user_nickname or current_user.get("username", "朋友")
+    else:
+        user_name = "朋友"
+
+    memory_context = await _recall_memory(req.message or "图片", user_id)
+
+    # 个性化提示词
+    personalization_context = ""
+    profile_mgr = _get_profile_mgr()
+    if profile_mgr:
+        try:
+            personalization_context = profile_mgr.get_personalized_prompt(user_id, "")
+        except Exception:
+            pass
+
+    system_prompt = f"""你是云汐，一个温暖、智慧、有洞察力的AI伙伴。
+用户给你发送了一张图片，你已经看到了图片的内容描述。
+请根据图片内容和用户的问题进行回答。
+
+回答原则：
+1. 如果用户问了具体问题，就针对问题回答
+2. 如果用户只是发了图片没有说话，就主动描述图片内容并友好互动
+3. 可以对图片内容进行适当的分析、联想或建议
+4. 保持自然、亲切的语气
+
+当前用户的称呼：{user_name}
+{memory_context}
+{personalization_context}"""
+
+    # 构建消息历史
+    history = [{"role": "system", "content": system_prompt}]
+    for msg in conv["messages"][-15:]:  # 带图片的会话历史短一些
+        history.append({"role": msg["role"], "content": msg["content"]})
+
+    try:
+        # 调用大模型
+        reply = await llm.chat(
+            messages=history,
+            temperature=0.7,
+            max_tokens=2000,
+        )
+
+        # 添加AI回复
+        ai_msg = {
+            "role": "assistant",
+            "content": reply,
+            "timestamp": time.time(),
+        }
+        conv["messages"].append(ai_msg)
+
+        # 归档记忆
+        await _archive_memory(
+            f"用户发送图片并说：{req.message}\n图片描述：{image_description}\n你回复：{reply}",
+            user_id=user_id,
+            tags=["conversation", "image", req.mode or "main-chat"]
+        )
+
+        # 用户画像学习
+        if profile_mgr:
+            try:
+                profile_mgr.record_interaction(
+                    user_id,
+                    "chat_image",
+                    req.message or "图片对话",
+                    metadata={"mode": req.mode, "task_type": req.task_type}
+                )
+            except Exception:
+                pass
+
+        return ApiResponse(
+            code=0,
+            message="ok",
+            data={
+                "reply": reply,
+                "conversation_id": conversation_id,
+                "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+                "mode": req.mode,
+                "image_analysis": image_analysis,
+                "image_description": image_description,
+                "model": llm.config.model if hasattr(llm, 'config') else "qwen2.5:7b",
+            },
+        )
+    except Exception as e:
+        # 降级：只返回图片描述
+        fallback_reply = f"抱歉，我遇到了一些技术问题，但我可以告诉你这张图片的内容：\n\n{image_description}\n\n错误信息：{str(e)[:100]}"
+        ai_msg = {
+            "role": "assistant",
+            "content": fallback_reply,
+            "timestamp": time.time(),
+            "is_fallback": True,
+        }
+        conv["messages"].append(ai_msg)
+        return ApiResponse(
+            code=0,
+            message="fallback",
+            data={
+                "reply": fallback_reply,
+                "conversation_id": conversation_id,
+                "image_description": image_description,
+                "is_fallback": True,
+            },
+        )
