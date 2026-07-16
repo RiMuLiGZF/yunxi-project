@@ -58,7 +58,18 @@ class SandboxPolicy:
             self._effective_whitelist = self.DEFAULT_SAFE_MODULES
 
     def check_code(self, code: str) -> tuple[bool, str | None]:
-        """静态检查代码安全性.
+        """静态检查代码安全性（AST 级深度扫描）.
+        
+        检测项：
+        1. 危险导入（白名单优先 + 黑名单叠加）
+        2. 危险函数调用：eval/exec/compile/__import__/globals/locals/vars/dir
+        3. 危险属性访问：双下划线属性、func_/im_/gi_/cr_ 内部属性
+        4. 危险函数：getattr/setattr/delattr/hasattr（配合 dunder 检查）
+        5. 动态代码执行相关：breakpoint/help
+        6. 文件系统操作：open/file/write/remove/rmdir等
+        7. 网络/系统：socket/subprocess/os.system 等属性形式
+        8. pickle/yaml/marshal 反序列化危险
+        9. 内存/反射：ctypes/memoryview 等
 
         Returns:
             (是否通过, 错误信息).
@@ -68,8 +79,46 @@ class SandboxPolicy:
         except SyntaxError as e:
             return False, f"Syntax error: {e}"
 
+        # 危险内置函数名（Call.Name 形式）
+        _dangerous_builtins = {
+            "__import__", "eval", "exec", "compile",
+            "globals", "locals", "vars", "dir",
+            "breakpoint", "help", "memoryview",
+            "open", "input",
+            "getattr", "setattr", "delattr", "hasattr",
+        }
+
+        # 危险属性名（Attribute.attr 形式）
+        _dangerous_attrs = {
+            # 双下划线属性
+            "__import__", "__builtins__", "__globals__", "__locals__",
+            "__code__", "__func__", "__class__", "__bases__",
+            "__mro__", "__subclasses__", "__init__", "__new__",
+            "__dict__", "__getattr__", "__setattr__",
+            "__reduce__", "__reduce_ex__",  # pickle 利用
+            # 内部属性前缀
+            "func_code", "func_globals", "func_closure",
+            "im_func", "im_class", "im_self",
+            "gi_frame", "gi_code",
+            "cr_frame", "cr_code",
+            # 系统调用
+            "system", "popen", "execve", "spawn",
+            # 文件删除
+            "remove", "unlink", "rmdir", "rmtree", "unlinkat",
+            # 网络
+            "socket", "connect", "bind", "listen",
+            # 子进程
+            "Popen", "call", "run",
+        }
+
+        # 危险模块（即使通过属性形式访问也要拦截）
+        _dangerous_module_attrs = {
+            "subprocess", "os", "sys", "socket", "ctypes",
+            "pickle", "marshal", "shelve",
+        }
+
         for node in ast.walk(tree):
-            # 检查危险导入（白名单优先）
+            # 1. 检查危险导入（白名单优先）
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     mod = alias.name.split(".")[0]
@@ -80,49 +129,77 @@ class SandboxPolicy:
                 if not self._is_module_allowed(mod):
                     return False, f"Import from module '{mod}' is not allowed"
 
-            # 检查 __import__ / eval / exec / compile
+            # 2. 检查危险函数调用（Name 形式）
             if isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name):
-                    if node.func.id in (
-                        "__import__", "eval", "exec", "compile",
-                    ):
-                        return False, f"Call to '{node.func.id}' is not allowed"
-                    # 【新增】检查 getattr(x, '__dunder__') 绕过
-                    # getattr 既可以作为 builtin 名称调用，也可以作为属性调用
-                    if node.func.id == "getattr" and len(node.args) >= 2:
-                        second_arg = node.args[1]
-                        if (
-                            isinstance(second_arg, ast.Constant)
-                            and isinstance(second_arg.value, str)
-                            and second_arg.value.startswith("__")
-                            and second_arg.value.endswith("__")
-                        ):
+                    fname = node.func.id
+                    if fname in _dangerous_builtins:
+                        # 对 getattr/setattr/delattr/hasattr 额外检查 dunder 参数
+                        if fname in ("getattr", "setattr", "delattr", "hasattr"):
+                            if len(node.args) >= 2:
+                                second_arg = node.args[1]
+                                if (
+                                    isinstance(second_arg, ast.Constant)
+                                    and isinstance(second_arg.value, str)
+                                    and (
+                                        second_arg.value.startswith("__")
+                                        or second_arg.value.startswith("func_")
+                                        or second_arg.value.startswith("im_")
+                                        or second_arg.value.startswith("gi_")
+                                        or second_arg.value.startswith("cr_")
+                                    )
+                                ):
+                                    return False, (
+                                        f"{fname} access to internal attribute "
+                                        f"'{second_arg.value}' is not allowed"
+                                    )
+                        else:
+                            return False, f"Call to '{fname}' is not allowed"
+
+                # 3. 检查属性形式的危险调用（如 os.system、subprocess.Popen）
+                if isinstance(node.func, ast.Attribute):
+                    attr_name = node.func.attr
+                    if attr_name in _dangerous_attrs:
+                        return False, f"Call to '{attr_name}' is not allowed"
+                    
+                    # 检查是否是危险模块的属性调用（如 os.system("cmd")）
+                    if isinstance(node.func.value, ast.Name):
+                        if node.func.value.id in _dangerous_module_attrs:
                             return False, (
-                                f"getattr access to dunder '{second_arg.value}'"
-                                f" is not allowed"
+                                f"Call to '{node.func.value.id}.{attr_name}' "
+                                f"is not allowed"
                             )
 
-                # 【新增】检查 obj.getattr / builtins.getattr 等属性形式调用
-                if isinstance(node.func, ast.Attribute):
-                    if node.func.attr == "getattr":
-                        for arg in node.args:
-                            if (
-                                isinstance(arg, ast.Constant)
-                                and isinstance(arg.value, str)
-                                and arg.value.startswith("__")
-                                and arg.value.endswith("__")
-                            ):
-                                return False, (
-                                    f"getattr access to dunder '{arg.value}'"
-                                    f" is not allowed"
-                                )
+            # 4. 检查危险属性访问（即使不调用，访问 __builtins__ 也可能危险）
+            if isinstance(node, ast.Attribute):
+                attr_name = node.attr
+                # 双下划线属性访问
+                if attr_name.startswith("__") and attr_name.endswith("__"):
+                    # 放过一些常见安全的（如 __name__, __doc__）
+                    if attr_name not in ("__name__", "__doc__", "__file__"):
+                        return False, f"Access to dunder attribute '{attr_name}' is not allowed"
+                # 内部属性前缀
+                if any(attr_name.startswith(p) for p in ("func_", "im_", "gi_", "cr_", "f_")):
+                    return False, f"Access to internal attribute '{attr_name}' is not allowed"
 
-            # 检查文件删除/修改操作
+            # 5. 检查文件操作（即使通过别名模块访问）
             if not self._config.allow_file_write:
                 if isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Attribute):
-                        if node.func.attr in ("remove", "unlink", "rmdir", "rmtree"):
+                        if node.func.attr in ("remove", "unlink", "rmdir", "rmtree", "unlinkat"):
                             return False, f"File deletion '{node.func.attr}' is not allowed"
+                        if node.func.attr in ("write", "writelines"):
+                            return False, f"File write '{node.func.attr}' is not allowed"
+
+            # 6. 检查赋值给危险变量（如 __builtins__ = ...）
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        if target.id.startswith("__") and target.id.endswith("__"):
+                            return False, f"Assignment to dunder '{target.id}' is not allowed"
+                    if isinstance(target, ast.Attribute):
+                        if target.attr.startswith("__") and target.attr.endswith("__"):
+                            return False, f"Assignment to dunder '{target.attr}' is not allowed"
 
         return True, None
 

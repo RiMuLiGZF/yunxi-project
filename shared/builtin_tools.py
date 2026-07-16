@@ -13,9 +13,11 @@
 """
 
 import re
+import ast
 import math
 import time
 import json
+import operator
 from datetime import datetime
 from typing import Optional, Dict, Any
 
@@ -28,7 +30,14 @@ from .tool_system import (
 # ==================== 计算工具 ====================
 
 class CalculatorTool(BaseTool):
-    """数学计算器工具"""
+    """数学计算器工具
+    
+    安全设计：
+    - 使用 AST 解析验证表达式结构（第一道防线）
+    - 只允许数字、运算符、白名单函数调用
+    - 禁止属性访问、赋值、import、lambda 等危险操作
+    - 最后执行时仍使用受限命名空间（第二道防线）
+    """
     
     name = "calculator"
     description = "执行数学计算，支持加减乘除、幂运算、平方根、三角函数等。适合需要精确数值计算的场景。"
@@ -51,12 +60,114 @@ class CalculatorTool(BaseTool):
         'asin': math.asin, 'acos': math.acos, 'atan': math.atan,
         'pi': math.pi, 'e': math.e,
         'ceil': math.ceil, 'floor': math.floor, 'factorial': math.factorial,
+        'degrees': math.degrees, 'radians': math.radians,
+        'log2': math.log2,
     }
+    
+    # 允许的 AST 节点类型（白名单）
+    _allowed_ast_nodes = {
+        ast.Expression, ast.Constant, ast.Num, ast.Str,
+        ast.BinOp, ast.UnaryOp, ast.Call, ast.Name,
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
+        ast.Mod, ast.Pow, ast.USub, ast.UAdd,
+        ast.Load,  # Name.Load 上下文
+    }
+    
+    @classmethod
+    def _validate_ast(cls, node: ast.AST, depth: int = 0) -> None:
+        """递归验证 AST 节点是否在白名单内.
+        
+        Args:
+            node: AST 节点
+            depth: 当前递归深度（防止栈溢出）
+        
+        Raises:
+            ValueError: 发现不允许的节点类型
+        """
+        if depth > 50:
+            raise ValueError("表达式嵌套过深")
+        
+        node_type = type(node)
+        
+        # 检查节点类型是否允许
+        if node_type not in cls._allowed_ast_nodes:
+            raise ValueError(f"不允许的表达式元素: {node_type.__name__}")
+        
+        # 常量节点 - 只允许数字
+        if isinstance(node, ast.Constant):
+            if not isinstance(node.value, (int, float, complex)):
+                raise ValueError(f"不允许的常量类型: {type(node.value).__name__}")
+            return
+        
+        # Name 节点 - 检查是否在白名单
+        if isinstance(node, ast.Name):
+            if node.id not in cls._allowed_names:
+                raise ValueError(f"未定义的标识符: {node.id}")
+            return
+        
+        # Call 节点 - 检查函数名是否在白名单
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                if node.func.id not in cls._allowed_names:
+                    raise ValueError(f"未定义的函数: {node.func.id}")
+            else:
+                raise ValueError("不允许的函数调用形式")
+            # 递归验证参数
+            for arg in node.args:
+                cls._validate_ast(arg, depth + 1)
+            for kw in node.keywords:
+                cls._validate_ast(kw.value, depth + 1)
+            return
+        
+        # BinOp 节点 - 递归验证左右操作数
+        if isinstance(node, ast.BinOp):
+            cls._validate_ast(node.left, depth + 1)
+            cls._validate_ast(node.right, depth + 1)
+            return
+        
+        # UnaryOp 节点 - 递归验证操作数
+        if isinstance(node, ast.UnaryOp):
+            cls._validate_ast(node.operand, depth + 1)
+            return
+        
+        # Expression 根节点 - 递归验证 body
+        if isinstance(node, ast.Expression):
+            cls._validate_ast(node.body, depth + 1)
+            return
     
     def execute(self, expression: str, context: Optional[Dict[str, Any]] = None) -> ToolResult:
         try:
-            # 安全计算：只允许白名单内的函数
-            result = eval(expression, {"__builtins__": {}}, self._allowed_names)
+            # 1. 长度限制
+            if len(expression) > 500:
+                return ToolResult(
+                    success=False,
+                    error="表达式过长（限制500字符）",
+                )
+            
+            # 2. AST 解析与验证（第一道防线）
+            try:
+                tree = ast.parse(expression, mode='eval')
+                self._validate_ast(tree)
+            except (SyntaxError, ValueError) as e:
+                return ToolResult(
+                    success=False,
+                    error=f"表达式无效: {str(e)}",
+                )
+            
+            # 3. 安全执行（第二道防线 - 受限命名空间）
+            result = eval(
+                compile(tree, '<calculator>', 'eval'),
+                {"__builtins__": {}},
+                self._allowed_names,
+            )
+            
+            # 4. 结果类型校验
+            if not isinstance(result, (int, float, complex)):
+                return ToolResult(
+                    success=False,
+                    error="计算结果类型无效",
+                )
+            
             return ToolResult(
                 success=True,
                 output=f"{expression} = {result}",
