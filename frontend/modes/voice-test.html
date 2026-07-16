@@ -6,6 +6,7 @@
   <title>语音功能测试 — 云汐系统</title>
   <link rel="stylesheet" href="./colors_and_type.css">
   <script src="../common/api.js"></script>
+  <script src="../common/js/stream-tts-player.js"></script>
   <script src="../common/voice.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -408,6 +409,23 @@
         <input type="range" class="slider" id="pitch-slider" min="0.5" max="2" step="0.1" value="1" oninput="updatePitch()">
         <div class="slider-value" id="pitch-value">1.0x</div>
       </div>
+      <div class="slider-row">
+        <div class="slider-label">音量</div>
+        <input type="range" class="slider" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="updateVolume()">
+        <div class="slider-value" id="volume-value">100%</div>
+      </div>
+
+      <!-- 流式播放开关 -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 10px 12px; background: var(--color-page-bg); border-radius: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer;">
+          <input type="checkbox" id="stream-toggle" checked onchange="toggleStreamMode()" style="accent-color: var(--color-primary);">
+          <span>启用流式播放（边生成边播放）</span>
+        </label>
+        <span class="status-badge" id="stream-status-badge" style="display:none;">
+          <span class="status-dot" id="stream-status-dot"></span>
+          <span id="stream-status-text">流式</span>
+        </span>
+      </div>
 
       <textarea class="tts-input" id="tts-text" placeholder="输入要合成的文字...">你好，我是云汐，很高兴认识你！有什么我可以帮你的吗？</textarea>
       <div class="tts-actions">
@@ -422,6 +440,8 @@
     let currentVoice = 'warm_female';
     let currentSpeed = 1.0;
     let currentPitch = 1.0;
+    let currentVolume = 1.0;
+    let useStreamMode = true;
     let recordingTimer = null;
     let recordingSeconds = 0;
 
@@ -432,7 +452,11 @@
 
     // 初始化
     async function init() {
+      // 检测流式播放支持
+      checkStreamSupport();
+
       voice = new YunxiVoice({
+        useStream: useStreamMode,
         onResult: (result) => {
           document.getElementById('asr-result').innerHTML = `
             <div class="result-label">识别结果（${result.engine}）</div>
@@ -464,15 +488,18 @@
         onWakeStateChange: (info) => {
           updateWakeStateDisplay(info.state);
         },
-        onSpeakingStart: () => {
+        onSpeakingStart: (info) => {
           const btn = document.getElementById('speak-btn');
           btn.disabled = true;
           btn.textContent = '播放中...';
+          // 更新流式状态显示
+          updateStreamStatus(info && info.sampleRate ? 'streaming' : 'playing');
         },
-        onSpeakingEnd: () => {
+        onSpeakingEnd: (info) => {
           const btn = document.getElementById('speak-btn');
           btn.disabled = false;
           btn.textContent = '🔊 播放语音';
+          updateStreamStatus('idle');
         }
       });
 
@@ -752,6 +779,72 @@
       const logContainer = document.getElementById('wake-log');
       logContainer.innerHTML = '<div class="wake-log-empty">暂无事件记录</div>';
       wakeLogCount = 0;
+    }
+
+    // ===== 流式播放相关 =====
+
+    function checkStreamSupport() {
+      const supported = window.StreamTTSPlayer && StreamTTSPlayer.isStreamSupported();
+      const toggle = document.getElementById('stream-toggle');
+      if (!supported) {
+        toggle.checked = false;
+        toggle.disabled = true;
+        toggle.title = '当前浏览器不支持流式播放';
+        useStreamMode = false;
+        console.log('流式播放不支持');
+      } else {
+        console.log('流式播放已启用');
+      }
+    }
+
+    function toggleStreamMode() {
+      useStreamMode = document.getElementById('stream-toggle').checked;
+      if (voice) {
+        voice.useStream = useStreamMode;
+      }
+      console.log('流式模式:', useStreamMode ? '开启' : '关闭');
+    }
+
+    function updateStreamStatus(state) {
+      const badge = document.getElementById('stream-status-badge');
+      const dot = document.getElementById('stream-status-dot');
+      const text = document.getElementById('stream-status-text');
+
+      if (!voice || !voice.isStreaming()) {
+        // 非流式播放
+        if (state === 'playing') {
+          badge.style.display = 'inline-flex';
+          dot.className = 'status-dot';
+          text.textContent = '普通模式';
+        } else {
+          badge.style.display = 'none';
+        }
+        return;
+      }
+
+      // 流式播放
+      badge.style.display = 'inline-flex';
+      dot.className = 'status-dot';
+
+      switch (state) {
+        case 'streaming':
+          dot.classList.add('listening');
+          text.textContent = '流式播放中';
+          break;
+        case 'playing':
+          text.textContent = '播放中';
+          break;
+        case 'idle':
+        default:
+          badge.style.display = 'none';
+          break;
+      }
+    }
+
+    function updateVolume() {
+      currentVolume = parseFloat(document.getElementById('volume-slider').value);
+      document.getElementById('volume-value').textContent = Math.round(currentVolume * 100) + '%';
+      if (voice) voice.setVolume(currentVolume);
     }
 
     // 启动

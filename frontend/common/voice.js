@@ -2,6 +2,12 @@
  * 云汐语音助手 - 前端语音组件
  * 功能: 语音录制、语音识别、语音合成播放、唤醒词检测、音色管理
  * 依赖: 浏览器 MediaRecorder API + 后端 /api/voice 接口
+ *
+ * 流式 TTS：
+ *   - 如果页面引入了 stream-tts-player.js，则优先使用流式播放
+ *   - 流式播放支持"边生成边播放"，首字延迟更低
+ *   - 不支持流式时自动降级为完整音频播放
+ *   - 通过 useStream 选项可显式开关（默认自动检测）
  */
 
 class YunxiVoice {
@@ -30,6 +36,12 @@ class YunxiVoice {
 
     // 状态缓存
     this._status = null;
+
+    // ===== 流式 TTS 相关 =====
+    this.useStream = options.useStream !== undefined ? options.useStream : 'auto'; // true / false / 'auto'
+    this._streamPlayer = null;       // StreamTTSPlayer 实例（懒加载）
+    this._streamEnabled = false;     // 流式模式是否实际启用（运行时判断）
+    this._voiceVolume = options.volume !== undefined ? options.volume : 1.0; // 音量
 
     // ===== 唤醒词检测相关 =====
     this._wakeRecorder = null;       // 唤醒词专用录音器
@@ -256,6 +268,18 @@ class YunxiVoice {
   }
 
   async _speak_backend(text, voiceType, speed, pitch) {
+    // 检查是否可以使用流式播放
+    if (this._canUseStream()) {
+      try {
+        await this._speak_stream(text, voiceType, speed, pitch);
+        return;
+      } catch (e) {
+        console.warn('[Voice] 流式TTS失败，降级到普通播放:', e);
+        // 继续尝试普通播放
+      }
+    }
+
+    // 普通播放模式（完整音频）
     try {
       let url = `${this.apiBase}/tts/stream?text=${encodeURIComponent(text)}`;
       if (voiceType) url += `&voice_type=${encodeURIComponent(voiceType)}`;
@@ -286,6 +310,79 @@ class YunxiVoice {
       console.error('[Voice] 后端TTS播放失败:', e);
       this._speak_browser(text, { speed, pitch });
     }
+  }
+
+  // ===== 流式 TTS 播放 =====
+
+  /**
+   * 检查是否可以使用流式播放
+   */
+  _canUseStream() {
+    if (this.useStream === false) return false;
+    if (this.useStream === true) {
+      // 强制开启，需要检查支持
+      return !!(window.StreamTTSPlayer && StreamTTSPlayer.isStreamSupported());
+    }
+    // auto 模式：自动检测
+    return !!(window.StreamTTSPlayer && StreamTTSPlayer.isStreamSupported());
+  }
+
+  /**
+   * 获取流式播放器实例（懒加载）
+   */
+  _getStreamPlayer() {
+    if (!this._streamPlayer && window.StreamTTSPlayer) {
+      this._streamPlayer = new StreamTTSPlayer({
+        apiBase: this.apiBase + '/tts/stream',
+        format: 'wav',
+        autoReconnect: true,
+        maxReconnectAttempts: 2,
+        volume: this._voiceVolume,
+        onStart: (info) => {
+          this.isSpeaking = true;
+          this._streamEnabled = true;
+          if (this.onSpeakingStart) this.onSpeakingStart(info);
+        },
+        onEnd: (info) => {
+          this.isSpeaking = false;
+          this._streamEnabled = false;
+          if (this.onSpeakingEnd) this.onSpeakingEnd(info);
+        },
+        onError: (err) => {
+          console.warn('[Voice] 流式TTS错误:', err);
+          // 错误时不自动降级，由调用方处理
+        },
+      });
+    }
+    return this._streamPlayer;
+  }
+
+  /**
+   * 使用流式模式播放
+   */
+  async _speak_stream(text, voiceType, speed, pitch) {
+    const player = this._getStreamPlayer();
+    if (!player) {
+      throw new Error('流式播放器不可用');
+    }
+
+    // 同步音量和语速
+    player.volume = this._voiceVolume;
+    player.speed = speed;
+
+    // 构建参数：将 voiceType 映射为 speaker，pitch 暂不支持（流式接口无此参数）
+    const result = await player.speak(text, {
+      speaker: voiceType || this._currentVoice || '',
+      emotion: '', // 暂未在 YunxiVoice 中暴露情感选项
+      speed: speed,
+    });
+
+    if (!result) {
+      throw new Error('流式播放启动失败');
+    }
+
+    // 流式播放是异步的，speak 返回 true 表示已启动
+    // 播放结束由 onEnd 回调处理
   }
 
   _speak_browser(text, options) {
@@ -324,6 +421,14 @@ class YunxiVoice {
   }
 
   stopSpeaking() {
+    // 停止流式播放器
+    if (this._streamPlayer) {
+      try {
+        this._streamPlayer.stop();
+      } catch (e) { /* ignore */ }
+      this._streamEnabled = false;
+    }
+
     // 停止音频播放
     if (this.currentAudio) {
       this.currentAudio.pause();
@@ -337,6 +442,42 @@ class YunxiVoice {
     }
 
     this.isSpeaking = false;
+  }
+
+  // ===== 音量控制 =====
+
+  /**
+   * 设置音量
+   * @param {number} volume 音量 (0.0 - 1.0)
+   */
+  setVolume(volume) {
+    this._voiceVolume = Math.max(0, Math.min(1, parseFloat(volume) || 1.0));
+
+    // 同步到流式播放器
+    if (this._streamPlayer) {
+      this._streamPlayer.volume = this._voiceVolume;
+    }
+
+    // 同步到当前播放的 Audio 元素
+    if (this.currentAudio) {
+      this.currentAudio.volume = this._voiceVolume;
+    }
+  }
+
+  /**
+   * 获取当前音量
+   * @returns {number}
+   */
+  getVolume() {
+    return this._voiceVolume;
+  }
+
+  /**
+   * 检查当前是否使用流式播放
+   * @returns {boolean}
+   */
+  isStreaming() {
+    return this._streamEnabled;
   }
 
   // ===== 配置 =====
