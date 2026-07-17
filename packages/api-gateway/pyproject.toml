@@ -1,0 +1,87 @@
+# ============================================================
+# yunxi-api-gateway - API 网关
+# ============================================================
+# 状态：PoC 实验配置（AR-012）
+# 说明：本文件为 API-Gateway 模块的包化配置示例
+#       PoC 阶段不移动代码，代码仍位于 ../../API-Gateway/
+# ============================================================
+
+[build-system]
+requires = ["pdm-backend>=2.0.0"]
+build-backend = "pdm.backend"
+
+[project]
+name = "yunxi-api-gateway"
+version = "0.5.0"
+description = "云汐系统 - API 网关（统一入口、路由、鉴权）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Yunxi Team", email = "team@yunxi.example.com" },
+]
+keywords = ["yunxi", "api-gateway", "gateway", "proxy", "routing"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: FastAPI",
+]
+
+# ---- 运行时依赖 ----
+dependencies = [
+    # workspace 内部依赖
+    "yunxi-shared[auth] @ workspace",
+    # Web 框架
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    # HTTP 客户端
+    "httpx>=0.25.0",
+    # 数据校验
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    # 文件上传
+    "python-multipart>=0.0.6",
+    # 认证
+    "python-jose[cryptography]>=3.3.0",
+]
+
+# ---- 可选依赖 ----
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "httpx>=0.27.0",
+]
+
+# ============================================================
+# PDM 包发现配置
+# ============================================================
+
+[tool.pdm.build]
+package-dir = "../../API-Gateway"
+includes = ["."]
+excludes = [
+    "__pycache__",
+    "**/*.pyc",
+    "tests",
+]
+
+# ============================================================
+# 包入口点
+# ============================================================
+
+[project.scripts]
+yunxi-gateway = "main:app"
+
+# ============================================================
+# PDM 脚本
+# ============================================================
+
+[tool.pdm.scripts]
+dev = "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+start = "uvicorn main:app --host 0.0.0.0 --port 8000"
+test = "pytest tests/"
+lint = "ruff check ."

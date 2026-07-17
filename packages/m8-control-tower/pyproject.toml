@@ -1,0 +1,97 @@
+# ============================================================
+# yunxi-m8-control-tower - M8 控制塔
+# ============================================================
+# 状态：PoC 实验配置（AR-012）
+# 说明：本文件为 M8 模块的包化配置示例
+#       PoC 阶段不移动代码，代码仍位于 ../../M8-control-tower/
+# ============================================================
+
+[build-system]
+requires = ["pdm-backend>=2.0.0"]
+build-backend = "pdm.backend"
+
+[project]
+name = "yunxi-m8-control-tower"
+version = "0.5.0"
+description = "云汐系统 - M8 控制塔（统一管控后台）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Yunxi Team", email = "team@yunxi.example.com" },
+]
+keywords = ["yunxi", "control-tower", "admin", "dashboard"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: FastAPI",
+]
+
+# ---- 运行时依赖 ----
+dependencies = [
+    # workspace 内部依赖：yunxi-shared 公共库
+    # 使用 workspace 协议，自动解析为 workspace 内的本地包
+    "yunxi-shared[db,auth] @ workspace",
+    # Web 框架（shared 已包含，此处锁定精确版本）
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.30.6",
+    "pydantic==2.9.2",
+    # 配置
+    "python-dotenv==1.0.1",
+    "pydantic-settings==2.5.2",
+    # 认证
+    "python-jose[cryptography]==3.3.0",
+    "bcrypt==4.0.1",
+    # 数据库
+    "SQLAlchemy==2.0.35",
+    "alembic==1.13.3",
+    # 加密
+    "cryptography==43.0.1",
+    # HTTP 客户端
+    "httpx==0.27.2",
+    # 系统监控
+    "psutil==6.0.0",
+]
+
+# ---- 可选依赖 ----
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+]
+
+# ============================================================
+# PDM 包发现配置
+# ============================================================
+
+[tool.pdm.build]
+# PoC 阶段：指向现有 M8-control-tower 目录
+package-dir = "../../M8-control-tower"
+includes = ["backend"]
+excludes = [
+    "__pycache__",
+    "**/*.pyc",
+    "frontend",
+    "node_modules",
+]
+
+# ============================================================
+# 包入口点
+# ============================================================
+
+[project.scripts]
+yunxi-m8 = "backend.main:app"
+# yunxi-m8-cli = "backend.cli:main"
+
+# ============================================================
+# PDM 脚本
+# ============================================================
+
+[tool.pdm.scripts]
+dev = "uvicorn backend.main:app --reload --host 0.0.0.0 --port 8008"
+start = "uvicorn backend.main:app --host 0.0.0.0 --port 8008"
+test = "pytest tests/"
+lint = "ruff check backend/"

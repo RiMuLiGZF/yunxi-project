@@ -782,6 +782,158 @@ class BaseConfig(BaseSettings):
                 return default
         return current
 
+    def health_check(self) -> Dict[str, Any]:
+        """
+        配置健康检查（AR-002 配置完整性验证）。
+
+        检查配置的完整性、安全性和合理性，返回健康检查报告。
+        用于启动时配置验证和运行时健康检查。
+
+        Returns:
+            健康检查报告，包含：
+            - status: "healthy" / "warning" / "error"
+            - checks: 各检查项结果
+            - issues: 问题列表
+        """
+        checks: Dict[str, Dict[str, Any]] = {}
+        issues: List[Dict[str, Any]] = []
+        overall_status = "healthy"
+
+        # 检查 1：敏感字段配置
+        sensitive_fields = []
+        weak_sensitive = []
+        for field_name in self.model_fields:
+            if is_sensitive_field(field_name):
+                value = getattr(self, field_name, "")
+                sensitive_fields.append(field_name)
+                if not value:
+                    if self.is_production:
+                        issues.append({
+                            "level": "error",
+                            "field": field_name,
+                            "message": f"生产环境敏感字段 '{field_name}' 为空",
+                        })
+                        overall_status = "error"
+                    else:
+                        issues.append({
+                            "level": "warning",
+                            "field": field_name,
+                            "message": f"敏感字段 '{field_name}' 为空（开发环境允许）",
+                        })
+                        if overall_status == "healthy":
+                            overall_status = "warning"
+                elif is_default_or_weak_key(value):
+                    if self.is_production:
+                        issues.append({
+                            "level": "error",
+                            "field": field_name,
+                            "message": f"生产环境敏感字段 '{field_name}' 使用了默认/弱密钥",
+                        })
+                        overall_status = "error"
+                    else:
+                        issues.append({
+                            "level": "warning",
+                            "field": field_name,
+                            "message": f"敏感字段 '{field_name}' 使用了默认/弱密钥（开发环境允许）",
+                        })
+                        if overall_status == "healthy":
+                            overall_status = "warning"
+                else:
+                    weak_sensitive.append(field_name)
+
+        checks["sensitive_fields"] = {
+            "total": len(sensitive_fields),
+            "configured": len(weak_sensitive),
+            "status": "ok" if not any(i["field"] in [f for f in sensitive_fields] for i in issues if i["level"] == "error") else "error",
+        }
+
+        # 检查 2：CORS 安全配置
+        cors_status = "ok"
+        if "cors_origins" in self.model_fields:
+            cors_val = getattr(self, "cors_origins", "")
+            if self.is_production and "*" in cors_val:
+                issues.append({
+                    "level": "error",
+                    "field": "cors_origins",
+                    "message": "生产环境 CORS 配置包含通配符 '*'，存在安全风险",
+                })
+                overall_status = "error"
+                cors_status = "error"
+            elif "*" in cors_val:
+                issues.append({
+                    "level": "warning",
+                    "field": "cors_origins",
+                    "message": "CORS 配置包含通配符 '*'（开发环境允许）",
+                })
+                if overall_status == "healthy":
+                    overall_status = "warning"
+                cors_status = "warning"
+
+        checks["cors_security"] = {"status": cors_status}
+
+        # 检查 3：端口配置
+        port_status = "ok"
+        if "port" in self.model_fields:
+            port = getattr(self, "port", 0)
+            if not (1 <= port <= 65535):
+                issues.append({
+                    "level": "error",
+                    "field": "port",
+                    "message": f"端口号 {port} 超出有效范围 (1-65535)",
+                })
+                overall_status = "error"
+                port_status = "error"
+
+        checks["port_config"] = {"status": port_status}
+
+        # 检查 4：环境配置
+        checks["environment"] = {
+            "env": self.env.value if hasattr(self.env, "value") else str(self.env),
+            "is_production": self.is_production,
+            "status": "ok",
+        }
+
+        return {
+            "status": overall_status,
+            "module": self.module_name,
+            "checks": checks,
+            "issues": issues,
+            "issue_count": len(issues),
+            "error_count": sum(1 for i in issues if i["level"] == "error"),
+            "warning_count": sum(1 for i in issues if i["level"] == "warning"),
+        }
+
+    def assert_healthy(self) -> None:
+        """
+        启动时配置完整性断言（AR-002）。
+
+        调用 health_check() 并在有 error 级问题时抛出异常，
+        阻止服务使用不安全/不完整的配置启动。
+
+        Raises:
+            RuntimeError: 配置健康检查失败（存在 error 级问题）
+        """
+        report = self.health_check()
+        if report["status"] == "error":
+            error_issues = [i for i in report["issues"] if i["level"] == "error"]
+            error_msgs = "\n  - ".join(
+                f"[{i['field']}] {i['message']}" for i in error_issues
+            )
+            raise RuntimeError(
+                f"配置健康检查失败（共 {len(error_issues)} 个错误）：\n  - "
+                f"{error_msgs}\n"
+                f"请修复上述配置问题后重新启动服务。"
+            )
+        if report["status"] == "warning":
+            import logging
+            logger = logging.getLogger(__name__)
+            warning_issues = [i for i in report["issues"] if i["level"] == "warning"]
+            logger.warning(
+                "配置健康检查发现 %d 个警告（不阻止启动，但建议修复）：\n  - %s",
+                len(warning_issues),
+                "\n  - ".join(f"[{i['field']}] {i['message']}" for i in warning_issues),
+            )
+
 
 # ============================================================
 # 全局配置：模块端口 / 地址 / Token / Base URL 集中管理

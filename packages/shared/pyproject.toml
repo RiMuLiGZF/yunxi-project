@@ -1,0 +1,142 @@
+# ============================================================
+# yunxi-shared - 云汐公共组件库
+# ============================================================
+# 状态：PoC 实验配置（AR-012）
+# 说明：本文件为 shared 库的包化配置示例
+#       PoC 阶段不移动代码，代码仍位于 ../../shared/
+#       正式迁移时，代码将移动到 packages/shared/src/yunxi_shared/
+# ============================================================
+
+[build-system]
+requires = ["pdm-backend>=2.0.0"]
+build-backend = "pdm.backend"
+
+[project]
+name = "yunxi-shared"
+version = "0.5.0"
+description = "云汐系统 - 公共组件库（核心/数据/业务）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Yunxi Team", email = "team@yunxi.example.com" },
+]
+keywords = ["yunxi", "shared", "common", "library"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# ---- 核心依赖（shared 库运行所需的最小依赖集）----
+dependencies = [
+    # Web 框架
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    # 配置管理
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.1",
+    # 日志
+    "structlog>=23.0.0",
+    # 系统监控
+    "psutil>=5.9.0",
+    # 加密
+    "cryptography>=41.0.0",
+    # 数据库
+    "sqlalchemy>=2.0.0",
+    # 缓存 / 消息队列
+    "redis>=5.0.0",
+    # 工具
+    "httpx>=0.25.0",
+    "aiofiles>=23.0.0",
+    # 语音 VAD
+    "silero-vad>=4.0",
+    "numpy>=1.24.0",
+]
+
+# ---- 可选依赖（按功能分组，各模块按需选用）----
+[project.optional-dependencies]
+# 数据库扩展
+db = [
+    "alembic>=1.13.0",
+    "aiosqlite>=0.19.0",
+]
+# 认证扩展
+auth = [
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.0.0",
+    "pydantic-settings>=2.0.0",
+]
+# 测试
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+]
+# 全部可选依赖
+all = [
+    "yunxi-shared[db,auth,test]",
+]
+
+# ============================================================
+# PDM 包发现配置
+# ============================================================
+
+[tool.pdm.build]
+# PoC 阶段：包源目录指向现有 shared 目录
+# 正式迁移后改为：package-dir = "src"
+package-dir = "../../shared"
+includes = [
+    "shared/core",
+    "shared/data",
+    "shared/business",
+]
+excludes = [
+    "shared/tests",
+    "shared/__pycache__",
+    "**/__pycache__",
+    "**/*.pyc",
+]
+
+# ============================================================
+# 包入口点（Entry Points）
+# ============================================================
+
+[project.scripts]
+# shared 库 CLI 工具（预留）
+# yunxi-shared = "shared.cli:main"
+
+# ============================================================
+# Pytest 配置
+# ============================================================
+
+[tool.pytest.ini_options]
+testpaths = ["../../shared/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+# ============================================================
+# 备注：迁移后目标结构
+# ============================================================
+# packages/shared/
+# ├── pyproject.toml          （本文件）
+# ├── README.md
+# ├── CHANGELOG.md
+# ├── src/
+# │   └── yunxi_shared/       （包名从 shared 改为 yunxi_shared）
+# │       ├── __init__.py
+# │       ├── core/
+# │       ├── data/
+# │       └── business/
+# └── tests/
+#     ├── __init__.py
+#     ├── test_core/
+#     ├── test_data/
+#     └── test_business/
+# ============================================================

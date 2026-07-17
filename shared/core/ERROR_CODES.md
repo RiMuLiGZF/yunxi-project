@@ -1,8 +1,8 @@
 # 云汐系统统一错误码体系
 
-> 版本：v1.0.0
+> 版本：v2.0.0
 > 生效日期：2026-07-17
-> 状态：第二阶段统一治理 - 试点中
+> 状态：CQ-015 错误体系统一 - 全面推进中
 
 ## 目录
 
@@ -10,11 +10,12 @@
 2. [模块编号](#2-模块编号)
 3. [错误类别](#3-错误类别)
 4. [通用错误码](#4-通用错误码)
-5. [模块错误码范围](#5-模块错误码范围)
+5. [模块接入状态](#5-模块接入状态)
 6. [各模块错误码详情](#6-各模块错误码详情)
 7. [统一响应格式](#7-统一响应格式)
 8. [向后兼容方案](#8-向后兼容方案)
 9. [使用指南](#9-使用指南)
+10. [客户端处理建议](#10-客户端处理建议)
 
 ---
 
@@ -39,7 +40,8 @@ XX YY ZZ
 | `000000` | 系统通用 | 成功 | 操作成功 |
 | `000101` | 系统通用 | 参数错误 | 通用参数验证失败 |
 | `000201` | 系统通用 | 认证错误 | 认证失败 |
-| `080401` | M8 控制塔 | 资源不存在 | 模块不存在 |
+| `060401` | M6 硬件外设 | 资源不存在 | 设备不存在 |
+| `070504` | M7 工作流 | 业务错误 | 检测到循环依赖 |
 | `080501` | M8 控制塔 | 业务错误 | 模块启动失败 |
 | `090505` | M9 开发工坊 | 业务错误 | 代码执行超时 |
 | `110701` | M11 MCP总线 | 第三方错误 | 上游服务超时 |
@@ -177,30 +179,105 @@ XX YY ZZ
 
 ---
 
-## 5. 模块错误码范围
+## 5. 模块接入状态
 
-各模块应在各自的错误码文件中定义模块特有错误码。以下是各模块的错误码范围：
+各模块统一错误体系接入进度：
 
-| 模块 | 起始码 | 结束码 | 数量 | 试点状态 |
-|------|--------|--------|------|----------|
-| M1 智能体集群 | 010100 | 010999 | 900 | 待接入 |
-| M2 技能集群 | 020100 | 020999 | 900 | 待接入 |
-| M3 边端云协同 | 030100 | 030999 | 900 | 待接入 |
-| M4 场景引擎 | 040100 | 040999 | 900 | 待接入 |
-| M5 潮汐记忆 | 050100 | 050999 | 900 | 待接入 |
-| M6 硬件外设 | 060100 | 060999 | 900 | 待接入 |
-| M7 积木平台 | 070100 | 070999 | 900 | 待接入 |
-| M8 控制塔 | 080100 | 080999 | 900 | **试点中** |
-| M9 开发工坊 | 090100 | 090999 | 900 | **试点中** |
-| M10 系统卫士 | 100100 | 100999 | 900 | 待接入 |
-| M11 MCP总线 | 110100 | 110999 | 900 | **试点中** |
-| M12 安全盾 | 120100 | 120999 | 900 | 待接入 |
+| 模块 | 模块码 | 错误码定义文件 | 全局异常处理器 | 接入状态 |
+|------|--------|---------------|---------------|----------|
+| API-Gateway | 00 | `API-Gateway/src/unified_errors.py` | 已注册 | **已接入** |
+| M1 智能体集群 | 01 | - | - | 待接入 |
+| M2 技能集群 | 02 | - | - | 待接入 |
+| M3 边端云协同 | 03 | - | - | 待接入 |
+| M4 场景引擎 | 04 | - | - | 待接入 |
+| M5 潮汐记忆 | 05 | - | - | 待接入 |
+| M6 硬件外设 | 06 | `M6-hardware-peripheral/m6_hardware/unified_errors.py` | 已集成 | **已接入** |
+| M7 积木平台 | 07 | `M7-workflow-builder/src/unified_errors.py` | 已集成 | **已接入** |
+| M8 控制塔 | 08 | `M8-control-tower/backend/errors.py` | 已注册 | **已接入** |
+| M9 开发工坊 | 09 | `M9-dev-workshop/backend/core/unified_errors.py` | 已注册 | **已接入** |
+| M10 系统卫士 | 10 | - | - | 待接入 |
+| M11 MCP总线 | 11 | `M11-mcp-bus/src/errors.py` | 已注册 | **已接入** |
+| M12 安全盾 | 12 | - | - | 待接入 |
+
+**当前接入进度：7/13 模块已接入统一错误体系**
 
 ---
 
 ## 6. 各模块错误码详情
 
-### 6.1 M8 控制塔（08 前缀）
+### 6.1 API-Gateway（00 前缀，系统级）
+
+文件：`API-Gateway/src/unified_errors.py`
+
+| 错误码 | 常量名 | 类别 | 说明 |
+|--------|--------|------|------|
+| 000110 | `INVALID_ROUTE_KEY` | 参数错误 | 无效的路由键 |
+| 000111 | `INVALID_UPSTREAM_URL` | 参数错误 | 无效的上游地址 |
+| 000510 | `ROUTE_DISABLED` | 业务错误 | 路由已禁用 |
+| 000511 | `UPSTREAM_UNAVAILABLE` | 业务错误 | 上游服务不可用 |
+| 000512 | `CIRCUIT_BREAKER_OPEN` | 业务错误 | 熔断器已打开 |
+| 000513 | `PROXY_TIMEOUT` | 业务错误 | 代理超时 |
+
+### 6.2 M6 硬件外设（06 前缀）
+
+文件：`M6-hardware-peripheral/m6_hardware/unified_errors.py`
+
+| 错误码 | 常量名 | 类别 | 说明 |
+|--------|--------|------|------|
+| 060101 | `INVALID_DEVICE_ID` | 参数错误 | 无效的设备 ID |
+| 060102 | `INVALID_DEVICE_TYPE` | 参数错误 | 无效的设备类型 |
+| 060103 | `INVALID_COMMAND` | 参数错误 | 无效的控制命令 |
+| 060104 | `INVALID_SENSOR_DATA` | 参数错误 | 无效的传感器数据 |
+| 060105 | `INVALID_DRIVER_CONFIG` | 参数错误 | 无效的驱动配置 |
+| 060401 | `DEVICE_NOT_FOUND` | 资源不存在 | 设备不存在 |
+| 060402 | `DRIVER_NOT_FOUND` | 资源不存在 | 驱动不存在 |
+| 060403 | `SENSOR_NOT_FOUND` | 资源不存在 | 传感器不存在 |
+| 060404 | `PERIPHERAL_NOT_FOUND` | 资源不存在 | 外设不存在 |
+| 060501 | `DEVICE_OFFLINE` | 业务错误 | 设备离线 |
+| 060502 | `DEVICE_BUSY` | 业务错误 | 设备繁忙 |
+| 060503 | `COMMUNICATION_FAILED` | 业务错误 | 通信失败 |
+| 060504 | `COMMAND_TIMEOUT` | 业务错误 | 命令超时 |
+| 060505 | `DEVICE_INIT_FAILED` | 业务错误 | 设备初始化失败 |
+| 060506 | `DRIVER_LOAD_FAILED` | 业务错误 | 驱动加载失败 |
+| 060507 | `HARDWARE_ERROR` | 业务错误 | 硬件错误 |
+| 060508 | `SENSOR_READ_FAILED` | 业务错误 | 传感器读取失败 |
+| 060601 | `SERIAL_PORT_ERROR` | 系统错误 | 串口错误 |
+| 060602 | `USB_ERROR` | 系统错误 | USB 错误 |
+| 060603 | `GPIO_ERROR` | 系统错误 | GPIO 错误 |
+| 060604 | `I2C_ERROR` | 系统错误 | I2C 错误 |
+| 060605 | `SPI_ERROR` | 系统错误 | SPI 错误 |
+
+### 6.3 M7 工作流构建器（07 前缀）
+
+文件：`M7-workflow-builder/src/unified_errors.py`
+
+| 错误码 | 常量名 | 类别 | 说明 |
+|--------|--------|------|------|
+| 070101 | `INVALID_WORKFLOW_ID` | 参数错误 | 无效的工作流 ID |
+| 070102 | `INVALID_WORKFLOW_NAME` | 参数错误 | 无效的工作流名称 |
+| 070103 | `INVALID_NODE_CONFIG` | 参数错误 | 无效的节点配置 |
+| 070104 | `INVALID_EDGE_CONFIG` | 参数错误 | 无效的连线配置 |
+| 070105 | `INVALID_VARIABLE` | 参数错误 | 无效的变量定义 |
+| 070106 | `INVALID_TEMPLATE` | 参数错误 | 无效的模板 |
+| 070401 | `WORKFLOW_NOT_FOUND` | 资源不存在 | 工作流不存在 |
+| 070402 | `NODE_NOT_FOUND` | 资源不存在 | 节点不存在 |
+| 070403 | `TEMPLATE_NOT_FOUND` | 资源不存在 | 模板不存在 |
+| 070404 | `EXECUTION_NOT_FOUND` | 资源不存在 | 执行记录不存在 |
+| 070501 | `WORKFLOW_ALREADY_EXISTS` | 业务错误 | 工作流已存在 |
+| 070502 | `WORKFLOW_RUNNING` | 业务错误 | 工作流正在运行 |
+| 070503 | `WORKFLOW_NOT_RUNNING` | 业务错误 | 工作流未运行 |
+| 070504 | `CYCLE_DETECTED` | 业务错误 | 检测到循环依赖 |
+| 070505 | `NODE_EXECUTION_FAILED` | 业务错误 | 节点执行失败 |
+| 070506 | `WORKFLOW_VALIDATION_FAILED` | 业务错误 | 工作流校验失败 |
+| 070507 | `VARIABLE_RESOLUTION_FAILED` | 业务错误 | 变量解析失败 |
+| 070508 | `TEMPLATE_IMPORT_FAILED` | 业务错误 | 模板导入失败 |
+| 070509 | `TEMPLATE_EXPORT_FAILED` | 业务错误 | 模板导出失败 |
+| 070510 | `WORKFLOW_SUSPENDED` | 业务错误 | 工作流已暂停 |
+| 070601 | `EXECUTION_ENGINE_ERROR` | 系统错误 | 执行引擎错误 |
+| 070602 | `STORAGE_ERROR` | 系统错误 | 存储错误 |
+| 070603 | `SCHEDULER_ERROR` | 系统错误 | 调度器错误 |
+
+### 6.4 M8 控制塔（08 前缀）
 
 文件：`M8-control-tower/backend/errors.py`
 
@@ -233,7 +310,7 @@ XX YY ZZ
 | 080901 | `SETTINGS_CONFLICT` | 数据错误 | 配置冲突 |
 | 080902 | `USER_DATA_ERROR` | 数据错误 | 用户数据错误 |
 
-### 6.2 M9 开发工坊（09 前缀）
+### 6.5 M9 开发工坊（09 前缀）
 
 文件：`M9-dev-workshop/backend/core/unified_errors.py`
 
@@ -278,7 +355,7 @@ XX YY ZZ
 | 090902 | `SANDBOX_VIOLATION` | 数据错误 | 沙箱安全违规 |
 | 090903 | `DATA_CORRUPTED` | 数据错误 | 数据损坏 |
 
-### 6.3 M11 MCP 总线（11 前缀）
+### 6.6 M11 MCP 总线（11 前缀）
 
 文件：`M11-mcp-bus/src/errors.py`
 
@@ -326,76 +403,55 @@ XX YY ZZ
 
 ## 7. 统一响应格式
 
-### 7.1 成功响应
+### 7.1 错误响应（标准格式）
+
+所有模块的 API 错误响应必须使用以下统一格式：
 
 ```json
 {
-    "code": 0,
-    "message": "success",
-    "data": {
-        "key": "value"
-    },
-    "trace_id": "abc123def456"
+  "error": {
+    "code": "MODULE_ERROR_CODE",
+    "message": "人类可读的错误消息",
+    "details": {},
+    "request_id": "uuid",
+    "timestamp": "iso8601"
+  }
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `code` | number | 是 | 状态码，0 表示成功 |
-| `message` | string | 是 | 状态描述 |
-| `data` | any | 是 | 响应数据 |
-| `trace_id` | string | 否 | 请求追踪 ID |
+| `error.code` | number | 是 | 错误码（6 位数字） |
+| `error.message` | string | 是 | 错误描述（面向用户的友好信息，中文） |
+| `error.details` | object | 是 | 错误详情（面向开发者的详细信息） |
+| `error.request_id` | string | 是 | 请求追踪 ID，用于问题排查 |
+| `error.timestamp` | string | 是 | 错误发生时间（ISO 8601 格式） |
 
-### 7.2 错误响应
-
-```json
-{
-    "code": 101,
-    "message": "参数验证失败",
-    "details": {
-        "errors": [
-            {"field": "username", "message": "用户名不能为空"}
-        ],
-        "error_count": 1
-    },
-    "trace_id": "abc123def456"
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `code` | number | 是 | 错误码（6 位） |
-| `message` | string | 是 | 错误描述（面向用户的友好信息） |
-| `details` | object | 是 | 错误详情（面向开发者的详细信息） |
-| `trace_id` | string | 否 | 请求追踪 ID，用于问题排查 |
-
-### 7.3 分页响应
+### 7.2 成功响应（标准格式）
 
 ```json
 {
-    "code": 0,
-    "message": "success",
-    "data": {
-        "items": [
-            {"id": 1, "name": "item1"},
-            {"id": 2, "name": "item2"}
-        ],
-        "total": 100,
-        "page": 1,
-        "page_size": 20,
-        "total_pages": 5
-    },
-    "trace_id": "abc123def456"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "key": "value"
+  },
+  "request_id": "abc123def456"
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `data.items` | array | 是 | 数据列表 |
-| `data.total` | number | 是 | 总记录数 |
-| `data.page` | number | 是 | 当前页码（从 1 开始） |
-| `data.page_size` | number | 是 | 每页数量 |
-| `data.total_pages` | number | 是 | 总页数 |
+### 7.3 旧格式兼容（过渡期）
+
+部分模块仍在使用旧的扁平格式，过渡期内全局异常处理器会自动转换：
+
+**旧格式（将逐步淘汰）：**
+```json
+{
+  "code": 101,
+  "message": "参数验证失败",
+  "details": {}
+}
+```
 
 ---
 
@@ -418,7 +474,23 @@ XX YY ZZ
 | 50301 | 模块不可用 | 000602 | 服务暂不可用 |
 | 50302 | 模块调用失败 | 000704 | 模块调用失败 |
 
-### 8.2 M11 JSON-RPC 负数错误码
+### 8.2 M6 旧错误码映射
+
+M6 模块原有的 3 位错误码（1xx/2xx/3xx/4xx）通过 `M6_LEGACY_ERROR_MAP` 映射：
+
+| 旧错误码 | 旧说明 | 新错误码 | 新说明 |
+|----------|--------|----------|--------|
+| 100 | 设备不存在 | 060401 | 设备不存在 |
+| 101 | 设备离线 | 060501 | 设备离线 |
+| 102 | 设备已配对 | 060502 | 设备繁忙 |
+| 104 | 操作不支持 | 060103 | 无效的控制命令 |
+| 200 | 传感器不存在 | 060403 | 传感器不存在 |
+| 201 | 传感器数据无效 | 060104 | 无效的传感器数据 |
+| 300 | SSE Token 无效 | 000201 | 认证失败 |
+| 301 | SSE Token 过期 | 000204 | Token 已过期 |
+| 302 | SSE 连接超限 | 000801 | 请求频率超限 |
+
+### 8.3 M11 JSON-RPC 负数错误码
 
 M11 原有的 JSON-RPC 风格负数错误码通过 `JSONRPC_ERROR_MAP` 映射：
 
@@ -430,12 +502,12 @@ M11 原有的 JSON-RPC 风格负数错误码通过 `JSONRPC_ERROR_MAP` 映射：
 | -32602 | Invalid params | 110107 | MCP 参数无效 |
 | -32603 | Internal error | 110704 | MCP 内部错误 |
 
-### 8.3 过渡期策略
+### 8.4 过渡期策略
 
 1. **响应格式**：新接口必须使用统一格式，旧接口保持原有格式并逐步迁移
 2. **错误码**：全局异常处理器自动将旧错误码规范化为新码
-3. **异常类**：保留 `YunxiError` 基类，原有子类继续可用
-4. **迁移顺序**：按 M8 → M9 → M11 → 其他模块的顺序逐步迁移
+3. **异常类**：`M6Exception`、`M11Exception` 等模块异常类已继承 `YunxiError`
+4. **迁移顺序**：按 M8 → M9 → M11 → M6 → M7 → Gateway → 其他模块的顺序逐步迁移
 
 ---
 
@@ -531,6 +603,43 @@ class MyModuleErrorCode(ModuleErrorCode):
 
 ---
 
+## 10. 客户端处理建议
+
+### 10.1 按 HTTP 状态码处理
+
+| HTTP 状态码 | 建议处理方式 |
+|-------------|-------------|
+| 200 | 正常处理响应数据 |
+| 400 | 提示用户修正输入参数，高亮错误字段 |
+| 401 | 清除本地登录状态，跳转到登录页 |
+| 403 | 提示 "无访问权限"，引导联系管理员 |
+| 404 | 提示 "资源不存在"，返回列表页或首页 |
+| 409 | 展示业务错误原因，引导用户操作 |
+| 429 | 提示 "请求过于频繁"，显示倒计时，自动重试 |
+| 500 | 提示 "服务器内部错误"，提供重试按钮 |
+| 502 | 提示 "服务暂时不可用"，稍后重试 |
+
+### 10.2 按错误类别处理
+
+1. **参数错误（01xx）**：表单校验失败，高亮对应字段
+2. **认证错误（02xx）**：统一走登录流程
+3. **权限错误（03xx）**：显示权限不足页面
+4. **资源不存在（04xx）**：显示 404 页面
+5. **业务错误（05xx）**：根据具体错误码展示不同提示
+6. **系统错误（06xx）**：统一错误提示 + 上报问题
+7. **第三方错误（07xx）**：提示上游服务异常，稍后重试
+8. **限流错误（08xx）**：显示限流提示 + 退避重试
+9. **数据错误（09xx）**：提示数据异常，联系管理员
+
+### 10.3 request_id 的使用
+
+所有错误响应都包含 `request_id`，客户端应：
+- 在错误提示中展示 request_id（可选）
+- 在用户反馈时附带 request_id
+- 在前端日志中记录 request_id 便于排查
+
+---
+
 ## 附录：相关文件
 
 | 文件 | 说明 |
@@ -538,6 +647,10 @@ class MyModuleErrorCode(ModuleErrorCode):
 | `shared/core/errors.py` | 统一错误码体系核心实现 |
 | `shared/core/responses.py` | 统一响应格式和全局异常处理器 |
 | `shared/core/__init__.py` | 核心模块导出 |
+| `API-Gateway/src/unified_errors.py` | API 网关错误码定义 |
+| `M6-hardware-peripheral/m6_hardware/unified_errors.py` | M6 模块错误码定义 |
+| `M6-hardware-peripheral/m6_hardware/models/errors.py` | M6 旧错误码兼容层 |
+| `M7-workflow-builder/src/unified_errors.py` | M7 模块错误码定义 |
 | `M8-control-tower/backend/errors.py` | M8 模块错误码定义 |
 | `M9-dev-workshop/backend/core/unified_errors.py` | M9 模块错误码定义 |
 | `M11-mcp-bus/src/errors.py` | M11 模块错误码定义 |

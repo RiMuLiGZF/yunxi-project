@@ -349,6 +349,33 @@ config = get_m6_config()
 print(config.simulation_mode)  # True/False
 ```
 
+### M7 工作流构建器 (M7-workflow-builder)
+
+**配置类**：`M7ModuleConfig` / `Settings`
+
+**环境变量前缀**：`M7_`
+
+| 配置项 | 环境变量 | 默认值 | 说明 |
+|--------|----------|--------|------|
+| 模块名 | `M7_MODULE_NAME` | m7-workflow-builder | 模块名称 |
+| 地址 | `M7_HOST` | 0.0.0.0 | 监听地址 |
+| 端口 | `M7_PORT` | 8007 | 服务监听端口 |
+| 环境 | `M7_ENV` | development | 运行环境 |
+| 管理员令牌 | `M7_ADMIN_TOKEN` | - | 管理令牌（敏感，生产必填） |
+| 最大并发工作流 | `M7_MAX_RUNNING_WORKFLOWS` | 10 | 最大并发运行工作流数 |
+| 工作流超时 | `M7_WORKFLOW_TIMEOUT` | 300 | 单个工作流执行超时时间（秒） |
+| 节点超时 | `M7_BLOCK_TIMEOUT` | 60 | 单个节点执行超时时间（秒） |
+| M2 Base URL | `M7_M2_BASE_URL` | http://localhost:8002 | M2 技能集群 API 地址 |
+| M2 管理令牌 | `M7_M2_ADMIN_TOKEN` | "" | M2 技能集群管理令牌 |
+
+**新接口使用方式**：
+```python
+from src.unified_config import get_m7_config, M7ModuleConfig
+
+config = get_m7_config()
+print(config.max_running_workflows)
+```
+
 ### M9 开发者工坊 (M9-dev-workshop)
 
 **配置类**：`M9ModuleConfig` / `Settings`
@@ -413,6 +440,49 @@ print(config.sandbox.enabled)  # 沙盒模式是否启用
 print(config.guard_threshold.cpu_warning)  # CPU 告警阈值
 ```
 
+### M11 MCP 总线 (M11-mcp-bus)
+
+**配置类**：`M11ModuleConfig` / `Settings`
+
+**环境变量前缀**：`M11_`
+
+| 配置项 | 环境变量 | 默认值 | 说明 |
+|--------|----------|--------|------|
+| 模块名 | `M11_MODULE_NAME` | m11-mcp-bus | 模块名称 |
+| 地址 | `M11_HOST` | 0.0.0.0 | 监听地址 |
+| 端口 | `M11_PORT` | 8011 | 服务监听端口 |
+| 环境 | `M11_ENV` | development | 运行环境 |
+| 管理员令牌 | `M11_ADMIN_TOKEN` | "" | 管理令牌（敏感，生产必填） |
+| API Key 鉴权 | `M11_API_KEY_AUTH_ENABLED` | true | 是否启用 API Key 鉴权 |
+| MCP 鉴权 | `M11_MCP_REQUIRE_AUTH` | true | MCP 端点是否需要鉴权 |
+| MCP 默认 API Key | `M11_MCP_DEFAULT_API_KEY` | (默认值) | MCP 默认 API Key（仅开发用） |
+| 数据库路径 | `M11_DB_PATH` | ~/.yunxi/m11_bus.db | SQLite 数据库路径 |
+| 心跳超时 | `M11_HEARTBEAT_TIMEOUT` | 30 | 心跳超时时间（秒） |
+| 工具刷新间隔 | `M11_TOOL_REFRESH_INTERVAL` | 300 | 工具刷新间隔（秒） |
+| SSE 心跳间隔 | `M11_SSE_HEARTBEAT_INTERVAL` | 30 | SSE 心跳间隔（秒） |
+| SSE 最大连接数 | `M11_SSE_MAX_CLIENTS` | 100 | SSE 最大连接数 |
+| 重试次数 | `M11_RETRY_MAX_ATTEMPTS` | 2 | 工具调用最大重试次数 |
+| 重试基础延迟 | `M11_RETRY_BASE_DELAY_MS` | 100 | 重试基础延迟（毫秒） |
+| 熔断失败阈值 | `M11_CIRCUIT_BREAKER_FAIL_THRESHOLD` | 5 | 熔断器连续失败阈值 |
+| 熔断打开时长 | `M11_CIRCUIT_BREAKER_OPEN_DURATION` | 30 | 熔断器打开持续时间（秒） |
+| 半开放行限制 | `M11_CIRCUIT_BREAKER_HALF_OPEN_LIMIT` | 1 | 半开状态放行请求数 |
+| Redis URL | `M11_REDIS_URL` | "" | Redis 连接 URL（空为不启用） |
+| Redis 前缀 | `M11_REDIS_PREFIX` | m11: | Redis Key 前缀 |
+| Redis 超时 | `M11_REDIS_TIMEOUT` | 5 | Redis 操作超时（秒） |
+| stdio 启用 | `M11_STDIO_ENABLED` | true | 是否启用 stdio 传输 |
+| stdio 最大服务数 | `M11_STDIO_MAX_SERVICES` | 10 | 最大同时运行 stdio 服务数 |
+| stdio 启动超时 | `M11_STDIO_START_TIMEOUT` | 10 | stdio 服务启动超时（秒） |
+| stdio 停止超时 | `M11_STDIO_STOP_TIMEOUT` | 5 | stdio 服务停止超时（秒） |
+
+**新接口使用方式**：
+```python
+from src.config import get_m11_unified_config, M11ModuleConfig
+
+config = get_m11_unified_config()
+print(config.use_redis)  # 是否启用 Redis
+print(config.cors_origin_list)  # CORS 来源列表
+```
+
 ### API 网关 (API-Gateway)
 
 **配置类**：`GatewayModuleConfig` / `GatewaySettings`
@@ -454,8 +524,10 @@ m5_route = config.get_route("m5")    # M5 模块路由配置
 | 全局配置 | `YunxiConfig` / `get_config()` | 保留，委托给新实现 |
 | M5 | `TideConfig` / `TideConfigSchema` | 完全保留，无修改 |
 | M6 | `M6Config` / `get_config()` | 保留，内部委托给新类 |
+| M7 | `Settings` / `get_settings()` | 保留，内部委托给新类 |
 | M9 | `Settings` / `get_settings()` | 保留，内部委托给新类 |
 | M10 | `M10Config` / `load_config()` / `get_config()` | 完全保留 |
+| M11 | `Settings` / `get_settings()` | 保留，内部委托给新类 |
 | API Gateway | `GatewaySettings` / `settings` / `ModuleRoute` | 完全保留 |
 
 ### shared/config.py 兼容
@@ -538,10 +610,14 @@ shared/
 │   └── config_schema.py    # TideConfigSchema（不变）
 ├── M6-hardware-peripheral/m6_hardware/
 │   └── config.py           # 新增 M6ModuleConfig + 旧 M6Config
+├── M7-workflow-builder/src/
+│   └── unified_config.py   # 新增 M7ModuleConfig + 旧 Settings
 ├── M9-dev-workshop/backend/
 │   └── config.py           # 新增 M9ModuleConfig + 旧 Settings
 ├── M10-system-guard/m10_system_guard/
 │   └── config.py           # 新增 M10ModuleConfig + 旧 M10Config
+├── M11-mcp-bus/src/
+│   └── config.py           # 新增 M11ModuleConfig + 旧 Settings
 └── API-Gateway/src/
     └── config.py           # 新增 GatewayModuleConfig + 旧 GatewaySettings
 ```

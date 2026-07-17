@@ -6,6 +6,7 @@
 """
 import time
 import re
+import uuid
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
@@ -89,25 +90,35 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 "global_rate_limit_exceeded": "系统繁忙，请稍后再试",
             }
             message = error_messages.get(reason, "Rate limit exceeded")
-            
+            trace_id = str(uuid.uuid4())
+
+            # 尝试使用统一错误码体系的错误码
+            try:
+                from shared.core.errors import ErrorCode
+                error_code = ErrorCode.RATE_LIMITED
+            except (ImportError, AttributeError):
+                error_code = 801  # 000801 = 系统通用-限流错误-请求频率超限
+
             # 构建响应头
             headers = {
                 "Retry-After": limit_headers.get("Retry-After", "60"),
+                "X-Trace-Id": trace_id,
             }
             for k, v in limit_headers.items():
                 if k.startswith("X-RateLimit"):
                     headers[k] = v
-            
+
             return JSONResponse(
                 status_code=429,
                 content={
-                    "code": 429,
+                    "code": error_code,
                     "message": message,
-                    "data": {
+                    "details": {
                         "reason": reason,
                         "tier": tier,
                         "retry_after": int(limit_headers.get("Retry-After", "60")),
                     },
+                    "trace_id": trace_id,
                 },
                 headers=headers,
             )

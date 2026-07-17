@@ -1,200 +1,60 @@
 """M11 MCP Bus - 配置模块.
 
-从环境变量读取配置，提供单例访问。
+统一配置框架迁移版（AR-002）：
+- 新接口：M11ModuleConfig（继承 BaseConfig，基于 pydantic-settings）
+- 旧接口：Settings 类（保留，内部委托给 M11ModuleConfig，向后兼容）
+
+从环境变量和 .env 文件加载配置，提供单例访问。
 """
 
 from __future__ import annotations
 
 import os
+import secrets
+import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import structlog
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, model_validator
+from pydantic_settings import SettingsConfigDict
 
 logger = structlog.get_logger(__name__)
 
 
-class Settings(BaseSettings):
-    """M11 服务配置.
-
-    所有配置项均从环境变量读取，前缀为 M11_。
-    """
-
-    model_config = SettingsConfigDict(
-        env_prefix="M11_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-    )
-
-    # ---------- 基础配置 ----------
-    host: str = Field(default="0.0.0.0", description="监听地址")
-    port: int = Field(default=8011, description="监听端口")
-    env: str = Field(default="development", description="运行环境")
-    log_level: str = Field(default="info", description="日志级别")
-
-    # ---------- 安全配置 ----------
-    admin_token: str = Field(default="", description="管理 Token（M8 对接）")
-    api_key_auth_enabled: bool = Field(default=True, description="是否启用 API Key 鉴权，默认启用")
-    mcp_require_auth: bool = Field(default=True, description="MCP 端点是否需要鉴权，默认启用")
-    mcp_default_api_key: str = Field(
-        default="m11_mcp_dev_key_default_change_me",
-        description="MCP 默认 API Key（仅开发环境使用，生产环境必须显式配置）",
-    )
-
-    # ---------- 数据库配置 ----------
-    db_path: str = Field(default="~/.yunxi/m11_bus.db", description="SQLite 数据库路径")
-
-    # ---------- 业务配置 ----------
-    heartbeat_timeout: int = Field(default=30, description="心跳超时时间（秒）")
-    tool_refresh_interval: int = Field(default=300, description="工具刷新间隔（秒）")
-    sse_heartbeat_interval: int = Field(default=30, description="SSE 心跳间隔（秒）")
-    sse_max_clients: int = Field(default=100, description="SSE 最大连接数")
-
-    # ---------- 熔断与重试配置 ----------
-    retry_max_attempts: int = Field(default=2, description="工具调用最大重试次数")
-    retry_base_delay_ms: int = Field(default=100, description="重试基础延迟（毫秒），指数退避")
-    circuit_breaker_fail_threshold: int = Field(default=5, description="熔断器连续失败阈值")
-    circuit_breaker_open_duration: int = Field(default=30, description="熔断器打开持续时间（秒）")
-    circuit_breaker_half_open_limit: int = Field(default=1, description="半开状态放行请求数")
-
-    # ---------- Redis 配置 ----------
-    redis_url: str = Field(default="", description="Redis 连接 URL（为空表示不启用 Redis")
-    redis_prefix: str = Field(default="m11:", description="Redis Key 前缀")
-    redis_timeout: int = Field(default=5, description="Redis 操作超时时间（秒）")
-
-    # ---------- stdio 传输配置 ----------
-    stdio_enabled: bool = Field(default=True, description="是否启用 stdio 传输支持")
-    stdio_max_services: int = Field(default=10, description="最大同时运行的 stdio 服务数")
-    stdio_start_timeout: int = Field(default=10, description="stdio 服务启动超时时间（秒）")
-    stdio_stop_timeout: int = Field(default=5, description="stdio 服务停止超时时间（秒）")
-
-    # ---------- CORS 配置 ----------
-    cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
-        description="CORS 允许的来源，逗号分隔",
-    )
-
-    @property
-    def db_file_path(self) -> Path:
-        """获取解析后的数据库文件路径."""
-        expanded = os.path.expanduser(self.db_path)
-        return Path(expanded).resolve()
-
-    @property
-    def db_url(self) -> str:
-        """获取 SQLAlchemy 数据库 URL."""
-        return f"sqlite:///{self.db_file_path}"
-
-    @property
-    def is_development(self) -> bool:
-        """是否为开发环境."""
-        return self.env == "development"
-
-    @property
-    def is_production(self) -> bool:
-        """是否为生产环境."""
-        return self.env == "production"
-
-    @property
-    def use_redis(self) -> bool:
-        """是否启用 Redis（根据 redis_url 是否为空判断）.
-
-        Returns:
-            True 表示配置了 Redis 并应尝试使用
-        """
-        return bool(self.redis_url)
-
-    @property
-    def cors_origin_list(self) -> list[str]:
-        """获取 CORS 来源列表."""
-        if not self.cors_origins or self.cors_origins == "*":
-            return ["*"]
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-
-
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    """获取配置单例.
-
-    使用 lru_cache 确保整个应用只创建一个 Settings 实例。
-    启动时校验安全密钥配置，若 admin_token 为空则记录警告。
-    同时校验 MCP 认证配置：生产环境必须显式配置 API Key。
-
-    Returns:
-        Settings 配置实例
-
-    Raises:
-        RuntimeError: 生产环境下 MCP 认证关闭或使用默认 key 时抛出
-    """
-    settings = Settings()
-    if not settings.admin_token:
-        logger.warning(
-            "m11.security.admin_token_not_set",
-            message="M11_ADMIN_TOKEN 未设置，M8 对接鉴权将处于不安全状态，"
-                    "请在环境变量中配置 M11_ADMIN_TOKEN",
-        )
-
-    # MCP 安全配置校验
-    if settings.is_production:
-        # 生产环境：MCP 鉴权必须启用
-        if not settings.mcp_require_auth:
-            raise RuntimeError(
-                "生产环境下 MCP 鉴权必须启用（M11_MCP_REQUIRE_AUTH=true），"
-                "禁止在生产环境中关闭 MCP 端点认证"
-            )
-        # 生产环境：禁止使用默认 API Key
-        if settings.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
-            raise RuntimeError(
-                "生产环境下必须显式配置 MCP API Key（M11_MCP_DEFAULT_API_KEY），"
-                "禁止使用默认开发密钥"
-            )
-    elif settings.is_development:
-        # 开发环境：使用默认 key 时发出警告
-        if settings.mcp_require_auth and settings.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
-            logger.warning(
-                "m11.security.mcp_using_default_key",
-                message="MCP 端点当前使用默认开发 API Key，仅适用于本地开发。"
-                        "请通过 M11_MCP_DEFAULT_API_KEY 环境变量配置自定义密钥，"
-                        "或在数据库中创建正式 API Key。",
-                default_key_preview="m11_mcp_dev_key..._change_me",
-            )
-
-    return settings
-
-
-def reload_settings() -> Settings:
-    """重新加载配置（清除缓存）.
-
-    Returns:
-        新的 Settings 配置实例
-    """
-    get_settings.cache_clear()
-    return get_settings()
-
-
-# ---------------------------------------------------------------------------
-# 统一配置框架接入（第二阶段基础设施）
-# ---------------------------------------------------------------------------
-# 新增 M11ModuleConfig 继承 BaseConfig，获得：
-# - 全局 .env 文件自动加载
-# - 生产环境敏感字段校验
-# - 配置热更新
-# - 敏感字段自动脱敏
-# 原有 Settings 类保持不变，确保向后兼容。
-# ---------------------------------------------------------------------------
+# ============================================================
+# 尝试从统一配置基类导入
+# ============================================================
 
 try:
-    from shared.core.config import BaseConfig
+    _current = Path(__file__).resolve()
+    for _ in range(10):
+        _current = _current.parent
+        if (_current / "shared" / "core" / "config.py").exists():
+            if str(_current) not in sys.path:
+                sys.path.insert(0, str(_current))
+            break
+    from shared.core.config import BaseConfig, EnvType
     _USE_UNIFIED_CONFIG_M11 = True
 except ImportError:
     _USE_UNIFIED_CONFIG_M11 = False
     BaseConfig = None  # type: ignore
+    EnvType = None  # type: ignore
 
+
+# ============================================================
+# 路径工具
+# ============================================================
+
+def _default_db_path() -> str:
+    """默认数据库路径"""
+    return "~/.yunxi/m11_bus.db"
+
+
+# ============================================================
+# M11 模块统一配置类（新接口）
+# ============================================================
 
 if _USE_UNIFIED_CONFIG_M11:
 
@@ -215,20 +75,173 @@ if _USE_UNIFIED_CONFIG_M11:
         module_name: str = Field(default="m11-mcp-bus", description="模块名称")
         port: int = Field(default=8011, ge=1, le=65535, description="服务监听端口")
         host: str = Field(default="0.0.0.0", description="监听地址")
-        env: str = Field(default="development", description="运行环境")
-        log_level: str = Field(default="info", description="日志级别")
-        use_redis: bool = Field(default=False, description="是否启用 Redis")
-        redis_url: str = Field(default="redis://localhost:6379/0", description="Redis 地址")
+
+        # ---------- 安全配置 ----------
+        api_key_auth_enabled: bool = Field(
+            default=True, description="是否启用 API Key 鉴权，默认启用"
+        )
+        mcp_require_auth: bool = Field(
+            default=True, description="MCP 端点是否需要鉴权，默认启用"
+        )
+        mcp_default_api_key: str = Field(
+            default="m11_mcp_dev_key_default_change_me",
+            description="MCP 默认 API Key（仅开发环境使用，生产环境必须显式配置）",
+        )
+
+        # ---------- 数据库配置 ----------
+        db_path: str = Field(
+            default_factory=_default_db_path, description="SQLite 数据库路径"
+        )
+
+        # ---------- 业务配置 ----------
+        heartbeat_timeout: int = Field(
+            default=30, ge=1, description="心跳超时时间（秒）"
+        )
+        tool_refresh_interval: int = Field(
+            default=300, ge=1, description="工具刷新间隔（秒）"
+        )
+        sse_heartbeat_interval: int = Field(
+            default=30, ge=1, description="SSE 心跳间隔（秒）"
+        )
+        sse_max_clients: int = Field(
+            default=100, ge=1, description="SSE 最大连接数"
+        )
+
+        # ---------- 熔断与重试配置 ----------
+        retry_max_attempts: int = Field(
+            default=2, ge=0, description="工具调用最大重试次数"
+        )
+        retry_base_delay_ms: int = Field(
+            default=100, ge=0, description="重试基础延迟（毫秒），指数退避"
+        )
+        circuit_breaker_fail_threshold: int = Field(
+            default=5, ge=1, description="熔断器连续失败阈值"
+        )
+        circuit_breaker_open_duration: int = Field(
+            default=30, ge=1, description="熔断器打开持续时间（秒）"
+        )
+        circuit_breaker_half_open_limit: int = Field(
+            default=1, ge=1, description="半开状态放行请求数"
+        )
+
+        # ---------- Redis 配置 ----------
+        redis_url: str = Field(
+            default="", description="Redis 连接 URL（为空表示不启用 Redis）"
+        )
+        redis_prefix: str = Field(default="m11:", description="Redis Key 前缀")
+        redis_timeout: int = Field(
+            default=5, ge=1, description="Redis 操作超时时间（秒）"
+        )
+
+        # ---------- stdio 传输配置 ----------
+        stdio_enabled: bool = Field(
+            default=True, description="是否启用 stdio 传输支持"
+        )
+        stdio_max_services: int = Field(
+            default=10, ge=1, description="最大同时运行的 stdio 服务数"
+        )
+        stdio_start_timeout: int = Field(
+            default=10, ge=1, description="stdio 服务启动超时时间（秒）"
+        )
+        stdio_stop_timeout: int = Field(
+            default=5, ge=1, description="stdio 服务停止超时时间（秒）"
+        )
 
         model_config = SettingsConfigDict(
             env_prefix="M11_",
-            env_file="config/yunxi.env",
+            env_file=".env",
             env_file_encoding="utf-8",
+            case_sensitive=False,
             extra="allow",
             validate_assignment=True,
         )
 
+        # ============================================================
+        # 校验：生产环境安全配置
+        # ============================================================
+
+        @model_validator(mode="after")
+        def _validate_mcp_security(self) -> "M11ModuleConfig":
+            """
+            MCP 安全配置校验。
+
+            生产环境：
+            - MCP 鉴权必须启用
+            - 禁止使用默认 API Key
+            开发环境：
+            - 使用默认 key 时发出警告
+            """
+            if self.is_production:
+                # 生产环境：MCP 鉴权必须启用
+                if not self.mcp_require_auth:
+                    raise ValueError(
+                        "生产环境下 MCP 鉴权必须启用（M11_MCP_REQUIRE_AUTH=true），"
+                        "禁止在生产环境中关闭 MCP 端点认证"
+                    )
+                # 生产环境：禁止使用默认 API Key
+                if self.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+                    raise ValueError(
+                        "生产环境下必须显式配置 MCP API Key（M11_MCP_DEFAULT_API_KEY），"
+                        "禁止使用默认开发密钥"
+                    )
+            elif self.is_development:
+                # 开发环境：使用默认 key 时发出警告
+                if self.mcp_require_auth and self.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+                    logger.warning(
+                        "m11.security.mcp_using_default_key",
+                        message="MCP 端点当前使用默认开发 API Key，仅适用于本地开发。"
+                                "请通过 M11_MCP_DEFAULT_API_KEY 环境变量配置自定义密钥，"
+                                "或在数据库中创建正式 API Key。",
+                        default_key_preview="m11_mcp_dev_key..._change_me",
+                    )
+
+            # admin_token 警告（BaseConfig 已处理生产环境校验，这里仅开发环境警告）
+            if not self.admin_token and not self.is_production:
+                logger.warning(
+                    "m11.security.admin_token_not_set",
+                    message="M11_ADMIN_TOKEN 未设置，M8 对接鉴权将处于不安全状态，"
+                            "请在环境变量中配置 M11_ADMIN_TOKEN",
+                )
+
+            return self
+
+        # ============================================================
+        # 便捷属性
+        # ============================================================
+
+        @property
+        def db_file_path(self) -> Path:
+            """获取解析后的数据库文件路径."""
+            expanded = os.path.expanduser(self.db_path)
+            return Path(expanded).resolve()
+
+        @property
+        def db_url(self) -> str:
+            """获取 SQLAlchemy 数据库 URL."""
+            return f"sqlite:///{self.db_file_path}"
+
+        @property
+        def use_redis(self) -> bool:
+            """是否启用 Redis（根据 redis_url 是否为空判断）."""
+            return bool(self.redis_url)
+
+        @property
+        def cors_origin_list(self) -> list[str]:
+            """获取 CORS 来源列表."""
+            if not self.cors_origins or self.cors_origins == "*":
+                return ["*"]
+            return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+        def ensure_data_dir(self) -> None:
+            """确保数据目录存在"""
+            db_dir = self.db_file_path.parent
+            db_dir.mkdir(parents=True, exist_ok=True)
+
+
+    # ============================================================
     # 全局配置单例（新接口）
+    # ============================================================
+
     _m11_unified_config: Optional[M11ModuleConfig] = None
 
     def get_m11_unified_config() -> M11ModuleConfig:
@@ -236,8 +249,215 @@ if _USE_UNIFIED_CONFIG_M11:
         global _m11_unified_config
         if _m11_unified_config is None:
             _m11_unified_config = M11ModuleConfig()
+            _m11_unified_config.ensure_data_dir()
         return _m11_unified_config
 
 else:
     M11ModuleConfig = None  # type: ignore
     get_m11_unified_config = None  # type: ignore
+
+
+# ============================================================
+# 向后兼容：旧的 Settings 类
+# ============================================================
+# 内部委托给 M11ModuleConfig，对外保持完全相同的接口
+# ============================================================
+
+class Settings:
+    """M11 服务配置（向后兼容层）.
+
+    .. deprecated:: 2.0.0
+        请使用 M11ModuleConfig 替代。
+        旧的 Settings 类内部已委托给 M11ModuleConfig，
+        接口保持不变，可继续使用。
+
+    所有配置项均从环境变量读取，前缀为 M11_。
+    """
+
+    def __init__(self, **kwargs):
+        if _USE_UNIFIED_CONFIG_M11 and M11ModuleConfig is not None:
+            self._inner = M11ModuleConfig(**kwargs)
+            self._inner.ensure_data_dir()
+        else:
+            self._inner = None
+            self._fallback_init(**kwargs)
+
+    def _fallback_init(self, **kwargs):
+        """降级模式下的初始化（旧 BaseSettings 逻辑）"""
+        # 基础配置
+        self.host = kwargs.get("host", "0.0.0.0")
+        self.port = int(kwargs.get("port", 8011))
+        self.env = kwargs.get("env", "development")
+        self.log_level = kwargs.get("log_level", "info")
+
+        # 安全配置
+        self.admin_token = kwargs.get("admin_token", "")
+        self.api_key_auth_enabled = kwargs.get("api_key_auth_enabled", True)
+        self.mcp_require_auth = kwargs.get("mcp_require_auth", True)
+        self.mcp_default_api_key = kwargs.get(
+            "mcp_default_api_key", "m11_mcp_dev_key_default_change_me"
+        )
+
+        # 数据库
+        self.db_path = kwargs.get("db_path", "~/.yunxi/m11_bus.db")
+
+        # 业务配置
+        self.heartbeat_timeout = int(kwargs.get("heartbeat_timeout", 30))
+        self.tool_refresh_interval = int(kwargs.get("tool_refresh_interval", 300))
+        self.sse_heartbeat_interval = int(kwargs.get("sse_heartbeat_interval", 30))
+        self.sse_max_clients = int(kwargs.get("sse_max_clients", 100))
+
+        # 熔断与重试
+        self.retry_max_attempts = int(kwargs.get("retry_max_attempts", 2))
+        self.retry_base_delay_ms = int(kwargs.get("retry_base_delay_ms", 100))
+        self.circuit_breaker_fail_threshold = int(kwargs.get("circuit_breaker_fail_threshold", 5))
+        self.circuit_breaker_open_duration = int(kwargs.get("circuit_breaker_open_duration", 30))
+        self.circuit_breaker_half_open_limit = int(kwargs.get("circuit_breaker_half_open_limit", 1))
+
+        # Redis
+        self.redis_url = kwargs.get("redis_url", "")
+        self.redis_prefix = kwargs.get("redis_prefix", "m11:")
+        self.redis_timeout = int(kwargs.get("redis_timeout", 5))
+
+        # stdio
+        self.stdio_enabled = kwargs.get("stdio_enabled", True)
+        self.stdio_max_services = int(kwargs.get("stdio_max_services", 10))
+        self.stdio_start_timeout = int(kwargs.get("stdio_start_timeout", 10))
+        self.stdio_stop_timeout = int(kwargs.get("stdio_stop_timeout", 5))
+
+        # CORS
+        self.cors_origins = kwargs.get(
+            "cors_origins",
+            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+        )
+
+    # ---- 属性访问委托 ----
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(f"'Settings' object has no attribute '{name}'")
+        if self._inner is not None:
+            try:
+                return getattr(self._inner, name)
+            except AttributeError:
+                raise AttributeError(f"'Settings' object has no attribute '{name}'")
+        raise AttributeError(f"'Settings' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        if name.startswith("_"):
+            super().__setattr__(name, value)
+        elif hasattr(self, "_inner") and self._inner is not None and hasattr(self._inner, name):
+            setattr(self._inner, name, value)
+        else:
+            super().__setattr__(name, value)
+
+    # ---- 便捷属性（统一框架下直接委托，降级模式手动实现） ----
+
+    @property
+    def db_file_path(self) -> Path:
+        """获取解析后的数据库文件路径."""
+        if self._inner is not None:
+            return self._inner.db_file_path
+        expanded = os.path.expanduser(self.db_path)
+        return Path(expanded).resolve()
+
+    @property
+    def db_url(self) -> str:
+        """获取 SQLAlchemy 数据库 URL."""
+        if self._inner is not None:
+            return self._inner.db_url
+        return f"sqlite:///{self.db_file_path}"
+
+    @property
+    def is_development(self) -> bool:
+        """是否为开发环境."""
+        if self._inner is not None:
+            return self._inner.is_development
+        return self.env == "development"
+
+    @property
+    def is_production(self) -> bool:
+        """是否为生产环境."""
+        if self._inner is not None:
+            return self._inner.is_production
+        return self.env == "production"
+
+    @property
+    def use_redis(self) -> bool:
+        """是否启用 Redis（根据 redis_url 是否为空判断）."""
+        if self._inner is not None:
+            return self._inner.use_redis
+        return bool(self.redis_url)
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """获取 CORS 来源列表."""
+        if self._inner is not None:
+            return self._inner.cors_origin_list
+        if not self.cors_origins or self.cors_origins == "*":
+            return ["*"]
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+# ============================================================
+# 全局配置单例（旧接口，向后兼容）
+# ============================================================
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """获取配置单例.
+
+    使用 lru_cache 确保整个应用只创建一个 Settings 实例。
+    启动时校验安全密钥配置，若 admin_token 为空则记录警告。
+    同时校验 MCP 认证配置：生产环境必须显式配置 API Key。
+
+    Returns:
+        Settings 配置实例
+
+    Raises:
+        RuntimeError: 生产环境下 MCP 认证关闭或使用默认 key 时抛出
+    """
+    settings = Settings()
+    # 生产环境校验（如果使用统一配置框架，已在 model_validator 中处理）
+    if settings._inner is None and settings.is_production:
+        if not settings.mcp_require_auth:
+            raise RuntimeError(
+                "生产环境下 MCP 鉴权必须启用（M11_MCP_REQUIRE_AUTH=true），"
+                "禁止在生产环境中关闭 MCP 端点认证"
+            )
+        if settings.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+            raise RuntimeError(
+                "生产环境下必须显式配置 MCP API Key（M11_MCP_DEFAULT_API_KEY），"
+                "禁止使用默认开发密钥"
+            )
+    return settings
+
+
+def reload_settings() -> Settings:
+    """重新加载配置（清除缓存）.
+
+    Returns:
+        新的 Settings 配置实例
+    """
+    get_settings.cache_clear()
+    # 如果使用统一配置，也触发热更新
+    if _USE_UNIFIED_CONFIG_M11 and _m11_unified_config is not None:
+        _m11_unified_config.reload()
+    return get_settings()
+
+
+# ============================================================
+# 模块导出
+# ============================================================
+
+__all__ = [
+    # 新接口
+    "M11ModuleConfig",
+    "get_m11_unified_config",
+    # 旧接口（向后兼容）
+    "Settings",
+    "get_settings",
+    "reload_settings",
+    # 状态标记
+    "_USE_UNIFIED_CONFIG_M11",
+]

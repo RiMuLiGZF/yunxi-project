@@ -308,26 +308,46 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return None
 
     def _unauthorized_response(self, path: str, route: Optional[ModuleRoute]) -> JSONResponse:
-        """构建统一的未认证错误响应"""
+        """构建统一的未认证错误响应（6位错误码体系）
+
+        返回格式遵循云汐系统统一错误响应格式：
+        {
+            "code": 6位错误码,
+            "message": "错误消息",
+            "details": {...},
+            "trace_id": "..."
+        }
+        """
+        import uuid
         module_key = route.key if route else "unknown"
         module_name = route.name if route else "unknown"
+        trace_id = str(uuid.uuid4())
+
+        # 尝试使用统一错误码体系的错误码
+        try:
+            from shared.core.errors import ErrorCode
+            error_code = ErrorCode.AUTH_FAILED
+        except (ImportError, AttributeError):
+            error_code = 201  # 000201 = 系统通用-认证错误-认证失败
 
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={
-                "code": 401,
-                "message": "Unauthorized - Valid API Key or Bearer Token required",
-                "data": {
+                "code": error_code,
+                "message": "认证失败：需要有效的 API Key 或 Bearer Token",
+                "details": {
                     "module": module_name,
                     "path": path,
                     "auth_methods": ["api_key", "bearer_token"],
                     "api_key_header": settings.api_key_header,
                     "jwt_header": settings.jwt_header,
                 },
+                "trace_id": trace_id,
             },
             headers={
                 "WWW-Authenticate": "Bearer",
                 "X-Gateway-Module": module_key,
+                "X-Trace-Id": trace_id,
             },
         )
 

@@ -39,6 +39,13 @@ except ImportError:
     _observability_available = False
     ObservabilityMiddleware = None  # type: ignore
 
+# 统一异常处理器（6 位错误码体系 + 标准化响应格式）
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_available = True
+except ImportError:
+    _unified_exception_handler_available = False
+
 # 初始化日志系统
 if _observability_available:
     logger = init_module_logger("gateway")
@@ -154,6 +161,13 @@ app.add_middleware(RateLimitMiddleware)
 
 # 认证中间件
 app.add_middleware(AuthMiddleware)
+
+# 统一异常处理器（6 位错误码体系 + 标准化响应格式）
+if _unified_exception_handler_available:
+    register_global_exception_handler(app, logger=logger)
+    logger.info("统一异常处理器已注册（6 位错误码体系）")
+else:
+    logger.warning("统一异常处理器不可用，将使用 FastAPI 默认异常处理")
 
 
 # ============================================================================

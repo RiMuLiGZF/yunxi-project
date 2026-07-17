@@ -1,0 +1,99 @@
+# ============================================================
+# yunxi-m1-agent-hub - M1 代理调度中心
+# ============================================================
+# 状态：PoC 实验配置（AR-012）
+# 说明：本文件为 M1 模块的包化配置示例
+#       PoC 阶段不移动代码，代码仍位于 ../../M1-agent-hub/
+# ============================================================
+
+[build-system]
+requires = ["pdm-backend>=2.0.0"]
+build-backend = "pdm.backend"
+
+[project]
+name = "yunxi-m1-agent-hub"
+version = "0.5.0"
+description = "云汐系统 - M1 代理调度中心（Agent Hub）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Yunxi Team", email = "team@yunxi.example.com" },
+]
+keywords = ["yunxi", "agent", "hub", "orchestration", "llm"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# ---- 运行时依赖 ----
+dependencies = [
+    # workspace 内部依赖
+    "yunxi-shared[auth] @ workspace",
+    # Web 框架
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    # 数据校验
+    "pydantic>=2.0.0",
+    # 配置管理
+    "pyyaml>=6.0",
+    "python-dotenv==1.0.1",
+    # 日志
+    "structlog>=24.0.0",
+    # 安全 / 加密
+    "cryptography>=42.0.0",
+    # 系统监控
+    "psutil>=5.9.0",
+    # HTTP 客户端
+    "httpx>=0.27.0",
+    "aiohttp==3.10.5",
+    # LLM
+    "openai==1.51.0",
+    # 数据库
+    "SQLAlchemy==2.0.35",
+    # 数值计算
+    "numpy==2.1.1",
+]
+
+# ---- 可选依赖 ----
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+]
+
+# ============================================================
+# PDM 包发现配置
+# ============================================================
+
+[tool.pdm.build]
+package-dir = "../../M1-agent-hub"
+includes = ["backend"]
+excludes = [
+    "__pycache__",
+    "**/*.pyc",
+    "frontend",
+    "node_modules",
+]
+
+# ============================================================
+# 包入口点
+# ============================================================
+
+[project.scripts]
+yunxi-m1 = "backend.main:app"
+
+# ============================================================
+# PDM 脚本
+# ============================================================
+
+[tool.pdm.scripts]
+dev = "uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001"
+start = "uvicorn backend.main:app --host 0.0.0.0 --port 8001"
+test = "pytest tests/"
+lint = "ruff check backend/"

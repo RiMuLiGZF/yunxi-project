@@ -46,6 +46,15 @@ logs/
 .cache/
 *.tmp
 
+# PDM - Monorepo 包管理
+.pdm-python
+__pypackages__/
+.pdm.toml
+.pdm-build-hash
+*.pdm.lock
+# 注：pdm.lock 应纳入版本控制以保证依赖一致性，此处不忽略
+# pdm.lock
+
 # 系统文件
 .DS_Store
 Thumbs.db
