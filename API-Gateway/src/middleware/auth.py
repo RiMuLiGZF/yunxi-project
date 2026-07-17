@@ -40,8 +40,12 @@ except ImportError:
 
 
 def _find_route_by_path(path: str) -> Optional[ModuleRoute]:
-    """根据路径查找对应的路由配置"""
-    for route in settings.routes:
+    """根据路径查找对应的路由配置（最长前缀优先匹配）"""
+    # 按前缀长度排序，优先匹配更长的前缀
+    sorted_routes = sorted(
+        settings.routes, key=lambda r: len(r.prefix), reverse=True
+    )
+    for route in sorted_routes:
         if not route.enabled:
             continue
         if path.startswith(route.prefix):
@@ -305,6 +309,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     def _unauthorized_response(self, path: str, route: Optional[ModuleRoute]) -> JSONResponse:
         """构建统一的未认证错误响应"""
+        module_key = route.key if route else "unknown"
         module_name = route.name if route else "unknown"
 
         return JSONResponse(
@@ -322,7 +327,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             },
             headers={
                 "WWW-Authenticate": "Bearer",
-                "X-Gateway-Module": module_name,
+                "X-Gateway-Module": module_key,
             },
         )
 
