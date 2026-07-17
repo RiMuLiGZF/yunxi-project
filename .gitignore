@@ -132,9 +132,9 @@ M1-agent-cluster/
 artifacts/by-module/M5-tide-memory/
 artifacts/by-module/M1-agent-cluster/
 
-# === 归档材料：过程性文档与报告，仅保留在本地，不上传公开仓库 ===
-# 迭代报告、验收报告、检验报告、变更日志、体检报告等过程性文档
-docs/
+# === 归档材料：过程性文档与报告（保留在本地） ===
+# 迭代报告、验收报告、检验报告等过程性文档
+# 注：核心项目文档(架构/API/部署/运维等)已纳入版本控制
 archive/
 health-reports/
 changelogs/
