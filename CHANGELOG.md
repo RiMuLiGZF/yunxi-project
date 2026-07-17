@@ -5,6 +5,103 @@
 
 ---
 
+## [1.1.0] - 2026-07-18
+
+### 发布概述
+
+V1.1.0 是 V1.0 发布后的第一轮完整优化迭代版本。基于 V1.0 第一轮全面大检查发现的 P1 级问题，
+完成了 9 项高优先级优化，涵盖安全加固、架构重构、质量提升三大方向。
+
+### 安全加固
+
+#### 🔴 高危问题修复
+
+- **SEC-004: M8 控制塔 JWT 统一认证迁移** (CVSS 7.5)
+  - M8 独立 JWT 实现迁移到 shared 统一 `JWTHandler`
+  - 新增 Token 黑名单机制，登出立即使 Token 失效
+  - 新增密钥轮换接口，支持运行时密钥轮换
+  - 所有新签发 Token 包含 `jti` 唯一标识
+  - 保留旧 Token 向后兼容，实现平滑过渡
+
+- **SEC-005: M2 技能集群 SQL 注入防护** (CVSS 7.5)
+  - 新增 `validate_identifier()` 等 4 个输入验证函数
+  - `order_by`、`update_fields`、`like_search` 等动态 SQL 全部加白名单校验
+  - 覆盖所有排序列（id、name、status、created_at、updated_at 等）
+  - market/registry 动态 SQL 同步加固
+
+- **SEC-008: 测试环境配置泄露加固** (CVSS 7.2)
+  - 测试弱密码替换为随机强密码
+  - 测试 JWT 密钥替换为 64 字符随机强密钥
+  - 新增 CI 安全检查脚本 `scripts/test/test_env_security_check.py`
+  - .env.example 添加测试环境安全注意事项
+
+### 架构重构
+
+#### ARC-004: shared 导入路径统一
+
+- 批量替换 M8、API-Gateway、M1 等模块的旧 shared 导入路径
+- 17 个关键导入路径全部验证可用
+- 旧路径兼容存根保留，向后兼容不破坏
+
+#### ARC-005: M8 main.py 重构（969 行 → 224 行）
+
+- 抽离 `router_config.py`：45 个 router 配置列表 + 循环注册
+- 抽离 `services/health_service.py`：健康检查 + 系统检测端点
+- 抽离 `static_files.py`：前端静态文件挂载
+- 抽离 `middleware_config.py`：CORS 配置 + 分布式集群管理
+- 纯重构，功能保持完全一致
+
+#### ARC-002 第一阶段：M8 代理 Router 识别
+
+- 识别出 10 个纯代理/占位 Router（形象工坊、情绪陪伴、人际关系等）
+- 识别出 3 个路由级代理 Router（工作开发、成长中心、潮汐记忆）
+- 产出迁移状态清单：`M8-control-tower/docs/migration_status.md`
+
+### 质量提升
+
+#### TST-003: M1 测试文件按功能重组
+
+- 11 个版本号命名测试文件 → 5 个功能模块测试文件
+- 新增：`test_orchestrator.py`、`test_federation.py`、`test_agent_management.py`、`test_api.py`、`test_integration.py`
+- 旧版本文件移入 `tests/_legacy/` 保留历史参考
+- pytest 成功收集 287 个测试用例
+
+#### DOC-001: CHANGELOG 历史版本补全
+
+- 补充 v0.6.0 ~ v0.9.1 共 5 个历史版本完整条目
+- 每个版本包含：发布概述、新增功能、改进优化、已知问题
+- 与 README 版本演进表内容一致
+
+#### CFG-001: .gitignore 优化与文档补充
+
+- .gitignore 条目分组优化，添加清晰注释和功能说明
+- README 新增"私有模块说明"章节
+- 明确 M5/M0 保密模块和 M8 暂缺文件的说明
+- 保守策略：不删除任何忽略条目
+
+### 新增测试
+
+- SEC-004 JWT 迁移测试：10 个
+- SEC-005 SQL 注入测试：12 个
+- SEC-008 配置安全测试：15 个
+- **合计新增**：37 个测试用例
+
+### 向后兼容性
+
+- ✅ 所有公共 API 接口保持不变
+- ✅ 旧 JWT Token 格式仍可验证通过（平滑过渡）
+- ✅ shared 旧导入路径保留兼容存根
+- ✅ M8 Router 列表功能完全一致，仅代码组织变化
+
+### 已知问题与后续计划
+
+- M7 工作流 eval/exec 沙箱风险（ARC-001）：计划在 V1.2 引入 AST 白名单解析方案
+- M8 上帝模块问题（ARC-002）：第一阶段仅识别代理 Router，业务迁移在 V1.2 推进
+- 前端 0 测试覆盖（TST-002）：计划在 V1.2 引入 Vitest 测试体系
+- API 响应格式不统一（ARC-003）：计划在 V1.2 统一响应格式
+
+---
+
 ## [0.9.1] - 2026-07-16
 
 ### 发布概述
