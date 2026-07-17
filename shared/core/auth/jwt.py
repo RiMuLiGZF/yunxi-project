@@ -2,16 +2,28 @@
 统一认证体系 - JWT Token 管理模块
 
 提供 JSON Web Token（JWT）的签发与验证功能，支持：
-- HS256 / RS256 算法
+- HS256 / RS256 / RS384 / RS512 算法
 - Access Token + Refresh Token 双令牌机制
 - Token 黑名单支持（接口抽象，由调用方实现存储）
 - JTI（JWT ID）唯一标识
+- 密钥 ID（kid）用于密钥轮换
+- 多密钥验证（密钥轮换时旧 Token 仍可验证）
+- 从文件加载 RSA 密钥
 - 密钥安全校验
 
 用法：
     from shared.core.auth.jwt import JWTHandler, JWTConfig
 
+    # HS256 对称加密
     config = JWTConfig(secret="your-secret-key", algorithm="HS256")
+    handler = JWTHandler(config)
+
+    # RS256 非对称加密
+    config = JWTConfig(
+        algorithm="RS256",
+        private_key=private_key_pem,
+        public_key=public_key_pem,
+    )
     handler = JWTHandler(config)
 
     # 签发 Token
@@ -23,18 +35,24 @@
         print("Token 有效")
 """
 
+import os
 import uuid
 import hashlib
 import warnings
+import logging
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Callable
 
 try:
     from jose import JWTError, jwt as _jose_jwt
+    from jose.backends import RSAKey
     _jose_available = True
 except ImportError:  # pragma: no cover
     _jose_jwt = None
     _jose_available = False
+
+logger = logging.getLogger(__name__)
 
 
 def is_jwt_available() -> bool:
@@ -57,18 +75,25 @@ class JWTConfig:
 
     Attributes:
         secret: JWT 签名密钥（HS256 使用）
-        algorithm: 签名算法，默认 HS256
+        algorithm: 签名算法，默认 RS256
         access_token_expire_minutes: Access Token 过期时间（分钟）
         refresh_token_expire_days: Refresh Token 过期时间（天）
         issuer: Token 签发者（可选）
         audience: Token 受众（可选）
         require_secure_secret: 是否强制要求安全密钥
+        private_key: RSA 私钥（PEM 格式字符串，RS256 使用）
+        public_key: RSA 公钥（PEM 格式字符串，RS256 使用）
+        private_key_path: RSA 私钥文件路径（从文件加载）
+        public_key_path: RSA 公钥文件路径（从文件加载）
+        kid: 密钥 ID（用于密钥轮换，留空则自动生成）
+        verification_keys: 额外的验证公钥字典 {kid: public_key_pem}
+            用于密钥轮换时验证用旧密钥签发的 Token
     """
 
     def __init__(
         self,
         secret: str = "",
-        algorithm: str = "HS256",
+        algorithm: str = "RS256",
         access_token_expire_minutes: int = 1440,  # 24 小时
         refresh_token_expire_days: int = 7,
         issuer: Optional[str] = None,
@@ -77,6 +102,10 @@ class JWTConfig:
         # RS256 相关
         private_key: Optional[str] = None,
         public_key: Optional[str] = None,
+        private_key_path: Optional[str] = None,
+        public_key_path: Optional[str] = None,
+        kid: Optional[str] = None,
+        verification_keys: Optional[Dict[str, str]] = None,
     ):
         self.secret = secret
         self.algorithm = algorithm
@@ -87,6 +116,57 @@ class JWTConfig:
         self.require_secure_secret = require_secure_secret
         self.private_key = private_key
         self.public_key = public_key
+        self.private_key_path = private_key_path
+        self.public_key_path = public_key_path
+        self.kid = kid
+        self.verification_keys = verification_keys or {}
+
+        # 向后兼容：如果配置了 secret 但没配置 RSA 密钥，且算法为 RS256，
+        # 自动 fallback 到 HS256，避免破坏旧代码
+        if (
+            self._is_rsa_algorithm()
+            and not private_key
+            and not public_key
+            and not private_key_path
+            and not public_key_path
+            and secret
+        ):
+            logger.info(
+                "检测到仅配置了 JWT_SECRET 但未配置 RSA 密钥，"
+                "自动从 %s 降级到 HS256（向后兼容模式）",
+                algorithm,
+            )
+            self.algorithm = "HS256"
+
+        # 如果配置了文件路径，自动加载密钥
+        if self._is_rsa_algorithm() and not (private_key and public_key):
+            self._load_keys_from_files()
+
+    def _is_rsa_algorithm(self) -> bool:
+        """检查是否为 RSA 非对称算法"""
+        return self.algorithm.upper().startswith("RS") or self.algorithm.upper().startswith("PS")
+
+    def _load_keys_from_files(self) -> None:
+        """从文件加载 RSA 密钥对"""
+        if self.private_key_path:
+            priv_path = Path(self.private_key_path)
+            if priv_path.exists():
+                try:
+                    with open(priv_path, "r", encoding="utf-8") as f:
+                        self.private_key = f.read()
+                    logger.debug("已从文件加载 RSA 私钥: %s", priv_path)
+                except Exception as e:
+                    logger.warning("加载 RSA 私钥文件失败 %s: %s", priv_path, e)
+
+        if self.public_key_path:
+            pub_path = Path(self.public_key_path)
+            if pub_path.exists():
+                try:
+                    with open(pub_path, "r", encoding="utf-8") as f:
+                        self.public_key = f.read()
+                    logger.debug("已从文件加载 RSA 公钥: %s", pub_path)
+                except Exception as e:
+                    logger.warning("加载 RSA 公钥文件失败 %s: %s", pub_path, e)
 
     @property
     def is_default_secret(self) -> bool:
@@ -95,7 +175,7 @@ class JWTConfig:
         Returns:
             True 表示密钥不安全
         """
-        if self.algorithm.startswith("RS"):
+        if self._is_rsa_algorithm():
             # RS256 使用公私钥，检查私钥是否配置
             return not self.private_key or not self.public_key
         # HS256 使用对称密钥
@@ -110,10 +190,11 @@ class JWTConfig:
         if not self.require_secure_secret:
             return
 
-        if self.algorithm.startswith("RS"):
+        if self._is_rsa_algorithm():
             if not self.private_key or not self.public_key:
                 raise ValueError(
-                    "JWT 配置不安全：使用 RS256 算法必须配置 private_key 和 public_key"
+                    "JWT 配置不安全：使用 RS256 算法必须配置 private_key 和 public_key，"
+                    "或配置 private_key_path / public_key_path"
                 )
         else:
             if not self.secret:
@@ -137,7 +218,8 @@ class JWTHandler:
     """JWT Token 处理器
 
     提供 Token 的签发、验证、刷新等核心功能。
-    支持 HS256（对称加密）和 RS256（非对称加密）两种算法。
+    支持 HS256（对称加密）和 RS256/RS384/RS512（非对称加密）算法。
+    支持密钥 ID（kid）和多密钥验证（密钥轮换场景）。
 
     Args:
         config: JWTConfig 配置对象
@@ -164,15 +246,22 @@ class JWTHandler:
 
     def _get_signing_key(self) -> str:
         """获取签名密钥"""
-        if self.config.algorithm.startswith("RS"):
+        if self.config._is_rsa_algorithm():
             return self.config.private_key or ""
         return self.config.secret
 
     def _get_verification_key(self) -> str:
-        """获取验证密钥"""
-        if self.config.algorithm.startswith("RS"):
+        """获取默认验证密钥"""
+        if self.config._is_rsa_algorithm():
             return self.config.public_key or ""
         return self.config.secret
+
+    def _get_signing_headers(self) -> Dict[str, str]:
+        """获取签名时的额外 JWT 头（如 kid）"""
+        headers = {}
+        if self.config._is_rsa_algorithm() and self.config.kid:
+            headers["kid"] = self.config.kid
+        return headers
 
     def create_access_token(
         self,
@@ -211,6 +300,7 @@ class JWTHandler:
             to_encode,
             self._get_signing_key(),
             algorithm=self.config.algorithm,
+            headers=self._get_signing_headers() or None,
         )
         return encoded_jwt
 
@@ -254,8 +344,40 @@ class JWTHandler:
             to_encode,
             self._get_signing_key(),
             algorithm=self.config.algorithm,
+            headers=self._get_signing_headers() or None,
         )
         return encoded_jwt
+
+    def _get_verification_key_for_token(self, token: str) -> Optional[str]:
+        """根据 Token 的 kid 头选择对应的验证公钥
+
+        支持密钥轮换场景：
+        1. 先从 Token 头中提取 kid
+        2. 如果 kid 存在且在 verification_keys 中找到，使用对应的公钥
+        3. 否则使用默认的 public_key
+
+        Args:
+            token: JWT Token 字符串
+
+        Returns:
+            验证用的公钥/密钥，找不到返回 None
+        """
+        # 如果没有配置额外验证密钥，直接使用默认密钥
+        if not self.config.verification_keys:
+            return self._get_verification_key()
+
+        try:
+            # 不安全解码，仅提取 header 中的 kid
+            headers = _jose_jwt.get_unverified_header(token)
+            kid = headers.get("kid")
+
+            if kid and kid in self.config.verification_keys:
+                return self.config.verification_keys[kid]
+        except Exception:
+            pass
+
+        # 没找到 kid 或 kid 不在验证密钥列表中，使用默认公钥
+        return self._get_verification_key()
 
     def decode_token(
         self,
@@ -264,6 +386,9 @@ class JWTHandler:
     ) -> Optional[Dict[str, Any]]:
         """解码并验证 JWT Token
 
+        支持密钥轮换：如果 Token 包含 kid 头，会尝试从
+        verification_keys 中查找对应的公钥进行验证。
+
         Args:
             token: JWT Token 字符串
             token_type: 可选，指定 Token 类型（"access" / "refresh"）
@@ -271,14 +396,22 @@ class JWTHandler:
         Returns:
             解码后的 payload 字典，无效返回 None
         """
+        if not token or not isinstance(token, str):
+            return None
+
         try:
             decode_options = {}
             if self.config.audience:
                 decode_options["audience"] = self.config.audience
 
+            # 获取对应的验证密钥
+            verify_key = self._get_verification_key_for_token(token)
+            if not verify_key:
+                return None
+
             payload = _jose_jwt.decode(
                 token,
-                self._get_verification_key(),
+                verify_key,
                 algorithms=[self.config.algorithm],
                 options=decode_options if decode_options else None,
                 audience=self.config.audience if self.config.audience else None,
@@ -292,6 +425,27 @@ class JWTHandler:
             return payload
         except JWTError:
             return None
+
+    def decode_token_with_kid(
+        self,
+        token: str,
+        token_type: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """解码并验证 JWT Token，返回 kid 信息
+
+        Args:
+            token: JWT Token 字符串
+            token_type: 可选，指定 Token 类型
+
+        Returns:
+            包含 payload 和 kid 的字典，失败返回 None
+            格式: {"payload": {...}, "kid": "key-xxx"}
+        """
+        kid = self.get_kid(token)
+        payload = self.decode_token(token, token_type)
+        if payload is None:
+            return None
+        return {"payload": payload, "kid": kid}
 
     def is_access_token_valid(self, token: str) -> bool:
         """检查 Access Token 是否有效
@@ -383,6 +537,126 @@ class JWTHandler:
             return payload.get("jti")
         except Exception:
             return None
+
+    @staticmethod
+    def get_kid(token: str) -> Optional[str]:
+        """从 Token 中提取 kid（密钥 ID，不验证签名）
+
+        警告：此方法不验证签名，仅用于在验证前提取 kid。
+
+        Args:
+            token: JWT Token 字符串
+
+        Returns:
+            kid 字符串，提取失败或没有 kid 返回 None
+        """
+        try:
+            headers = _jose_jwt.get_unverified_header(token)
+            return headers.get("kid")
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_unverified_claims(token: str) -> Optional[Dict[str, Any]]:
+        """不安全地提取 Token 的 payload（不验证签名）
+
+        警告：此方法不验证签名，返回的数据不可信！
+        仅用于在验证前快速查看 Token 内容。
+
+        Args:
+            token: JWT Token 字符串
+
+        Returns:
+            payload 字典，失败返回 None
+        """
+        try:
+            return _jose_jwt.get_unverified_claims(token)
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_unverified_header(token: str) -> Optional[Dict[str, Any]]:
+        """不安全地提取 Token 的 header（不验证签名）
+
+        Args:
+            token: JWT Token 字符串
+
+        Returns:
+            header 字典，失败返回 None
+        """
+        try:
+            return _jose_jwt.get_unverified_header(token)
+        except Exception:
+            return None
+
+    def add_verification_key(self, kid: str, public_key: str) -> None:
+        """添加额外的验证公钥（用于密钥轮换）
+
+        Args:
+            kid: 密钥 ID
+            public_key: 公钥 PEM 字符串
+        """
+        if self.config.verification_keys is None:
+            self.config.verification_keys = {}
+        self.config.verification_keys[kid] = public_key
+
+    def remove_verification_key(self, kid: str) -> None:
+        """移除验证公钥
+
+        Args:
+            kid: 密钥 ID
+        """
+        if self.config.verification_keys and kid in self.config.verification_keys:
+            del self.config.verification_keys[kid]
+
+
+# ===========================================================================
+# 便捷函数：从密钥管理器创建 JWT Handler
+# ===========================================================================
+
+def create_jwt_handler_from_key_manager(
+    key_manager,
+    access_token_expire_minutes: int = 1440,
+    refresh_token_expire_days: int = 7,
+    issuer: Optional[str] = None,
+    audience: Optional[str] = None,
+) -> Optional[JWTHandler]:
+    """从 RSAKeyManager 创建支持密钥轮换的 JWTHandler
+
+    会自动将所有未过期的公钥添加到 verification_keys 中，
+    以便验证用旧密钥签发的 Token。
+
+    Args:
+        key_manager: RSAKeyManager 实例
+        access_token_expire_minutes: Access Token 有效期（分钟）
+        refresh_token_expire_days: Refresh Token 有效期（天）
+        issuer: Token 签发者
+        audience: Token 受众
+
+    Returns:
+        JWTHandler 实例，密钥未就绪返回 None
+    """
+    active_key = key_manager.get_active_key()
+    if not active_key:
+        return None
+
+    # 获取所有验证密钥
+    verification_keys = key_manager.get_all_verification_keys()
+
+    config = JWTConfig(
+        algorithm="RS256",
+        private_key=active_key.private_key,
+        public_key=active_key.public_key,
+        kid=active_key.kid,
+        verification_keys=verification_keys,
+        access_token_expire_minutes=access_token_expire_minutes,
+        refresh_token_expire_days=refresh_token_expire_days,
+        issuer=issuer,
+        audience=audience,
+        require_secure_secret=False,
+    )
+
+    return JWTHandler(config)
 
 
 # ===========================================================================

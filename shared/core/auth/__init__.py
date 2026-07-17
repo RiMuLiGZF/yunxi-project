@@ -10,8 +10,12 @@
 
 子模块：
 - password: 密码哈希与验证（bcrypt）
-- jwt: JWT Token 签发与验证（HS256/RS256，access+refresh）
+- jwt: JWT Token 签发与验证（HS256/RS256，access+refresh，密钥轮换）
+- key_manager: RSA 密钥管理（生成、加载、轮换、kid 管理）
 - api_key: API Key 管理与验证
+- api_key_manager: API Key 统一管理中心（SC-010，分级/配额/轮换/存储）
+- api_key_router: API Key 管理 FastAPI Router
+- service_caller: 服务间调用 SDK（带 API Key 认证）
 - rbac: 角色权限控制（RBAC）
 - middleware: FastAPI 统一认证中间件
 - dependencies: FastAPI Depends 认证依赖
@@ -64,6 +68,18 @@ from .jwt import (
     TokenBlacklistBackend,
     InMemoryTokenBlacklist,
     is_jwt_available,
+    create_jwt_handler_from_key_manager,
+)
+
+# ===========================================================================
+# RSA 密钥管理模块
+# ===========================================================================
+from .key_manager import (
+    RSAKeyManager,
+    RSAKeyPair,
+    is_crypto_available,
+    generate_rsa_keys,
+    rotate_jwt_keys,
 )
 
 # ===========================================================================
@@ -137,6 +153,49 @@ def verify_api_key(
                 return dict(metadata) if isinstance(metadata, dict) else {}
 
     return None
+
+
+# ===========================================================================
+# API Key 统一管理中心（SC-010）
+# ===========================================================================
+from .api_key_manager import (
+    ApiKeyLevel,
+    QuotaConfig,
+    QuotaUsage,
+    QuotaManager,
+    ApiKeyCache,
+    SqliteApiKeyStore,
+    ManagedApiKeyInfo,
+    ApiKeyManager,
+    get_api_key_manager,
+    reset_api_key_manager,
+)
+
+# API Key 管理 Router
+try:
+    from .api_key_router import (
+        create_api_key_router,
+        is_fastapi_available as is_api_router_available,
+    )
+except ImportError:  # pragma: no cover
+    create_api_key_router = None  # type: ignore
+    is_fastapi_available = lambda: False  # noqa: E731
+
+# 服务间调用 SDK
+try:
+    from .service_caller import (
+        ServiceCaller,
+        RetryConfig,
+        CallStats,
+        create_service_caller,
+        is_httpx_available,
+    )
+except ImportError:  # pragma: no cover
+    ServiceCaller = None  # type: ignore
+    RetryConfig = None  # type: ignore
+    CallStats = None  # type: ignore
+    create_service_caller = None  # type: ignore
+    is_httpx_available = lambda: False  # noqa: E731
 
 
 # ===========================================================================
@@ -299,6 +358,13 @@ __all__ = [
     "TokenBlacklistBackend",
     "InMemoryTokenBlacklist",
     "is_jwt_available",
+    "create_jwt_handler_from_key_manager",
+    # key_manager (RSA 密钥管理)
+    "RSAKeyManager",
+    "RSAKeyPair",
+    "is_crypto_available",
+    "generate_rsa_keys",
+    "rotate_jwt_keys",
     # api_key
     "generate_api_key",
     "hash_api_key",          # 旧版兼容名 (SHA256)
@@ -311,6 +377,26 @@ __all__ = [
     "ApiKeyStore",
     "InMemoryApiKeyStore",
     "ApiKeyValidator",
+    # api_key_manager (SC-010 统一管理中心)
+    "ApiKeyLevel",
+    "QuotaConfig",
+    "QuotaUsage",
+    "QuotaManager",
+    "ApiKeyCache",
+    "SqliteApiKeyStore",
+    "ManagedApiKeyInfo",
+    "ApiKeyManager",
+    "get_api_key_manager",
+    "reset_api_key_manager",
+    # api_key_router
+    "create_api_key_router",
+    "is_api_router_available",
+    # service_caller
+    "ServiceCaller",
+    "RetryConfig",
+    "CallStats",
+    "create_service_caller",
+    "is_httpx_available",
     # rbac
     "ROLE_SUPER_ADMIN",
     "ROLE_ADMIN",

@@ -917,9 +917,16 @@ class GlobalModuleConfig(BaseModel):
 
 class GlobalSecurityConfig(BaseModel):
     """全局安全配置"""
-    jwt_secret: str = Field(default="yunxi-jwt-secret-key-2026", description="JWT 签名密钥")
-    jwt_algorithm: str = Field(default="HS256", description="JWT 签名算法")
+    jwt_secret: str = Field(default="yunxi-jwt-secret-key-2026", description="JWT 签名密钥（HS256 使用，RS256 可留空）")
+    jwt_algorithm: str = Field(default="RS256", description="JWT 签名算法：HS256 / RS256 / RS384 / RS512")
     access_token_expire_minutes: int = Field(default=1440, description="访问令牌有效期（分钟）")
+    # RS256 密钥配置
+    jwt_private_key_path: str = Field(default="config/keys/jwt_private.pem", description="JWT RSA 私钥文件路径")
+    jwt_public_key_path: str = Field(default="config/keys/jwt_public.pem", description="JWT RSA 公钥文件路径")
+    jwt_key_size: int = Field(default=2048, description="RSA 密钥位数：2048 / 4096")
+    jwt_auto_generate_keys: bool = Field(default=True, description="首次启动是否自动生成 RSA 密钥对")
+    jwt_key_rotation_days: int = Field(default=0, description="密钥轮换周期（天），0 表示不自动轮换")
+    jwt_old_key_retention_days: int = Field(default=30, description="旧密钥保留天数（用于验证未过期 Token）")
     cors_origins: str = Field(default="*", description="全局 CORS 来源")
     # WAF 配置（全局默认值，各模块可覆盖）
     waf_enabled: bool = Field(default=True, description="是否启用 WAF")
@@ -1093,6 +1100,26 @@ class YunxiConfig:
     def jwt_algorithm(self) -> str:
         """JWT 算法（向后兼容）"""
         return self._inner.security.jwt_algorithm
+
+    @property
+    def jwt_private_key_path(self) -> str:
+        """JWT RSA 私钥路径（向后兼容）"""
+        return self._inner.security.jwt_private_key_path
+
+    @property
+    def jwt_public_key_path(self) -> str:
+        """JWT RSA 公钥路径（向后兼容）"""
+        return self._inner.security.jwt_public_key_path
+
+    @property
+    def jwt_key_size(self) -> int:
+        """RSA 密钥位数（向后兼容）"""
+        return self._inner.security.jwt_key_size
+
+    @property
+    def jwt_auto_generate_keys(self) -> bool:
+        """是否自动生成 RSA 密钥（向后兼容）"""
+        return self._inner.security.jwt_auto_generate_keys
 
     @property
     def access_token_expire_minutes(self) -> int:

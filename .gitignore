@@ -86,6 +86,10 @@ config/yunxi.env
 *.key.enc
 *.pem
 master.key*
+# JWT 密钥目录（含元数据）
+config/keys/
+**/keys/
+keys_metadata.json
 
 # 测试环境
 .env.test
