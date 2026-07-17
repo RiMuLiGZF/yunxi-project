@@ -11,6 +11,12 @@
 - [1. 系统要求](#1-系统要求)
 - [2. 日常运维清单](#2-日常运维清单)
 - [3. 监控指标说明](#3-监控指标说明)
+  - [3.1 系统级指标](#31-系统级指标)
+  - [3.2 服务级指标](#32-服务级指标)
+  - [3.3 模块级指标](#33-模块级指标)
+  - [3.4 业务指标](#34-业务指标)
+  - [3.5 告警级别定义](#35-告警级别定义)
+  - [3.6 内置告警规则（OB-003）](#36-内置告警规则ob-003)
 - [4. 备份策略与操作](#4-备份策略与操作)
 - [5. 升级流程](#5-升级流程)
 - [6. 回滚流程](#6-回滚流程)
@@ -186,6 +192,121 @@ Register-ScheduledTask -TaskName "YunxiDailyCheck" -Action $action -Trigger $tri
 | P1 严重 | 1 小时内 | 短信 + 邮件 | 核心模块故障、安全漏洞 |
 | P2 警告 | 4 小时内 | 邮件 + 控制台 | 资源使用率高、非核心模块故障 |
 | P3 通知 | 24 小时内 | 控制台 | 备份成功、例行通知 |
+
+### 3.6 内置告警规则（OB-003）
+
+云汐系统内置完整的告警规则引擎，无需依赖 Prometheus + Grafana 即可使用。
+告警引擎位于 `shared/core/observability/alerting.py`，提供以下能力：
+
+- 规则注册与管理
+- 定时检查与去重静默
+- 多渠道通知（日志 / 控制台 / Webhook）
+- 告警历史记录
+- 告警状态管理（firing / acknowledged / silenced / resolved）
+- 健康检查集成（CRITICAL 告警导致健康状态 degraded）
+
+#### 3.6.1 告警严重级别
+
+| 级别 | 说明 | 健康影响 |
+|------|------|---------|
+| `info` | 信息级，通知性质 | 无影响 |
+| `warning` | 警告级，需要关注 | 健康检查 degraded |
+| `critical` | 严重级，立即处理 | 健康检查 degraded |
+
+#### 3.6.2 系统资源类告警
+
+| 规则 ID | 名称 | 级别 | 条件 | 检查间隔 | 静默期 |
+|---------|------|------|------|---------|--------|
+| `system_cpu_high_warning` | CPU使用率偏高 | warning | CPU > 80% | 60s | 300s |
+| `system_cpu_high_critical` | CPU使用率严重过高 | critical | CPU > 95% | 30s | 120s |
+| `system_memory_high_warning` | 内存使用率偏高 | warning | 内存 > 85% | 60s | 300s |
+| `system_memory_high_critical` | 内存使用率严重过高 | critical | 内存 > 95% | 30s | 120s |
+| `system_disk_high_warning` | 磁盘空间不足 | warning | 磁盘 > 80% | 300s | 1800s |
+| `system_disk_high_critical` | 磁盘空间严重不足 | critical | 磁盘 > 90% | 120s | 600s |
+| `system_disk_free_critical` | 磁盘剩余空间不足1GB | critical | 剩余 < 1GB | 120s | 600s |
+
+#### 3.6.3 服务健康类告警
+
+| 规则 ID | 名称 | 级别 | 触发方式 | 说明 |
+|---------|------|------|---------|------|
+| `service_health_failure_warning` | 模块健康检查失败 | warning | 手动触发 | 模块单次健康检查失败 |
+| `service_health_failure_critical` | 模块连续健康检查失败 | critical | 手动触发 | 模块连续 3 次健康检查失败 |
+| `service_restart_high_warning` | 模块重启频繁 | warning | 手动触发 | 1 小时内重启 > 5 次 |
+
+> 服务健康类告警由外部模块（如模块注册中心）调用 `alert_engine.trigger_alert()` 手动触发。
+
+#### 3.6.4 性能类告警
+
+| 规则 ID | 名称 | 级别 | 触发方式 | 说明 |
+|---------|------|------|---------|------|
+| `api_error_rate_warning` | API错误率偏高 | warning | 手动触发 | 错误率 > 5% |
+| `api_error_rate_critical` | API错误率严重过高 | critical | 手动触发 | 错误率 > 10% |
+| `api_latency_warning` | API响应时间偏高 | warning | 手动触发 | 平均响应 > 1s |
+| `api_latency_critical` | API响应时间严重过高 | critical | 手动触发 | 平均响应 > 3s |
+| `request_queue_backlog_warning` | 请求队列堆积 | warning | 手动触发 | 队列长度 > 100 |
+
+#### 3.6.5 安全类告警
+
+| 规则 ID | 名称 | 级别 | 触发方式 | 说明 |
+|---------|------|------|---------|------|
+| `security_login_failures_warning` | 登录失败次数过多 | warning | 手动触发 | 1 分钟内失败 > 10 次 |
+| `security_waf_attack_warning` | WAF检测到攻击 | warning | 自动触发 | WAF 检测到攻击（自动触发） |
+| `security_config_change_info` | 配置变更通知 | info | 手动触发 | 系统配置被修改 |
+
+> WAF 攻击告警由 WAF 中间件自动触发，无需手动调用。
+
+#### 3.6.6 通知渠道
+
+| 渠道 | 名称 | 默认级别 | 说明 |
+|------|------|---------|------|
+| `log` | 日志通知 | info | 写入告警日志文件（默认启用） |
+| `console` | 控制台通知 | warning | 开发环境输出到控制台 |
+| `webhook` | Webhook 通知 | warning | 发送到配置的 Webhook URL |
+
+**配置 Webhook 通知**：
+```bash
+# 环境变量配置
+ALERT_WEBHOOK_URL=https://your-webhook-endpoint.com/alert
+```
+
+#### 3.6.7 告警 API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/alerts` | 获取活跃告警列表 |
+| GET | `/api/alerts/history` | 获取告警历史 |
+| GET | `/api/alerts/stats` | 告警统计 |
+| GET | `/api/alerts/{id}` | 告警详情 |
+| POST | `/api/alerts/{id}/acknowledge` | 确认告警 |
+| POST | `/api/alerts/{id}/silence` | 静默告警 |
+| POST | `/api/alerts/{id}/resolve` | 解决告警 |
+| GET | `/api/alerts/rules` | 获取规则列表 |
+| POST | `/api/alerts/rules` | 创建自定义规则 |
+| PUT | `/api/alerts/rules/{id}` | 修改规则 |
+| DELETE | `/api/alerts/rules/{id}` | 删除规则 |
+| GET | `/api/alerts/channels` | 通知渠道列表 |
+
+#### 3.6.8 健康检查集成
+
+告警状态已集成到健康检查中：
+- 健康检查响应包含 `alerts` 检查项
+- CRITICAL 或 WARNING 级活跃告警导致健康检查返回 `degraded` 状态
+- 健康检查返回当前活跃告警数
+
+**健康检查响应示例**：
+```json
+{
+  "status": "degraded",
+  "checks": {
+    "alerts": {
+      "status": "degraded",
+      "active_alerts": 2,
+      "critical_alerts": 1,
+      "warning_alerts": 1
+    }
+  }
+}
+```
 
 ---
 

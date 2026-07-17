@@ -8,6 +8,10 @@
 - ObservabilityMiddleware: FastAPI 可观测性中间件（请求日志、追踪、指标、慢请求告警）
 - MetricsCollector: 监控指标收集（Counter/Gauge/Histogram/Summary、Prometheus 格式）
 - HealthChecker: 标准化健康检查（轻量/深度检查、依赖检查、状态汇总）
+- AlertEngine: 内置告警引擎（规则管理、定时检查、去重静默、通知路由、历史记录）
+- AlertSeverity / AlertRule / AlertEvent: 告警数据模型
+- Notifier / LogNotifier / ConsoleNotifier / WebhookNotifier / NotifierManager: 多渠道通知
+- create_alert_router: 一键创建告警管理 API 路由
 - create_observability_router: 一键创建 /health + /metrics 端点
 
 快速开始：
@@ -102,6 +106,21 @@ from .fastapi_middleware import (
     MetricsEndpoint,
     create_observability_router,
 )
+from .alerting import (
+    AlertSeverity,
+    AlertState,
+    AlertEvent,
+    AlertRule,
+    AlertEngine,
+    Notifier,
+    LogNotifier,
+    ConsoleNotifier,
+    WebhookNotifier,
+    NotifierManager,
+    get_alert_engine,
+    reset_alert_engine,
+    create_alert_router,
+)
 
 __all__ = [
     # ---- Logger ----
@@ -168,4 +187,18 @@ __all__ = [
     "RequestLoggingMiddleware",
     "MetricsEndpoint",
     "create_observability_router",
+    # ---- Alerting ----
+    "AlertSeverity",
+    "AlertState",
+    "AlertEvent",
+    "AlertRule",
+    "AlertEngine",
+    "Notifier",
+    "LogNotifier",
+    "ConsoleNotifier",
+    "WebhookNotifier",
+    "NotifierManager",
+    "get_alert_engine",
+    "reset_alert_engine",
+    "create_alert_router",
 ]

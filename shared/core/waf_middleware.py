@@ -498,6 +498,62 @@ class WafMiddleware(BaseHTTPMiddleware):
         if not self.enabled:
             logger.info("[WAF] 中间件已禁用")
 
+        # 告警去重：同一 IP + 同一类型攻击，1 分钟内只触发一次告警
+        self._alert_cooldown: Dict[str, float] = {}
+        self._alert_cooldown_lock = threading.Lock()
+        self._ALERT_COOLDOWN_SECONDS = 60  # 告警冷却时间（秒）
+
+    def _trigger_waf_alert(self, client_ip: str, rule_type: str, rule_name: str, severity: str, path: str) -> None:
+        """触发 WAF 攻击告警（带冷却去重）
+
+        Args:
+            client_ip: 客户端 IP
+            rule_type: 攻击类型
+            rule_name: 规则名称
+            severity: 严重级别
+            path: 请求路径
+        """
+        # 冷却去重键：IP + 攻击类型
+        dedup_key = f"{client_ip}:{rule_type}"
+        now = time.time()
+
+        with self._alert_cooldown_lock:
+            last_time = self._alert_cooldown.get(dedup_key, 0)
+            if now - last_time < self._ALERT_COOLDOWN_SECONDS:
+                return  # 冷却期内，不重复告警
+            self._alert_cooldown[dedup_key] = now
+
+            # 清理过期的冷却记录
+            expired = [k for k, v in self._alert_cooldown.items() if now - v > self._ALERT_COOLDOWN_SECONDS * 10]
+            for k in expired:
+                del self._alert_cooldown[k]
+
+        # 触发告警
+        try:
+            from .observability import get_alert_engine
+            alert_engine = get_alert_engine()
+            alert_engine.trigger_alert(
+                rule_id="security_waf_attack_warning",
+                value=None,
+                labels={
+                    "client_ip": client_ip,
+                    "attack_type": rule_type,
+                    "path": path[:100],
+                },
+                annotations={
+                    "rule_name": rule_name,
+                    "severity": severity,
+                },
+                summary=f"WAF检测到{rule_type}攻击",
+                description=(
+                    f"IP {client_ip} 在 {path[:100]} 路径触发 {rule_type} 攻击检测 "
+                    f"(规则: {rule_name}, 级别: {severity})"
+                ),
+            )
+        except Exception:
+            # 告警失败不影响 WAF 功能
+            pass
+
     async def dispatch(self, request: Request, call_next):
         """处理请求"""
         # WAF 未启用，直接放行
@@ -564,6 +620,14 @@ class WafMiddleware(BaseHTTPMiddleware):
                     result["severity"],
                     result["match_target"],
                 )
+                # 触发告警
+                self._trigger_waf_alert(
+                    client_ip=request_info["client_ip"],
+                    rule_type=result["rule_type"],
+                    rule_name=result["rule_name"],
+                    severity=result["severity"],
+                    path=path,
+                )
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={
@@ -587,6 +651,14 @@ class WafMiddleware(BaseHTTPMiddleware):
                     path[:100],
                     result["rule_type"],
                     result["rule_name"],
+                )
+                # monitor 模式也触发告警（INFO 级别）
+                self._trigger_waf_alert(
+                    client_ip=request_info["client_ip"],
+                    rule_type=result["rule_type"],
+                    rule_name=result["rule_name"],
+                    severity=result["severity"],
+                    path=path,
                 )
 
         # 放行请求

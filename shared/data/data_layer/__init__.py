@@ -107,6 +107,4 @@ __all__ = [
     "IdempotencyChecker",
     # 迁移工具 - 执行器基类
     "BaseDataMigrator",
-    # 统一迁移 CLI
-    "migrate_cli",
 ]
