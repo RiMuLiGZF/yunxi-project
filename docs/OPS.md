@@ -1442,4 +1442,472 @@ curl -X POST http://localhost:8008/api/modules/registry/heartbeat \
 
 **文档维护**：每次运维流程变更时更新本文档
 **最后更新**：2026-07-17
-**版本**：v1.0
+**版本**：v1.1
+
+---
+
+## 11. 滚动升级体系（OP-003）
+
+### 11.1 概述
+
+云汐系统提供完整的滚动升级机制，支持三种升级策略：
+
+| 策略 | 说明 | 适用场景 | 停机时间 |
+|------|------|---------|---------|
+| **滚动升级** | 逐个模块升级，升级前备份，失败自动回滚 | 常规版本迭代 | 单模块级 |
+| **蓝绿部署** | 新版本并行运行，验证通过后切换流量 | 重大版本发布 | 近乎零停机 |
+| **金丝雀发布** | 先小流量验证，逐步扩大流量比例 | 高风险变更 | 近乎零停机 |
+
+核心代码：`shared/core/observability/rolling_upgrade.py`
+
+### 11.2 升级配置
+
+支持环境变量配置：
+
+| 环境变量 | 默认值 | 说明 |
+|---------|-------|------|
+| `UPGRADE_AUTO_CHECK` | `true` | 是否自动检查新版本 |
+| `UPGRADE_CHECK_INTERVAL` | `3600` | 版本检查间隔（秒） |
+| `UPGRADE_AUTO_UPGRADE` | `false` | 是否自动升级 |
+| `UPGRADE_STRATEGY` | `rolling` | 升级策略：rolling/blue_green/canary |
+| `UPGRADE_WINDOW_START` | `02:00` | 升级窗口开始时间 |
+| `UPGRADE_WINDOW_END` | `04:00` | 升级窗口结束时间 |
+| `UPGRADE_BACKUP_DIR` | `backups/upgrade` | 升级备份目录 |
+| `UPGRADE_MAX_RETRY` | `3` | 最大重试次数 |
+| `UPGRADE_HEALTH_CHECK_TIMEOUT` | `30` | 健康检查超时（秒） |
+| `UPGRADE_ROLLBACK_ON_FAILURE` | `true` | 失败自动回滚 |
+| `UPGRADE_CANARY_TRAFFIC_PERCENT` | `10` | 金丝雀初始流量百分比 |
+
+### 11.3 升级流程
+
+#### 标准升级步骤
+
+```python
+from shared.core.observability import get_upgrade_manager
+
+manager = get_upgrade_manager()
+
+# 1. 检查新版本
+status = manager.check_for_upgrade()
+if status["has_new_version"]:
+    # 2. 准备升级（下载、验证）
+    prep = manager.prepare_upgrade(status["latest_version"]["version"])
+    if prep["success"]:
+        # 3. 执行滚动升级
+        result = manager.execute_rolling_upgrade(
+            strategy="rolling"  # 或 blue_green / canary
+        )
+        print(f"升级成功: {result['success']}")
+        print(f"成功模块: {result['success_count']}")
+        print(f"失败模块: {result['failed_count']}")
+```
+
+#### 紧急回滚
+
+```python
+# 回滚单个模块
+result = manager.rollback("m8")
+
+# 回滚所有模块
+result = manager.rollback_all()
+```
+
+### 11.4 升级状态查询
+
+```python
+# 当前升级状态
+status = manager.get_upgrade_status()
+print(f"当前阶段: {status['phase']}")
+print(f"升级信息: {status['current_upgrade']}")
+
+# 升级历史
+history = manager.get_upgrade_history(limit=10)
+for entry in history:
+    print(f"{entry['from_version']} -> {entry['to_version']}: {entry['status']}")
+```
+
+### 11.5 模块操作注册
+
+升级管理器需要注册各模块的启动/停止/健康检查函数：
+
+```python
+manager.register_module_operations(
+    module_id="m8",
+    health_checker=check_m8_health,   # 返回 bool
+    starter=start_m8_module,         # 返回 bool
+    stopper=stop_m8_module,          # 返回 bool
+)
+```
+
+---
+
+## 12. 监控指标标准化（OB-002）
+
+### 12.1 指标分类
+
+| 分类 | 指标数 | 说明 | 代码位置 |
+|------|-------|------|---------|
+| 系统指标 | 17 | CPU、内存、磁盘、网络、进程 | `SYSTEM_METRICS` |
+| 业务指标 | 16 | 请求、用户、任务、数据库 | `BUSINESS_METRICS` |
+| 模块指标 | 10 | 健康状态、QPS、延迟、资源 | `MODULE_METRICS` |
+| 安全指标 | 12 | 攻击、认证、事件、漏洞 | `SECURITY_METRICS` |
+
+### 12.2 标准指标注册
+
+```python
+from shared.core.observability import get_metrics, register_standard_metrics
+
+metrics = get_metrics()
+result = register_standard_metrics(
+    metrics,
+    module_name="m8",
+    categories=["system", "business", "security"]
+)
+print(f"已注册指标: {result}")
+```
+
+### 12.3 告警阈值
+
+| 指标 | 警告阈值 | 严重阈值 | 说明 |
+|------|---------|---------|------|
+| CPU 使用率 | 80% | 90% | 系统整体 |
+| 内存使用率 | 80% | 90% | 系统整体 |
+| 磁盘使用率 | 80% | 90% | 主磁盘 |
+| 业务错误率 | 5% | 10% | 请求错误占比 |
+| 慢请求数 | 100 | 500 | 累计 |
+| 攻击次数/小时 | 10 | 50 | 安全告警 |
+| 登录失败/分钟 | 5 | 20 | 暴力破解检测 |
+| 任务队列大小 | 100 | 1000 | 积压告警 |
+
+### 12.4 业务质量告警
+
+新增业务质量告警规则：
+
+| 规则 | 级别 | 触发条件 | 建议处理 |
+|------|------|---------|---------|
+| 错误率飙升 | critical | 5分钟内错误率增长 > 200% | 检查最新发布、回滚 |
+| 响应时间突增 | warning | P95 延迟 > 3s 持续 5分钟 | 排查性能瓶颈 |
+| QPS 异常下降 | warning | QPS 下降 > 50% | 检查上游服务、网络 |
+| 任务堆积 | critical | 队列长度 > 1000 | 扩容或排查阻塞 |
+
+### 12.5 安全告警
+
+| 规则 | 级别 | 触发条件 | 说明 |
+|------|------|---------|------|
+| 暴力破解 | critical | 1分钟内登录失败 > 20次 | 同一 IP |
+| 攻击激增 | critical | 5分钟攻击数 > 50 | WAF 检测 |
+| 高危漏洞 | critical | 发现 P0/P1 漏洞 | 漏洞扫描 |
+| 未授权访问 | warning | 未授权请求 > 10次/分钟 | 权限验证 |
+
+---
+
+## 13. Grafana 仪表盘
+
+### 13.1 仪表盘清单
+
+| 仪表盘 | 说明 | 生成函数 |
+|--------|------|---------|
+| 系统总览 | 资源使用、模块状态、告警概览 | `generate_system_overview_dashboard()` |
+| 业务监控 | QPS、延迟、错误率、用户活跃度 | `generate_business_dashboard()` |
+| 安全监控 | 攻击检测、WAF、登录安全 | `generate_security_dashboard()` |
+| 模块详情 | 单模块详细监控（M8/M1 等） | `generate_module_detail_dashboard(module_id)` |
+
+### 13.2 生成仪表盘 JSON
+
+```python
+from shared.core.observability import generate_all_dashboards
+
+# 生成所有仪表盘到指定目录
+result = generate_all_dashboards("./dashboards")
+for name, path in result.items():
+    print(f"{name}: {path}")
+```
+
+生成的 JSON 文件可直接导入 Grafana（Configuration > Data Sources > 配置 Prometheus > Import Dashboard）。
+
+### 13.3 仪表盘变量
+
+所有仪表盘支持以下变量：
+
+| 变量 | 说明 | 默认值 |
+|------|------|-------|
+| `$module` | 模块筛选 | All |
+| `$__range` | 时间范围 | 6小时 |
+| `$__interval` | 采样间隔 | 自动 |
+
+---
+
+## 14. 日志体系（OP-006）
+
+### 14.1 日志分类
+
+| 分类 | 说明 | 识别方式 |
+|------|------|---------|
+| **系统日志** | 框架、中间件、基础设施日志 | 默认分类 |
+| **业务日志** | 用户操作、业务流程 | 包含 user/order/task 等关键词 |
+| **安全日志** | 登录、权限、攻击检测 | 包含 login/auth/attack 等关键词 |
+| **审计日志** | 关键操作记录 | logger 名称包含 audit |
+| **性能日志** | 慢查询、耗时统计 | 包含 slow/timeout/latency 等关键词 |
+
+### 14.2 日志分级
+
+| 级别 | 说明 | 生产环境默认输出 |
+|------|------|---------------|
+| `DEBUG` | 调试信息，开发用 | 否 |
+| `INFO` | 常规操作记录 | 是 |
+| `WARNING` | 警告，需关注 | 是 |
+| `ERROR` | 错误，影响功能 | 是 |
+| `CRITICAL` | 严重错误，系统不可用 | 是 |
+
+### 14.3 日志查询 API
+
+```python
+from shared.core.observability import get_log_query_engine
+
+engine = get_log_query_engine()
+
+# 按级别搜索
+result = engine.search(level="ERROR", module="m8", keyword="timeout")
+
+# 按时间范围搜索
+result = engine.search(
+    start_time="2026-01-01 00:00:00",
+    end_time="2026-01-02 00:00:00",
+    level="ERROR"
+)
+
+# 正则搜索
+result = engine.search(regex=r"error.*timeout", module="m8")
+
+# 按分类搜索
+result = engine.search(category="security")
+
+# 分页
+result = engine.search(level="ERROR", page=1, page_size=50)
+print(f"共 {result.total} 条，当前页 {len(result.entries)} 条")
+```
+
+### 14.4 日志统计分析
+
+```python
+# 24小时统计
+stats = engine.get_stats(last_hours=24)
+print(f"总日志数: {stats.total_lines}")
+print(f"错误数: {stats.error_count}")
+print(f"警告数: {stats.warning_count}")
+print(f"级别分布: {stats.level_distribution}")
+print(f"模块分布: {stats.module_distribution}")
+print(f"Top 错误: {stats.top_error_messages[:5]}")
+```
+
+### 14.5 日志归档策略
+
+三级存储架构：
+
+| 层级 | 时间范围 | 存储方式 | 查询速度 | 说明 |
+|------|---------|---------|---------|------|
+| **热数据** | 最近 7 天 | 原始文件 | 快 | 实时查询 |
+| **温数据** | 7-30 天 | gzip 压缩 | 中 | 按需解压 |
+| **冷数据** | 30 天以上 | 归档目录 | 慢 | 历史追溯 |
+
+### 14.6 归档操作
+
+```python
+from shared.core.observability import LogArchiver
+
+archiver = LogArchiver(
+    log_dir="./logs",
+    hot_days=7,
+    warm_days=23,  # 7 + 23 = 30 天
+)
+
+# 执行归档
+result = archiver.run_archive()
+print(f"归档文件数: {result.files_archived}")
+print(f"释放空间: {result.bytes_freed_mb} MB")
+
+# 试运行
+result = archiver.run_archive(dry_run=True)
+
+# 查看存储统计
+stats = archiver.get_storage_stats()
+print(f"热数据: {stats['hot']['size_mb']} MB")
+print(f"温数据: {stats['warm']['size_mb']} MB")
+print(f"冷数据: {stats['cold']['size_mb']} MB")
+
+# 从冷存储恢复
+result = archiver.restore_from_cold("m8.log.2026-01-01.gz")
+```
+
+### 14.7 日志文件列表
+
+```python
+files = engine.get_log_file_list()
+for f in files:
+    print(f"{f['name']} - {f['size_kb']} KB - {f['modified_time']}")
+```
+
+---
+
+## 15. 运维脚本参考
+
+### 15.1 脚本清单
+
+| 脚本 | 路径 | 说明 |
+|------|------|------|
+| `deploy.ps1` | `scripts/` | 部署脚本（全新安装/升级） |
+| `backup.ps1` | `scripts/` | 备份脚本（完整/增量） |
+| `restore.ps1` | `scripts/` | 恢复脚本 |
+| `health_check.ps1` | `scripts/` | 健康检查脚本（基础/深度） |
+| `start-all.ps1` | `scripts/` | 启动所有模块 |
+| `stop-all.ps1` | `scripts/` | 停止所有模块 |
+| `logs.ps1` | `scripts/` | 日志查看工具 |
+| `monitor.ps1` | `scripts/` | 实时监控工具 |
+| `quality_check.ps1` | `scripts/` | 代码质量检查 |
+| `disaster-recovery.ps1` | `scripts/` | 灾难恢复脚本 |
+
+### 15.2 常用操作
+
+```powershell
+# 全新部署
+.\scripts\deploy.ps1 -Mode install
+
+# 升级部署
+.\scripts\deploy.ps1 -Mode upgrade
+
+# 完整备份
+.\scripts\backup.ps1 -Mode full
+
+# 备份（含日志）
+.\scripts\backup.ps1 -Mode full -IncludeLogs
+
+# 恢复配置和数据库
+.\scripts\restore.ps1 -BackupPath ".\backups\yunxi_full_xxx.zip" -Items config,database
+
+# 试运行恢复（不实际执行）
+.\scripts\restore.ps1 -BackupPath ".\backups\yunxi_full_xxx.zip" -DryRun
+
+# 基础健康检查
+.\scripts\health_check.ps1
+
+# 深度健康检查
+.\scripts\health_check.ps1 -Deep
+
+# 检查指定模块
+.\scripts\health_check.ps1 -Module m8
+
+# JSON 格式输出
+.\scripts\health_check.ps1 -OutputFormat json
+```
+
+### 15.3 Windows 定时任务配置
+
+```powershell
+# 每日健康检查
+$action = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-File C:\yunxi-project\scripts\health_check.ps1 -OutputFormat json -OutputFile C:\yunxi-project\logs\health_check.json"
+$trigger = New-ScheduledTaskTrigger -Daily -At 6am
+Register-ScheduledTask -TaskName "YunxiDailyHealthCheck" -Action $action -Trigger $trigger
+
+# 每日备份
+$action = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-File C:\yunxi-project\scripts\backup.ps1 -Mode incremental"
+$trigger = New-ScheduledTaskTrigger -Daily -At 2am
+Register-ScheduledTask -TaskName "YunxiDailyBackup" -Action $action -Trigger $trigger
+
+# 每周完整备份
+$action = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-File C:\yunxi-project\scripts\backup.ps1 -Mode full -IncludeLogs"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3am
+Register-ScheduledTask -TaskName "YunxiWeeklyBackup" -Action $action -Trigger $trigger
+
+# 每日日志归档
+$action = New-ScheduledTaskAction -Execute "python.exe" `
+  -Argument "-c ""from shared.core.observability import LogArchiver; LogArchiver().run_archive()"""
+$trigger = New-ScheduledTaskTrigger -Daily -At 1am
+Register-ScheduledTask -TaskName "YunxiLogArchive" -Action $action -Trigger $trigger
+```
+
+---
+
+## 附录 C：运维 Python API 速查
+
+### C.1 滚动升级 API
+
+```python
+from shared.core.observability import (
+    RollingUpgradeManager,
+    UpgradeStrategy,
+    UpgradeConfig,
+    get_upgrade_manager,
+)
+
+manager = get_upgrade_manager()
+
+# 版本管理
+manager.check_for_upgrade()           # 检查新版本
+manager.prepare_upgrade("v1.1.0")     # 准备升级
+
+# 升级执行
+manager.execute_rolling_upgrade()     # 滚动升级
+manager.execute_rolling_upgrade(strategy=UpgradeStrategy.BLUE_GREEN)  # 蓝绿
+manager.execute_rolling_upgrade(strategy=UpgradeStrategy.CANARY)      # 金丝雀
+
+# 回滚
+manager.rollback("m8")                # 单模块回滚
+manager.rollback_all()                # 全部回滚
+
+# 查询
+manager.get_upgrade_status()          # 当前状态
+manager.get_upgrade_history(limit=10) # 历史记录
+```
+
+### C.2 日志查询 API
+
+```python
+from shared.core.observability import (
+    LogQueryEngine,
+    LogArchiver,
+    LogCategory,
+    ArchiveTier,
+    get_log_query_engine,
+)
+
+engine = get_log_query_engine()
+
+# 搜索
+engine.search(level="ERROR")
+engine.search(module="m8", keyword="timeout")
+engine.search(regex=r"error.*5\d{2}")
+engine.search(category=LogCategory.SECURITY)
+engine.search(start_time="2026-01-01", end_time="2026-01-02")
+
+# 统计
+engine.get_stats(last_hours=24)
+engine.get_available_modules()
+engine.get_log_file_list()
+
+# 归档
+archiver = LogArchiver()
+archiver.run_archive()
+archiver.get_storage_stats()
+archiver.restore_from_cold("filename.gz")
+```
+
+### C.3 指标与仪表盘 API
+
+```python
+from shared.core.observability import (
+    SYSTEM_METRICS,
+    BUSINESS_METRICS,
+    SECURITY_METRICS,
+    MODULE_METRICS,
+    ALERT_THRESHOLDS,
+    register_standard_metrics,
+    generate_system_overview_dashboard,
+    generate_business_dashboard,
+    generate_security_dashboard,
+    generate_module_detail_dashboard,
+    generate_all_dashboards,
+)
+```

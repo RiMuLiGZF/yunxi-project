@@ -13,6 +13,11 @@
 - Notifier / LogNotifier / ConsoleNotifier / WebhookNotifier / NotifierManager: 多渠道通知
 - create_alert_router: 一键创建告警管理 API 路由
 - create_observability_router: 一键创建 /health + /metrics 端点
+- RollingUpgradeManager: 滚动升级管理器（OP-003）
+- UpgradeStrategy / UpgradePhase / UpgradeStatus: 升级策略与状态枚举
+- UpgradeConfig: 升级配置（支持环境变量）
+- LogQueryEngine: 日志查询引擎（按级别/模块/时间/关键字搜索）
+- LogArchiver: 日志归档管理器（热/温/冷三级存储）
 
 快速开始：
     from shared.core.observability import get_logger, init_module_logger
@@ -121,6 +126,49 @@ from .alerting import (
     reset_alert_engine,
     create_alert_router,
 )
+from .rolling_upgrade import (
+    UpgradeStrategy,
+    UpgradePhase,
+    UpgradeStatus,
+    ModuleUpgradeRecord,
+    UpgradeConfig,
+    VersionInfo,
+    RollingUpgradeManager,
+    get_upgrade_manager,
+    reset_upgrade_manager,
+)
+from .log_query import (
+    LogQueryEngine,
+    LogSearchResult,
+    LogStats,
+    LogArchiver,
+    ArchiveTier,
+    get_log_query_engine,
+    reset_log_query_engine,
+)
+from .metric_definitions import (
+    MetricType,
+    MetricDefinition,
+    SYSTEM_METRICS,
+    BUSINESS_METRICS,
+    MODULE_METRICS,
+    SECURITY_METRICS,
+    ALERT_THRESHOLDS,
+    get_all_metrics,
+    get_metrics_by_category,
+    get_metric_by_name,
+    register_standard_metrics,
+    metrics_to_dict,
+)
+from .dashboards import (
+    generate_system_overview_dashboard,
+    generate_business_dashboard,
+    generate_security_dashboard,
+    generate_module_detail_dashboard,
+    generate_all_dashboards,
+    DASHBOARD_REGISTRY,
+    PanelType,
+)
 
 __all__ = [
     # ---- Logger ----
@@ -201,4 +249,43 @@ __all__ = [
     "get_alert_engine",
     "reset_alert_engine",
     "create_alert_router",
+    # ---- Rolling Upgrade (OP-003) ----
+    "UpgradeStrategy",
+    "UpgradePhase",
+    "UpgradeStatus",
+    "ModuleUpgradeRecord",
+    "UpgradeConfig",
+    "VersionInfo",
+    "RollingUpgradeManager",
+    "get_upgrade_manager",
+    "reset_upgrade_manager",
+    # ---- Log Query & Archive (OP-006) ----
+    "LogQueryEngine",
+    "LogSearchResult",
+    "LogStats",
+    "LogArchiver",
+    "ArchiveTier",
+    "get_log_query_engine",
+    "reset_log_query_engine",
+    # ---- Metric Definitions (OB-002) ----
+    "MetricType",
+    "MetricDefinition",
+    "SYSTEM_METRICS",
+    "BUSINESS_METRICS",
+    "MODULE_METRICS",
+    "SECURITY_METRICS",
+    "ALERT_THRESHOLDS",
+    "get_all_metrics",
+    "get_metrics_by_category",
+    "get_metric_by_name",
+    "register_standard_metrics",
+    "metrics_to_dict",
+    # ---- Dashboards (OB-004) ----
+    "generate_system_overview_dashboard",
+    "generate_business_dashboard",
+    "generate_security_dashboard",
+    "generate_module_detail_dashboard",
+    "generate_all_dashboards",
+    "DASHBOARD_REGISTRY",
+    "PanelType",
 ]
