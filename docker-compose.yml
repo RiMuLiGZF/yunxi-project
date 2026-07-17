@@ -42,6 +42,7 @@ services:
 
   # ----------------------------------------------------------
   # API Gateway - 统一接入层（路由转发、认证鉴权、限流熔断）
+  # 12个模块全量路由：M1-M12 均通过网关统一访问
   # ----------------------------------------------------------
   yunxi-gateway:
     build:
@@ -54,7 +55,8 @@ services:
       - ./config/yunxi.env
     environment:
       - GATEWAY_PORT=8080
-      - M8_BASE_URL=http://yunxi-m8:8008
+      - GATEWAY_HOST=0.0.0.0
+      # 12个模块后端地址（Docker 内部网络）
       - M1_BASE_URL=http://yunxi-m1:8001
       - M2_BASE_URL=http://yunxi-m2:8002
       - M3_BASE_URL=http://yunxi-m3:8003
@@ -62,13 +64,38 @@ services:
       - M5_BASE_URL=http://yunxi-m5:8005
       - M6_BASE_URL=http://yunxi-m6:8006
       - M7_BASE_URL=http://yunxi-m7:8007
+      - M8_BASE_URL=http://yunxi-m8:8008
       - M9_BASE_URL=http://yunxi-m9:8009
       - M10_BASE_URL=http://yunxi-m10:8010
       - M11_BASE_URL=http://yunxi-m11:8011
       - M12_BASE_URL=http://yunxi-m12:8012
+      # 网关认证配置
+      - GATEWAY_JWT_SECRET=yunxi-m8-jwt-secret-2026
+      - GATEWAY_JWT_ALGORITHM=HS256
+      - GATEWAY_JWT_ISSUER=yunxi
+      # 网关限流配置
+      - GATEWAY_RATE_LIMIT_TOTAL=600
+      - GATEWAY_RATE_LIMIT_PER_IP=100
+      # 网关熔断配置
+      - GATEWAY_CB_THRESHOLD=5
+      - GATEWAY_CB_RECOVERY=30
+      # 开发模式配置
+      - GATEWAY_ENABLE_DEV_KEY=true
+      - GATEWAY_DEV_API_KEY=yunxi-gateway-dev-key
     depends_on:
       - redis
+      - yunxi-m1
+      - yunxi-m2
+      - yunxi-m3
+      - yunxi-m4
+      - yunxi-m5
+      - yunxi-m6
+      - yunxi-m7
       - yunxi-m8
+      - yunxi-m9
+      - yunxi-m10
+      - yunxi-m11
+      - yunxi-m12
     networks:
       - yunxi-net
     healthcheck:
