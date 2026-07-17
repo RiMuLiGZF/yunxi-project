@@ -1,0 +1,77 @@
+# ============================================================
+# 云汐系统 - 测试覆盖率配置
+# ============================================================
+
+[run]
+# 要测量覆盖率的源文件目录
+source =
+    shared/core
+    shared/business
+    M8-control-tower/backend
+    M9-dev-workshop/backend
+    M11-mcp-bus/src
+    API-Gateway
+
+# 排除的文件/目录
+omit =
+    # 测试文件自身
+    tests/*
+    */tests/*
+    */test_*.py
+    # 迁移文件
+    */migrations/*
+    */alembic/*
+    */versions/*
+    # 自动生成的文件
+    */__pycache__/*
+    *.pyc
+    # 第三方代码
+    */site-packages/*
+    # 配置和脚本
+    config/*
+    scripts/*
+    tools/*
+    # 前端
+    frontend/*
+    # 文档
+    docs/*
+    # 模型和数据
+    models/*
+    data/*
+    # 存档
+    archive/*
+
+# 分支覆盖率
+branch = True
+
+# 并发支持
+# parallel = True
+
+[report]
+# 显示排除的行
+show_missing = True
+# 跳过覆盖的文件
+skip_covered = False
+# 跳过空文件
+skip_empty = True
+# 精度
+precision = 2
+# 失败阈值（低于此值测试失败）
+# fail_under = 60
+
+# 排序方式
+sort = Cover
+
+[html]
+# HTML 报告输出目录
+directory = tests/reports/coverage_html
+# 标题
+title = 云汐系统测试覆盖率报告
+
+[xml]
+# XML 报告输出（CI/CD 使用）
+output = tests/reports/coverage.xml
+
+[json]
+# JSON 报告输出
+output = tests/reports/coverage.json
