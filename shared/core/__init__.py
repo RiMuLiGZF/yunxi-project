@@ -6,6 +6,7 @@
 
 子模块：
 - config: 全局配置管理
+- module_registry: 模块注册表（配置外部化 / 动态注册 / 心跳检测）
 - logger: 统一日志工具
 - errors: 统一错误类型
 - responses: 统一 API 响应格式
@@ -18,9 +19,18 @@
 - logger_redis: Redis 日志通道
 - middleware: 中间件集合（链路追踪等）
 - observability: 可观测性（统一日志 / 追踪 / 指标）
+- bounded_collections: 有界集合工具（防止内存无界增长）
 """
 
 from .config import YunxiConfig, get_config
+from .module_registry import (
+    ModuleRegistry,
+    ModuleInfo,
+    ModuleCategory,
+    ModuleStatus,
+    HealthStatus,
+    get_module_registry,
+)
 from .logger import get_logger
 from .errors import (
     # 错误码枚举
@@ -157,6 +167,14 @@ from .observability import (
     MetricsEndpoint,
 )
 
+# 有界集合工具（内存无界增长防护）
+from .bounded_collections import (
+    BoundedList,
+    LRUDict,
+    BoundedSet,
+    EvictionReason,
+)
+
 __version__ = "1.0.0"
 """shared.core 版本号"""
 
@@ -215,4 +233,6 @@ __all__ = [
     "start_span", "end_span", "get_trace_headers", "extract_trace_headers",
     "MetricsCollector", "Counter", "Gauge", "Histogram", "get_metrics",
     "ObservabilityMiddleware", "MetricsEndpoint",
+    # Bounded Collections (内存防护)
+    "BoundedList", "LRUDict", "BoundedSet", "EvictionReason",
 ]
