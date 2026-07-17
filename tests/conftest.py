@@ -595,7 +595,7 @@ def pytest_collection_modifyitems(config, items):
     """测试用例收集后修改 - 添加默认标记"""
     for item in items:
         # 为集成测试目录下的测试自动添加 integration 标记
-        if "test_integration" in str(item.fspath):
+        if "test_integration" in str(item.fspath) or "integration" in str(item.fspath):
             item.add_marker(pytest.mark.integration)
 
         # 根据文件路径自动添加模块标记
@@ -606,5 +606,113 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.m9)
         elif "test_m11" in path_str:
             item.add_marker(pytest.mark.m11)
-        elif "test_shared" in path_str:
+        elif "test_shared" in path_str or "shared/tests" in path_str:
             item.add_marker(pytest.mark.shared)
+        elif "test_m1" in path_str:
+            item.add_marker(pytest.mark.m1)
+        elif "test_m2" in path_str:
+            item.add_marker(pytest.mark.m2)
+        elif "test_m3" in path_str:
+            item.add_marker(pytest.mark.m3)
+        elif "test_m4" in path_str:
+            item.add_marker(pytest.mark.m4)
+        elif "test_m5" in path_str:
+            item.add_marker(pytest.mark.m5)
+        elif "test_m6" in path_str:
+            item.add_marker(pytest.mark.m6)
+        elif "test_m7" in path_str:
+            item.add_marker(pytest.mark.m7)
+        elif "test_m10" in path_str:
+            item.add_marker(pytest.mark.m10)
+        elif "test_m12" in path_str:
+            item.add_marker(pytest.mark.m12)
+
+        # 默认情况下，非集成测试自动添加 unit 标记
+        if not any(item.get_closest_marker(m) for m in ["integration", "e2e", "performance", "security"]):
+            item.add_marker(pytest.mark.unit)
+
+
+# ============================================================
+# 测试性能监控钩子
+# ============================================================
+
+# 存储每个测试的执行时间，用于会话结束时统计
+_test_durations = []
+# 慢测试阈值（秒）
+SLOW_TEST_THRESHOLD = 1.0
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """
+    记录每个测试的执行时间。
+
+    用于会话结束时生成慢测试统计和按模块统计。
+    """
+    outcome = yield
+    report = outcome.get_result()
+
+    if report.when == "call":
+        # 记录测试执行时间
+        _test_durations.append({
+            "name": item.nodeid,
+            "duration": report.duration,
+            "outcome": report.outcome,
+            "module": item.module.__name__ if hasattr(item, "module") else "unknown",
+            "markers": [m.name for m in item.iter_markers()],
+        })
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """
+    测试结束时输出性能统计摘要。
+
+    输出内容：
+    - 慢测试 Top 10（> 1s）
+    - 按模块统计测试数量和平均耗时
+    - 总测试时间
+    """
+    if not _test_durations:
+        return
+
+    terminalreporter.section("测试性能统计", sep="=")
+
+    # 总统计
+    total = len(_test_durations)
+    total_time = sum(t["duration"] for t in _test_durations)
+    passed = sum(1 for t in _test_durations if t["outcome"] == "passed")
+    failed = sum(1 for t in _test_durations if t["outcome"] == "failed")
+    skipped = sum(1 for t in _test_durations if t["outcome"] == "skipped")
+
+    terminalreporter.write_line(f"总测试数: {total} (通过: {passed}, 失败: {failed}, 跳过: {skipped})")
+    terminalreporter.write_line(f"总执行时间: {total_time:.2f}s")
+    terminalreporter.write_line(f"平均测试时间: {total_time / total:.3f}s" if total > 0 else "")
+
+    # 慢测试 Top 10
+    slow_tests = [t for t in _test_durations if t["duration"] > SLOW_TEST_THRESHOLD]
+    if slow_tests:
+        slow_tests.sort(key=lambda x: x["duration"], reverse=True)
+        terminalreporter.write_line("")
+        terminalreporter.write_line(f"慢测试 Top 10 (>{SLOW_TEST_THRESHOLD}s):")
+        for i, t in enumerate(slow_tests[:10], 1):
+            terminalreporter.write_line(f"  {i:2d}. {t['duration']:6.2f}s  {t['name']}")
+
+    # 按模块统计
+    terminalreporter.write_line("")
+    terminalreporter.write_line("按模块统计:")
+    module_stats = {}
+    for t in _test_durations:
+        mod = t["module"]
+        if mod not in module_stats:
+            module_stats[mod] = {"count": 0, "total_time": 0.0}
+        module_stats[mod]["count"] += 1
+        module_stats[mod]["total_time"] += t["duration"]
+
+    for mod, stats in sorted(module_stats.items(), key=lambda x: x[1]["total_time"], reverse=True):
+        avg = stats["total_time"] / stats["count"]
+        terminalreporter.write_line(
+            f"  {mod:<40s} {stats['count']:3d} tests  "
+            f"{stats['total_time']:7.2f}s  avg: {avg:.3f}s"
+        )
+
+    terminalreporter.write_line("")

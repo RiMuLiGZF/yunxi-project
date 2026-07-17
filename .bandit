@@ -1,0 +1,91 @@
+# ============================================================
+# 云汐系统 - Bandit 安全扫描配置
+# 工具: bandit (Python 安全扫描器)
+# 文档: https://bandit.readthedocs.io/
+# ============================================================
+
+# 扫描目标（命令行指定，此处为默认配置参考）
+# bandit -r shared/core shared/data M8-control-tower/backend -c bandit.yaml
+
+# ---- 排除的测试 ----
+# 以下测试 ID 被跳过（已知误报或可接受的风险）
+skips: [
+    # B101: assert_used - 测试代码中使用 assert 是正常的
+    # 注意：此排除仅在测试文件中生效，通过 -x 排除测试目录更有效
+    "B101",
+
+    # B303: Use of insecure MD2, MD4, MD5, or SHA1 hash function
+    # 项目中 MD5 仅用于非安全场景（如缓存 key、文件校验）
+    "B303",
+
+    # B311: Standard pseudo-random generators are not suitable for security/cryptographic purposes
+    # random 模块用于测试数据生成、随机选择等非安全场景
+    "B311",
+
+    # B404: import subprocess
+    # 项目中确实需要调用子进程（如启动各模块），已做参数校验
+    "B404",
+
+    # B602: subprocess call with shell=True
+    # 已确认所有 shell=True 的调用都经过白名单过滤
+    # 注意：生产代码中应谨慎使用，此处为全局豁免，建议后续逐步收敛
+    "B602",
+
+    # B603: subprocess call without - list form
+    "B603",
+
+    # B607: start_process_with_partial_path
+    "B607",
+
+    # B104: hardcoded_bind_all_interfaces - 0.0.0.0 绑定
+    # 本地开发环境需要绑定所有接口
+    "B104",
+
+    # B106: hardcoded_password_func_arg
+    # 测试代码中的默认密码
+    "B106",
+
+    # B107: hardcoded_password_default
+    # 配置文件中的默认密码（仅测试环境）
+    "B107",
+]
+
+# ---- 排除目录 ----
+exclude_dirs: [
+    "tests",
+    "tests/",
+    "*tests*",
+    "__pycache__",
+    ".git",
+    "venv",
+    ".venv",
+    "build",
+    "dist",
+    "*.egg-info",
+    "data",
+    "logs",
+    "frontend",
+    "_archive",
+    "archive",
+    "M5-tide-memory",
+    "M1-agent-cluster",
+    "node_modules",
+    "docs",
+    "scripts",
+    "models",
+    "assets",
+    "artifacts",
+    "backups",
+    "inspection-reports",
+]
+
+# ---- 输出配置 ----
+# 输出格式：txt, json, xml, csv, html, screen
+# 详细程度：-v 详细，-q 静默
+# 严重级别过滤：-ll 仅 medium 及以上，-lll 仅 high 及以上
+
+# ---- 严重级别说明 ----
+# HIGH:     高风险（必须修复）
+# MEDIUM:   中风险（建议修复）
+# LOW:      低风险（可选修复）
+# UNDEFINED: 未定义（需人工评估）

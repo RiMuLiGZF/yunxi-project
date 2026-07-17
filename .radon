@@ -1,0 +1,36 @@
+# ============================================================
+# 云汐系统 - Radon 代码质量配置
+# 工具: radon (Python 代码复杂度/可维护性检测)
+# 文档: https://radon.readthedocs.io/
+# ============================================================
+# 使用方式:
+#   radon cc shared/core -a -nb            # 圈复杂度检测
+#   radon mi shared/core -s                 # 可维护性指数
+#   radon raw shared/core -s                # 原始度量
+# ============================================================
+
+# ---- 圈复杂度（Cyclomatic Complexity）等级 ----
+# A: 1-5    非常简单，风险极低
+# B: 6-10   低复杂度，低风险
+# C: 11-20  中等复杂度，中等风险
+# D: 21-30  高复杂度，较高风险
+# E: 31-40  非常复杂，高风险
+# F: 41+    极复杂，极高风险
+
+# 阈值配置（命令行参数，此处记录推荐值）
+# radon cc --min C --average --no-assert --show-complexity
+
+# ---- 可维护性指数（Maintainability Index）等级 ----
+# A: 100-80  高可维护性
+# B: 79-65   中等可维护性
+# C: 64-50   低可维护性
+# D: 49-0    极低可维护性
+
+# 推荐阈值：
+# - 圈复杂度告警阈值：C 级及以上（>10）
+# - 可维护性指数告警阈值：C 级及以下（<65）
+# - 函数行数建议：不超过 50 行
+
+# ---- 排除目录 ----
+# 与 ruff/bandit 保持一致
+# -x tests,__pycache__,.git,venv,.venv,build,dist,data,logs,frontend,_archive,archive,M5-tide-memory,M1-agent-cluster,node_modules,docs,scripts,models,assets,artifacts

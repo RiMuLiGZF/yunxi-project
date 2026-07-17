@@ -1,15 +1,19 @@
 # ============================================================
 # 云汐系统 - 测试覆盖率配置
+# 工具: pytest-cov (基于 coverage.py)
+# 文档: https://coverage.readthedocs.io/
 # ============================================================
 
 [run]
 # 要测量覆盖率的源文件目录
 source =
     shared/core
+    shared/data
     shared/business
     M8-control-tower/backend
     M9-dev-workshop/backend
     M11-mcp-bus/src
+    M12-security-shield
     API-Gateway
 
 # 排除的文件/目录
@@ -40,38 +44,76 @@ omit =
     data/*
     # 存档
     archive/*
+    _archive/*
+    # __init__.py（通常只是导出，不计入覆盖率）
+    # 注意：如果 __init__.py 有逻辑代码，不要排除
+    # */__init__.py
 
-# 分支覆盖率
+# 分支覆盖率（统计 if/else 等分支覆盖情况）
 branch = True
 
-# 并发支持
+# 并发支持（使用 pytest-xdist 并行测试时需要）
 # parallel = True
 
+# 记录上下文（用于测试覆盖率溯源）
+# dynamic_context = test_function
+
 [report]
-# 显示排除的行
+# 显示未覆盖的行号
 show_missing = True
-# 跳过覆盖的文件
+# 跳过已完全覆盖的文件（精简输出）
 skip_covered = False
 # 跳过空文件
 skip_empty = True
-# 精度
+# 精度（小数位数）
 precision = 2
-# 失败阈值（低于此值测试失败）
-# fail_under = 60
 
-# 排序方式
+# 覆盖率失败阈值（低于此值 pytest 失败）
+# 渐进式推进：先设较低阈值，逐步提升
+# 注意：设置后会导致 CI 失败，请在确认达标后再启用
+# fail_under = 50
+
+# 排序方式：按覆盖率从低到高排列，方便优先关注低覆盖模块
 sort = Cover
+
+# 排除的行（通过 # pragma: no cover 注释也可排除）
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    pass
+    # 类型检查相关
+    if TYPE_CHECKING:
+    # 调试用
+    if DEBUG:
+    if __debug__:
 
 [html]
 # HTML 报告输出目录
 directory = tests/reports/coverage_html
 # 标题
 title = 云汐系统测试覆盖率报告
+# 显示上下文行
+show_contexts = True
 
 [xml]
-# XML 报告输出（CI/CD 使用）
+# XML 报告输出（CI/CD 使用，如 SonarQube、Codecov 等）
 output = tests/reports/coverage.xml
 
 [json]
-# JSON 报告输出
+# JSON 报告输出（脚本解析使用）
 output = tests/reports/coverage.json
+pretty_print = True
+show_contexts = True
+
+[lcov]
+# LCOV 格式报告（支持 VS Code Coverage Gutters 等插件）
+output = tests/reports/coverage.lcov
+
+[paths]
+# 路径映射（用于合并来自不同环境的覆盖率数据）
+source =
+    shared/
+    */site-packages/yunxi/shared/

@@ -21,7 +21,7 @@ classifiers = [
 
 # ============================================================
 # ruff - Python linter & formatter
-# 替代 flake8 + isort + pyupgrade + 部分 pylint 功能
+# 替代 flake8 + isort + pyupgrade + bandit + 部分 pylint 功能
 # 官方文档: https://docs.astral.sh/ruff/
 # ============================================================
 
@@ -40,6 +40,20 @@ exclude = [
     "*.egg-info",
     "data",
     "logs",
+    "node_modules",
+    "frontend",
+    "_archive",
+    "archive",
+    "M5-tide-memory",
+    "M1-agent-cluster",
+    "backups",
+    "inspection-reports",
+    "models",
+    "assets",
+    "artifacts",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".pytest_cache",
 ]
 
 # --- 格式化配置 ---
@@ -64,6 +78,10 @@ trailing-comma = "all"
 #   B      - flake8-bugbear 常见 bug 模式
 #   SIM    - flake8-simplify 简化建议
 #   T20    - flake8-print 禁止遗留 print 语句
+#   S      - flake8-bandit 安全检查
+#   PTH    - flake8-use-pathlib 建议使用 pathlib
+#   RUF    - ruff 特有规则
+#   C90    - mccabe 圈复杂度检测
 select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
@@ -75,9 +93,13 @@ select = [
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
     "T20", # flake8-print
+    "S",   # flake8-bandit 安全检查
+    "PTH", # flake8-use-pathlib
+    "RUF", # ruff 特有规则
+    "C90", # mccabe 圈复杂度
 ]
 
-# 忽略的规则（避免过于严格导致难以落地）
+# 忽略的规则（避免过于严格导致难以落地，渐进式推进）
 ignore = [
     "D100", # 缺少模块级 docstring（模块文件不必强制写文档）
     "D104", # 缺少 __init__.py docstring
@@ -88,11 +110,25 @@ ignore = [
     "SIM108", # 建议使用三元表达式（可读性优先，不强求）
     "UP035", # 建议使用 typing 导入别名（兼容老代码，暂不强制）
     "B008", # 函数参数默认值为可变对象（已知风险场景除外，暂不强制）
+    # 安全规则豁免（已知误报或测试/脚本场景）
+    "S101", # 测试中使用 assert（在 per-file-ignores 中更细粒度控制）
+    "S311", # random 模块用于非加密场景（测试数据生成等）
+    "S603", # subprocess 调用（项目中确实需要，已做参数校验）
+    "S607", # 启动部分路径（已知风险，已做白名单控制）
+    # pathlib 迁移豁免（存量代码较多，逐步迁移）
+    "PTH100", "PTH101", "PTH102", "PTH103", "PTH110", "PTH111", "PTH112", "PTH113", "PTH114", "PTH115", "PTH116", "PTH117", "PTH118", "PTH119", "PTH120", "PTH121", "PTH122", "PTH123",
+    # ruff 特有规则豁免
+    "RUF001", # 字符中包含模糊 Unicode 字符（中文项目常见）
+    "RUF003", # 未使用的变量（与 F841 重复，以 F841 为准）
 ]
+
+# --- 圈复杂度阈值 ---
+[tool.ruff.lint.mccabe]
+max-complexity = 15
 
 # --- 导入排序（isort 兼容） ---
 [tool.ruff.lint.isort]
-known-first-party = ["yunxi"]
+known-first-party = ["yunxi", "shared"]
 # 导入分组顺序：标准库 → 第三方 → 本地项目 → 相对导入
 section-order = [
     "future",
@@ -113,18 +149,28 @@ multi-line-output = "vertical-hanging-indent"
 # 使用 Google 风格 docstring（比 numpy 风格更简洁）
 convention = "google"
 
-# --- 规则级别调整 ---
+# --- 规则级别调整（按文件粒度） ---
 [tool.ruff.lint.per-file-ignores]
 # 测试文件允许更宽松的规则
 "tests/**/*.py" = [
     "D100", "D101", "D102", "D103", # 测试文件不强制 docstring
     "S101",                          # 允许 assert
+    "S106", "S105", "S108",          # 测试中允许硬编码密码/密钥
+    "S311",                          # 测试数据生成允许使用 random
     "T201",                          # 测试中允许 print（调试用）
+    "B018",                          # 测试中允许有用的表达式
+]
+# shared/tests 测试文件
+"shared/tests/**/*.py" = [
+    "D100", "D101", "D102", "D103",
+    "S101", "S106", "S105", "S108", "S311",
+    "T201",
 ]
 # 脚本 / 入口文件允许更宽松的规则
 "scripts/**/*.py" = [
     "D100", "D101", # 脚本不必强制 docstring
     "T201",         # 脚本允许 print
+    "S603", "S607", # 脚本中允许系统调用
 ]
 # 配置文件
 "__init__.py" = [
@@ -133,41 +179,106 @@ convention = "google"
 ]
 
 # ============================================================
-# mypy - 类型检查（宽松模式）
+# mypy - 类型检查（渐进式严格模式）
 # 官方文档: https://mypy.readthedocs.io/
+# 策略：从核心模块开始，逐步提升严格度
 # ============================================================
 
 [tool.mypy]
 # 目标 Python 版本
 python_version = "3.10"
-# 宽松模式：默认不强制检查未标注类型的函数
+
+# ---- 全局模式：宽松（对未标注类型的代码不报错） ----
+# 不强制检查未标注类型的函数/调用
 disallow_untyped_defs = false
 disallow_untyped_calls = false
-# 警告未使用的 # type: ignore
-warn_unused_ignores = true
-# 忽略缺失的类型存根（第三方库可能没有 .pyi）
-ignore_missing_imports = true
-# 不强制返回类型注解
 disallow_incomplete_defs = false
-# 允许在运行时动态定义的属性
+
+# 警告级别
+warn_unused_ignores = true
+warn_return_any = false
+warn_unreachable = true
+
+# 类型推断相关
+strict_optional = true
+no_implicit_optional = false
+
+# 第三方库处理
+ignore_missing_imports = true
+follow_imports = "normal"
+
+# 动态属性（允许运行时动态定义的属性）
 allow_untyped_globals = true
-# 错误输出时显示错误代码
+allow_redefinition = false
+
+# 错误输出
 show_error_codes = true
-# 显示列号
 show_column_numbers = true
+pretty = true
+
 # 增量检查缓存
 incremental = true
 cache_dir = ".mypy_cache"
 
-# 特定模块的严格度调整
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-ignore_errors = false
+# ============================================================
+# 模块级严格度配置（渐进式策略）
+# 从核心模块（shared/core、shared/data）开始逐步提升
+# ============================================================
 
+# ---- 核心模块：中等严格度（要求类型标注） ----
 [[tool.mypy.overrides]]
-module = "yunxi.*"
-# 核心业务模块可以逐步开启更严格的检查
-disallow_untyped_defs = false
+module = [
+    "shared.core.*",
+    "shared.core",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 warn_return_any = true
 warn_unused_ignores = true
+# 核心模块要求严格类型，但仍允许未标注的外部调用
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = [
+    "shared.data.*",
+    "shared.data",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_calls = false
+
+# ---- 业务模块：宽松模式（仅检查已有类型标注的代码） ----
+[[tool.mypy.overrides]]
+module = [
+    "shared.business.*",
+    "shared.business",
+]
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = true
+
+# ---- 测试代码：最宽松（不检查类型） ----
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "tests",
+    "shared.tests.*",
+    "shared.tests",
+]
+ignore_errors = true
+disallow_untyped_defs = false
+
+# ---- 各模块后端代码：宽松模式 ----
+[[tool.mypy.overrides]]
+module = [
+    "M8-control-tower.*",
+    "M9-dev-workshop.*",
+    "M11-mcp-bus.*",
+    "M12-security-shield.*",
+]
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = true
+ignore_missing_imports = true

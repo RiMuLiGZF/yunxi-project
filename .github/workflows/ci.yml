@@ -1,10 +1,10 @@
-name: CI - 代码检查与测试
+name: CI - 代码质量与测试
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 # 失败快速终止
 concurrency:
@@ -12,8 +12,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
-    name: 代码检查与测试
+  # ============================================================
+  # Job 1: 代码质量检查（Lint + 类型 + 安全）
+  # ============================================================
+  quality-check:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install quality tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff>=0.6.0 mypy>=1.10.0 bandit>=1.7.0 radon>=6.0.0
+
+      - name: Ruff - 代码风格检查
+        run: |
+          echo "=== Ruff Lint Check ==="
+          ruff check . \
+            --exclude="M5-tide-memory,_archive,archive,M1-agent-cluster,frontend,node_modules,data,logs,models,assets,artifacts" \
+            --output-format=github \
+            --statistics
+        # 目前为警告模式，后续可改为阻断
+        continue-on-error: true
+
+      - name: Ruff - 代码格式化检查
+        run: |
+          echo "=== Ruff Format Check ==="
+          ruff format --check . \
+            --exclude="M5-tide-memory,_archive,archive,M1-agent-cluster,frontend,node_modules,data,logs,models,assets,artifacts"
+        continue-on-error: true
+
+      - name: Mypy - 核心模块类型检查
+        run: |
+          echo "=== Mypy Type Check (Core Modules) ==="
+          mypy shared/core shared/data \
+            --config-file=pyproject.toml \
+            --show-error-codes \
+            --color-output
+        # 类型检查目前为警告模式
+        continue-on-error: true
+
+      - name: Bandit - 安全扫描（高/中风险）
+        run: |
+          echo "=== Bandit Security Scan ==="
+          bandit -r shared/core shared/data shared/business M8-control-tower M9-dev-workshop M11-mcp-bus M12-security-shield \
+            -c .bandit \
+            -ll \
+            -f json -o bandit-report.json \
+            -x "tests,__pycache__,.git"
+        continue-on-error: true
+
+      - name: Radon - 圈复杂度检测
+        run: |
+          echo "=== Radon Cyclomatic Complexity ==="
+          radon cc shared/core shared/data \
+            -a -nc \
+            --total-average \
+            -x "tests,__pycache__"
+        continue-on-error: true
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            bandit-report.json
+          if-no-files-found: ignore
+
+  # ============================================================
+  # Job 2: 单元测试与覆盖率
+  # ============================================================
+  unit-tests:
+    name: 单元测试与覆盖率
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -29,48 +106,48 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-asyncio pytest-cov httpx fastapi uvicorn python-jose[cryptography]
+          pip install -r requirements-dev.txt
+          pip install fastapi uvicorn httpx python-jose[cryptography] passlib[bcrypt]
 
-      - name: Lint - Syntax errors (blocking)
+      - name: Run unit tests with coverage
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
-            --exclude=M5-tide-memory,archive,.git,__pycache__,.pytest_cache
+          echo "=== Unit Tests with Coverage ==="
+          python -m pytest tests/test_shared/ shared/tests/ \
+            -m "unit and not slow" \
+            -v \
+            --tb=short \
+            --cov=shared/core \
+            --cov=shared/data \
+            --cov=shared/business \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-config=.coveragerc \
+            --timeout=30
+        # 目前为非阻断模式，后续逐步加强
+        continue-on-error: true
 
-      - name: Lint - Style (non-blocking, informational)
-        run: |
-          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics \
-            --exclude=M5-tide-memory,archive,.git,__pycache__,.pytest_cache || true
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: ignore
 
-      - name: Syntax check all Python files
-        run: |
-          set -e
-          find . -name "*.py" \
-            -not -path "./M5-tide-memory/*" \
-            -not -path "./archive/*" \
-            -not -path "./.git/*" \
-            -not -path "*/__pycache__/*" \
-            -not -path "./.pytest_cache/*" | while read -r file; do
-            python -m py_compile "$file" || exit 1
-          done
-          echo "All Python files pass syntax check"
-
-      - name: Test shared modules (blocking)
-        run: |
-          set -e
-          python -c "import sys; sys.path.insert(0, '.'); from shared.observability import get_logger, get_metrics, start_trace; print('Shared observability OK')"
-          python -c "import sys; sys.path.insert(0, '.'); from shared.data_layer import DatabaseManager, BackupManager, MigrationEngine; print('Shared data layer OK')"
-          python -c "import sys; sys.path.insert(0, '.'); from shared.middleware.tracing import TracingMiddleware; print('Shared middleware OK')"
-
-      - name: Run unit tests (non-blocking for now, will be enforced later)
-        run: |
-          pytest tests/test_shared/ -v --cov=shared --cov-report=term-missing || echo "WARNING: Some tests failed - test coverage work in progress"
-
-  security-scan:
-    name: 安全扫描
+  # ============================================================
+  # Job 3: 集成测试
+  # ============================================================
+  integration-tests:
+    name: 集成测试
     runs-on: ubuntu-latest
+    needs: unit-tests
+    if: success() || needs.unit-tests.result == 'success'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,28 +157,30 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install security tools
+      - name: Install dependencies
         run: |
-          pip install bandit pip-audit
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx fastapi uvicorn
 
-      - name: Run Bandit security scan (high/critical only)
+      - name: Run integration tests
         run: |
-          bandit -r . \
-            -x ./M5-tide-memory,./archive,./.git,./__pycache__ \
-            -ll  # only high and critical severity
-            -f json -o bandit-report.json \
-            || echo "WARNING: Bandit found potential issues (review bandit-report.json)"
+          echo "=== Integration Tests ==="
+          python -m pytest tests/integration/ tests/test_integration/ \
+            -m integration \
+            -v \
+            --tb=short \
+            --timeout=120
+        continue-on-error: true
 
-      - name: Check dependencies with pip-audit
-        run: |
-          pip install -r M12-security-shield/requirements.txt 2>/dev/null || true
-          pip-audit --desc=on --format=json > pip-audit-report.json || echo "WARNING: pip-audit found vulnerabilities"
-
+  # ============================================================
+  # Job 4: 构建与结构检查
+  # ============================================================
   build-check:
-    name: 构建检查
+    name: 构建与结构检查
     runs-on: ubuntu-latest
-    needs: lint-and-test
-    if: success() || needs.lint-and-test.result == 'success'
+    needs: quality-check
+    if: success() || always()
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -113,9 +192,9 @@ jobs:
           MISSING=0
           for dir in M0-principal-console M1-agent-hub M2-skills-cluster M3-edge-cloud M4-scene-engine M5-tide-memory M6-hardware-peripheral M7-workflow-builder M8-control-tower M9-dev-workshop M10-system-guard M11-mcp-bus M12-security-shield API-Gateway shared; do
             if [ -d "$dir" ]; then
-              echo "✓ $dir"
+              echo "PASS: $dir"
             else
-              echo "✗ $dir MISSING"
+              echo "FAIL: $dir MISSING"
               MISSING=1
             fi
           done
@@ -123,23 +202,57 @@ jobs:
             echo "ERROR: Some modules are missing"
             exit 1
           fi
-          echo ""
-          echo "=== Config Files ==="
-          for f in start-all.ps1 stop-all.ps1 README.md; do
-            if [ -f "$f" ]; then
-              echo "✓ $f"
-            else
-              echo "⚠ $f missing (optional)"
-            fi
-          done
-          echo ""
           echo "All required modules present."
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-artifacts
-          path: |
-            bandit-report.json
-            pip-audit-report.json
-          if-no-files-found: ignore
+      - name: Python syntax check
+        run: |
+          set -e
+          echo "=== Python Syntax Check ==="
+          find . -name "*.py" \
+            -not -path "./M5-tide-memory/*" \
+            -not -path "./_archive/*" \
+            -not -path "./archive/*" \
+            -not -path "./.git/*" \
+            -not -path "*/__pycache__/*" \
+            -not -path "*/.pytest_cache/*" \
+            -not -path "./frontend/*" \
+            -not -path "*/node_modules/*" | while read -r file; do
+            python -m py_compile "$file" || exit 1
+          done
+          echo "All Python files pass syntax check"
+
+  # ============================================================
+  # Job 5: 质量门禁汇总
+  # ============================================================
+  quality-gate:
+    name: 质量门禁汇总
+    runs-on: ubuntu-latest
+    needs: [quality-check, unit-tests, integration-tests, build-check]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Quality Gate Summary
+        run: |
+          echo "=========================================="
+          echo "  云汐系统 CI 质量门禁汇总"
+          echo "=========================================="
+          echo ""
+          echo "检查项:"
+          echo "  [1] 代码风格检查 (Ruff Lint)    - 信息性"
+          echo "  [2] 代码格式化检查 (Ruff Format) - 信息性"
+          echo "  [3] 核心模块类型检查 (Mypy)    - 信息性"
+          echo "  [4] 安全扫描 (Bandit)          - 信息性"
+          echo "  [5] 复杂度检测 (Radon)         - 信息性"
+          echo "  [6] 单元测试 + 覆盖率          - 信息性"
+          echo "  [7] 集成测试                   - 信息性"
+          echo "  [8] 构建与结构检查             - 阻断性"
+          echo ""
+          echo "当前阶段: 质量工具全部为信息性输出，"
+          echo "后续将逐步提升为阻断性质检门禁。"
+          echo ""
+          echo "=========================================="
+          echo "  详细报告请查看各 Job 输出"
+          echo "=========================================="

@@ -2,6 +2,10 @@
 # pre-commit 配置
 # 在每次 git commit 前自动执行代码检查和格式化
 # 官方文档: https://pre-commit.com/
+#
+# 安装: pre-commit install
+# 手动运行: pre-commit run --all-files
+# 跳过检查: git commit --no-verify（不推荐）
 # ============================================================
 
 # 全局排除目录
@@ -17,7 +21,19 @@ exclude: |
     data/.*|
     logs/.*|
     \.mypy_cache/.*|
-    \.ruff_cache/.*
+    \.ruff_cache/.*|
+    \.pytest_cache/.*|
+    frontend/.*|
+    node_modules/.*|
+    _archive/.*|
+    archive/.*|
+    M5-tide-memory/.*|
+    M1-agent-cluster/.*|
+    models/.*|
+    assets/.*|
+    artifacts/.*|
+    backups/.*|
+    inspection-reports/.*
   )$
 
 repos:
@@ -58,6 +74,11 @@ repos:
         name: 检查大文件
         args: [--maxkb=500]
 
+      # 行尾规范化（统一为 LF）
+      - id: mixed-line-ending
+        name: 规范化行尾
+        args: [--fix=lf]
+
   # ============================================================
   # JSON 格式化
   # ============================================================
@@ -89,6 +110,47 @@ repos:
       - id: ruff-format
         name: ruff 代码格式化
         types_or: [python, pyi]
+
+  # ============================================================
+  # mypy - 类型检查（核心模块）
+  # 仅检查变更的文件，且只对 shared/core 和 shared/data 启用严格模式
+  # ============================================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        name: mypy 类型检查（核心模块）
+        args: [
+          --config-file=pyproject.toml,
+          --no-error-summary,
+        ]
+        types_or: [python, pyi]
+        # 只检查核心模块的文件变更
+        files: ^(shared/core|shared/data)/
+        additional_dependencies:
+          - pydantic>=2.0
+          - fastapi>=0.110
+          - httpx>=0.27
+
+  # ============================================================
+  # bandit - Python 安全扫描
+  # 仅扫描核心模块，低严重级别不阻断提交
+  # ============================================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        name: bandit 安全扫描
+        args: [
+          -c, .bandit,
+          -r,
+          -ll,  # 仅 medium 及以上严重级别
+          --quiet,
+        ]
+        files: ^(shared/core|shared/data|shared/business)/
+        # 安全扫描不阻断提交（仅警告），避免影响开发效率
+        # 如需阻断，删除下面这行
+        verbose: true
 
   # ============================================================
   # codespell - 拼写检查
