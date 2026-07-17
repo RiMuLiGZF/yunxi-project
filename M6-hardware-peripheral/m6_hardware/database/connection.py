@@ -9,13 +9,19 @@ P1-08 优化：SQLite 性能增强
 - 合理 cache_size 减少磁盘 IO
 - busy_timeout 避免 database is locked
 - 定期过期数据清理（TTL）
+
+P2-6 改造：接入统一迁移框架
+- 使用 shared.data_layer.migration.MigrationEngine 管理版本
+- 使用 SQLiteMigrationAdapter 适配原生 sqlite3 连接
+- 迁移脚本存放于 m6_hardware/database/migrations/
 """
 
 import sqlite3
 import logging
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +43,38 @@ DEFAULT_HEALTH_TTL_DAYS = 90
 # 通知数据默认保留天数
 DEFAULT_NOTIFICATION_TTL_DAYS = 30
 
+
+# ============================================================================
+# 共享模块导入辅助
+# ============================================================================
+
+def _ensure_shared_path() -> None:
+    """确保 shared 模块在 sys.path 中"""
+    current = Path(__file__).resolve().parent
+    # 向上查找 shared 目录
+    for _ in range(5):
+        shared_dir = current / "shared"
+        if shared_dir.exists():
+            project_root = str(current)
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            return
+        current = current.parent
+
+
+def _import_migration_engine():
+    """延迟导入迁移引擎，避免循环依赖"""
+    _ensure_shared_path()
+    from shared.data_layer.migration import (
+        MigrationEngine,
+        SQLiteMigrationAdapter,
+    )
+    return MigrationEngine, SQLiteMigrationAdapter
+
+
+# ============================================================================
+# 数据库连接上下文管理器
+# ============================================================================
 
 class DatabaseConnection:
     """SQLite 数据库连接上下文管理器
@@ -83,6 +121,10 @@ class DatabaseConnection:
             self._conn = None
 
 
+# ============================================================================
+# 工具函数
+# ============================================================================
+
 def _apply_pragmas(conn: sqlite3.Connection) -> None:
     """P1-08: 应用 SQLite 性能优化 PRAGMA"""
     cursor = conn.cursor()
@@ -98,7 +140,7 @@ def cleanup_expired_data(
     *,
     health_ttl_days: int = DEFAULT_HEALTH_TTL_DAYS,
     notification_ttl_days: int = DEFAULT_NOTIFICATION_TTL_DAYS,
-) -> dict[str, int]:
+) -> Dict[str, int]:
     """P1-08 / P1-6-1: 清理过期数据（TTL）
 
     Args:
@@ -139,8 +181,149 @@ def cleanup_expired_data(
     return result
 
 
+# ============================================================================
+# P2-6: 统一迁移引擎接入
+# ============================================================================
+
+def get_migrations_dir() -> str:
+    """获取 M6 迁移脚本目录的绝对路径"""
+    return str(Path(__file__).parent / "migrations")
+
+
+def run_migrations(db_path: str, *, skip_integrity_check: bool = True) -> Dict[str, Any]:
+    """执行 M6 数据库迁移
+
+    使用统一的 MigrationEngine + SQLiteMigrationAdapter 执行迁移，
+    自动扫描 migrations/ 目录下的所有迁移脚本并按版本号顺序执行。
+
+    Args:
+        db_path: 数据库文件路径
+        skip_integrity_check: 是否跳过迁移前完整性检查（SQLite 一般不需要）
+
+    Returns:
+        迁移结果字典，包含 success、from_version、to_version、applied_count 等
+    """
+    MigrationEngine, SQLiteMigrationAdapter = _import_migration_engine()
+
+    # 确保目录存在
+    db_dir = Path(db_path).parent
+    db_dir.mkdir(parents=True, exist_ok=True)
+
+    # 创建原生连接（用于适配器）
+    conn = sqlite3.connect(db_path, timeout=5.0)
+    try:
+        _apply_pragmas(conn)
+
+        # 使用 SQLiteMigrationAdapter 适配原生连接
+        adapter = SQLiteMigrationAdapter(conn, db_path=db_path)
+
+        # 创建迁移引擎
+        engine = MigrationEngine(db_manager=adapter)
+
+        # 扫描迁移文件
+        migrations_dir = get_migrations_dir()
+        migrations = engine.scan_migrations(migrations_dir)
+
+        if not migrations:
+            logger.warning("未找到任何迁移脚本")
+            return {
+                "success": True,
+                "from_version": 0,
+                "to_version": 0,
+                "applied_count": 0,
+                "applied_versions": [],
+                "message": "no migrations found",
+            }
+
+        # 执行迁移
+        result = engine.migrate(
+            db_name="m6_sensors",
+            migrations=migrations,
+            skip_integrity_check=skip_integrity_check,
+        )
+
+        if result.get("success"):
+            logger.info(
+                f"M6 数据库迁移完成: v{result.get('from_version', 0)} "
+                f"-> v{result.get('to_version', 0)} "
+                f"(应用 {result.get('applied_count', 0)} 个迁移)"
+            )
+        else:
+            logger.error(
+                f"M6 数据库迁移失败: {result.get('error', 'unknown error')}"
+            )
+
+        return result
+
+    finally:
+        conn.close()
+
+
+def get_current_schema_version(db_path: str) -> int:
+    """获取当前数据库 schema 版本号
+
+    Args:
+        db_path: 数据库文件路径
+
+    Returns:
+        当前版本号，未初始化返回 0
+    """
+    MigrationEngine, SQLiteMigrationAdapter = _import_migration_engine()
+
+    if not Path(db_path).exists():
+        return 0
+
+    conn = sqlite3.connect(db_path, timeout=5.0)
+    try:
+        adapter = SQLiteMigrationAdapter(conn, db_path=db_path)
+        engine = MigrationEngine(db_manager=adapter)
+        return engine.get_current_version("m6_sensors")
+    except Exception:
+        return 0
+    finally:
+        conn.close()
+
+
+def get_migration_stats(db_path: str) -> Dict[str, Any]:
+    """获取 M6 数据库迁移审计统计信息
+
+    Args:
+        db_path: 数据库文件路径
+
+    Returns:
+        迁移统计信息字典
+    """
+    MigrationEngine, SQLiteMigrationAdapter = _import_migration_engine()
+
+    if not Path(db_path).exists():
+        return {
+            "total_count": 0,
+            "success_count": 0,
+            "failed_count": 0,
+            "current_version": 0,
+            "migrations": [],
+        }
+
+    conn = sqlite3.connect(db_path, timeout=5.0)
+    try:
+        adapter = SQLiteMigrationAdapter(conn, db_path=db_path)
+        engine = MigrationEngine(db_manager=adapter)
+        return engine.get_migration_stats("m6_sensors")
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# 向后兼容：保留 _init_tables 作为 fallback
+# ============================================================================
+
 def _init_tables(conn: sqlite3.Connection) -> None:
-    """初始化数据库表结构（幂等）"""
+    """初始化数据库表结构（幂等）
+
+    .. deprecated:: P2-6
+        推荐使用 run_migrations() 统一管理数据库 schema。
+        本函数作为向后兼容层保留，在迁移引擎不可用时作为 fallback。
+    """
     cursor = conn.cursor()
 
     # 传感器数据表
@@ -295,8 +478,16 @@ def _init_tables(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+# ============================================================================
+# 工厂函数
+# ============================================================================
+
 def get_db(db_path: str, auto_init: bool = True) -> DatabaseConnection:
     """获取数据库连接工厂
+
+    P2-6 改造：优先使用统一 MigrationEngine 执行迁移；
+    如果迁移引擎不可用，则回退到 _init_tables() 直接建表，
+    确保向后兼容。
 
     Args:
         db_path: SQLite 文件路径
@@ -309,8 +500,16 @@ def get_db(db_path: str, auto_init: bool = True) -> DatabaseConnection:
     db_dir.mkdir(parents=True, exist_ok=True)
 
     if auto_init:
-        # 使用独立连接完成建表，避免污染主连接的事务状态
-        with sqlite3.connect(db_path, timeout=5.0) as conn:
-            _init_tables(conn)
+        # 优先使用统一迁移引擎
+        try:
+            run_migrations(db_path)
+        except Exception as e:
+            logger.warning(
+                f"统一迁移引擎执行失败，回退到直接建表: {e}"
+            )
+            # fallback: 使用原有方式直接建表
+            with sqlite3.connect(db_path, timeout=5.0) as conn:
+                _apply_pragmas(conn)
+                _init_tables(conn)
 
     return DatabaseConnection(db_path)

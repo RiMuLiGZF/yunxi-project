@@ -32,6 +32,7 @@ from .routers.templates import router as templates_router
 from .routers.runs import router as runs_router
 from .routers.custom_blocks import router as custom_blocks_router
 from .routers.market import market_router
+from .routers.backup import router as backup_router
 from .services.storage import get_storage
 
 
@@ -79,6 +80,26 @@ async def lifespan(app: FastAPI):
     print(f"[M7] Module: {__module_name__}")
     print(f"[M7] Environment: {os.environ.get('M7_ENV', 'development')}")
     print(f"[M7] Data directory: {os.path.join(os.path.expanduser('~'), '.yunxi')}")
+
+    # P2-26: 执行数据库迁移（先于存储初始化）
+    from .migration_manager import get_migration_manager
+    migration_mgr = get_migration_manager()
+    current_ver = migration_mgr.get_current_version()
+    latest_ver = migration_mgr.get_latest_version()
+    print(f"[M7] 数据库版本: v{current_ver} -> v{latest_ver}")
+    if current_ver < latest_ver:
+        migrate_result = migration_mgr.migrate()
+        if migrate_result["success"]:
+            print(f"[M7] 数据库迁移成功: v{migrate_result['from_version']} -> v{migrate_result['to_version']} "
+                  f"(应用了 {migrate_result['applied_count']} 个迁移)")
+        else:
+            print(f"[M7-WARN] 数据库迁移失败: {migrate_result.get('error', 'unknown')}")
+            print(f"[M7-WARN] 将使用 Base.metadata.create_all() 作为回退方案")
+            # 回退：使用原来的 create_all 方式
+            from .db import init_db
+            init_db()
+    else:
+        print(f"[M7] 数据库已是最新版本 v{current_ver}")
 
     # 初始化存储
     storage = get_storage()
@@ -299,6 +320,7 @@ def create_app() -> FastAPI:
     app.include_router(runs_router)
     app.include_router(custom_blocks_router)
     app.include_router(market_router)
+    app.include_router(backup_router)
 
     # 根路径
     @app.get("/", tags=["系统"])

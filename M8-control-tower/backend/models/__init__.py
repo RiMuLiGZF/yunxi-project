@@ -115,6 +115,9 @@ from .social import SocialContact, SocialInteraction, SocialReminder, SocialEQLe
 # 巡检Agent
 from .inspection import StartupCheckRecord, PrincipalChatSession, PrincipalChatMessage  # noqa: F401
 
+# 备份调度中心
+from .backup_scheduler import BackupModule, BackupHistory  # noqa: F401
+
 __all__ = [
     # 基类与工具
     "Base", "engine", "SessionLocal", "SQLALCHEMY_DATABASE_URL", "init_db", "get_db",
@@ -154,4 +157,6 @@ __all__ = [
     "SocialContact", "SocialInteraction", "SocialReminder", "SocialEQLesson",
     # 巡检Agent
     "StartupCheckRecord", "PrincipalChatSession", "PrincipalChatMessage",
+    # 备份调度中心
+    "BackupModule", "BackupHistory",
 ]

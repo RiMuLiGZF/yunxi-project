@@ -31,6 +31,7 @@ from routers.workspace import router as workspace_router
 from routers.mcp import router as mcp_router
 from routers.dashboard import router as dashboard_router
 from routers.code import router as code_router
+from routers.backup import router as backup_router
 
 # 导入中间件
 from core.auth_middleware import AuthMiddleware, RateLimitMiddleware
@@ -66,9 +67,32 @@ logger = get_logger("main")
 async def lifespan(app: FastAPI):
     """应用生命周期管理（替代已废弃的 on_event API）"""
     # ---- 启动阶段 ----
-    # 1. 初始化数据库
-    init_db()
-    logger.info("数据库初始化完成")
+    # 1. 执行数据库迁移（先于 init_db）
+    try:
+        from migration_manager import get_migration_manager
+        migration_mgr = get_migration_manager()
+        current_ver = migration_mgr.get_current_version()
+        latest_ver = migration_mgr.get_latest_version()
+        logger.info(f"数据库版本: v{current_ver} -> v{latest_ver}")
+        if current_ver < latest_ver:
+            migrate_result = migration_mgr.migrate()
+            if migrate_result["success"]:
+                logger.info(
+                    f"数据库迁移成功: v{migrate_result['from_version']} -> v{migrate_result['to_version']} "
+                    f"(应用了 {migrate_result['applied_count']} 个迁移)"
+                )
+            else:
+                logger.warning(
+                    f"数据库迁移失败: {migrate_result.get('error', 'unknown')}，"
+                    f"将使用 Base.metadata.create_all() 作为回退方案"
+                )
+                # 回退：使用原来的 create_all 方式
+                init_db()
+        else:
+            logger.info(f"数据库已是最新版本 v{current_ver}")
+    except Exception as e:
+        logger.warning(f"迁移管理器初始化失败: {e}，将使用 init_db() 方式")
+        init_db()
 
     # 2. 自动检测 VS Code
     vscode_path = settings.vscode_path
@@ -218,6 +242,7 @@ app.include_router(workspace_router)
 app.include_router(mcp_router)
 app.include_router(dashboard_router)
 app.include_router(code_router)
+app.include_router(backup_router)
 
 
 # ===== 静态文件服务（前端页面） =====

@@ -130,6 +130,140 @@ def _seed_initial_data():
     finally:
         db.close()
 
+    _seed_backup_modules()
+
+
+def _seed_backup_modules():
+    """初始化备份调度中心的预置模块配置"""
+    import structlog
+    logger = structlog.get_logger("m8.backend.models")
+
+    try:
+        from .backup_scheduler import BackupModule  # noqa: E402
+    except ImportError:
+        logger.debug("backup_scheduler model not available, skipping backup module seed data")
+        return
+
+    db = SessionLocal()
+    try:
+        # 如果备份模块表为空，插入预置模块
+        module_count = db.query(BackupModule).count()
+        if module_count > 0:
+            return
+
+        # 预置模块配置（M4, M5, M6, M7, M9, M10）
+        # 使用本地API地址，默认凌晨3:00备份
+        preset_modules = [
+            {
+                "module_id": "m4",
+                "module_name": "场景引擎",
+                "backup_endpoint": "http://127.0.0.1:8004/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M4 场景引擎模块 - 场景数据与上下文备份",
+                "extra_config": {
+                    "module_port": 8004,
+                    "backup_type": "full",
+                },
+            },
+            {
+                "module_id": "m5",
+                "module_name": "潮汐记忆",
+                "backup_endpoint": "http://127.0.0.1:8005/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M5 潮汐记忆系统 - 长期记忆与知识备份",
+                "extra_config": {
+                    "module_port": 8005,
+                    "backup_type": "full",
+                },
+            },
+            {
+                "module_id": "m6",
+                "module_name": "硬件外设",
+                "backup_endpoint": "http://127.0.0.1:8006/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M6 硬件外设模块 - 设备配置与健康数据备份",
+                "extra_config": {
+                    "module_port": 8006,
+                    "backup_type": "full",
+                },
+            },
+            {
+                "module_id": "m7",
+                "module_name": "积木平台",
+                "backup_endpoint": "http://127.0.0.1:8007/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M7 积木平台 - 工作流定义与运行记录备份",
+                "extra_config": {
+                    "module_port": 8007,
+                    "backup_type": "full",
+                },
+            },
+            {
+                "module_id": "m9",
+                "module_name": "开发工坊",
+                "backup_endpoint": "http://127.0.0.1:8009/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M9 开发工坊 - 项目与代码备份",
+                "extra_config": {
+                    "module_port": 8009,
+                    "backup_type": "full",
+                },
+            },
+            {
+                "module_id": "m10",
+                "module_name": "系统卫士",
+                "backup_endpoint": "http://127.0.0.1:8010/api/v1/admin/backup",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "03:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M10 系统卫士 - 安全策略与监控数据备份",
+                "extra_config": {
+                    "module_port": 8010,
+                    "backup_type": "full",
+                },
+            },
+        ]
+
+        for config in preset_modules:
+            module = BackupModule(**config)
+            db.add(module)
+
+        db.commit()
+        logger.info(f"备份调度中心预置模块已初始化，共 {len(preset_modules)} 个模块")
+    except Exception as e:
+        logger.warning(f"备份模块种子数据初始化失败: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 
 def get_db():
     """获取数据库会话"""
