@@ -31,7 +31,6 @@ logger = structlog.get_logger(__name__)
 DEFAULT_PUBLIC_PATHS: List[str] = [
     "/health",
     "/m8/*",
-    "/mcp",
     "/",
     "/docs",
     "/redoc",

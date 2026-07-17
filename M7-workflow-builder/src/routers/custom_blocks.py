@@ -1,6 +1,11 @@
 """M7 积木平台 - 自定义积木管理路由.
 
 提供用户自定义积木的 CRUD API。
+
+安全说明：
+- 自定义积木的 code 字段当前仅作存储用途，不会被执行
+- 所有代码写入前均经过安全校验（关键字黑名单 + AST 检查）
+- 操作均记录安全审计日志
 """
 
 from __future__ import annotations
@@ -15,9 +20,19 @@ from ..db import get_db_dependency
 from ..models import ApiResponse, CustomBlockCreate, CustomBlockUpdate
 from ..models_db import CustomBlock
 from ..m8_api.m8_auth_middleware import get_current_user
+from ..utils.security import (
+    validate_custom_block_code,
+    sanitize_custom_block_name,
+    _add_audit_log,
+)
 
 
 router = APIRouter(prefix="/api/v1/custom-blocks", tags=["自定义积木"])
+
+# 自定义积木名称最大长度
+MAX_BLOCK_NAME_LENGTH = 200
+# 自定义积木描述最大长度
+MAX_BLOCK_DESCRIPTION_LENGTH = 2000
 
 
 def _make_block_id() -> str:
@@ -108,15 +123,42 @@ async def create_custom_block(
     current_user: dict = Depends(get_current_user),
 ):
     """创建自定义积木."""
-    block_id = _make_block_id()
     user_id = current_user.get("username", "")
+
+    # 安全校验：名称清洗
+    clean_name = sanitize_custom_block_name(req.name, MAX_BLOCK_NAME_LENGTH)
+    if not clean_name:
+        return ApiResponse.error(
+            code=400,
+            message="积木名称无效",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
+
+    # 安全校验：描述长度限制
+    description = req.description or ""
+    if len(description) > MAX_BLOCK_DESCRIPTION_LENGTH:
+        description = description[:MAX_BLOCK_DESCRIPTION_LENGTH]
+
+    # 安全校验：代码安全检查
+    is_safe, safe_reason = validate_custom_block_code(
+        req.code or "",
+        user_id=user_id,
+    )
+    if not is_safe:
+        return ApiResponse.error(
+            code=400,
+            message=f"代码安全校验失败：{safe_reason}",
+            request_id=request.headers.get("X-Request-ID", ""),
+        )
+
+    block_id = _make_block_id()
 
     block = CustomBlock(
         id=block_id,
-        name=req.name,
+        name=clean_name,
         category=req.category,
-        description=req.description,
-        code=req.code,
+        description=description,
+        code=req.code or "",
         icon=req.icon,
         ports=req.ports,
         user_id=user_id,
@@ -124,6 +166,15 @@ async def create_custom_block(
     db.add(block)
     db.commit()
     db.refresh(block)
+
+    # 审计日志
+    _add_audit_log(
+        event_type="custom_block_created",
+        severity="info",
+        user_id=user_id,
+        block_id=block_id,
+        details=f"创建自定义积木：{clean_name}",
+    )
 
     return ApiResponse.success(
         message="自定义积木创建成功",
@@ -151,6 +202,13 @@ async def get_custom_block(
     # 所有权校验
     user_id = current_user.get("username", "")
     if not _check_block_ownership(block, user_id):
+        _add_audit_log(
+            event_type="custom_block_unauthorized_access",
+            severity="warning",
+            user_id=user_id,
+            block_id=block_id,
+            details="无权限访问自定义积木",
+        )
         return ApiResponse.error(
             code=403,
             message="无权限访问该自定义积木",
@@ -183,6 +241,13 @@ async def update_custom_block(
     # 所有权校验
     user_id = current_user.get("username", "")
     if not _check_block_ownership(block, user_id):
+        _add_audit_log(
+            event_type="custom_block_unauthorized_modify",
+            severity="warning",
+            user_id=user_id,
+            block_id=block_id,
+            details="无权限修改自定义积木",
+        )
         return ApiResponse.error(
             code=403,
             message="无权限修改该自定义积木",
@@ -191,13 +256,39 @@ async def update_custom_block(
 
     # 更新字段
     if req.name is not None:
-        block.name = req.name
+        clean_name = sanitize_custom_block_name(req.name, MAX_BLOCK_NAME_LENGTH)
+        if not clean_name:
+            return ApiResponse.error(
+                code=400,
+                message="积木名称无效",
+                request_id=request.headers.get("X-Request-ID", ""),
+            )
+        block.name = clean_name
+
     if req.category is not None:
         block.category = req.category
+
     if req.description is not None:
-        block.description = req.description
+        description = req.description
+        if len(description) > MAX_BLOCK_DESCRIPTION_LENGTH:
+            description = description[:MAX_BLOCK_DESCRIPTION_LENGTH]
+        block.description = description
+
     if req.code is not None:
+        # 安全校验：代码安全检查
+        is_safe, safe_reason = validate_custom_block_code(
+            req.code,
+            user_id=user_id,
+            block_id=block_id,
+        )
+        if not is_safe:
+            return ApiResponse.error(
+                code=400,
+                message=f"代码安全校验失败：{safe_reason}",
+                request_id=request.headers.get("X-Request-ID", ""),
+            )
         block.code = req.code
+
     if req.icon is not None:
         block.icon = req.icon
     if req.ports is not None:
@@ -205,6 +296,15 @@ async def update_custom_block(
 
     db.commit()
     db.refresh(block)
+
+    # 审计日志
+    _add_audit_log(
+        event_type="custom_block_updated",
+        severity="info",
+        user_id=user_id,
+        block_id=block_id,
+        details=f"更新自定义积木：{block.name}",
+    )
 
     return ApiResponse.success(
         message="自定义积木更新成功",
@@ -232,14 +332,31 @@ async def delete_custom_block(
     # 所有权校验
     user_id = current_user.get("username", "")
     if not _check_block_ownership(block, user_id):
+        _add_audit_log(
+            event_type="custom_block_unauthorized_delete",
+            severity="warning",
+            user_id=user_id,
+            block_id=block_id,
+            details="无权限删除自定义积木",
+        )
         return ApiResponse.error(
             code=403,
             message="无权限删除该自定义积木",
             request_id=request.headers.get("X-Request-ID", ""),
         )
 
+    block_name = block.name
     db.delete(block)
     db.commit()
+
+    # 审计日志
+    _add_audit_log(
+        event_type="custom_block_deleted",
+        severity="info",
+        user_id=user_id,
+        block_id=block_id,
+        details=f"删除自定义积木：{block_name}",
+    )
 
     return ApiResponse.success(
         message="自定义积木已删除",

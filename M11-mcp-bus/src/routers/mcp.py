@@ -6,69 +6,199 @@
 支持的传输方式：
 - POST /mcp: 传统的 HTTP JSON-RPC 端点
 - GET /mcp/sse + POST /mcp/sse/{session_id}: SSE 传输协议
+
+安全：所有 MCP 端点均受 API Key 鉴权保护，支持 X-API-Key header、
+Authorization: Bearer header 以及 api_key query 参数。
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
-import os
-import secrets
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+import structlog
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
+from ..config import get_settings
+from ..db import get_session
 from ..models import McpCallRequest, McpToolListResponse, McpToolResponse
+from ..models_db import ApiKey
 from ..services.registry import mcp_registry
 from ..services.router import mcp_router
 from ..services.sse_manager import sse_manager
-from ..middleware.auth import get_current_api_key, ApiKey
 
 router = APIRouter(tags=["mcp"])
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
-# MCP 端点是否需要鉴权（默认需要，可通过环境变量关闭用于纯内部部署）
-MCP_REQUIRE_AUTH = os.getenv("MCP_REQUIRE_AUTH", "true").lower() in ("true", "1", "yes")
+
+# ============================================================
+# API Key 验证辅助函数
+# ============================================================
+
+def _hash_key(key: str) -> str:
+    """对 API Key 进行 SHA256 哈希.
+
+    Args:
+        key: 明文密钥
+
+    Returns:
+        哈希后的十六进制字符串
+    """
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _extract_api_key(request: Request) -> Optional[str]:
+    """从请求中提取 API Key.
+
+    支持三种方式（按优先级）：
+    1. X-API-Key 请求头
+    2. Authorization: Bearer 请求头
+    3. api_key 查询参数
+
+    Args:
+        request: FastAPI 请求对象
+
+    Returns:
+        API Key 字符串，未找到返回 None
+    """
+    # 1. X-API-Key header
+    api_key_header = request.headers.get("x-api-key", "")
+    if api_key_header:
+        return api_key_header
+
+    # 2. Authorization: Bearer header
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:]
+
+    # 3. query parameter
+    api_key_query = request.query_params.get("api_key", "")
+    if api_key_query:
+        return api_key_query
+
+    return None
+
+
+def _validate_api_key_in_db(key_value: str) -> Optional[ApiKey]:
+    """在数据库中验证 API Key.
+
+    Args:
+        key_value: 明文 API Key
+
+    Returns:
+        ApiKey 对象，验证失败或已过期返回 None
+    """
+    from datetime import datetime
+
+    key_hash = _hash_key(key_value)
+    db = get_session()
+    try:
+        api_key = db.query(ApiKey).filter(ApiKey.key_hash == key_hash).first()
+        if not api_key:
+            return None
+
+        # 检查是否已过期
+        if api_key.expires_at and api_key.expires_at < datetime.utcnow():
+            return None
+
+        return api_key
+    finally:
+        db.close()
 
 
 def _check_mcp_auth(request: Request) -> Optional[ApiKey]:
     """检查 MCP 请求鉴权.
-    
-    如果 MCP_REQUIRE_AUTH=false，则允许匿名访问（仅内部部署建议）。
-    否则要求有效的 API Key。
-    
+
+    验证流程：
+    1. 如果 MCP 鉴权被全局关闭（仅内部部署），返回匿名 key
+    2. 从请求中提取 API Key
+    3. 先在数据库中查找 API Key 记录
+    4. 若数据库中无记录，再与配置中的默认 key 比对（开发环境兼容）
+    5. 均不匹配则返回 None
+
+    Args:
+        request: FastAPI 请求对象
+
     Returns:
         ApiKey 对象或 None（未鉴权）
     """
-    if not MCP_REQUIRE_AUTH:
-        # 匿名模式，返回一个虚拟的 anonymous key
+    settings = get_settings()
+
+    # 鉴权被全局关闭时允许匿名访问（仅纯内部部署建议）
+    if not settings.mcp_require_auth:
+        logger.warning(
+            "m11.mcp.auth.disabled",
+            message="MCP 端点鉴权已被禁用，所有请求将被允许（MCP_REQUIRE_AUTH=false）",
+            client_ip=request.client.host if request.client else "unknown",
+        )
+        # 返回一个虚拟的 anonymous key
         return ApiKey(
             id=0,
-            name="anonymous",
             key_hash="",
-            scopes=["mcp:read", "mcp:call"],
-            is_active=True,
-            created_at=0,
+            name="anonymous",
+            permissions=["mcp:read", "mcp:call"],
+            rate_limit=1000,
         )
-    
-    # 从 header 中提取 API Key（同步方式，因为 get_current_api_key 是 async）
-    # 这里手动实现一次简单检查
-    api_key_header = request.headers.get("x-api-key", "")
-    auth_header = request.headers.get("authorization", "")
-    
-    token = api_key_header
-    if not token and auth_header.startswith("Bearer "):
-        token = auth_header[7:]
-    
+
+    # 提取 API Key
+    token = _extract_api_key(request)
+    client_ip = request.client.host if request.client else "unknown"
+
     if not token:
+        logger.warning(
+            "m11.mcp.auth.missing_key",
+            message="MCP 请求缺少 API Key",
+            path=request.url.path,
+            method=request.method,
+            client_ip=client_ip,
+        )
         return None
-    
-    # 调用注册中心验证
-    from ..services.api_key_store import api_key_store
-    return api_key_store.validate_key(token)
+
+    # 1. 在数据库中验证
+    db_key = _validate_api_key_in_db(token)
+    if db_key:
+        logger.debug(
+            "m11.mcp.auth.success_db",
+            message="MCP 请求通过数据库 API Key 验证",
+            key_id=db_key.id,
+            key_name=db_key.name or "",
+            path=request.url.path,
+            client_ip=client_ip,
+        )
+        return db_key
+
+    # 2. 与配置中的默认 API Key 比对（开发环境兼容）
+    if settings.mcp_default_api_key and token == settings.mcp_default_api_key:
+        logger.debug(
+            "m11.mcp.auth.success_default",
+            message="MCP 请求通过默认 API Key 验证",
+            path=request.url.path,
+            client_ip=client_ip,
+        )
+        # 返回一个虚拟的 default key 对象
+        return ApiKey(
+            id=-1,
+            key_hash=_hash_key(token),
+            name="default-mcp-key",
+            permissions=["mcp:read", "mcp:call"],
+            rate_limit=100,
+        )
+
+    # 验证失败
+    logger.warning(
+        "m11.mcp.auth.failed",
+        message="MCP 请求 API Key 验证失败",
+        path=request.url.path,
+        method=request.method,
+        client_ip=client_ip,
+        key_prefix=token[:8] + "..." if len(token) > 8 else "***",
+    )
+    return None
 
 
 # ============================================================
@@ -732,7 +862,18 @@ async def mcp_sse_message(session_id: str, request: Request) -> Dict[str, Any]:
 
     Returns:
         空响应（202 Accepted），实际响应通过 SSE 推送
+    
+    安全：需要有效的 API Key（X-API-Key / Authorization: Bearer / api_key query）。
     """
+    # 鉴权检查
+    api_key = _check_mcp_auth(request)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Valid API Key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # 验证会话
     session = await sse_manager.get_session(session_id)
     if not session or not session.connected:

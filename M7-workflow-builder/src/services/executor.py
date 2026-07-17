@@ -1163,3 +1163,273 @@ class M2SkillClient:
             self._client = None
 
 
+# ============================================================
+# 自定义积木安全执行器（沙箱模式）
+# ============================================================
+#
+# 安全设计说明：
+# 1. 当前自定义积木的 code 字段仅作存储，不参与执行
+# 2. 本模块提供安全执行器作为未来扩展的基础，默认不启用
+# 3. 如需启用自定义积木执行，必须同时满足：
+#    - 环境变量 M7_ENABLE_CUSTOM_BLOCK_EXEC=true
+#    - 代码通过多层安全校验（关键字黑名单 + AST 检查 + import 白名单）
+#    - 执行超时限制（默认 5 秒）
+#    - 内存使用限制（通过执行步数间接限制）
+#    - 文件系统隔离（仅允许临时目录访问）
+# 4. 注意：Python 沙箱本质上是不安全的，生产环境应使用 Docker/firejail 等
+#    进程级隔离方案。本执行器仅适用于低风险内部场景。
+# ============================================================
+
+
+class CustomBlockSandbox:
+    """自定义积木安全沙箱执行器.
+
+    多层安全防护：
+    1. 前置校验：关键字黑名单 + AST 语法检查 + import 白名单
+    2. 执行环境：受限 builtins + 受限 globals/locals
+    3. 资源限制：执行步数限制 + 超时限制
+    4. 文件系统：仅允许访问临时目录
+    5. 审计日志：所有执行均记录
+
+    安全警告：
+    - 本沙箱不能 100% 阻止所有逃逸攻击
+    - 生产环境必须使用 Docker/seccomp 等进程级隔离
+    - 默认不启用，需显式设置环境变量 M7_ENABLE_CUSTOM_BLOCK_EXEC=true
+    """
+
+    # 是否启用自定义积木执行（默认关闭）
+    _enabled: Optional[bool] = None
+
+    # 最大执行步数（防止无限循环和资源耗尽）
+    MAX_EXEC_STEPS = 10000
+
+    # 执行超时时间（秒）
+    EXEC_TIMEOUT = 5.0
+
+    # 允许的 builtins 白名单
+    _SAFE_BUILTINS = {
+        # 类型转换
+        "int", "float", "str", "bool", "list", "dict", "tuple", "set",
+        # 数学运算
+        "abs", "min", "max", "sum", "round", "pow",
+        # 序列操作
+        "len", "range", "sorted", "reversed", "enumerate", "zip",
+        # 字符串
+        "chr", "ord",
+        # 其他
+        "type", "isinstance", "print",
+        "True", "False", "None",
+    }
+
+    # 允许导入的模块白名单
+    _ALLOWED_IMPORTS = {
+        "math", "random", "statistics",
+        "json", "re", "datetime", "time",
+        "collections", "itertools", "functools",
+        "string", "textwrap",
+        "copy", "hashlib",
+        "decimal", "fractions",
+    }
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        """检查自定义积木执行是否启用."""
+        if cls._enabled is None:
+            import os
+            cls._enabled = os.environ.get(
+                "M7_ENABLE_CUSTOM_BLOCK_EXEC", "false"
+            ).lower() == "true"
+        return cls._enabled
+
+    @classmethod
+    def _make_safe_import(cls, allowed_modules: set):
+        """创建安全的 __import__ 函数（仅允许白名单模块）."""
+        def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+            # 只允许顶级模块名在白名单内
+            top_module = name.split(".")[0]
+            if top_module not in allowed_modules:
+                raise ImportError(
+                    f"禁止导入模块：{name}（不在安全白名单内）"
+                )
+            return __builtins__["__import__"](  # type: ignore
+                name, globals, locals, fromlist, level
+            )
+        return _safe_import
+
+    @classmethod
+    async def execute(
+        cls,
+        code: str,
+        inputs: Optional[Dict[str, Any]] = None,
+        user_id: str = "",
+        block_id: str = "",
+    ) -> Dict[str, Any]:
+        """安全执行自定义积木代码.
+
+        警告：默认不启用，需设置 M7_ENABLE_CUSTOM_BLOCK_EXEC=true
+
+        Args:
+            code: 要执行的 Python 代码
+            inputs: 输入变量字典
+            user_id: 用户ID（用于审计）
+            block_id: 积木ID（用于审计）
+
+        Returns:
+            执行结果字典
+        """
+        if not cls.is_enabled():
+            return {
+                "success": False,
+                "error": "自定义积木执行功能未启用（需设置 M7_ENABLE_CUSTOM_BLOCK_EXEC=true）",
+                "output": None,
+            }
+
+        inputs = inputs or {}
+        start_time = time.time()
+
+        # 前置安全校验
+        from ..utils.security import validate_custom_block_code
+        is_safe, safe_reason = validate_custom_block_code(
+            code, user_id=user_id, block_id=block_id
+        )
+        if not is_safe:
+            logger.warning(
+                f"[Sandbox] 自定义积木代码安全校验失败: {block_id} - {safe_reason}"
+            )
+            return {
+                "success": False,
+                "error": f"代码安全校验失败：{safe_reason}",
+                "output": None,
+                "duration_ms": 0,
+            }
+
+        # 构建受限执行环境
+        import builtins as _builtins_module
+        safe_builtins = {
+            name: getattr(_builtins_module, name)
+            for name in cls._SAFE_BUILTINS
+            if hasattr(_builtins_module, name)
+        }
+        # 添加安全的 import
+        safe_builtins["__import__"] = cls._make_safe_import(cls._ALLOWED_IMPORTS)
+
+        # 执行上下文
+        exec_globals: Dict[str, Any] = {
+            "__builtins__": safe_builtins,
+            "__name__": "__custom_block__",
+            "inputs": dict(inputs),
+            "output": {},
+        }
+        exec_locals: Dict[str, Any] = {}
+
+        # 执行步数计数器（通过 sys.settrace 实现）
+        import sys
+        step_count = [0]
+        max_steps = cls.MAX_EXEC_STEPS
+
+        def _trace_caller(frame, event, arg):
+            if event == "call":
+                step_count[0] += 1
+                if step_count[0] > max_steps:
+                    raise RuntimeError(
+                        f"执行步数超过上限 {max_steps}，可能存在无限循环"
+                    )
+            return _trace_caller
+
+        try:
+            # 同步执行包装在 async 中，使用 asyncio.wait_for 做超时
+            def _do_exec():
+                sys.settrace(_trace_caller)
+                try:
+                    exec(  # noqa: S102 - 已通过多层安全校验
+                        compile(code, f"<custom_block:{block_id}>", "exec"),
+                        exec_globals,
+                        exec_locals,
+                    )
+                    return exec_globals.get("output", {}), None
+                except Exception as e:
+                    return None, str(e)
+                finally:
+                    sys.settrace(None)
+
+            import asyncio
+            try:
+                output, error = await asyncio.wait_for(
+                    asyncio.to_thread(_do_exec),
+                    timeout=cls.EXEC_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                duration = int((time.time() - start_time) * 1000)
+                logger.warning(
+                    f"[Sandbox] 自定义积木执行超时: {block_id} ({cls.EXEC_TIMEOUT}s)"
+                )
+                return {
+                    "success": False,
+                    "error": f"执行超时（超过 {cls.EXEC_TIMEOUT} 秒）",
+                    "output": None,
+                    "duration_ms": duration,
+                    "steps": step_count[0],
+                }
+
+            duration = int((time.time() - start_time) * 1000)
+
+            if error:
+                return {
+                    "success": False,
+                    "error": error,
+                    "output": None,
+                    "duration_ms": duration,
+                    "steps": step_count[0],
+                }
+
+            return {
+                "success": True,
+                "output": output,
+                "duration_ms": duration,
+                "steps": step_count[0],
+            }
+
+        except Exception as e:
+            duration = int((time.time() - start_time) * 1000)
+            logger.error(f"[Sandbox] 自定义积木执行异常: {block_id} - {e}")
+            return {
+                "success": False,
+                "error": f"执行异常：{str(e)}",
+                "output": None,
+                "duration_ms": duration,
+                "steps": step_count[0] if step_count else 0,
+            }
+
+
+# 全局单例（不直接暴露执行方法，通过 is_enabled 控制）
+_custom_block_sandbox = CustomBlockSandbox()
+
+
+async def execute_custom_block(
+    code: str,
+    inputs: Optional[Dict[str, Any]] = None,
+    user_id: str = "",
+    block_id: str = "",
+) -> Dict[str, Any]:
+    """执行自定义积木代码（便捷函数）.
+
+    警告：默认不启用，需设置 M7_ENABLE_CUSTOM_BLOCK_EXEC=true
+    当前版本中自定义积木代码仅作存储，不会被执行。
+
+    Args:
+        code: Python 代码
+        inputs: 输入变量
+        user_id: 用户ID
+        block_id: 积木ID
+
+    Returns:
+        执行结果
+    """
+    return await CustomBlockSandbox.execute(
+        code=code,
+        inputs=inputs,
+        user_id=user_id,
+        block_id=block_id,
+    )
+
+

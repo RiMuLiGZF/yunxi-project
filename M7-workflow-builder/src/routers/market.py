@@ -2,6 +2,11 @@
 
 v0.9.0 内容生态：用户可以将工作流发布为市场模板，将自定义积木发布到市场，
 其他用户可以浏览、搜索、安装这些共享内容。
+
+安全说明：
+- 发布自定义积木到市场前会进行代码安全校验
+- 安装市场积木时也会进行代码安全校验
+- 所有操作均记录安全审计日志
 """
 
 from __future__ import annotations
@@ -10,11 +15,17 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Text, desc
 
 from ..db import Base, get_engine
+from ..m8_api.m8_auth_middleware import get_current_user
+from ..utils.security import (
+    validate_custom_block_code,
+    sanitize_custom_block_name,
+    _add_audit_log,
+)
 
 # ============================================================
 # Pydantic 请求/响应模型
@@ -503,8 +514,12 @@ async def unpublish_template(template_id: str):
 
 
 @market_router.post("/blocks/publish")
-async def publish_block(request: PublishBlockRequest):
+async def publish_block(
+    request: PublishBlockRequest,
+    current_user: dict = Depends(get_current_user),
+):
     """发布自定义积木到市场."""
+    user_id = current_user.get("username", "")
     _ensure_tables()
     session = _get_session()
     try:
@@ -514,11 +529,43 @@ async def publish_block(request: PublishBlockRequest):
         if not cb:
             raise HTTPException(status_code=404, detail="积木不存在")
 
+        # 所有权校验
+        if cb.user_id != user_id and user_id != "admin":
+            _add_audit_log(
+                event_type="market_block_unauthorized_publish",
+                severity="warning",
+                user_id=user_id,
+                block_id=request.block_id,
+                details="无权限发布该积木到市场",
+            )
+            raise HTTPException(status_code=403, detail="无权限发布该积木")
+
+        # 安全校验：代码安全检查（发布到市场前必须通过）
+        is_safe, safe_reason = validate_custom_block_code(
+            cb.code or "",
+            user_id=user_id,
+            block_id=request.block_id,
+        )
+        if not is_safe:
+            _add_audit_log(
+                event_type="market_block_publish_rejected",
+                severity="warning",
+                user_id=user_id,
+                block_id=request.block_id,
+                details=f"发布被拒：{safe_reason}",
+            )
+            raise HTTPException(status_code=400, detail=f"代码安全校验失败：{safe_reason}")
+
+        # 名称清洗
+        clean_name = sanitize_custom_block_name(cb.name or "", 200)
+        if not clean_name:
+            raise HTTPException(status_code=400, detail="积木名称无效")
+
         block_id = f"mkb_{uuid.uuid4().hex[:12]}"
         mb = MarketBlock(
             block_id=block_id,
-            name=cb.name,
-            description=request.description or cb.description,
+            name=clean_name,
+            description=(request.description or cb.description or "")[:2000],
             author=cb.user_id or "anonymous",
             category=request.category,
             tags=request.tags or [],
@@ -530,6 +577,15 @@ async def publish_block(request: PublishBlockRequest):
         )
         session.add(mb)
         session.commit()
+
+        # 审计日志
+        _add_audit_log(
+            event_type="market_block_published",
+            severity="info",
+            user_id=user_id,
+            block_id=block_id,
+            details=f"发布积木到市场：{clean_name}（来源：{request.block_id}）",
+        )
 
         return {"code": 0, "message": "ok", "data": {"block_id": mb.block_id, "name": mb.name, "status": mb.status}}
     except HTTPException:
@@ -667,8 +723,12 @@ async def get_block(block_id: str):
 
 
 @market_router.post("/blocks/{block_id}/install")
-async def install_block(block_id: str):
+async def install_block(
+    block_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     """安装积木（创建自定义积木副本）."""
+    user_id = current_user.get("username", "")
     _ensure_tables()
     session = _get_session()
     try:
@@ -677,6 +737,22 @@ async def install_block(block_id: str):
         mb = session.query(MarketBlock).filter_by(block_id=block_id).first()
         if not mb:
             raise HTTPException(status_code=404, detail="积木不存在")
+
+        # 安全校验：安装前再次检查代码安全性
+        is_safe, safe_reason = validate_custom_block_code(
+            mb.code or "",
+            user_id=user_id,
+            block_id=block_id,
+        )
+        if not is_safe:
+            _add_audit_log(
+                event_type="market_block_install_rejected",
+                severity="warning",
+                user_id=user_id,
+                block_id=block_id,
+                details=f"安装被拒：{safe_reason}",
+            )
+            raise HTTPException(status_code=400, detail=f"代码安全校验失败：{safe_reason}")
 
         new_id = f"cb_{uuid.uuid4().hex[:12]}"
         cb = CustomBlock(
@@ -687,12 +763,21 @@ async def install_block(block_id: str):
             code=mb.code or "",
             icon=mb.icon or "puzzle",
             ports=mb.ports or {},
-            user_id="",
+            user_id=user_id,  # 修复：绑定到当前用户
         )
         session.add(cb)
 
         mb.download_count = (mb.download_count or 0) + 1
         session.commit()
+
+        # 审计日志
+        _add_audit_log(
+            event_type="market_block_installed",
+            severity="info",
+            user_id=user_id,
+            block_id=new_id,
+            details=f"安装市场积木：{mb.name}（来源：{block_id}）",
+        )
 
         return {"code": 0, "message": "ok", "data": {"block_id": new_id, "name": mb.name}}
     except HTTPException:
