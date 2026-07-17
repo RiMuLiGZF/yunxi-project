@@ -299,3 +299,121 @@ async def get_scheduler_status(
     except Exception as exc:
         logger.error(f"获取调度器状态失败: {exc}")
         return ApiResponse.error(code=500, message=f"获取调度器状态失败: {exc}")
+
+
+# ============================================================
+# 存储监控接口
+# ============================================================
+
+@router.get("/storage", summary="备份存储空间使用情况")
+async def get_storage_usage(
+    current_user: dict = Depends(get_current_user),
+):
+    """获取备份存储空间使用情况
+
+    返回：
+    - 备份目录路径
+    - 已用空间
+    - 磁盘总量/剩余空间
+    - 剩余空间百分比
+    """
+    try:
+        usage = orchestrator.get_storage_usage()
+        return ApiResponse.success(data=usage)
+    except Exception as exc:
+        logger.error(f"获取存储使用情况失败: {exc}")
+        return ApiResponse.error(code=500, message=f"获取存储使用情况失败: {exc}")
+
+
+# ============================================================
+# 告警接口
+# ============================================================
+
+@router.get("/alerts", summary="备份告警列表")
+async def get_backup_alerts(
+    unacknowledged_only: bool = Query(False, description="只显示未确认的告警"),
+    limit: int = Query(50, description="返回条数", ge=1, le=200),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取备份告警列表"""
+    try:
+        alerts = orchestrator.get_alerts(
+            unacknowledged_only=unacknowledged_only,
+            limit=limit,
+        )
+        return ApiResponse.success(data=alerts)
+    except Exception as exc:
+        logger.error(f"获取告警列表失败: {exc}")
+        return ApiResponse.error(code=500, message=f"获取告警列表失败: {exc}")
+
+
+@router.post("/alerts/{alert_index}/acknowledge", summary="确认告警")
+async def acknowledge_alert(
+    alert_index: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """确认指定告警"""
+    try:
+        result = orchestrator.acknowledge_alert(alert_index)
+        if result.get("success"):
+            return ApiResponse.success(message="告警已确认")
+        else:
+            return ApiResponse.error(code=404, message=result.get("error", "告警不存在"))
+    except Exception as exc:
+        logger.error(f"确认告警失败: {exc}")
+        return ApiResponse.error(code=500, message=f"确认告警失败: {exc}")
+
+
+# ============================================================
+# 恢复接口
+# ============================================================
+
+@router.post("/restore/{module_id}", summary="恢复指定模块备份")
+async def restore_module_backup(
+    module_id: str,
+    body: dict = Body(..., description="恢复参数"),
+    current_user: dict = Depends(get_current_user),
+):
+    """恢复指定模块的备份
+
+    请求体：
+    - backup_dir: 备份目录路径（必填）
+    - use_safety_net: 是否使用安全网机制（默认 true）
+    """
+    try:
+        backup_dir = body.get("backup_dir", "")
+        use_safety_net = body.get("use_safety_net", True)
+
+        if not backup_dir:
+            return ApiResponse.error(code=400, message="backup_dir 不能为空")
+
+        # 检查模块是否存在
+        module = orchestrator.get_module(module_id)
+        if not module:
+            return ApiResponse.error(code=404, message=f"未找到模块: {module_id}")
+
+        # 执行恢复（使用 shared backup_manager 的恢复能力）
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent.parent
+        sys.path.insert(0, str(project_root))
+
+        try:
+            from shared.data.data_layer.backup_manager import BackupManager, ModuleBackupConfig
+        except ImportError:
+            from shared.data_layer.backup_manager import BackupManager, ModuleBackupConfig
+
+        bm = BackupManager()
+        result = bm.restore_backup(
+            backup_dir,
+            "",  # target_path 会在 restore_module 内部处理
+            overwrite=True,
+        )
+
+        return ApiResponse.success(
+            data=result,
+            message="恢复操作已执行",
+        )
+    except Exception as exc:
+        logger.error(f"恢复备份失败: {exc}")
+        return ApiResponse.error(code=500, message=f"恢复备份失败: {exc}")

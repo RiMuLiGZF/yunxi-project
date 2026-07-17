@@ -1,0 +1,1020 @@
+{
+  "version": "2.0.0",
+  "updated_at": "2026-07-17",
+  "description": "云汐系统数据主权清单 - 定义各模块的数据所有权边界、分类分级与保留策略",
+  "principle": "谁产生、谁拥有、谁维护。跨模块数据交互通过 HTTP API / 消息队列进行，禁止跨库直连。",
+
+  "classification_rules": {
+    "table_categories": {
+      "core_data": {
+        "label": "核心数据",
+        "description": "业务核心数据，丢失将导致严重业务中断",
+        "examples": ["用户数据", "订单数据", "配置数据"]
+      },
+      "config_data": {
+        "label": "配置数据",
+        "description": "系统或模块配置数据，变更频率低但影响范围广",
+        "examples": ["系统设置", "功能开关", "KV存储"]
+      },
+      "log_data": {
+        "label": "日志数据",
+        "description": "审计日志、操作日志、调用日志等记录性数据",
+        "examples": ["审计日志", "调用日志", "操作记录"]
+      },
+      "cache_data": {
+        "label": "缓存数据",
+        "description": "临时缓存、性能优化数据，丢失可重建",
+        "examples": ["缓存条目", "会话缓存", "计算结果缓存"]
+      }
+    },
+    "sensitivity_levels": {
+      "public": {
+        "label": "公开",
+        "level": 1,
+        "description": "可公开访问的数据，无敏感信息",
+        "encryption_required": false
+      },
+      "internal": {
+        "label": "内部",
+        "level": 2,
+        "description": "仅限内部使用的数据，对外不可见",
+        "encryption_required": false
+      },
+      "sensitive": {
+        "label": "敏感",
+        "level": 3,
+        "description": "包含用户隐私或业务敏感信息的数据",
+        "encryption_required": true,
+        "examples": ["用户个人信息", "健康数据", "财务数据"]
+      },
+      "confidential": {
+        "label": "机密",
+        "level": 4,
+        "description": "高度机密数据，仅限授权人员访问",
+        "encryption_required": true,
+        "examples": ["API密钥", "密码哈希", "安全策略", "审计详情"]
+      }
+    },
+    "retention_policies": {
+      "permanent": {
+        "label": "永久保留",
+        "description": "需永久保留的核心数据",
+        "max_age_days": null
+      },
+      "long_term": {
+        "label": "长期保留",
+        "description": "保留3年以上的重要数据",
+        "max_age_days": 1095
+      },
+      "medium_term": {
+        "label": "中期保留",
+        "description": "保留1年的常规数据",
+        "max_age_days": 365
+      },
+      "short_term": {
+        "label": "短期保留",
+        "description": "保留30-90天的日志类数据",
+        "max_age_days": 90
+      },
+      "temporary": {
+        "label": "临时保留",
+        "description": "缓存类临时数据，随用随清",
+        "max_age_days": 7
+      }
+    }
+  },
+
+  "modules": {
+    "M0": {
+      "name": "主理人管控台",
+      "database": "m0.db",
+      "sovereign": true,
+      "core_domains": [
+        "主理人账号认证",
+        "审计日志（管控操作）",
+        "系统配置（KV存储）",
+        "模块状态缓存",
+        "紧急锁定机制"
+      ],
+      "tables": [
+        "audit_logs",
+        "token_blacklist",
+        "login_failures",
+        "emergency_lock",
+        "module_status",
+        "config_kv"
+      ],
+      "table_metadata": {
+        "audit_logs": {
+          "category": "log_data",
+          "sensitivity": "confidential",
+          "retention": "long_term",
+          "description": "管控台操作审计日志"
+        },
+        "token_blacklist": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "medium_term",
+          "description": "JWT Token 黑名单"
+        },
+        "login_failures": {
+          "category": "log_data",
+          "sensitivity": "sensitive",
+          "retention": "short_term",
+          "description": "登录失败记录"
+        },
+        "emergency_lock": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "permanent",
+          "description": "紧急锁定配置"
+        },
+        "module_status": {
+          "category": "cache_data",
+          "sensitivity": "internal",
+          "retention": "temporary",
+          "description": "模块状态缓存"
+        },
+        "config_kv": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "系统配置 KV 存储"
+        }
+      },
+      "cross_module_apis": [
+        "GET /api/backup/list - 备份列表查询（M0自有）",
+        "POST /api/backup/database - 立即备份（M0自有）"
+      ],
+      "notes": "M0是管控入口，不拥有业务数据。所有业务数据归各业务模块所有。"
+    },
+
+    "M1": {
+      "name": "Agent 集群",
+      "database": "yunxi_core.db",
+      "sovereign": true,
+      "core_domains": [
+        "Agent 长时记忆",
+        "对话 Trace 追踪",
+        "用户反馈",
+        "路由记录",
+        "事件总线"
+      ],
+      "tables": [
+        "ltm_entries",
+        "traces",
+        "feedbacks",
+        "events",
+        "route_records",
+        "meta"
+      ],
+      "table_metadata": {
+        "ltm_entries": {
+          "category": "core_data",
+          "sensitivity": "sensitive",
+          "retention": "long_term",
+          "description": "Agent 长时记忆条目"
+        },
+        "traces": {
+          "category": "log_data",
+          "sensitivity": "sensitive",
+          "retention": "medium_term",
+          "description": "对话 Trace 追踪记录"
+        },
+        "feedbacks": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "long_term",
+          "description": "用户反馈数据"
+        },
+        "events": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "事件总线记录"
+        },
+        "route_records": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "路由记录"
+        },
+        "meta": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "元数据配置"
+        }
+      },
+      "notes": "M1负责Agent对话与调度，记忆数据与M5潮汐记忆是不同层级（对话上下文vs长期人格记忆）"
+    },
+
+    "M2": {
+      "name": "技能集群",
+      "database": "skill_cluster.db（运行时创建）",
+      "sovereign": true,
+      "core_domains": [
+        "技能流水线执行记录",
+        "技能缓存",
+        "技能注册元数据"
+      ],
+      "tables": [
+        "pipeline_runs",
+        "cache_entries",
+        "cache_tags"
+      ],
+      "table_metadata": {
+        "pipeline_runs": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "技能流水线执行记录"
+        },
+        "cache_entries": {
+          "category": "cache_data",
+          "sensitivity": "internal",
+          "retention": "temporary",
+          "description": "技能缓存条目"
+        },
+        "cache_tags": {
+          "category": "cache_data",
+          "sensitivity": "internal",
+          "retention": "temporary",
+          "description": "技能缓存标签"
+        }
+      },
+      "notes": "技能是无状态执行单元，数据库主要用于缓存和执行追踪。"
+    },
+
+    "M3": {
+      "name": "边缘云",
+      "database": "edge_cloud.db（配置指定）",
+      "sovereign": true,
+      "core_domains": [
+        "API 调用日志",
+        "同步任务",
+        "会话管理",
+        "边缘审计",
+        "本地配置"
+      ],
+      "tables": [
+        "call_logs",
+        "sync_items",
+        "sessions",
+        "audit_trail",
+        "config_kv",
+        "cache_items"
+      ],
+      "table_metadata": {
+        "call_logs": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "API 调用日志"
+        },
+        "sync_items": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "云同步任务项"
+        },
+        "sessions": {
+          "category": "cache_data",
+          "sensitivity": "sensitive",
+          "retention": "short_term",
+          "description": "会话管理数据"
+        },
+        "audit_trail": {
+          "category": "log_data",
+          "sensitivity": "confidential",
+          "retention": "long_term",
+          "description": "边缘侧审计追踪"
+        },
+        "config_kv": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "本地配置 KV 存储"
+        },
+        "cache_items": {
+          "category": "cache_data",
+          "sensitivity": "internal",
+          "retention": "temporary",
+          "description": "边缘缓存数据"
+        }
+      },
+      "notes": "边缘云是本地服务的云同步层，数据为边缘侧缓存和同步记录。"
+    },
+
+    "M4": {
+      "name": "场景引擎",
+      "database": "m4.db",
+      "sovereign": true,
+      "core_domains": [
+        "场景上下文管理",
+        "场景切换历史",
+        "生活管理（主权方）",
+        "学业规划（主权方）",
+        "复盘总结（主权方）",
+        "人际关系（主权方）",
+        "情绪陪伴（主权方）",
+        "形象工坊（主权方）",
+        "手表交互（业务层）"
+      ],
+      "tables_owned": [
+        "场景引擎类：scene_contexts, scene_switch_history, scene_configs, current_scene, global_configs",
+        "形象工坊类：appearance_configs, mood_history, appearance_snapshots, personality_tags, voice_options",
+        "情绪陪伴类：emotion_records, relax_contents, relax_sessions, sleep_contents, sleep_records, psych_assessments, assessment_results, mood_diary",
+        "人际关系类：social_contacts, social_interactions, social_reminders, social_eq_lessons",
+        "复盘总结类：review_reviews, review_diaries, review_decisions, review_emotions, review_biases",
+        "生活管理类：life_schedules, life_todos, life_habits, life_habit_records, life_scenes, life_rules, life_finance_categories, life_finance_records, life_meta",
+        "学业规划类：study_goals, study_plans, study_notes, study_knowledge_categories, study_exams, study_progress, study_meta",
+        "工作开发类：work_projects, work_tasks, work_commits, work_code_snippets, work_dev_sessions, work_code_usage",
+        "聊天服务类：chat_conversations, chat_messages",
+        "语音服务类：voice_configs, voice_history",
+        "手表交互类：watch_devices, watch_health_data, watch_notifications"
+      ],
+      "table_category_summary": {
+        "core_data": [
+          "scene_contexts", "appearance_configs", "emotion_records",
+          "social_contacts", "review_reviews", "life_schedules", "life_todos",
+          "study_goals", "work_projects", "chat_conversations", "chat_messages",
+          "watch_devices", "watch_health_data"
+        ],
+        "config_data": [
+          "scene_configs", "global_configs", "voice_configs", "personality_tags",
+          "life_rules", "life_meta", "study_meta", "life_finance_categories",
+          "study_knowledge_categories", "relax_contents", "sleep_contents"
+        ],
+        "log_data": [
+          "scene_switch_history", "mood_history", "social_interactions",
+          "voice_history", "life_habit_records", "work_commits",
+          "psych_assessments", "assessment_results"
+        ],
+        "cache_data": [
+          "current_scene", "appearance_snapshots", "mood_diary"
+        ]
+      },
+      "sensitivity_summary": {
+        "sensitive": [
+          "emotion_records", "mood_diary", "sleep_records", "psych_assessments",
+          "watch_health_data", "life_finance_records", "chat_messages",
+          "social_contacts", "appearance_configs"
+        ],
+        "internal": [
+          "scene_contexts", "study_goals", "work_projects", "life_todos",
+          "review_reviews", "voice_configs"
+        ],
+        "confidential": []
+      },
+      "retention_summary": {
+        "permanent": [
+          "scene_configs", "global_configs", "personality_tags",
+          "life_rules", "study_meta", "life_meta"
+        ],
+        "long_term": [
+          "appearance_configs", "emotion_records", "social_contacts",
+          "review_reviews", "life_schedules", "study_goals",
+          "work_projects", "chat_conversations", "watch_devices"
+        ],
+        "medium_term": [
+          "scene_switch_history", "mood_history", "life_habit_records",
+          "work_commits", "voice_history"
+        ],
+        "short_term": [
+          "current_scene", "appearance_snapshots", "mood_diary",
+          "relax_sessions", "sleep_records"
+        ]
+      },
+      "duplicate_with_M8": {
+        "status": "高度重叠",
+        "overlap_domains": 7,
+        "overlap_tables": 42,
+        "resolution": "M4 是业务层权威数据源，M8 的业务表应逐步废弃（详见去重计划）",
+        "key_differences": [
+          "M4 user_id 为 String(128)，M8 为 Integer",
+          "M4 表普遍带 created_at/updated_at，M8 部分表缺失",
+          "M4 工作域多2张表（代码片段、开发会话）",
+          "M4 手表域设备表带 settings 字段，M8 独立为 watch_settings 表"
+        ]
+      },
+      "notes": "M4 是业务数据的权威拥有者。M8 中的对应业务表是早期单体架构的遗留，需要逐步迁回。"
+    },
+
+    "M5": {
+      "name": "潮汐记忆",
+      "database": "l1_shallow.db, l2_deep.db, l3_abyss/index.db, growth.db",
+      "sovereign": true,
+      "core_domains": [
+        "三级记忆存储（L1/L2/L3）",
+        "成长系统（权威方）",
+        "记忆共享池",
+        "情绪标签体系"
+      ],
+      "databases_detail": {
+        "l1_shallow.db": "浅层记忆（短期对话记忆）",
+        "l2_deep.db": "深层记忆（长期人格记忆）",
+        "l3_abyss/index.db": "深渊记忆索引（潜意识/向量记忆）",
+        "growth.db": "成长系统（成就、天赋、赛季、纪事）"
+      },
+      "growth_domain": {
+        "tables": [
+          "achievements",
+          "user_achievements",
+          "talents",
+          "user_talents",
+          "seasons",
+          "season_tasks",
+          "memory（成长记忆）",
+          "chronicle",
+          "calendar",
+          "user_growth"
+        ],
+        "table_metadata": {
+          "achievements": {
+            "category": "config_data",
+            "sensitivity": "internal",
+            "retention": "permanent",
+            "description": "成就定义"
+          },
+          "user_achievements": {
+            "category": "core_data",
+            "sensitivity": "internal",
+            "retention": "permanent",
+            "description": "用户成就记录"
+          },
+          "talents": {
+            "category": "config_data",
+            "sensitivity": "internal",
+            "retention": "permanent",
+            "description": "天赋定义"
+          },
+          "user_talents": {
+            "category": "core_data",
+            "sensitivity": "internal",
+            "retention": "long_term",
+            "description": "用户天赋记录"
+          },
+          "seasons": {
+            "category": "config_data",
+            "sensitivity": "internal",
+            "retention": "long_term",
+            "description": "赛季定义"
+          },
+          "season_tasks": {
+            "category": "core_data",
+            "sensitivity": "internal",
+            "retention": "long_term",
+            "description": "赛季任务"
+          },
+          "memory": {
+            "category": "core_data",
+            "sensitivity": "sensitive",
+            "retention": "long_term",
+            "description": "成长记忆"
+          },
+          "chronicle": {
+            "category": "log_data",
+            "sensitivity": "internal",
+            "retention": "long_term",
+            "description": "纪事记录"
+          },
+          "calendar": {
+            "category": "core_data",
+            "sensitivity": "internal",
+            "retention": "medium_term",
+            "description": "成长日历"
+          },
+          "user_growth": {
+            "category": "core_data",
+            "sensitivity": "internal",
+            "retention": "permanent",
+            "description": "用户成长总览"
+          }
+        },
+        "overlap_with_M8": {
+          "status": "部分重叠，层级不同",
+          "M8_tables": [
+            "growth_achievements",
+            "growth_talents",
+            "growth_talent_meta",
+            "growth_seasons",
+            "growth_season_tasks",
+            "growth_memories",
+            "growth_chronicles",
+            "growth_calendar"
+          ],
+          "resolution": "M5 是成长系统的底层存储权威，M8 是应用层展示。M8 保留聚合视图，底层数据以 M5 为准。",
+          "relationship": "M5 = 底层存储 + 计算引擎，M8.growth = 上层应用 + 展示层"
+        }
+      },
+      "notes": "M5 采用多数据库架构，按记忆层级分离。成长系统与 M8 是底层-上层关系，非简单重复。"
+    },
+
+    "M6": {
+      "name": "硬件外设",
+      "database": "m6.db",
+      "sovereign": true,
+      "core_domains": [
+        "传感器数据采集",
+        "设备状态管理",
+        "硬件设备注册",
+        "可穿戴设备数据（权威方）"
+      ],
+      "tables_current": [
+        "sensor_data",
+        "device_status_history"
+      ],
+      "table_metadata": {
+        "sensor_data": {
+          "category": "core_data",
+          "sensitivity": "sensitive",
+          "retention": "medium_term",
+          "description": "传感器数据采集记录"
+        },
+        "device_status_history": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "设备状态变更历史"
+        },
+        "watch_devices": {
+          "category": "core_data",
+          "sensitivity": "sensitive",
+          "retention": "permanent",
+          "description": "手表设备注册信息（应迁自M4/M8）"
+        },
+        "watch_health_data": {
+          "category": "core_data",
+          "sensitivity": "sensitive",
+          "retention": "long_term",
+          "description": "手表健康数据（应迁自M4/M8）"
+        },
+        "watch_notifications": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "手表通知记录（应迁自M4/M8）"
+        },
+        "watch_settings": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "手表设置配置（应迁自M4/M8）"
+        }
+      },
+      "should_own": {
+        "watch_domain": {
+          "source": "M8/M4 中的手表交互表",
+          "tables_to_migrate": [
+            "watch_devices",
+            "watch_health_data",
+            "watch_notifications",
+            "watch_settings"
+          ],
+          "reason": "手表/可穿戴设备属于硬件外设范畴，应归 M6 统一管理"
+        }
+      },
+      "notes": "M6 当前表很少（仅2张），但手表/可穿戴设备数据逻辑上属于 M6。当前手表数据分散在 M4 和 M8 中。"
+    },
+
+    "M7": {
+      "name": "工作流积木平台",
+      "database": "workflow.db（运行时创建）",
+      "sovereign": true,
+      "core_domains": [
+        "工作流定义（权威方）",
+        "工作流执行记录",
+        "自定义积木块"
+      ],
+      "tables": [
+        "workflow_definitions",
+        "workflow_runs",
+        "custom_blocks"
+      ],
+      "table_metadata": {
+        "workflow_definitions": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "工作流定义"
+        },
+        "workflow_runs": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "工作流执行记录"
+        },
+        "custom_blocks": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "long_term",
+          "description": "自定义积木块定义"
+        }
+      },
+      "overlap_with_M8": {
+        "status": "功能重叠",
+        "M8_tables": ["workflow_definitions", "workflow_runs"],
+        "resolution": "M7 是工作流引擎的权威方，M8 中的工作流表应废弃，改为调用 M7 API"
+      },
+      "notes": "M7 是专门的工作流平台，M8 中的工作流是简化版。应统一到 M7。"
+    },
+
+    "M8": {
+      "name": "管理中台 / 控制塔",
+      "database": "m8.db",
+      "sovereign": true,
+      "core_domains": [
+        "用户系统（统一用户管理）",
+        "模块注册与发现",
+        "算力调度（权威方）",
+        "自进化引擎（权威方）",
+        "监控告警聚合",
+        "系统巡检",
+        "系统设置"
+      ],
+      "tables_owned": [
+        "用户类：users, module_records, task_records, alert_records",
+        "审计类：audit_logs（系统级审计）",
+        "算力调度类：compute_sources, compute_key_groups, compute_model_bindings, compute_routing_policies, compute_call_logs, compute_alerts, compute_quotas, compute_skill_bindings, compute_config_backups",
+        "自进化类：evo_health_scans, evo_plans, evo_candidates, evo_approvals, evo_versions, evo_rollback_records, evo_deployments, evo_audit_reports",
+        "巡检类：startup_check_records, principal_chat_sessions, principal_chat_messages",
+        "系统设置类：system_settings"
+      ],
+      "tables_to_deprecate": {
+        "note": "以下业务表应逐步废弃，数据迁回对应业务模块",
+        "life_domain": {
+          "target": "M4",
+          "tables": 9,
+          "priority": "P1"
+        },
+        "study_domain": {
+          "target": "M4",
+          "tables": 7,
+          "priority": "P1"
+        },
+        "review_domain": {
+          "target": "M4",
+          "tables": 5,
+          "priority": "P2"
+        },
+        "social_domain": {
+          "target": "M4",
+          "tables": 4,
+          "priority": "P2"
+        },
+        "emotion_domain": {
+          "target": "M4/M5",
+          "tables": 8,
+          "priority": "P2"
+        },
+        "appearance_domain": {
+          "target": "M4",
+          "tables": 5,
+          "priority": "P2"
+        },
+        "work_domain": {
+          "target": "M9",
+          "tables": 4,
+          "priority": "P1"
+        },
+        "growth_domain": {
+          "target": "M5",
+          "tables": 8,
+          "priority": "P2",
+          "note": "保留聚合缓存视图，底层数据归 M5"
+        },
+        "watch_domain": {
+          "target": "M6",
+          "tables": 4,
+          "priority": "P0"
+        },
+        "workflow_domain": {
+          "target": "M7",
+          "tables": 2,
+          "priority": "P2"
+        }
+      },
+      "total_summary": {
+        "current_tables": "约 60+ 张",
+        "owned_tables": "约 29 张（控制塔核心）",
+        "business_tables_to_migrate": "约 46 张（应迁回业务模块）",
+        "target_state": "M8 回归控制塔本质，专注调度、监控、自进化、用户管理"
+      },
+      "notes": "M8 是当前数据库最复杂的模块，包含大量业务表（历史遗留）。去重目标是让 M8 回归控制塔本质。"
+    },
+
+    "M9": {
+      "name": "开发者工坊",
+      "database": "yunxi_m9.db",
+      "sovereign": true,
+      "core_domains": [
+        "工作区项目管理（权威方）",
+        "VSCode 会话管理",
+        "MCP 工具注册",
+        "开发活动追踪"
+      ],
+      "tables": [
+        "workspace_projects",
+        "vscode_sessions",
+        "mcp_tools",
+        "dev_activities"
+      ],
+      "table_metadata": {
+        "workspace_projects": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "工作区项目管理"
+        },
+        "vscode_sessions": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "VS Code 会话记录"
+        },
+        "mcp_tools": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "long_term",
+          "description": "MCP 工具注册"
+        },
+        "dev_activities": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "开发活动追踪"
+        }
+      },
+      "overlap_with_M8": {
+        "status": "功能重叠",
+        "M8_tables": ["work_projects", "work_tasks", "work_commits", "work_dev_code_usage"],
+        "resolution": "M9 是开发工作的权威方，M8 中的工作开发表应废弃，改为调用 M9 API"
+      },
+      "notes": "M9 专注开发工坊场景，M8 中的工作开发是简化版。应统一到 M9。"
+    },
+
+    "M10": {
+      "name": "系统卫士",
+      "database": "yunxi_m10.db",
+      "sovereign": true,
+      "core_domains": [
+        "性能指标采集与历史",
+        "系统告警",
+        "守护策略",
+        "启动检查",
+        "系统报表",
+        "潮汐任务"
+      ],
+      "tables": [
+        "audit_logs（卫士审计）",
+        "guard_alerts",
+        "metric_history",
+        "guard_policies",
+        "startup_checks",
+        "reports",
+        "tide_missions"
+      ],
+      "table_metadata": {
+        "audit_logs": {
+          "category": "log_data",
+          "sensitivity": "confidential",
+          "retention": "long_term",
+          "description": "卫士审计日志"
+        },
+        "guard_alerts": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "防护告警记录"
+        },
+        "metric_history": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "系统指标历史（性能监控）"
+        },
+        "guard_policies": {
+          "category": "config_data",
+          "sensitivity": "sensitive",
+          "retention": "permanent",
+          "description": "守护策略配置"
+        },
+        "startup_checks": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "启动检查记录"
+        },
+        "reports": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "medium_term",
+          "description": "系统报表记录"
+        },
+        "tide_missions": {
+          "category": "core_data",
+          "sensitivity": "internal",
+          "retention": "long_term",
+          "description": "潮汐任务调度记录"
+        }
+      },
+      "boundary_with_M8": {
+        "status": "边界需明确",
+        "overlap_areas": ["监控告警", "系统巡检"],
+        "resolution": "M10 = 底层守护（进程、性能、资源），M8 = 上层调度（业务监控、模块状态聚合）",
+        "clarification": "M10 负责系统级监控，M8 负责业务级监控聚合。两者通过 API 交互，M8 从 M10 拉取系统指标。"
+      },
+      "notes": "M10 与 M8 在监控领域有职责重叠，需明确分工：M10 偏底层系统，M8 偏上层业务。"
+    },
+
+    "M11": {
+      "name": "MCP 总线",
+      "database": "mcp_bus.db（运行时创建）",
+      "sovereign": true,
+      "core_domains": [
+        "MCP 服务注册",
+        "MCP 工具目录",
+        "MCP 调用日志",
+        "API 密钥管理"
+      ],
+      "tables": [
+        "mcp_servers",
+        "mcp_tools",
+        "mcp_calls",
+        "api_keys"
+      ],
+      "table_metadata": {
+        "mcp_servers": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "permanent",
+          "description": "MCP 服务注册"
+        },
+        "mcp_tools": {
+          "category": "config_data",
+          "sensitivity": "internal",
+          "retention": "long_term",
+          "description": "MCP 工具目录"
+        },
+        "mcp_calls": {
+          "category": "log_data",
+          "sensitivity": "internal",
+          "retention": "short_term",
+          "description": "MCP 调用日志"
+        },
+        "api_keys": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "permanent",
+          "description": "API 密钥管理"
+        }
+      },
+      "notes": "MCP 总线是工具调用的中间层，数据独立性强，无明显重叠。"
+    },
+
+    "M12": {
+      "name": "安全盾",
+      "database": "m12.db",
+      "sovereign": true,
+      "core_domains": [
+        "安全事件记录",
+        "API 密钥管理",
+        "IP 黑名单",
+        "WAF 规则",
+        "Token 黑名单",
+        "安全审计"
+      ],
+      "tables": [
+        "security_events",
+        "api_keys",
+        "ip_blacklist",
+        "waf_rules",
+        "token_blacklist",
+        "audit_logs（安全审计）"
+      ],
+      "table_metadata": {
+        "security_events": {
+          "category": "log_data",
+          "sensitivity": "confidential",
+          "retention": "long_term",
+          "description": "安全事件记录"
+        },
+        "api_keys": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "permanent",
+          "description": "API 密钥管理"
+        },
+        "ip_blacklist": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "medium_term",
+          "description": "IP 黑名单"
+        },
+        "waf_rules": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "permanent",
+          "description": "WAF 规则配置"
+        },
+        "token_blacklist": {
+          "category": "config_data",
+          "sensitivity": "confidential",
+          "retention": "short_term",
+          "description": "Token 黑名单"
+        },
+        "audit_logs": {
+          "category": "log_data",
+          "sensitivity": "confidential",
+          "retention": "long_term",
+          "description": "安全审计日志"
+        }
+      },
+      "notes": "安全盾数据独立性强，与其他模块无明显重叠。审计日志各模块自有，审计对象不同。"
+    }
+  },
+
+  "cross_module_data_flow": {
+    "description": "跨模块数据交互规则",
+    "rules": [
+      "禁止跨模块直接读写数据库",
+      "所有跨模块数据交互通过 HTTP REST API 进行",
+      "高频读取场景允许本地缓存，但缓存需有过期机制和失效策略",
+      "共享数据的权威方只有一个，其他方均为消费者"
+    ],
+    "example_flows": [
+      "M8 展示生活管理数据 → M8 调用 M4 API 获取 → M8 本地缓存（可选）",
+      "M8 展示成长系统数据 → M8 调用 M5 API 获取 → M8 聚合展示",
+      "M4 需要手表数据 → M4 调用 M6 API 获取",
+      "M8 工作流 → M8 调用 M7 API 执行工作流"
+    ]
+  },
+
+  "deduplication_summary": {
+    "total_overlapping_domains": 9,
+    "total_overlapping_tables_approx": 50,
+    "priority_distribution": {
+      "P0": "手表域（4张表）→ M6",
+      "P1": "生活/学业/工作域（20张表）→ M4/M9",
+      "P2": "复盘/社交/情绪/形象/成长/工作流（26张表）→ M4/M5/M7"
+    },
+    "estimated_phases": 4
+  },
+
+  "classification_summary": {
+    "description": "全系统数据分类分级总览",
+    "by_category": {
+      "core_data": "约 40% - 业务核心数据，丢失将导致严重业务中断",
+      "config_data": "约 25% - 配置与元数据，变更频率低但影响范围广",
+      "log_data": "约 25% - 日志与审计数据，用于追溯和分析",
+      "cache_data": "约 10% - 缓存数据，可重建"
+    },
+    "by_sensitivity": {
+      "public": "约 5% - 可公开访问",
+      "internal": "约 50% - 内部使用，对外不可见",
+      "sensitive": "约 30% - 含用户隐私，需加密存储",
+      "confidential": "约 15% - 高度机密，仅限授权访问"
+    },
+    "by_retention": {
+      "permanent": "约 20% - 核心配置与永久记录",
+      "long_term": "约 35% - 3年以上长期保留",
+      "medium_term": "约 25% - 1年中期保留",
+      "short_term": "约 15% - 30-90天短期保留",
+      "temporary": "约 5% - 7天以内临时缓存"
+    },
+    "encrypted_tables": [
+      "M0: token_blacklist, emergency_lock",
+      "M5: memory（成长记忆）",
+      "M10: guard_policies",
+      "M11: api_keys",
+      "M12: security_events, api_keys, ip_blacklist, waf_rules, token_blacklist, audit_logs"
+    ],
+    "highest_risk_tables": [
+      {
+        "table": "api_keys",
+        "module": "M11/M12",
+        "sensitivity": "confidential",
+        "risk": "密钥泄露将导致系统安全防线被突破"
+      },
+      {
+        "table": "waf_rules",
+        "module": "M12",
+        "sensitivity": "confidential",
+        "risk": "规则泄露将帮助攻击者绕过安全防护"
+      },
+      {
+        "table": "guard_policies",
+        "module": "M10",
+        "sensitivity": "sensitive",
+        "risk": "策略泄露将暴露系统防护弱点"
+      },
+      {
+        "table": "chat_messages",
+        "module": "M4",
+        "sensitivity": "sensitive",
+        "risk": "用户对话内容泄露涉及隐私合规风险"
+      }
+    ]
+  }
+}

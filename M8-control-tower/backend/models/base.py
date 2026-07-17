@@ -134,7 +134,11 @@ def _seed_initial_data():
 
 
 def _seed_backup_modules():
-    """初始化备份调度中心的预置模块配置"""
+    """初始化备份调度中心的预置模块配置（第二阶段统一治理增强版）
+
+    为所有有独立数据库的模块预置备份配置，
+    包括 M4、M5、M6、M8、M9、M10、M12 等模块。
+    """
     import structlog
     logger = structlog.get_logger("m8.backend.models")
 
@@ -151,13 +155,13 @@ def _seed_backup_modules():
         if module_count > 0:
             return
 
-        # 预置模块配置（M4, M5, M6, M7, M9, M10）
-        # 使用本地API地址，默认凌晨3:00备份
+        # 第二阶段统一治理：预置所有有数据库的模块
+        # 备份时间错开，避免同一时刻大量IO
         preset_modules = [
             {
                 "module_id": "m4",
                 "module_name": "场景引擎",
-                "backup_endpoint": "http://127.0.0.1:8004/api/v1/admin/backup",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
                 "schedule_time": "03:00",
@@ -168,60 +172,81 @@ def _seed_backup_modules():
                 "extra_config": {
                     "module_port": 8004,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 30,
+                    "retention_max_size_gb": 5.0,
                 },
             },
             {
                 "module_id": "m5",
                 "module_name": "潮汐记忆",
-                "backup_endpoint": "http://127.0.0.1:8005/api/v1/admin/backup",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
-                "schedule_time": "03:00",
+                "schedule_time": "03:30",
                 "schedule_interval_minutes": 0,
                 "enabled": True,
                 "max_backups": 30,
-                "description": "M5 潮汐记忆系统 - 长期记忆与知识备份",
+                "description": "M5 潮汐记忆系统 - 长期记忆与知识备份（L1/L2/L3 多级记忆）",
                 "extra_config": {
                     "module_port": 8005,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 45,
+                    "retention_max_size_gb": 10.0,
                 },
             },
             {
                 "module_id": "m6",
                 "module_name": "硬件外设",
-                "backup_endpoint": "http://127.0.0.1:8006/api/v1/admin/backup",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
-                "schedule_time": "03:00",
+                "schedule_time": "04:00",
                 "schedule_interval_minutes": 0,
                 "enabled": True,
-                "max_backups": 30,
-                "description": "M6 硬件外设模块 - 设备配置与健康数据备份",
+                "max_backups": 20,
+                "description": "M6 硬件外设模块 - 设备配置与传感器数据备份",
                 "extra_config": {
                     "module_port": 8006,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "count",
+                    "retention_max_age_days": 20,
+                    "retention_max_size_gb": 3.0,
                 },
             },
             {
-                "module_id": "m7",
-                "module_name": "积木平台",
-                "backup_endpoint": "http://127.0.0.1:8007/api/v1/admin/backup",
+                "module_id": "m8",
+                "module_name": "控制塔",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
-                "schedule_time": "03:00",
+                "schedule_time": "02:00",
                 "schedule_interval_minutes": 0,
                 "enabled": True,
-                "max_backups": 30,
-                "description": "M7 积木平台 - 工作流定义与运行记录备份",
+                "max_backups": 50,
+                "description": "M8 控制塔 - 调度中心自身数据备份（用户、配置、审计日志等）",
                 "extra_config": {
-                    "module_port": 8007,
+                    "module_port": 8008,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 60,
+                    "retention_max_size_gb": 5.0,
+                    "data_dir": "M8-control-tower/backend/data",
                 },
             },
             {
                 "module_id": "m9",
                 "module_name": "开发工坊",
-                "backup_endpoint": "http://127.0.0.1:8009/api/v1/admin/backup",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
                 "schedule_time": "03:00",
@@ -232,22 +257,53 @@ def _seed_backup_modules():
                 "extra_config": {
                     "module_port": 8009,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 30,
+                    "retention_max_size_gb": 5.0,
                 },
             },
             {
                 "module_id": "m10",
                 "module_name": "系统卫士",
-                "backup_endpoint": "http://127.0.0.1:8010/api/v1/admin/backup",
+                "backup_endpoint": "",
                 "auth_token": "",
                 "schedule_type": "daily",
-                "schedule_time": "03:00",
+                "schedule_time": "04:30",
                 "schedule_interval_minutes": 0,
                 "enabled": True,
                 "max_backups": 30,
-                "description": "M10 系统卫士 - 安全策略与监控数据备份",
+                "description": "M10 系统卫士 - 安全策略与系统监控数据备份",
                 "extra_config": {
                     "module_port": 8010,
                     "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 30,
+                    "retention_max_size_gb": 3.0,
+                },
+            },
+            {
+                "module_id": "m12",
+                "module_name": "安全盾",
+                "backup_endpoint": "",
+                "auth_token": "",
+                "schedule_type": "daily",
+                "schedule_time": "05:00",
+                "schedule_interval_minutes": 0,
+                "enabled": True,
+                "max_backups": 30,
+                "description": "M12 安全盾 - 安全规则与审计数据备份",
+                "extra_config": {
+                    "module_port": 8012,
+                    "backup_type": "full",
+                    "compression": "gzip",
+                    "encryption": "none",
+                    "retention_strategy": "hybrid",
+                    "retention_max_age_days": 90,
+                    "retention_max_size_gb": 2.0,
                 },
             },
         ]
@@ -257,7 +313,7 @@ def _seed_backup_modules():
             db.add(module)
 
         db.commit()
-        logger.info(f"备份调度中心预置模块已初始化，共 {len(preset_modules)} 个模块")
+        logger.info(f"备份调度中心预置模块已初始化，共 {len(preset_modules)} 个模块（第二阶段统一治理）")
     except Exception as e:
         logger.warning(f"备份模块种子数据初始化失败: {e}")
         db.rollback()
