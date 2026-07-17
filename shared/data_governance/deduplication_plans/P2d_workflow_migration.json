@@ -1,0 +1,238 @@
+{
+  "phase": "P2d",
+  "title": "工作流引擎数据迁移 - M8 → M7",
+  "version": "1.0",
+  "status": "completed",
+  "domain": "workflow engine",
+  "source_module": "M8-control-tower",
+  "target_module": "M7-workflow-builder",
+
+  "background": {
+    "current_state": "M8控制塔数据库中有简化版工作流表（workflow_definitions, workflow_runs），目前均为空表。M7积木平台已有完整的工作流引擎实现，表结构更丰富。",
+    "target_state": "M7成为工作流引擎数据的权威拥有者，M8通过API调用M7工作流能力，不再持有工作流业务数据。",
+    "reasoning": [
+      "M7定位为积木/工作流平台，应持有工作流定义和运行数据以支持完整的工作流引擎功能",
+      "M8是控制塔，不应持有业务明细数据，应通过API协调各模块",
+      "M7工作流表结构更丰富（connections, variables, trigger, steps等），功能更完善",
+      "数据迁移后M8仅通过API访问M7工作流能力，保持数据一致性"
+    ]
+  },
+
+  "migration_scope": {
+    "tables_count": 2,
+    "total_records": 0,
+    "categories": {
+      "workflow_definitions": {
+        "description": "工作流定义表",
+        "tables": [
+          {
+            "name": "workflow_definitions",
+            "description": "工作流定义",
+            "source_count": 0,
+            "migrated_count": 0,
+            "key_fields": ["id", "name", "status", "blocks"],
+            "dedup_key": ["id"],
+            "note": "M8当前为空表，迁移脚本已就绪，待M8有数据后可随时执行"
+          }
+        ]
+      },
+      "workflow_runs": {
+        "description": "工作流运行记录表",
+        "tables": [
+          {
+            "name": "workflow_runs",
+            "description": "工作流运行记录",
+            "source_count": 0,
+            "migrated_count": 0,
+            "key_fields": ["id", "workflow_id", "status", "started_at"],
+            "dedup_key": ["id"],
+            "note": "M8当前为空表，迁移脚本已就绪"
+          }
+        ]
+      }
+    }
+  },
+
+  "field_mapping": {
+    "general_notes": [
+      "M7表结构比M8更丰富，M8缺少的字段使用合理默认值",
+      "id: 两边均为 VARCHAR(64)/String(64)，直接映射",
+      "user_id: M8 INTEGER → M7 String 类型转换，M7无独立user_id字段，workflow_definitions映射到created_by，workflow_runs映射到triggered_by前缀",
+      "JSON字段: M8存储为字符串/JSON类型，迁移时解析为Python对象后通过SQLAlchemy写入",
+      "DateTime字段: 多格式解析兼容",
+      "icon字段: M8有icon字段，M7无对应字段，迁移时忽略"
+    ],
+    "workflow_definitions_mapping": {
+      "id": "id (String(64), 直接映射)",
+      "name": "name (String(200), 直接映射)",
+      "description": "description (Text, 直接映射)",
+      "category": "category (String(50), 直接映射)",
+      "icon": "→ 忽略（M7无对应字段）",
+      "blocks": "blocks (JSON, 直接映射)",
+      "status": "status (String(20), 直接映射)",
+      "created_at": "created_at (DateTime, 直接映射)",
+      "updated_at": "updated_at (DateTime, 直接映射)",
+      "user_id": "created_by (INTEGER→String转换)",
+      "(M7新增) connections": "默认值: []",
+      "(M7新增) variables": "默认值: []",
+      "(M7新增) trigger": "默认值: {}",
+      "(M7新增) run_count": "默认值: 0",
+      "(M7新增) tags": "默认值: []"
+    },
+    "workflow_runs_mapping": {
+      "id": "id (String(64), 直接映射)",
+      "workflow_id": "workflow_id (String(64), 直接映射)",
+      "workflow_name": "workflow_name (String(200), 直接映射)",
+      "status": "status (String(20), 直接映射)",
+      "inputs": "inputs (JSON, 直接映射)",
+      "outputs": "outputs (JSON, 直接映射)",
+      "error_message": "error (字段重命名, TEXT→Text)",
+      "started_at": "started_at (DateTime, 直接映射)",
+      "finished_at": "finished_at (DateTime, 直接映射)",
+      "duration_ms": "duration_ms (Integer, 直接映射)",
+      "user_id": "triggered_by (INTEGER→String, 前缀m8_user_)",
+      "(M7新增) steps": "默认值: []",
+      "(M7新增) triggered_by": "默认值: m8_migrated"
+    },
+    "type_conversions": {
+      "user_id": "INTEGER → String (str()转换)",
+      "JSON字段": "TEXT/JSON字符串 → JSON对象 (json.loads)",
+      "DateTime字段": "字符串 → datetime对象 (多格式解析)",
+      "error_message → error": "字段重命名"
+    }
+  },
+
+  "migration_strategy": {
+    "approach": "一次性批量迁移 + 幂等去重 + 断点续传",
+    "tool": "migrate_workflow_m8_to_m7.py",
+    "reconcile_tool": "reconcile_workflow.py",
+    "batch_size": 1000,
+    "max_retries": 3,
+    "retry_strategy": "指数退避 (1s, 2s, 4s)",
+    "checkpoint_support": true,
+    "checkpoint_location": "data/migration_checkpoints/p2d_workflow_checkpoint.json",
+    "idempotency": "业务ID去重（id主键）",
+    "dry_run_support": true
+  },
+
+  "migration_execution": {
+    "execution_date": "2026-07-17",
+    "duration_seconds": 0.005,
+    "source_total": 0,
+    "migrated_total": 0,
+    "dedup_skipped": 0,
+    "failed_total": 0,
+    "success_rate": "N/A (源表为空)",
+    "steps": [
+      "dry-run 模式验证通过（测试数据：3+3条）",
+      "首次实际迁移执行成功（测试数据：3+3条）",
+      "二次运行验证幂等性（全部跳过）",
+      "对账脚本验证抽样匹配率100%",
+      "清理测试数据，对真实空表执行迁移",
+      "空表现场对账通过（PASS）"
+    ]
+  },
+
+  "reconciliation": {
+    "method": "记录数对比 + ID差异检查 + 抽样字段级对比",
+    "sample_size_per_table": 10,
+    "total_samples": 0,
+    "sample_match_rate": "N/A (源表为空)",
+    "pass_status": {
+      "workflow_definitions": "PASS (空表)",
+      "workflow_runs": "PASS (空表)"
+    },
+    "report_location": "data/migration_checkpoints/p2d_reconcile_report.json",
+    "compare_fields": {
+      "workflow_definitions": ["id", "name", "description", "category", "blocks", "status", "created_at", "updated_at", "user_id→created_by"],
+      "workflow_runs": ["id", "workflow_id", "workflow_name", "status", "inputs", "outputs", "error_message→error", "started_at", "finished_at", "duration_ms"]
+    }
+  },
+
+  "scripts": {
+    "migration_script": "scripts/migrate_workflow_m8_to_m7.py",
+    "reconcile_script": "scripts/reconcile_workflow.py",
+    "features": [
+      "MigrationStats 数据类统计迁移结果",
+      "分批迁移（batch_size=1000）",
+      "幂等性检查（业务ID去重）",
+      "重试机制（指数退避，max_retries=3）",
+      "断点续传（checkpoint JSON文件）",
+      "ProgressTracker 进度报告 + ETA",
+      "详细日志输出",
+      "支持 --dry-run, --resume, --batch-size 参数"
+    ]
+  },
+
+  "m7_table_analysis": {
+    "workflow_definitions": {
+      "primary_key": "id (String(64))",
+      "total_fields": 14,
+      "m8_common_fields": 8,
+      "m7_extra_fields": ["connections", "variables", "trigger", "run_count", "created_by", "tags"],
+      "indexes": ["ix_wf_name_category (name, category)"],
+      "note": "M7比M8多6个字段，均为工作流引擎核心功能所需，设置合理默认值即可"
+    },
+    "workflow_runs": {
+      "primary_key": "id (String(64))",
+      "total_fields": 11,
+      "m8_common_fields": 9,
+      "m7_extra_fields": ["steps", "triggered_by"],
+      "indexes": ["ix_run_wfid_status (workflow_id, status)"],
+      "note": "M7比M8多2个字段：steps(步骤详情)和triggered_by(触发方式)，error字段名不同"
+    }
+  },
+
+  "risks": [
+    {
+      "risk": "M7无独立user_id字段，数据归属追溯",
+      "level": "medium",
+      "mitigation": "workflow_definitions的user_id映射到created_by，workflow_runs的user_id映射到triggered_by前缀m8_user_，保留可追溯性"
+    },
+    {
+      "risk": "M8 icon字段在M7无对应字段，信息丢失",
+      "level": "low",
+      "mitigation": "icon为展示辅助字段，不影响核心功能，M7工作流有自己的图标体系（通过积木块类型体现）"
+    },
+    {
+      "risk": "M8工作流blocks格式与M7可能不完全兼容",
+      "level": "high",
+      "mitigation": "迁移时仅做数据搬运，不做结构转换。后续如需使用需经过工作流格式转换层处理"
+    },
+    {
+      "risk": "M7缺少的字段默认值是否合理",
+      "level": "medium",
+      "mitigation": "connections/variables默认空列表，trigger默认空对象，run_count默认0，均符合业务逻辑默认值"
+    }
+  ],
+
+  "data_quality_notes": [
+    "M8两表当前均为空表，迁移后M7也保持为空",
+    "迁移脚本已通过测试数据验证（3+3条），功能正确",
+    "幂等性验证通过：二次运行全部跳过",
+    "对账抽样匹配率100%",
+    "JSON字段和DateTime字段格式转换正确",
+    "user_id类型转换（INTEGER→String）正确"
+  ],
+
+  "rollback_plan": {
+    "trigger_conditions": [
+      "迁移后数据不一致率超过5%",
+      "M7工作流引擎因数据迁移出现异常"
+    ],
+    "rollback_steps": [
+      "停止M7工作流相关功能访问",
+      "删除M7中由M8迁移的数据（通过created_by前缀识别）",
+      "恢复M8读写权限",
+      "排查问题后重新迁移"
+    ]
+  },
+
+  "success_criteria": [
+    "抽样数据匹配率 100%",
+    "迁移失败记录数 = 0",
+    "幂等性验证通过（二次运行无新增）",
+    "M7工作流业务功能正常运行",
+    "对账脚本总体结果 PASS"
+  ]
+}

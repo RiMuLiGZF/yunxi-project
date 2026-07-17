@@ -27,66 +27,83 @@
       "name": "生活管理 + 学业规划",
       "tables": 16,
       "target": "M4",
-      "status": "pending",
-      "plan_file": "P1_life_study_migration.json",
+      "status": "completed",
+      "plan_file": "P1a_life_study_migration.json",
       "difficulty": "medium",
       "estimated_weeks": 3,
-      "note": "M4 已有完整对应表，差异较小，主要是 user_id 类型转换"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 176,
+      "note": "M4 已有完整对应表，差异较小，主要是 user_id 类型转换和部分表缺少时间戳字段，迁移已完成并对账通过"
     },
     {
       "phase": "P1b",
       "name": "工作开发",
       "tables": 4,
       "target": "M9",
-      "status": "pending",
-      "plan_file": "P1_work_dev_migration.json",
+      "status": "completed",
+      "plan_file": "P1b_work_dev_migration.json",
       "difficulty": "medium",
       "estimated_weeks": 2,
-      "note": "M9 当前表较少，需要扩充模型，差异较大"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 26,
+      "note": "M9 需要新增4张表，字段1:1映射，仅user_id类型转换，迁移已完成并对账通过"
     },
     {
       "phase": "P2a",
       "name": "复盘总结 + 人际关系",
       "tables": 9,
       "target": "M4",
-      "status": "pending",
-      "plan_file": "P2_review_social_migration.json",
+      "status": "completed",
+      "plan_file": "P2a_review_social_migration.json",
       "difficulty": "low",
       "estimated_weeks": 2,
-      "note": "M4 已有完整对应表，字段几乎完全一致"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 77,
+      "rows_source": 78,
+      "note": "M4 已有完整对应表，字段几乎完全一致。迁移77条成功（1条源数据重复被去重），抽样匹配率100%"
     },
     {
       "phase": "P2b",
       "name": "情绪陪伴 + 形象工坊",
-      "tables": 13,
+      "tables": 7,
       "target": "M4",
-      "status": "pending",
-      "plan_file": "P2_emotion_appearance_migration.json",
+      "status": "completed",
+      "plan_file": "P2b_emotion_appearance_migration.json",
       "difficulty": "medium",
       "estimated_weeks": 2,
-      "note": "M4 已有情绪陪伴表，形象工坊需新增到 M4"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 5,
+      "rows_source": 15,
+      "rows_dedup_skipped": 10,
+      "note": "M4 已有完整对应表。迁移5条新数据（mood_diary），10条内容库数据因已存在被去重跳过，4张空表无数据。抽样匹配率100%"
     },
     {
       "phase": "P2c",
       "name": "成长系统",
       "tables": 8,
       "target": "M5",
-      "status": "pending",
-      "plan_file": "P2_growth_migration.json",
+      "status": "completed",
+      "plan_file": "P2c_growth_migration.json",
       "difficulty": "high",
       "estimated_weeks": 4,
-      "note": "M5 已有成长系统，但表结构和设计理念不同，需深度整合"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 0,
+      "rows_source": 0,
+      "note": "M5已有成长系统，M8混合表→M5定义表+用户表分离设计，8张表0条记录，迁移脚本和对账脚本已编写完成并通过测试"
     },
     {
       "phase": "P2d",
       "name": "工作流引擎",
       "tables": 2,
       "target": "M7",
-      "status": "pending",
-      "plan_file": "P2_workflow_migration.json",
+      "status": "completed",
+      "plan_file": "P2d_workflow_migration.json",
       "difficulty": "high",
       "estimated_weeks": 3,
-      "note": "M7 有自己的工作流实现，需评估是否完全替代 M8 的简化版"
+      "completed_at": "2026-07-17",
+      "rows_migrated": 0,
+      "rows_source": 0,
+      "note": "M7有自己的工作流实现，字段更丰富（多6+2个字段）。M8源表当前为空，迁移脚本已就绪并通过测试验证，对账通过"
     }
   ],
 

@@ -206,6 +206,171 @@ class DevActivity(Base):
         }
 
 
+# ===== P1b: 工作开发相关表（M8 迁移） =====
+
+class WorkProject(Base):
+    """工作项目模型（M8 work_projects 迁移）"""
+    __tablename__ = "work_projects"
+
+    id = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    project_id = Column(Integer, index=True, comment="项目业务ID（M8原始ID）")
+    name = Column(String(200), default="", comment="项目名称")
+    description = Column(Text, default="", comment="项目描述")
+    status = Column(String(20), default="active", comment="状态：active/planning/completed/archived")
+    progress = Column(Integer, default=0, comment="进度百分比")
+    repo_url = Column(String(500), default="", comment="代码仓库地址")
+    language = Column(String(50), default="", comment="主要编程语言")
+    file_count = Column(Integer, default=0, comment="文件数量")
+    line_count = Column(Integer, default=0, comment="代码行数")
+    commit_count = Column(Integer, default=0, comment="提交次数")
+    user_id = Column(String(128), index=True, comment="所属用户ID")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    __table_args__ = (
+        Index('idx_wp_user_id', 'user_id'),
+        Index('idx_wp_status', 'status'),
+        Index('idx_wp_project_id', 'project_id', unique=True),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "name": self.name,
+            "description": self.description,
+            "status": self.status,
+            "progress": self.progress,
+            "repo_url": self.repo_url,
+            "language": self.language,
+            "file_count": self.file_count,
+            "line_count": self.line_count,
+            "commit_count": self.commit_count,
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class WorkTask(Base):
+    """工作任务模型（M8 work_tasks 迁移）"""
+    __tablename__ = "work_tasks"
+
+    id = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    task_id = Column(Integer, index=True, comment="任务业务ID（M8原始ID）")
+    title = Column(String(255), default="", comment="任务标题")
+    description = Column(Text, default="", comment="任务描述")
+    status = Column(String(20), default="todo", comment="状态：todo/in_progress/done/cancelled")
+    priority = Column(String(20), default="medium", comment="优先级：low/medium/high/urgent")
+    project_id = Column(Integer, index=True, comment="关联项目ID")
+    assignee = Column(String(100), default="", comment="负责人")
+    due_date = Column(String(20), nullable=True, comment="截止日期")
+    user_id = Column(String(128), index=True, comment="所属用户ID")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    __table_args__ = (
+        Index('idx_wt_user_id', 'user_id'),
+        Index('idx_wt_status', 'status'),
+        Index('idx_wt_project_id', 'project_id'),
+        Index('idx_wt_task_id', 'task_id', unique=True),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "priority": self.priority,
+            "project_id": self.project_id,
+            "assignee": self.assignee,
+            "due_date": self.due_date,
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class WorkCommit(Base):
+    """代码提交记录模型（M8 work_commits 迁移）"""
+    __tablename__ = "work_commits"
+
+    id = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    commit_id = Column(Integer, index=True, comment="提交业务ID（M8原始ID）")
+    hash = Column(String(64), default="", comment="提交哈希")
+    message = Column(Text, default="", comment="提交信息")
+    author = Column(String(100), default="", comment="作者")
+    branch = Column(String(100), default="", comment="分支")
+    project_id = Column(Integer, index=True, comment="关联项目ID")
+    additions = Column(Integer, default=0, comment="新增行数")
+    deletions = Column(Integer, default=0, comment="删除行数")
+    files_changed = Column(Integer, default=0, comment="变更文件数")
+    committed_at = Column(DateTime, comment="提交时间")
+    user_id = Column(String(128), index=True, comment="所属用户ID")
+
+    __table_args__ = (
+        Index('idx_wc_user_id', 'user_id'),
+        Index('idx_wc_project_id', 'project_id'),
+        Index('idx_wc_committed_at', 'committed_at'),
+        Index('idx_wc_commit_id', 'commit_id', unique=True),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "commit_id": self.commit_id,
+            "hash": self.hash,
+            "message": self.message,
+            "author": self.author,
+            "branch": self.branch,
+            "project_id": self.project_id,
+            "additions": self.additions,
+            "deletions": self.deletions,
+            "files_changed": self.files_changed,
+            "committed_at": self.committed_at.isoformat() if self.committed_at else None,
+            "user_id": self.user_id,
+        }
+
+
+class WorkDevCodeUsage(Base):
+    """代码开发用量模型（M8 work_dev_code_usage 迁移）"""
+    __tablename__ = "work_dev_code_usage"
+
+    id = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    usage_id = Column(Integer, index=True, comment="用量业务ID（M8原始ID）")
+    action_type = Column(String(20), default="", comment="动作类型")
+    operation_type = Column(String(20), default="", comment="操作类型")
+    language = Column(String(50), default="", comment="编程语言")
+    tokens_used = Column(Integer, default=0, comment="消耗Token数")
+    project_id = Column(Integer, index=True, comment="关联项目ID")
+    is_fallback = Column(Boolean, default=False, comment="是否为降级模式")
+    user_id = Column(String(128), index=True, comment="所属用户ID")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+
+    __table_args__ = (
+        Index('idx_wdcu_user_id', 'user_id'),
+        Index('idx_wdcu_project_id', 'project_id'),
+        Index('idx_wdcu_created_at', 'created_at'),
+        Index('idx_wdcu_usage_id', 'usage_id', unique=True),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "usage_id": self.usage_id,
+            "action_type": self.action_type,
+            "operation_type": self.operation_type,
+            "language": self.language,
+            "tokens_used": self.tokens_used,
+            "project_id": self.project_id,
+            "is_fallback": self.is_fallback,
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 # ===== Pydantic 响应模型（如果可用） =====
 try:
     from pydantic import BaseModel, Field

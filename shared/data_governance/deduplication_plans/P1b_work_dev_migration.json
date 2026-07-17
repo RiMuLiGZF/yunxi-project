@@ -1,0 +1,355 @@
+{
+  "phase": "P1b",
+  "title": "工作开发数据迁移 - M8 → M9",
+  "version": "1.0",
+  "status": "completed",
+  "domain": "work_dev",
+  "completed_at": "2026-07-17",
+
+  "background": {
+    "current_state": "工作开发相关的4张表全部在M8控制塔中，M9开发者工坊仅有workspace_projects和dev_activities等基础表，缺少项目管理、任务管理、提交记录、代码用量等核心业务表",
+    "target_state": "M9成为工作开发数据的权威拥有者，M8通过API获取开发工作数据，M9持有完整的项目-任务-提交-用量数据链路",
+    "reasoning": [
+      "工作开发属于开发者工坊的核心业务领域",
+      "M9定位就是开发者工作平台，应持有开发相关的全部业务数据",
+      "M8是控制塔，不应持有业务明细数据，仅保留聚合指标",
+      "workspace_projects（工作区文件项目）与work_projects（开发项目）是两个不同领域，分别对应文件管理和项目管理"
+    ]
+  },
+
+  "current_data_locations": {
+    "M8": {
+      "database": "m8.db",
+      "tables": [
+        {
+          "name": "work_projects",
+          "fields_count": 14,
+          "row_count": 3,
+          "key_fields": ["id", "project_id", "name", "status", "language", "user_id", "created_at"],
+          "notes": "开发项目表，project_id为业务ID，user_id为Integer类型"
+        },
+        {
+          "name": "work_tasks",
+          "fields_count": 13,
+          "row_count": 13,
+          "key_fields": ["id", "task_id", "title", "status", "priority", "project_id", "user_id"],
+          "notes": "开发任务表，task_id为业务ID，关联project_id"
+        },
+        {
+          "name": "work_commits",
+          "fields_count": 12,
+          "row_count": 8,
+          "key_fields": ["id", "commit_id", "hash", "project_id", "committed_at", "user_id"],
+          "notes": "代码提交记录表，commit_id为业务ID"
+        },
+        {
+          "name": "work_dev_code_usage",
+          "fields_count": 11,
+          "row_count": 2,
+          "key_fields": ["id", "usage_id", "action_type", "tokens_used", "project_id", "user_id"],
+          "notes": "代码开发用量表，usage_id为业务ID，记录AI代码生成token消耗"
+        }
+      ],
+      "total_rows": 26,
+      "access_pattern": "M8直接读写，用于控制塔的开发概览和统计展示"
+    },
+    "M9": {
+      "database": "yunxi_m9.db",
+      "tables_before_migration": [
+        {
+          "name": "workspace_projects",
+          "fields_count": 13,
+          "notes": "工作区文件项目表，对应本地文件夹，与开发项目不同领域"
+        },
+        {
+          "name": "dev_activities",
+          "fields_count": 7,
+          "notes": "开发活动日志表，记录coding/building等活动时长，与提交记录不同粒度"
+        },
+        {
+          "name": "vscode_sessions",
+          "fields_count": 6,
+          "notes": "VS Code会话表，与开发项目管理无直接关系"
+        },
+        {
+          "name": "mcp_tools",
+          "fields_count": 8,
+          "notes": "MCP工具注册表，与开发项目管理无直接关系"
+        }
+      ],
+      "note": "M9没有与M8 work_*系列表直接对应的表，需要全部新增"
+    }
+  },
+
+  "target_schema": {
+    "module": "M9",
+    "database": "yunxi_m9.db",
+    "tables": [
+      {
+        "name": "work_projects",
+        "model_class": "WorkProject",
+        "description": "开发项目表（从M8迁移，1:1映射）",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "project_id", "type": "Integer", "unique": true, "description": "项目业务ID（M8原始ID，幂等去重用）"},
+          {"name": "name", "type": "String(200)", "description": "项目名称"},
+          {"name": "description", "type": "Text", "description": "项目描述"},
+          {"name": "status", "type": "String(20)", "index": true, "description": "状态：active/planning/completed/archived"},
+          {"name": "progress", "type": "Integer", "description": "进度百分比"},
+          {"name": "repo_url", "type": "String(500)", "description": "代码仓库地址"},
+          {"name": "language", "type": "String(50)", "description": "主要编程语言"},
+          {"name": "file_count", "type": "Integer", "description": "文件数量"},
+          {"name": "line_count", "type": "Integer", "description": "代码行数"},
+          {"name": "commit_count", "type": "Integer", "description": "提交次数"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "所属用户ID（Integer转String）"},
+          {"name": "created_at", "type": "DateTime", "default": "now"},
+          {"name": "updated_at", "type": "DateTime", "default": "now", "onupdate": "now"}
+        ],
+        "indexes": [
+          {"fields": ["user_id"], "unique": false},
+          {"fields": ["status"], "unique": false},
+          {"fields": ["project_id"], "unique": true}
+        ]
+      },
+      {
+        "name": "work_tasks",
+        "model_class": "WorkTask",
+        "description": "开发任务表（从M8迁移，1:1映射）",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "task_id", "type": "Integer", "unique": true, "description": "任务业务ID（M8原始ID）"},
+          {"name": "title", "type": "String(255)", "description": "任务标题"},
+          {"name": "description", "type": "Text", "description": "任务描述"},
+          {"name": "status", "type": "String(20)", "index": true, "description": "状态：todo/in_progress/done/cancelled"},
+          {"name": "priority", "type": "String(20)", "description": "优先级：low/medium/high/urgent"},
+          {"name": "project_id", "type": "Integer", "index": true, "description": "关联项目ID"},
+          {"name": "assignee", "type": "String(100)", "description": "负责人"},
+          {"name": "due_date", "type": "String(20)", "description": "截止日期"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "所属用户ID"},
+          {"name": "created_at", "type": "DateTime", "default": "now"},
+          {"name": "updated_at", "type": "DateTime", "default": "now", "onupdate": "now"}
+        ],
+        "indexes": [
+          {"fields": ["user_id"], "unique": false},
+          {"fields": ["status"], "unique": false},
+          {"fields": ["project_id"], "unique": false},
+          {"fields": ["task_id"], "unique": true}
+        ]
+      },
+      {
+        "name": "work_commits",
+        "model_class": "WorkCommit",
+        "description": "代码提交记录表（从M8迁移，1:1映射）",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "commit_id", "type": "Integer", "unique": true, "description": "提交业务ID（M8原始ID）"},
+          {"name": "hash", "type": "String(64)", "description": "提交哈希"},
+          {"name": "message", "type": "Text", "description": "提交信息"},
+          {"name": "author", "type": "String(100)", "description": "作者"},
+          {"name": "branch", "type": "String(100)", "description": "分支"},
+          {"name": "project_id", "type": "Integer", "index": true, "description": "关联项目ID"},
+          {"name": "additions", "type": "Integer", "description": "新增行数"},
+          {"name": "deletions", "type": "Integer", "description": "删除行数"},
+          {"name": "files_changed", "type": "Integer", "description": "变更文件数"},
+          {"name": "committed_at", "type": "DateTime", "index": true, "description": "提交时间"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "所属用户ID"}
+        ],
+        "indexes": [
+          {"fields": ["user_id"], "unique": false},
+          {"fields": ["project_id"], "unique": false},
+          {"fields": ["committed_at"], "unique": false},
+          {"fields": ["commit_id"], "unique": true}
+        ]
+      },
+      {
+        "name": "work_dev_code_usage",
+        "model_class": "WorkDevCodeUsage",
+        "description": "代码开发用量表（从M8迁移，1:1映射）",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "usage_id", "type": "Integer", "unique": true, "description": "用量业务ID（M8原始ID）"},
+          {"name": "action_type", "type": "String(20)", "description": "动作类型"},
+          {"name": "operation_type", "type": "String(20)", "description": "操作类型"},
+          {"name": "language", "type": "String(50)", "description": "编程语言"},
+          {"name": "tokens_used", "type": "Integer", "description": "消耗Token数"},
+          {"name": "project_id", "type": "Integer", "index": true, "description": "关联项目ID"},
+          {"name": "is_fallback", "type": "Boolean", "description": "是否为降级模式"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "所属用户ID"},
+          {"name": "created_at", "type": "DateTime", "index": true, "default": "now"}
+        ],
+        "indexes": [
+          {"fields": ["user_id"], "unique": false},
+          {"fields": ["project_id"], "unique": false},
+          {"fields": ["created_at"], "unique": false},
+          {"fields": ["usage_id"], "unique": true}
+        ]
+      }
+    ]
+  },
+
+  "field_mapping": {
+    "M8_to_M9": {
+      "work_projects -> work_projects": {
+        "mapping_type": "1:1",
+        "field_rename": {},
+        "type_changes": {
+          "user_id": "Integer -> String(128)"
+        },
+        "added_fields": [],
+        "removed_fields": [],
+        "biz_id_field": "project_id",
+        "note": "字段完全一致，仅user_id类型转换，M9主键id自增不使用M8的id"
+      },
+      "work_tasks -> work_tasks": {
+        "mapping_type": "1:1",
+        "field_rename": {},
+        "type_changes": {
+          "user_id": "Integer -> String(128)"
+        },
+        "added_fields": [],
+        "removed_fields": [],
+        "biz_id_field": "task_id",
+        "note": "字段完全一致，仅user_id类型转换"
+      },
+      "work_commits -> work_commits": {
+        "mapping_type": "1:1",
+        "field_rename": {},
+        "type_changes": {
+          "user_id": "Integer -> String(128)"
+        },
+        "added_fields": [],
+        "removed_fields": [],
+        "biz_id_field": "commit_id",
+        "note": "字段完全一致，仅user_id类型转换"
+      },
+      "work_dev_code_usage -> work_dev_code_usage": {
+        "mapping_type": "1:1",
+        "field_rename": {},
+        "type_changes": {
+          "user_id": "Integer -> String(128)"
+        },
+        "added_fields": [],
+        "removed_fields": [],
+        "biz_id_field": "usage_id",
+        "note": "字段完全一致，仅user_id类型转换"
+      }
+    }
+  },
+
+  "migration_strategy": {
+    "approach": "全量一次性迁移（数据量小，26条记录）",
+    "estimated_duration": "1 hour",
+    "script_location": "M9-dev-workshop/backend/scripts/migrate_work_m8_to_m9.py",
+    "reconcile_script": "M9-dev-workshop/backend/scripts/reconcile_work.py",
+    "migration_features": [
+      "分批迁移（batch_size=1000）",
+      "幂等性检查（业务ID去重，唯一索引保护）",
+      "重试机制（指数退避，max_retries=3）",
+      "断点续传（checkpoint JSON文件）",
+      "ProgressTracker进度报告+ETA",
+      "支持 --full, --dry-run, --resume, --batch-size 参数"
+    ],
+    "steps": [
+      {
+        "step": 1,
+        "name": "模型准备",
+        "status": "completed",
+        "tasks": [
+          "在M9 models.py中新增4个SQLAlchemy模型",
+          "确保init_db()启动时自动建表",
+          "添加业务ID唯一索引用于幂等性"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "脚本开发",
+        "status": "completed",
+        "tasks": [
+          "编写迁移脚本 migrate_work_m8_to_m9.py",
+          "编写对账脚本 reconcile_work.py",
+          "本地dry-run测试通过"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "全量迁移",
+        "status": "completed",
+        "tasks": [
+          "执行全量迁移（26条记录，0失败）",
+          "对账验证：记录数一致，字段100%匹配",
+          "幂等性验证：二次运行全部跳过"
+        ]
+      },
+      {
+        "step": 4,
+        "name": "后续双写与清理",
+        "status": "pending",
+        "tasks": [
+          "M8写入时同步调用M9 API（双写阶段）",
+          "M8读取切换为M9 API（切读阶段）",
+          "观察期确认无误后删除M8原表"
+        ]
+      }
+    ]
+  },
+
+  "migration_results": {
+    "executed_at": "2026-07-17",
+    "total_source_rows": 26,
+    "total_migrated_rows": 26,
+    "total_failed_rows": 0,
+    "success_rate": "100%",
+    "table_results": {
+      "work_projects": {"source": 3, "migrated": 3, "failed": 0, "skipped": 0},
+      "work_tasks": {"source": 13, "migrated": 13, "failed": 0, "skipped": 0},
+      "work_commits": {"source": 8, "migrated": 8, "failed": 0, "skipped": 0},
+      "work_dev_code_usage": {"source": 2, "migrated": 2, "failed": 0, "skipped": 0}
+    },
+    "reconciliation": {
+      "count_match": true,
+      "sample_match": "100%",
+      "full_compare": true,
+      "diffs_found": 0
+    },
+    "idempotency_verified": true,
+    "duration_seconds": 0.06
+  },
+
+  "risks": [
+    {
+      "risk": "M9新增表与现有workspace_projects命名容易混淆",
+      "level": "low",
+      "mitigation": "保持M8原表名work_*前缀，workspace_*前缀明确表示文件工作区领域，模型类名和注释中明确区分"
+    },
+    {
+      "risk": "user_id类型不匹配（M8 Integer vs M9 String）",
+      "level": "medium",
+      "mitigation": "M9统一使用String(128)，迁移时自动转换，对账脚本也做类型标准化比较"
+    },
+    {
+      "risk": "M8控制塔展示开发数据需要实时调用M9",
+      "level": "low",
+      "mitigation": "M8通过API获取+本地缓存，开发数据非实时要求不高"
+    }
+  ],
+
+  "rollback_plan": {
+    "trigger_conditions": [
+      "迁移后数据不一致率超过1%",
+      "M9相关API不可用导致M8展示异常"
+    ],
+    "rollback_steps": [
+      "M8恢复直接读写本地work_*表",
+      "保留M9表数据用于调试（不删除）",
+      "排查问题后重新迁移"
+    ]
+  },
+
+  "success_criteria": [
+    "M9新表创建成功，索引完整",
+    "数据迁移后一致性100%（全量字段级对账通过）",
+    "幂等性验证通过（重复运行不产生重复数据）",
+    "user_id类型正确转换为String",
+    "迁移脚本和对账脚本均通过测试"
+  ]
+}

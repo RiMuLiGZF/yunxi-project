@@ -1,0 +1,461 @@
+{
+  "phase": "P1a",
+  "title": "生活管理 + 学业规划数据主权迁移 - M8 → M4",
+  "version": "1.0",
+  "status": "completed",
+  "domain": "life + study",
+  "completed_at": "2026-07-17",
+  "rows_migrated": 176,
+  "reconciliation_passed": true,
+
+  "background": {
+    "current_state": "生活管理和学业规划数据同时存在于 M8（控制塔）和 M4（场景引擎）中，M8 是当前主数据源",
+    "target_state": "M4 成为生活管理和学业规划数据的权威拥有者，M8 通过 API 或事件获取数据",
+    "reasoning": [
+      "生活管理（日程、待办、习惯、场景、财务等）是场景引擎的核心场景数据",
+      "学业规划（学习目标、计划、笔记、考试等）直接服务于学习场景",
+      "M4 定位是场景引擎，应持有场景相关的业务数据",
+      "M8 是控制塔，不应持有具体业务数据，仅做汇总展示"
+    ]
+  },
+
+  "source_m8": {
+    "database": "m8.db",
+    "module": "M8-control-tower",
+    "tables": [
+      {
+        "name": "life_schedules",
+        "category": "生活管理",
+        "fields_count": 16,
+        "id_field": "schedule_id",
+        "sample_rows": 5,
+        "notes": "日程表，字段名与M4完全一致"
+      },
+      {
+        "name": "life_todos",
+        "category": "生活管理",
+        "fields_count": 12,
+        "id_field": "todo_id",
+        "sample_rows": 8,
+        "notes": "待办事项表"
+      },
+      {
+        "name": "life_habits",
+        "category": "生活管理",
+        "fields_count": 14,
+        "id_field": "habit_id",
+        "sample_rows": 5,
+        "notes": "习惯打卡表"
+      },
+      {
+        "name": "life_habit_records",
+        "category": "生活管理",
+        "fields_count": 7,
+        "id_field": "id (自增)",
+        "idempotent_key": ["user_id", "habit_id", "date"],
+        "sample_rows": 35,
+        "notes": "习惯打卡记录表，使用复合业务键做幂等检查"
+      },
+      {
+        "name": "life_scenes",
+        "category": "生活管理",
+        "fields_count": 10,
+        "id_field": "scene_id",
+        "sample_rows": 5,
+        "notes": "场景模式表，scene_id为字符串"
+      },
+      {
+        "name": "life_rules",
+        "category": "生活管理",
+        "fields_count": 9,
+        "id_field": "rule_id",
+        "sample_rows": 4,
+        "notes": "自动化规则表"
+      },
+      {
+        "name": "life_finance_categories",
+        "category": "生活管理",
+        "fields_count": 10,
+        "id_field": "category_id",
+        "sample_rows": 5,
+        "notes": "财务分类表"
+      },
+      {
+        "name": "life_finance_records",
+        "category": "生活管理",
+        "fields_count": 8,
+        "id_field": "id (自增)",
+        "idempotent_key": ["user_id", "transaction_date", "amount", "category", "description"],
+        "sample_rows": 63,
+        "notes": "财务记录表，使用复合业务键做幂等检查"
+      },
+      {
+        "name": "life_meta",
+        "category": "生活管理",
+        "fields_count": 4,
+        "id_field": "meta_key",
+        "idempotent_key": ["user_id", "meta_key"],
+        "sample_rows": 5,
+        "notes": "元数据表，缺少created_at/updated_at字段，迁移时补默认值"
+      },
+      {
+        "name": "study_goals",
+        "category": "学业规划",
+        "fields_count": 14,
+        "id_field": "goal_id",
+        "sample_rows": 10,
+        "notes": "学习目标表，树形结构，缺少created_at/updated_at字段"
+      },
+      {
+        "name": "study_plans",
+        "category": "学业规划",
+        "fields_count": 12,
+        "id_field": "plan_id",
+        "sample_rows": 6,
+        "notes": "学习计划表，缺少created_at/updated_at字段"
+      },
+      {
+        "name": "study_notes",
+        "category": "学业规划",
+        "fields_count": 11,
+        "id_field": "note_id",
+        "sample_rows": 3,
+        "notes": "学习笔记表"
+      },
+      {
+        "name": "study_knowledge_categories",
+        "category": "学业规划",
+        "fields_count": 9,
+        "id_field": "category_id",
+        "sample_rows": 6,
+        "notes": "知识分类表，缺少created_at字段"
+      },
+      {
+        "name": "study_exams",
+        "category": "学业规划",
+        "fields_count": 11,
+        "id_field": "exam_id",
+        "sample_rows": 4,
+        "notes": "考试计划表，缺少created_at字段"
+      },
+      {
+        "name": "study_progress",
+        "category": "学业规划",
+        "fields_count": 8,
+        "id_field": "id (自增)",
+        "idempotent_key": ["user_id", "subject"],
+        "sample_rows": 5,
+        "notes": "科目进度表，使用复合业务键做幂等检查，缺少created_at/updated_at字段"
+      },
+      {
+        "name": "study_meta",
+        "category": "学业规划",
+        "fields_count": 4,
+        "id_field": "meta_key",
+        "idempotent_key": ["user_id", "meta_key"],
+        "sample_rows": 7,
+        "notes": "元数据表，缺少created_at/updated_at字段"
+      }
+    ],
+    "total_tables": 16,
+    "total_rows_sample": 176,
+    "user_id_type": "INTEGER"
+  },
+
+  "target_m4": {
+    "database": "m4.db",
+    "module": "M4-scene-engine",
+    "orm": "SQLAlchemy",
+    "model_files": ["src/models/db/life.py", "src/models/db/study.py"],
+    "tables": [
+      {
+        "name": "life_schedules",
+        "model": "LifeScheduleDB",
+        "fields_count": 16,
+        "id_field": "schedule_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_todos",
+        "model": "LifeTodoDB",
+        "fields_count": 12,
+        "id_field": "todo_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_habits",
+        "model": "LifeHabitDB",
+        "fields_count": 14,
+        "id_field": "habit_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_habit_records",
+        "model": "LifeHabitRecordDB",
+        "fields_count": 7,
+        "id_field": "id (自增)",
+        "notes": "字段与M8完全一致，自增id不由迁移控制"
+      },
+      {
+        "name": "life_scenes",
+        "model": "LifeSceneDB",
+        "fields_count": 10,
+        "id_field": "scene_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_rules",
+        "model": "LifeRuleDB",
+        "fields_count": 9,
+        "id_field": "rule_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_finance_categories",
+        "model": "LifeFinanceCategoryDB",
+        "fields_count": 10,
+        "id_field": "category_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "life_finance_records",
+        "model": "LifeFinanceRecordDB",
+        "fields_count": 8,
+        "id_field": "id (自增)",
+        "notes": "字段与M8完全一致，自增id不由迁移控制"
+      },
+      {
+        "name": "life_meta",
+        "model": "LifeMetaDB",
+        "fields_count": 6,
+        "id_field": "meta_key",
+        "notes": "比M8多created_at和updated_at字段，迁移时使用当前时间补默认值"
+      },
+      {
+        "name": "study_goals",
+        "model": "StudyGoalDB",
+        "fields_count": 16,
+        "id_field": "goal_id",
+        "notes": "比M8多created_at和updated_at字段"
+      },
+      {
+        "name": "study_plans",
+        "model": "StudyPlanDB",
+        "fields_count": 14,
+        "id_field": "plan_id",
+        "notes": "比M8多created_at和updated_at字段"
+      },
+      {
+        "name": "study_notes",
+        "model": "StudyNoteDB",
+        "fields_count": 11,
+        "id_field": "note_id",
+        "notes": "字段与M8完全一致"
+      },
+      {
+        "name": "study_knowledge_categories",
+        "model": "StudyKnowledgeCategoryDB",
+        "fields_count": 10,
+        "id_field": "category_id",
+        "notes": "比M8多created_at字段"
+      },
+      {
+        "name": "study_exams",
+        "model": "StudyExamDB",
+        "fields_count": 12,
+        "id_field": "exam_id",
+        "notes": "比M8多created_at字段"
+      },
+      {
+        "name": "study_progress",
+        "model": "StudyProgressDB",
+        "fields_count": 10,
+        "id_field": "id (自增)",
+        "notes": "比M8多created_at和updated_at字段"
+      },
+      {
+        "name": "study_meta",
+        "model": "StudyMetaDB",
+        "fields_count": 6,
+        "id_field": "meta_key",
+        "notes": "比M8多created_at和updated_at字段"
+      }
+    ],
+    "total_tables": 16,
+    "user_id_type": "String(128)"
+  },
+
+  "field_mapping_summary": {
+    "identical_fields": "14张表字段名完全一致，仅类型和默认值有差异",
+    "user_id_conversion": "M8 INTEGER → M4 String，通过 str() 转换",
+    "json_fields": [
+      {"table": "life_scenes", "field": "settings_json"},
+      {"table": "life_meta", "field": "meta_value"},
+      {"table": "study_goals", "field": "extra"},
+      {"table": "study_notes", "field": "tags"},
+      {"table": "study_meta", "field": "meta_value"}
+    ],
+    "datetime_fields": [
+      "created_at",
+      "updated_at",
+      "completed_at"
+    ],
+    "m4_extra_fields": {
+      "life_meta": ["created_at", "updated_at"],
+      "study_goals": ["created_at", "updated_at"],
+      "study_plans": ["created_at", "updated_at"],
+      "study_knowledge_categories": ["created_at"],
+      "study_exams": ["created_at"],
+      "study_progress": ["created_at", "updated_at"],
+      "study_meta": ["created_at", "updated_at"]
+    },
+    "extra_fields_default": "使用 datetime.utcnow() 作为默认值"
+  },
+
+  "idempotency_strategy": {
+    "description": "使用业务ID或复合业务键进行幂等检查，不依赖自增id",
+    "tables_with_business_id": [
+      "life_schedules (schedule_id + user_id)",
+      "life_todos (todo_id + user_id)",
+      "life_habits (habit_id + user_id)",
+      "life_scenes (scene_id + user_id)",
+      "life_rules (rule_id + user_id)",
+      "life_finance_categories (category_id + user_id)",
+      "study_goals (goal_id + user_id)",
+      "study_plans (plan_id + user_id)",
+      "study_notes (note_id + user_id)",
+      "study_knowledge_categories (category_id + user_id)",
+      "study_exams (exam_id + user_id)"
+    ],
+    "tables_with_composite_key": [
+      "life_habit_records (user_id + habit_id + date)",
+      "life_finance_records (user_id + transaction_date + amount + category + description)",
+      "life_meta (user_id + meta_key)",
+      "study_progress (user_id + subject)",
+      "study_meta (user_id + meta_key)"
+    ]
+  },
+
+  "migration_scripts": {
+    "main_script": "M4-scene-engine/scripts/migrate_life_study_m8_to_m4.py",
+    "reconcile_script": "M4-scene-engine/scripts/reconcile_life_study.py",
+    "checkpoint_file": "M4-scene-engine/scripts/checkpoint_p1a_life_study.json",
+    "features": [
+      "MigrationStats 数据类统计迁移结果",
+      "分批迁移（batch_size=1000）",
+      "幂等性检查（业务ID/复合键去重）",
+      "重试机制（指数退避，max_retries=3）",
+      "断点续传（checkpoint JSON文件）",
+      "ProgressTracker 进度报告 + ETA",
+      "详细的日志输出",
+      "支持 --full, --start-date, --dry-run, --resume, --batch-size, --tables 参数"
+    ],
+    "reconcile_features": [
+      "各表记录数对比",
+      "抽样数据对比（默认10条随机抽样）",
+      "支持按 user_id 过滤对账",
+      "JSON字段序列化对比",
+      "日期时间字段格式兼容比较",
+      "输出不一致报告",
+      "支持 --table, --sample-size, --output, --user-id 参数"
+    ]
+  },
+
+  "migration_execution": {
+    "phase": "completed",
+    "dry_run_passed": true,
+    "full_migration_passed": true,
+    "reconciliation_passed": true,
+    "idempotency_verified": true,
+    "total_rows_migrated": 176,
+    "total_tables_migrated": 16,
+    "failed_rows": 0,
+    "skipped_rows": 0,
+    "execution_time_seconds": 1.0,
+    "test_date": "2026-07-17"
+  },
+
+  "reconciliation_results": {
+    "overall_status": "PASSED",
+    "user_id_filtered": "1",
+    "m8_total_records": 176,
+    "m4_total_records": 176,
+    "diff": 0,
+    "tables_passed": 16,
+    "tables_failed": 0,
+    "sample_match_rate": "100%",
+    "life_management": {
+      "tables": 9,
+      "passed": 9,
+      "records": 135
+    },
+    "study_planning": {
+      "tables": 7,
+      "passed": 7,
+      "records": 41
+    }
+  },
+
+  "risks": [
+    {
+      "risk": "user_id 类型不匹配（M8 INTEGER vs M4 String）",
+      "level": "high",
+      "mitigation": "迁移时统一转换为字符串，对账时使用 str_compare 策略",
+      "status": "resolved"
+    },
+    {
+      "risk": "自增ID表的幂等性问题（直接插入id会冲突）",
+      "level": "medium",
+      "mitigation": "使用复合业务键做幂等检查，不向INSERT传入自增id字段",
+      "status": "resolved"
+    },
+    {
+      "risk": "M8部分表缺少created_at/updated_at字段",
+      "level": "low",
+      "mitigation": "迁移时使用 datetime.utcnow() 补默认值",
+      "status": "resolved"
+    },
+    {
+      "risk": "M4中已有预置数据（多用户测试数据）",
+      "level": "low",
+      "mitigation": "幂等检查基于user_id + 业务ID，不同用户数据互不影响",
+      "status": "resolved"
+    },
+    {
+      "risk": "会话事务回滚后状态异常",
+      "level": "medium",
+      "mitigation": "插入失败时自动 rollback 会话，保证后续操作正常",
+      "status": "resolved"
+    }
+  ],
+
+  "rollback_plan": {
+    "trigger_conditions": [
+      "数据一致性对账失败率超过 1%",
+      "迁移后M4功能异常",
+      "数据丢失或损坏"
+    ],
+    "rollback_steps": [
+      "M8 数据保持不变，作为回滚数据源",
+      "删除 M4 中该批次迁移的数据（按 user_id 过滤）",
+      "重新从 M8 迁移数据",
+      "验证对账通过后恢复服务"
+    ]
+  },
+
+  "success_criteria": [
+    "16张表全部迁移成功，0失败",
+    "数据对账全部通过（数量一致 + 抽样匹配）",
+    "幂等性验证通过（二次运行全部跳过）",
+    "M4 场景功能不受影响",
+    "迁移脚本和对账脚本可重复执行"
+  ],
+
+  "notes": [
+    "M4 中已存在 test_user 和 default 用户的预置数据，迁移时使用 user_id + 业务ID 幂等检查避免冲突",
+    "life_habit_records、life_finance_records、study_progress 三张自增ID表使用复合业务键做幂等检查",
+    "6张表缺少时间戳字段，迁移时自动补当前UTC时间",
+    "JSON字段（settings_json, meta_value, extra, tags）需要正确的序列化/反序列化处理",
+    "对账时推荐使用 --user-id 参数过滤特定用户，避免多用户数据混淆"
+  ]
+}
