@@ -154,10 +154,23 @@ app = FastAPI(
 # 注册全局异常处理器
 app.add_exception_handler(Exception, global_exception_handler)
 
-# ===== 配置 CORS 中间件 =====
+# ===== 配置 CORS 中间件（统一安全策略：生产环境禁用通配符） =====
+import os as _os_m9_cors
+_cors_env = _os_m9_cors.environ.get("YUNXI_ENV", _os_m9_cors.environ.get("ENV", "development")).lower()
+_cors_is_prod = _cors_env in ("production", "prod", "release")
+_cors_origins = settings.cors_origins
+_cors_has_wildcard = any(o == "*" for o in _cors_origins)
+
+if _cors_is_prod and (not _cors_origins or _cors_has_wildcard):
+    raise RuntimeError(
+        "[CORS] 生产环境安全校验失败：M9 开发者工坊的 CORS origins "
+        "包含通配符或为空。生产环境必须显式配置具体的允许来源，"
+        "禁止使用通配符 '*'。请设置 M9_CORS_ORIGINS 环境变量。"
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

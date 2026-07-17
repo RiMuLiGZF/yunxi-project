@@ -13,7 +13,7 @@ if (-not (Test-Path $PidFile)) {
     Write-Host "PID 文件未找到: $PidFile" -ForegroundColor Yellow
     Write-Host "尝试通过端口查找进程..." -ForegroundColor Yellow
     
-    $Ports = 8000..8012
+    $Ports = @(8080) + (8000..8012)
     foreach ($Port in $Ports) {
         $Conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
         if ($Conn) {

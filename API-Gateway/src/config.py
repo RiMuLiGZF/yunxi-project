@@ -21,6 +21,10 @@ class GatewaySettings(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8080
     log_level: str = "info"
+    env: str = "development"  # 运行环境：development / production
+
+    # CORS
+    cors_origins: str = "*"  # 允许的来源（逗号分隔，生产环境禁止使用 *）
     
     # 认证
     api_key_header: str = "X-API-Key"
@@ -119,6 +123,8 @@ class GatewaySettings(BaseModel):
             host=os.getenv("GATEWAY_HOST", "0.0.0.0"),
             port=int(os.getenv("GATEWAY_PORT", "8080")),
             log_level=os.getenv("GATEWAY_LOG_LEVEL", "info"),
+            env=os.getenv("YUNXI_ENV", os.getenv("ENV", "development")),
+            cors_origins=os.getenv("GATEWAY_CORS_ORIGINS", os.getenv("CORS_ORIGINS", "*")),
             api_key_header=os.getenv("GATEWAY_API_KEY_HEADER", "X-API-Key"),
             jwt_header=os.getenv("GATEWAY_JWT_HEADER", "Authorization"),
             rate_limit_per_minute=int(os.getenv("GATEWAY_RATE_LIMIT_TOTAL", "600")),

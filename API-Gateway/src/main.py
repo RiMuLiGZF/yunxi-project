@@ -41,10 +41,37 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 中间件
+# CORS 中间件（统一安全策略：生产环境禁用通配符，开发环境默认localhost）
+def _resolve_cors_origins() -> list:
+    """解析 CORS 来源列表，应用统一安全策略"""
+    env = settings.env.lower()
+    is_prod = env in ("production", "prod", "release")
+    raw = settings.cors_origins
+
+    if raw == "*" or not raw.strip():
+        if is_prod:
+            raise RuntimeError(
+                "[CORS] 生产环境安全校验失败：API-Gateway 的 CORS origins "
+                f"配置为 '{raw}'。生产环境必须显式配置具体的允许来源，"
+                "禁止使用通配符 '*'。请设置 GATEWAY_CORS_ORIGINS 或 CORS_ORIGINS 环境变量。"
+            )
+        # 开发环境默认 localhost 常用端口
+        dev_ports = [3000, 5173, 8080] + list(range(8000, 8013))
+        origins = [f"http://localhost:{p}" for p in dev_ports] + \
+                  [f"http://127.0.0.1:{p}" for p in dev_ports]
+        logger.warning(
+            f"[CORS] ⚠️ 开发环境 CORS 配置为 '{raw}'，"
+            f"已自动替换为 localhost 默认端口列表（{len(origins)} 个来源）。"
+        )
+        return origins
+
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+_cors_origins = _resolve_cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

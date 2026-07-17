@@ -44,14 +44,30 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS 中间件
+# CORS 中间件（统一安全策略：生产环境禁用通配符，开发环境默认localhost）
 # ---------------------------------------------------------------------------
 
-cors_origins = os.environ.get("CORS_ORIGINS", "*")
-if cors_origins == "*":
-    allow_origins = ["*"]
+_cors_env = os.environ.get("YUNXI_ENV", os.environ.get("ENV", "development")).lower()
+_cors_is_prod = _cors_env in ("production", "prod", "release")
+_cors_raw = os.environ.get("CORS_ORIGINS", "*")
+
+if _cors_raw == "*" or not _cors_raw.strip():
+    if _cors_is_prod:
+        raise RuntimeError(
+            "[CORS] 生产环境安全校验失败：M4 场景引擎的 CORS origins "
+            f"配置为 '{_cors_raw}'。生产环境必须显式配置具体的允许来源，"
+            "禁止使用通配符 '*'。请设置 CORS_ORIGINS 环境变量。"
+        )
+    # 开发环境默认 localhost 常用端口
+    _cors_dev_ports = [3000, 5173, 8080] + list(range(8000, 8013))
+    allow_origins = [f"http://localhost:{p}" for p in _cors_dev_ports] + \
+                    [f"http://127.0.0.1:{p}" for p in _cors_dev_ports]
+    logger.warning(
+        f"[CORS] 开发环境 CORS 配置为 '{_cors_raw}'，"
+        f"已自动替换为 localhost 默认端口列表（{len(allow_origins)} 个来源）。"
+    )
 else:
-    allow_origins = cors_origins.split(",")
+    allow_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,

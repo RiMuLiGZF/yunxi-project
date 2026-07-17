@@ -29,6 +29,7 @@ if (Test-Path $EnvFile) {
 
 # Module definitions
 $M = @(
+    @{N="Gateway";         D="API-Gateway";           C="python server.py";       P=$env:GATEWAY_PORT; O=1}
     @{N="M5 TideMemory";  D="M5-tide-memory";       C="python server.py";       P=$env:M5_PORT;  O=1}
     @{N="M11 MCP Bus";    D="M11-mcp-bus";          C="python server.py";       P=$env:M11_PORT; O=1}
     @{N="M12 Security";   D="M12-security-shield";  C="python server.py";       P=$env:M12_PORT; O=1}
@@ -45,7 +46,7 @@ $M = @(
 )
 
 Write-Host "`n========================================" -ForegroundColor White
-Write-Host "  Yunxi System - Start All 13 Modules" -ForegroundColor White
+Write-Host "  Yunxi System - Start All 14 Modules" -ForegroundColor White
 Write-Host "========================================`n" -ForegroundColor White
 
 $Results = @{}
@@ -122,7 +123,7 @@ foreach ($Mod in $M) {
     }
     Write-Host ("  {0,-20} Port={1,-5} {2}" -f $Mod.N, $Mod.P, $S) -ForegroundColor $Color
 }
-Write-Host ("`n  Total: {0}/13 started" -f $Ok) -ForegroundColor $(if ($Ok -eq 13) {"Green"} else {"Yellow"})
+Write-Host ("`n  Total: {0}/14 started" -f $Ok) -ForegroundColor $(if ($Ok -eq 14) {"Green"} else {"Yellow"})
 
 # Save PIDs
 if ($Pids.Count -gt 0) {

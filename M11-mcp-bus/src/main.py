@@ -6,7 +6,8 @@ MCP 总线服务的主入口，整合所有路由和中间件。
 Phase 1 安全加固：
 - 管理接口（/api/admin/*, /api/console/*, /api/v1/monitor/*）接入 API Key 鉴权
 - 鉴权通过 FastAPI 依赖注入（Depends(get_current_api_key)）实现
-- 公开接口保持不变：/health, /m8/*, /mcp, /docs, /redoc, /openapi.json
+- 公开接口保持不变：/health, /m8/*, /docs, /redoc, /openapi.json
+- MCP 端点（/mcp, /mcp/sse, /api/v1/*）有独立的 API Key 鉴权机制
 - 关键操作接入审计日志（服务注册/注销、API Key 管理、工具调用）
 - 数据库会话统一使用 Depends(get_db) 依赖注入
 """
@@ -138,11 +139,29 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # ---------- CORS 中间件 ----------
-    # 开发环境允许所有来源，生产环境应配置具体来源
+    # ---------- CORS 中间件（统一安全策略：生产环境禁用通配符） ----------
+    import os as _os_m11_cors
+    _cors_env = _os_m11_cors.environ.get("YUNXI_ENV", _os_m11_cors.environ.get("ENV", "development")).lower()
+    _cors_is_prod = _cors_env in ("production", "prod", "release")
+    _cors_list = settings.cors_origin_list
+    _cors_has_wildcard = any(o == "*" for o in _cors_list)
+
+    if _cors_is_prod and (not _cors_list or _cors_has_wildcard):
+        raise RuntimeError(
+            "[CORS] 生产环境安全校验失败：M11 MCP 总线的 CORS origins "
+            "包含通配符或为空。生产环境必须显式配置具体的允许来源，"
+            "禁止使用通配符 '*'。请设置 M11_CORS_ORIGINS 或 CORS_ORIGINS 环境变量。"
+        )
+
+    # 开发环境如果配置为 "*" 或空，替换为默认 localhost 列表
+    if not _cors_is_prod and (not _cors_list or _cors_has_wildcard):
+        _cors_dev_ports = [3000, 5173, 8080] + list(range(8000, 8013))
+        _cors_list = [f"http://localhost:{p}" for p in _cors_dev_ports] + \
+                     [f"http://127.0.0.1:{p}" for p in _cors_dev_ports]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin_list,
+        allow_origins=_cors_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

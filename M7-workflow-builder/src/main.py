@@ -182,12 +182,28 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # CORS 中间件
-    cors_origins = os.environ.get("M7_CORS_ORIGINS", "*")
-    cors_list = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    # CORS 中间件（统一安全策略：生产环境禁用通配符，开发环境默认localhost）
+    _cors_env = os.environ.get("YUNXI_ENV", os.environ.get("ENV", "development")).lower()
+    _cors_is_prod = _cors_env in ("production", "prod", "release")
+    _cors_raw = os.environ.get("M7_CORS_ORIGINS", os.environ.get("CORS_ORIGINS", "*"))
+
+    if _cors_raw == "*" or not _cors_raw.strip():
+        if _cors_is_prod:
+            raise RuntimeError(
+                "[CORS] 生产环境安全校验失败：M7 工作流构建器的 CORS origins "
+                f"配置为 '{_cors_raw}'。生产环境必须显式配置具体的允许来源，"
+                "禁止使用通配符 '*'。请设置 M7_CORS_ORIGINS 或 CORS_ORIGINS 环境变量。"
+            )
+        # 开发环境默认 localhost 常用端口
+        _cors_dev_ports = [3000, 5173, 8080] + list(range(8000, 8013))
+        cors_list = [f"http://localhost:{p}" for p in _cors_dev_ports] + \
+                    [f"http://127.0.0.1:{p}" for p in _cors_dev_ports]
+    else:
+        cors_list = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_list if cors_list else ["*"],
+        allow_origins=cors_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

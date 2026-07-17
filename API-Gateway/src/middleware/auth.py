@@ -15,12 +15,15 @@ import time
 import os
 import base64
 import json
+import logging
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from ..config import settings
+
+logger = logging.getLogger("yunxi-gateway.auth")
 
 # 尝试导入 jose 库进行 JWT 验证
 try:

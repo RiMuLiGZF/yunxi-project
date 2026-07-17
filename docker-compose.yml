@@ -41,6 +41,45 @@ services:
     restart: unless-stopped
 
   # ----------------------------------------------------------
+  # API Gateway - 统一接入层（路由转发、认证鉴权、限流熔断）
+  # ----------------------------------------------------------
+  yunxi-gateway:
+    build:
+      context: .
+      dockerfile: API-Gateway/Dockerfile
+    container_name: yunxi-gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./config/yunxi.env
+    environment:
+      - GATEWAY_PORT=8080
+      - M8_BASE_URL=http://yunxi-m8:8008
+      - M1_BASE_URL=http://yunxi-m1:8001
+      - M2_BASE_URL=http://yunxi-m2:8002
+      - M3_BASE_URL=http://yunxi-m3:8003
+      - M4_BASE_URL=http://yunxi-m4:8004
+      - M5_BASE_URL=http://yunxi-m5:8005
+      - M6_BASE_URL=http://yunxi-m6:8006
+      - M7_BASE_URL=http://yunxi-m7:8007
+      - M9_BASE_URL=http://yunxi-m9:8009
+      - M10_BASE_URL=http://yunxi-m10:8010
+      - M11_BASE_URL=http://yunxi-m11:8011
+      - M12_BASE_URL=http://yunxi-m12:8012
+    depends_on:
+      - redis
+      - yunxi-m8
+    networks:
+      - yunxi-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
   # M0 主理人管控台 - 系统总入口
   # ----------------------------------------------------------
   yunxi-m0:
@@ -159,7 +198,7 @@ services:
   yunxi-m4:
     build:
       context: .
-      dockerfile: m4-scene-engine/Dockerfile
+      dockerfile: M4-scene-engine/Dockerfile
     container_name: yunxi-m4
     ports:
       - "8004:8004"
@@ -300,7 +339,7 @@ services:
   yunxi-m9:
     build:
       context: .
-      dockerfile: M9-programming-dev/Dockerfile
+      dockerfile: M9-dev-workshop/Dockerfile
     container_name: yunxi-m9
     ports:
       - "8009:8009"
