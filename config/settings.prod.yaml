@@ -1,0 +1,309 @@
+# 云汐系统生产环境配置模板
+# 使用说明：复制此文件为 settings.yaml，然后根据实际环境修改
+
+# ============================================================
+# 系统基础配置
+# ============================================================
+system:
+  name: "云汐系统"
+  version: "1.0.0"
+  env: "production"  # production / staging / development
+  timezone: "Asia/Shanghai"
+  log_level: "INFO"  # DEBUG / INFO / WARNING / ERROR
+
+# ============================================================
+# 网络配置
+# ============================================================
+network:
+  host: "0.0.0.0"
+  port: 8000
+  base_url: "http://yunxi.example.com"
+  cors_origins:
+    - "http://yunxi.example.com"
+    - "https://yunxi.example.com"
+  trusted_proxies:
+    - "127.0.0.1"
+
+# ============================================================
+# 数据存储配置
+# ============================================================
+data:
+  data_dir: "./data"
+  backup_dir: "./backups"
+  temp_dir: "./temp"
+  log_dir: "./logs"
+
+  # 数据库配置
+  database:
+    type: "sqlite"
+    filename: "yunxi.db"
+    wal_mode: true
+    journal_mode: "WAL"
+    synchronous: "NORMAL"
+    busy_timeout: 5000
+    cache_size: -20000  # 负号表示 KB
+    mmap_size: 30000000000  # 30GB
+
+  # 连接池配置
+  connection_pool:
+    max_connections: 20
+    min_connections: 2
+    max_idle_time: 300
+    acquire_timeout: 10
+    test_on_borrow: true
+
+# ============================================================
+# 备份配置
+# ============================================================
+backup:
+  enabled: true
+
+  # 全量备份
+  full_backup:
+    enabled: true
+    schedule: "daily"  # daily / weekly / interval
+    hour: 2  # 凌晨2点
+    minute: 0
+    max_keep: 30  # 保留30份
+    validate: true
+    validation_level: "integrity"  # quick / checksum / integrity / full
+
+  # 增量备份
+  incremental_backup:
+    enabled: true
+    interval_hours: 6  # 每6小时
+    max_keep: 48  # 保留48份（约3天的增量）
+    validate: true
+
+  # 异地备份
+  remote_backup:
+    enabled: false
+    remote_path: "./remote_backups"  # 生产环境改为真实远程路径
+    copy_full: true
+    copy_incremental: true
+    max_remote_backups: 10
+    encryption: false
+    encryption_key: ""  # base64 编码的密钥
+
+  # 备份前通知
+  notify_before_backup: false
+  # 备份后通知
+  notify_after_backup: false
+
+# ============================================================
+# 高可用配置
+# ============================================================
+ha:
+  enabled: true
+
+  # 健康检查
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 5
+    failure_threshold: 3
+    recovery_threshold: 2
+    auto_remove: true
+    auto_recover: true
+
+  # 检查项
+  checks:
+    http: true
+    tcp: true
+    dependency: true
+    resource: true
+
+  # 资源阈值
+  resource_thresholds:
+    cpu_percent: 90
+    memory_percent: 90
+    disk_percent: 90
+
+  # 故障转移
+  failover:
+    enabled: true
+    mode: "active_passive"
+    auto_failover: true
+    auto_recovery: false  # 不自动回切，避免抖动
+    failure_threshold: 3
+    recovery_threshold: 3
+    check_interval: 5
+    switch_cooldown: 30
+
+  # 负载均衡
+  load_balancer:
+    strategy: "round_robin"  # round_robin / weighted_round_robin / least_connections / fastest_response / consistent_hash
+    health_check: true
+
+# ============================================================
+# 安全配置
+# ============================================================
+security:
+  # 认证
+  auth:
+    jwt_secret: "CHANGE_THIS_TO_A_RANDOM_SECRET_KEY"  # 生产环境必须修改！
+    jwt_algorithm: "HS256"
+    access_token_expire_minutes: 60
+    refresh_token_expire_days: 7
+    issuer: "yunxi-system"
+    audience: "yunxi-api"
+
+  # 密码策略
+  password_policy:
+    min_length: 8
+    require_uppercase: true
+    require_lowercase: true
+    require_digit: true
+    require_special: false
+    max_age_days: 90
+    history_count: 5
+
+  # 登录安全
+  login:
+    max_attempts: 5
+    lockout_minutes: 15
+    window_minutes: 15
+    require_2fa: false  # 是否要求双因素认证
+
+  # CORS
+  cors:
+    enabled: true
+    allow_origins:
+      - "http://yunxi.example.com"
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    allow_headers: ["*"]
+    allow_credentials: true
+    max_age: 3600
+
+  # 限流
+  rate_limit:
+    enabled: true
+    global_limit: 1000  # 每分钟全局请求数
+    per_ip_limit: 100   # 每分钟每IP请求数
+    burst: 50           # 突发流量
+
+  # 安全头
+  security_headers:
+    enabled: true
+    hsts: true
+    x_frame_options: "DENY"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+
+# ============================================================
+# 监控配置
+# ============================================================
+monitoring:
+  enabled: true
+
+  # 健康检查端点
+  health_endpoint:
+    enabled: true
+    path: "/health"
+    deep_check_param: "deep"
+
+  # 指标端点
+  metrics_endpoint:
+    enabled: true
+    path: "/metrics"
+
+  # 日志
+  logging:
+    level: "INFO"
+    format: "json"  # text / json
+    max_file_size_mb: 100
+    max_files: 10
+    rotation: "daily"  # size / daily
+
+  # 告警
+  alerts:
+    enabled: false
+    channels: []  # email / webhook / sms
+
+# ============================================================
+# 模块配置
+# ============================================================
+modules:
+  # 各模块开关
+  m0_principal_console:
+    enabled: true
+    port: 8000
+
+  m1_agent_hub:
+    enabled: true
+    port: 8001
+
+  m2_skills_cluster:
+    enabled: true
+    port: 8002
+
+  m3_edge_cloud:
+    enabled: true
+    port: 8003
+
+  m4_scene_engine:
+    enabled: true
+    port: 8004
+
+  m5_tide_memory:
+    enabled: true
+    port: 8005
+
+  m6_hardware:
+    enabled: false  # 生产环境按需启用
+    port: 8006
+
+  m7_workflow:
+    enabled: true
+    port: 8007
+
+  m8_control_tower:
+    enabled: true
+    port: 8008
+
+  api_gateway:
+    enabled: true
+    port: 8080
+
+# ============================================================
+# 日志配置
+# ============================================================
+logging:
+  version: 1
+  disable_existing_loggers: false
+
+  formatters:
+    standard:
+      format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+    json:
+      format: "json"
+
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: standard
+      stream: ext://sys.stdout
+
+    file:
+      class: logging.handlers.RotatingFileHandler
+      level: INFO
+      formatter: standard
+      filename: ./logs/yunxi.log
+      maxBytes: 104857600  # 100MB
+      backupCount: 10
+      encoding: utf-8
+
+    error_file:
+      class: logging.handlers.RotatingFileHandler
+      level: ERROR
+      formatter: standard
+      filename: ./logs/error.log
+      maxBytes: 104857600
+      backupCount: 10
+      encoding: utf-8
+
+  root:
+    level: INFO
+    handlers: [console, file, error_file]
