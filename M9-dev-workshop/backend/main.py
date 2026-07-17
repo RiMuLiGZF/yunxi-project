@@ -638,23 +638,188 @@ async def m8_config_reload(x_m8_token: str = Header(None)):
     return {"code": 0, "message": "ok", "data": {"changes": changes, "version": APP_VERSION}}
 
 
-# ===== 健康检查接口 =====
+# ===== 标准化可观测性路由（健康检查 + Prometheus 指标） =====
+if _observability_available:
+    try:
+        from shared.core.observability import create_observability_router, HealthChecker
+        from shared.core.health import CheckResult
+
+        # 创建 M9 自定义健康检查器
+        m9_checker = HealthChecker(
+            module_name="m9",
+            version=APP_VERSION,
+            module_display_name="开发工坊",
+        )
+
+        # 注册轻量检查：内存
+        m9_checker.register_memory_check(threshold_percent=90.0, lightweight=True)
+
+        # 注册轻量检查：磁盘
+        m9_checker.register_disk_check(
+            path=str(BASE_DIR),
+            threshold_percent=90.0,
+            lightweight=True,
+        )
+
+        # 注册深度检查：数据库（核心依赖）
+        def _check_m9_db() -> CheckResult:
+            start_t = time.time()
+            try:
+                from models import SessionLocal
+                db = SessionLocal()
+                try:
+                    db.execute("SELECT 1")
+                    resp_ms = (time.time() - start_t) * 1000
+                    return CheckResult.healthy(
+                        type="sqlalchemy",
+                        response_time_ms=resp_ms,
+                    )
+                except Exception as e:
+                    resp_ms = (time.time() - start_t) * 1000
+                    return CheckResult.unhealthy(
+                        error=str(e),
+                        type="sqlalchemy",
+                        response_time_ms=resp_ms,
+                    )
+                finally:
+                    db.close()
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.unhealthy(
+                    error=str(e),
+                    type="sqlalchemy",
+                    response_time_ms=resp_ms,
+                )
+
+        m9_checker.register_check("database", _check_m9_db, critical=True, lightweight=False)
+
+        # 注册深度检查：VSCode（M9 特有）
+        def _check_m9_vscode() -> CheckResult:
+            start_t = time.time()
+            try:
+                from vscode_manager import get_vscode_manager
+                vscode_mgr = get_vscode_manager()
+                installed = vscode_mgr.is_installed()
+                procs = vscode_mgr.get_running_processes()
+                resp_ms = (time.time() - start_t) * 1000
+                if installed:
+                    return CheckResult.healthy(
+                        installed=True,
+                        running_instances=len(procs),
+                        response_time_ms=resp_ms,
+                    )
+                else:
+                    return CheckResult.degraded(
+                        error="VS Code not installed",
+                        installed=False,
+                        running_instances=len(procs),
+                        response_time_ms=resp_ms,
+                    )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        m9_checker.register_check("vscode", _check_m9_vscode, critical=False, lightweight=False)
+
+        # 注册深度检查：MCP（M9 特有）
+        def _check_m9_mcp() -> CheckResult:
+            start_t = time.time()
+            try:
+                from mcp_bridge import get_mcp_registry
+                mcp_registry = get_mcp_registry()
+                tools = mcp_registry.list_tools()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    tool_count=len(tools),
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        m9_checker.register_check("mcp", _check_m9_mcp, critical=False, lightweight=False)
+
+        # 注册深度检查：工作区（M9 特有）
+        def _check_m9_workspace() -> CheckResult:
+            start_t = time.time()
+            try:
+                from workspace_manager import get_workspace_manager
+                ws_mgr = get_workspace_manager()
+                stats = ws_mgr.get_statistics()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    total_projects=stats.get("total_projects", 0),
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        m9_checker.register_check("workspace", _check_m9_workspace, critical=False, lightweight=False)
+
+        # 创建可观测性路由并注册
+        obs_router = create_observability_router(
+            service_name="m9",
+            version=APP_VERSION,
+            health_checker=m9_checker,
+        )
+        app.include_router(obs_router)
+        logger.info("标准化可观测性路由已注册（/health + /metrics）")
+    except Exception as e:
+        logger.warning(f"标准化可观测性路由注册失败: {e}")
+
+
+# ===== 健康检查接口（向后兼容） =====
 @app.get("/health", summary="健康检查")
 def health_check():
-    """服务健康检查接口"""
-    from vscode_manager import get_vscode_manager
-    from mcp_bridge import get_mcp_registry
+    """服务健康检查接口 - 旧格式，向后兼容"""
+    if _observability_available:
+        try:
+            from shared.core.observability import get_health_checker
+            checker = get_health_checker()
+            import asyncio
+            result = asyncio.run(checker.async_check(deep=False))
+            health_data = result.to_dict()
+            return {
+                "status": health_data["status"],
+                "service": "yunxi-m9-dev-workshop",
+                "version": APP_VERSION,
+                "uptime_seconds": health_data["uptime_seconds"],
+                "checks": health_data["checks"],
+            }
+        except Exception:
+            pass
 
-    vscode_mgr = get_vscode_manager()
-    mcp_registry = get_mcp_registry()
+    # 回退到旧版
+    try:
+        from vscode_manager import get_vscode_manager
+        from mcp_bridge import get_mcp_registry
 
-    return {
-        "status": "healthy",
-        "service": "yunxi-m9-dev-workshop",
-        "version": APP_VERSION,
-        "vscode_installed": vscode_mgr.is_installed(),
-        "mcp_tools": len(mcp_registry.list_tools()),
-    }
+        vscode_mgr = get_vscode_manager()
+        mcp_registry = get_mcp_registry()
+
+        return {
+            "status": "healthy",
+            "service": "yunxi-m9-dev-workshop",
+            "version": APP_VERSION,
+            "vscode_installed": vscode_mgr.is_installed(),
+            "mcp_tools": len(mcp_registry.list_tools()),
+        }
+    except Exception:
+        return {
+            "status": "healthy",
+            "service": "yunxi-m9-dev-workshop",
+            "version": APP_VERSION,
+        }
 
 
 @app.get("/api/info", summary="API 信息")

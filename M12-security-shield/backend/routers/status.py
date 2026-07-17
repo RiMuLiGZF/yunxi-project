@@ -1,10 +1,13 @@
 """
 云汐 M12 安全盾 - 状态/健康检查 API
 提供服务状态、健康检查、模块信息等接口
+
+第三阶段增强：接入 shared.core.observability 标准化健康检查，
+支持 deep 深度检查、Prometheus 指标输出。
 """
 
 import time
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
 # 兼容相对导入和直接运行
@@ -32,14 +35,201 @@ router = APIRouter(prefix="/api/m12/status", tags=["M12-状态检查"])
 
 
 # ===========================================================================
-# 健康检查
+# 标准化健康检查器（懒加载）
+# ===========================================================================
+
+_m12_health_checker = None
+_m12_obs_available = None
+
+
+def _get_obs_available() -> bool:
+    """检查标准化可观测性是否可用."""
+    global _m12_obs_available
+    if _m12_obs_available is not None:
+        return _m12_obs_available
+
+    try:
+        from shared.core.observability import HealthChecker  # noqa: F401
+        _m12_obs_available = True
+    except ImportError:
+        _m12_obs_available = False
+
+    return _m12_obs_available
+
+
+def _get_health_checker():
+    """获取或创建 M12 标准化健康检查器."""
+    global _m12_health_checker
+    if _m12_health_checker is not None:
+        return _m12_health_checker
+
+    if not _get_obs_available():
+        return None
+
+    try:
+        from shared.core.observability import HealthChecker
+        from shared.core.observability.health import CheckResult
+
+        settings = get_settings()
+        checker = HealthChecker(
+            module_name="m12",
+            version=settings.version,
+            module_display_name="安全盾",
+        )
+
+        # 注册轻量检查：内存
+        checker.register_memory_check(threshold_percent=90.0, lightweight=True)
+
+        # 注册轻量检查：磁盘
+        checker.register_disk_check(
+            path=".",
+            threshold_percent=90.0,
+            lightweight=True,
+        )
+
+        # 注册深度检查：数据库（核心）
+        def _check_db() -> CheckResult:
+            start_t = time.time()
+            try:
+                from ..database import SessionLocal
+                db = SessionLocal()
+                try:
+                    db.execute("SELECT 1")
+                    resp_ms = (time.time() - start_t) * 1000
+                    return CheckResult.healthy(
+                        type="sqlalchemy",
+                        response_time_ms=resp_ms,
+                    )
+                except Exception as e:
+                    resp_ms = (time.time() - start_t) * 1000
+                    return CheckResult.unhealthy(
+                        error=str(e),
+                        type="sqlalchemy",
+                        response_time_ms=resp_ms,
+                    )
+                finally:
+                    db.close()
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    type="sqlalchemy",
+                    response_time_ms=resp_ms,
+                )
+
+        checker.register_check("database", _check_db, critical=True, lightweight=False)
+
+        # 注册深度检查：WAF 引擎（M12 特有）
+        def _check_waf() -> CheckResult:
+            start_t = time.time()
+            try:
+                waf = get_waf_engine()
+                status = waf.get_status()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    enabled=status.get("enabled", False),
+                    total_rules=status.get("total_rules", 0),
+                    active_rules=status.get("active_rules", 0),
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        checker.register_check("waf", _check_waf, critical=False, lightweight=False)
+
+        # 注册深度检查：速率限制器（M12 特有）
+        def _check_rate_limiter() -> CheckResult:
+            start_t = time.time()
+            try:
+                rl = get_rate_limiter()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    active=rl.is_active(),
+                    default_rate=rl.default_rate,
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        checker.register_check("rate_limiter", _check_rate_limiter, critical=False, lightweight=False)
+
+        # 注册深度检查：IP 过滤器（M12 特有）
+        def _check_ip_filter() -> CheckResult:
+            start_t = time.time()
+            try:
+                ipf = get_ip_filter()
+                bl_count, wl_count = ipf.get_counts()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    blacklist_count=bl_count,
+                    whitelist_count=wl_count,
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        checker.register_check("ip_filter", _check_ip_filter, critical=False, lightweight=False)
+
+        # 注册深度检查：审计服务（M12 特有）
+        def _check_audit() -> CheckResult:
+            start_t = time.time()
+            try:
+                audit = get_audit_service()
+                stats = audit.get_recent_stats()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    events_today=stats.get("events_today", 0),
+                    total_events=stats.get("total_events", 0),
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        checker.register_check("audit", _check_audit, critical=False, lightweight=False)
+
+        _m12_health_checker = checker
+        return checker
+
+    except Exception:
+        return None
+
+
+# ===========================================================================
+# 根路径健康检查（标准化格式）
 # ===========================================================================
 
 @router.get("/health", summary="健康检查")
-def health_check():
+async def health_check(
+    deep: bool = Query(default=False, description="是否执行深度检查（检查所有依赖）"),
+):
     """
-    服务健康检查接口，返回服务运行状态和各组件状态
+    服务健康检查接口（标准化格式）
+
+    - 轻量检查（默认）：内存、磁盘等基础指标
+    - 深度检查（deep=true）：数据库、WAF、速率限制、IP 过滤、审计等所有依赖
     """
+    checker = _get_health_checker()
+    if checker is not None:
+        result = await checker.async_check(deep=deep)
+        return make_response(data=result.to_dict())
+
+    # 回退到旧版实现
     try:
         settings = get_settings()
         waf = get_waf_engine()

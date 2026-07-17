@@ -301,7 +301,153 @@ async def root():
 
 
 # ---------------------------------------------------------------------------
-# 健康检查（标准端点）
+# 标准化可观测性路由（健康检查 + Prometheus 指标）
+# ---------------------------------------------------------------------------
+try:
+    import sys as _sys_m10_obs
+    _project_root_m10 = BASE_DIR.parent
+    if str(_project_root_m10) not in _sys_m10_obs.path:
+        _sys_m10_obs.path.insert(0, str(_project_root_m10))
+
+    from shared.core.observability import create_observability_router, HealthChecker
+    from shared.core.health import CheckResult, HealthStatus
+
+    _m10_obs_available = True
+
+    # 创建 M10 自定义健康检查器
+    m10_checker = HealthChecker(
+        module_name="m10",
+        version=config.basic.version,
+        module_display_name="系统卫士",
+    )
+
+    # 注册轻量检查：内存
+    m10_checker.register_memory_check(threshold_percent=90.0, lightweight=True)
+
+    # 注册轻量检查：磁盘
+    m10_checker.register_disk_check(
+        path=str(BASE_DIR),
+        threshold_percent=90.0,
+        lightweight=True,
+    )
+
+    # 注册深度检查：数据库（核心依赖）
+    def _check_m10_db() -> CheckResult:
+        start_t = time.time()
+        try:
+            from m10_system_guard.database import SessionLocal
+            db = SessionLocal()
+            try:
+                db.execute("SELECT 1")
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    type="sqlalchemy",
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.unhealthy(
+                    error=str(e),
+                    type="sqlalchemy",
+                    response_time_ms=resp_ms,
+                )
+            finally:
+                db.close()
+        except Exception as e:
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.degraded(
+                error=str(e),
+                type="sqlalchemy",
+                response_time_ms=resp_ms,
+            )
+
+    m10_checker.register_check("database", _check_m10_db, critical=True, lightweight=False)
+
+    # 注册深度检查：系统监控（M10 特有）
+    def _check_m10_system_monitor() -> CheckResult:
+        start_t = time.time()
+        try:
+            from m10_system_guard.system_monitor import get_system_monitor
+            sm = get_system_monitor()
+            latest = sm.get_latest()
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.healthy(
+                cpu_percent=latest.cpu.usage_percent,
+                memory_percent=latest.memory.usage_percent,
+                response_time_ms=resp_ms,
+            )
+        except Exception as e:
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.degraded(
+                error=str(e),
+                response_time_ms=resp_ms,
+            )
+
+    m10_checker.register_check("system_monitor", _check_m10_system_monitor, critical=False, lightweight=False)
+
+    # 注册深度检查：防护引擎（M10 特有）
+    def _check_m10_guard_engine() -> CheckResult:
+        start_t = time.time()
+        try:
+            from m10_system_guard.guard_engine import get_guard_engine
+            ge = get_guard_engine()
+            status = ge.get_status_summary()
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.healthy(
+                overall_level=status.get("overall_level", "unknown"),
+                policy_count=status.get("policy_count", 0),
+                response_time_ms=resp_ms,
+            )
+        except Exception as e:
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.degraded(
+                error=str(e),
+                response_time_ms=resp_ms,
+            )
+
+    m10_checker.register_check("guard_engine", _check_m10_guard_engine, critical=False, lightweight=False)
+
+    # 注册深度检查：进程管理（M10 特有）
+    def _check_m10_process_manager() -> CheckResult:
+        start_t = time.time()
+        try:
+            from m10_system_guard.process_manager import get_process_manager
+            pm = get_process_manager()
+            stats = pm.get_process_stats()
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.healthy(
+                total_processes=stats.get("total_processes", 0),
+                yunxi_processes=stats.get("yunxi_processes", 0),
+                response_time_ms=resp_ms,
+            )
+        except Exception as e:
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.degraded(
+                error=str(e),
+                response_time_ms=resp_ms,
+            )
+
+    m10_checker.register_check("process_manager", _check_m10_process_manager, critical=False, lightweight=False)
+
+    # 创建可观测性路由并注册
+    obs_router = create_observability_router(
+        service_name="m10",
+        version=config.basic.version,
+        health_checker=m10_checker,
+    )
+    app.include_router(obs_router)
+    logger.info("标准化可观测性路由已注册（/health + /metrics）")
+
+except ImportError as _m10_obs_err:
+    _m10_obs_available = False
+    logger.warning(f"标准化可观测性不可用: {_m10_obs_err}")
+except Exception as _m10_obs_err:
+    _m10_obs_available = False
+    logger.warning(f"标准化可观测性初始化失败: {_m10_obs_err}")
+
+
+# ---------------------------------------------------------------------------
+# 健康检查（标准端点）- 向后兼容
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["Health"], summary="健康检查")
 async def health():

@@ -138,6 +138,187 @@ app.add_middleware(AuthMiddleware)
 
 
 # ============================================================================
+# 标准化可观测性路由（健康检查 + Prometheus 指标）
+# ============================================================================
+if _observability_available:
+    try:
+        from shared.core.observability import HealthChecker, create_observability_router
+        from shared.core.health import CheckResult
+
+        # 创建网关健康检查器
+        gw_checker = HealthChecker(
+            module_name="gateway",
+            version="2.0.0",
+            module_display_name="API 网关",
+        )
+
+        # 注册轻量检查：内存
+        gw_checker.register_memory_check(threshold_percent=90.0, lightweight=True)
+
+        # 注册轻量检查：磁盘
+        gw_checker.register_disk_check(
+            path=".",
+            threshold_percent=90.0,
+            lightweight=True,
+        )
+
+        # 注册轻量检查：路由配置
+        def _check_routes() -> CheckResult:
+            start_t = time.time()
+            total = len(settings.routes)
+            enabled = sum(1 for r in settings.routes if r.enabled)
+            resp_ms = (time.time() - start_t) * 1000
+            return CheckResult.healthy(
+                total_routes=total,
+                enabled_routes=enabled,
+                disabled_routes=total - enabled,
+                response_time_ms=resp_ms,
+            )
+
+        gw_checker.register_check("routes", _check_routes, critical=False, lightweight=True)
+
+        # 注册深度检查：所有模块健康状态
+        async def _check_modules_health() -> CheckResult:
+            start_t = time.time()
+            try:
+                proxy: ProxyService = app.state.proxy
+                health_results = await proxy.health_check_all()
+                total = len(health_results)
+                healthy = sum(
+                    1 for h in health_results.values()
+                    if h.get("status") == "healthy"
+                )
+                unhealthy = sum(
+                    1 for h in health_results.values()
+                    if h.get("status") in ("unhealthy", "unreachable")
+                )
+                resp_ms = (time.time() - start_t) * 1000
+
+                if unhealthy == 0:
+                    return CheckResult.healthy(
+                        total_modules=total,
+                        healthy_modules=healthy,
+                        unhealthy_modules=unhealthy,
+                        response_time_ms=resp_ms,
+                    )
+                elif unhealthy < total * 0.5:
+                    return CheckResult.degraded(
+                        error=f"{unhealthy} modules unhealthy",
+                        total_modules=total,
+                        healthy_modules=healthy,
+                        unhealthy_modules=unhealthy,
+                        response_time_ms=resp_ms,
+                    )
+                else:
+                    return CheckResult.unhealthy(
+                        error=f"Majority of modules unhealthy ({unhealthy}/{total})",
+                        total_modules=total,
+                        healthy_modules=healthy,
+                        unhealthy_modules=unhealthy,
+                        response_time_ms=resp_ms,
+                    )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        gw_checker.register_async_check(
+            "modules_health",
+            _check_modules_health,
+            critical=False,
+            lightweight=False,
+        )
+
+        # 注册深度检查：熔断器状态
+        def _check_circuit_breakers() -> CheckResult:
+            start_t = time.time()
+            try:
+                from .services.circuit_breaker import get_circuit_breaker
+                cb = get_circuit_breaker()
+                stats = cb.get_stats()
+                total = len(stats)
+                open_count = sum(1 for s in stats.values() if s.get("state") == "open")
+                half_open_count = sum(1 for s in stats.values() if s.get("state") == "half_open")
+                resp_ms = (time.time() - start_t) * 1000
+
+                if open_count == 0:
+                    return CheckResult.healthy(
+                        total_circuits=total,
+                        open_circuits=open_count,
+                        half_open_circuits=half_open_count,
+                        closed_circuits=total - open_count - half_open_count,
+                        response_time_ms=resp_ms,
+                    )
+                elif open_count < total * 0.5:
+                    return CheckResult.degraded(
+                        error=f"{open_count} circuits open",
+                        total_circuits=total,
+                        open_circuits=open_count,
+                        half_open_circuits=half_open_count,
+                        response_time_ms=resp_ms,
+                    )
+                else:
+                    return CheckResult.unhealthy(
+                        error=f"Majority of circuits open ({open_count}/{total})",
+                        total_circuits=total,
+                        open_circuits=open_count,
+                        response_time_ms=resp_ms,
+                    )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        gw_checker.register_check(
+            "circuit_breakers",
+            _check_circuit_breakers,
+            critical=False,
+            lightweight=False,
+        )
+
+        # 注册深度检查：限流器
+        def _check_rate_limiter() -> CheckResult:
+            start_t = time.time()
+            try:
+                from .services.rate_limiter import get_rate_limiter
+                rl = get_rate_limiter()
+                stats = rl.get_stats()
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.healthy(
+                    rate_limit_stats=stats,
+                    response_time_ms=resp_ms,
+                )
+            except Exception as e:
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
+
+        gw_checker.register_check(
+            "rate_limiter",
+            _check_rate_limiter,
+            critical=False,
+            lightweight=False,
+        )
+
+        # 创建可观测性路由并注册
+        obs_router = create_observability_router(
+            service_name="gateway",
+            version="2.0.0",
+            health_checker=gw_checker,
+        )
+        app.include_router(obs_router)
+        logger.info("标准化可观测性路由已注册（/health + /metrics）")
+    except Exception as e:
+        logger.warning(f"标准化可观测性路由注册失败: {e}")
+
+
+# ============================================================================
 # 网关管理 API（/gateway/*）
 # ============================================================================
 

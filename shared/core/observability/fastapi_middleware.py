@@ -24,7 +24,7 @@
 import time
 import json
 import traceback
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Callable, Any
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -484,5 +484,150 @@ class MetricsEndpoint:
         metrics = get_metrics()
         return Response(
             content=metrics.to_prometheus(),
-            media_type="text/plain; version=0.0.4",
+            media_type="text/plain; version=0.0.4; charset=utf-8",
         )
+
+
+def create_observability_router(
+    service_name: str,
+    version: str = "unknown",
+    enable_health: bool = True,
+    enable_metrics: bool = True,
+    health_checker: Optional[Any] = None,
+    db_session_factory: Optional[Callable] = None,
+    redis_client: Optional[Any] = None,
+    memory_threshold_percent: float = 90.0,
+    disk_threshold_percent: float = 90.0,
+    disk_path: str = ".",
+) -> Any:
+    """
+    创建可观测性路由（健康检查 + 指标）
+
+    一键创建标准化的 /health 和 /metrics 端点，支持深度检查。
+
+    Args:
+        service_name: 服务/模块名称
+        version: 版本号
+        enable_health: 是否启用健康检查端点
+        enable_metrics: 是否启用指标端点
+        health_checker: 自定义 HealthChecker 实例（不传则自动创建）
+        db_session_factory: 数据库会话工厂（用于数据库健康检查）
+        redis_client: Redis 客户端（用于 Redis 健康检查）
+        memory_threshold_percent: 内存告警阈值（百分比）
+        disk_threshold_percent: 磁盘告警阈值（百分比）
+        disk_path: 磁盘检查路径
+
+    Returns:
+        FastAPI APIRouter
+
+    使用示例：
+        from shared.core.observability import create_observability_router
+
+        router = create_observability_router(
+            service_name="m8",
+            version="1.0.0",
+            db_session_factory=SessionLocal,
+        )
+        app.include_router(router)
+    """
+    from fastapi import APIRouter, Query
+    from .health import HealthChecker, HealthStatus, CheckResult
+
+    router = APIRouter(tags=["observability"])
+
+    # 创建或使用传入的健康检查器
+    if health_checker is not None:
+        checker = health_checker
+    else:
+        checker = HealthChecker(module_name=service_name, version=version)
+
+        # 注册轻量检查：内存
+        checker.register_memory_check(
+            threshold_percent=memory_threshold_percent,
+            critical=False,
+            lightweight=True,
+        )
+
+        # 注册轻量检查：磁盘
+        checker.register_disk_check(
+            path=disk_path,
+            threshold_percent=disk_threshold_percent,
+            critical=False,
+            lightweight=True,
+        )
+
+        # 注册深度检查：数据库
+        if db_session_factory is not None:
+            checker.register_database_check(
+                session_factory=db_session_factory,
+                critical=True,
+                lightweight=False,
+            )
+
+        # 注册深度检查：Redis
+        if redis_client is not None:
+            checker.register_redis_check(
+                redis_client=redis_client,
+                critical=False,
+                lightweight=False,
+            )
+
+    # 注册模块标准指标
+    if enable_metrics:
+        metrics = get_metrics()
+        metrics.register_module(service_name)
+
+    @router.get("/health", summary="健康检查")
+    async def health_endpoint(
+        deep: bool = Query(default=False, description="是否执行深度检查（检查所有依赖）"),
+    ):
+        """标准化健康检查端点
+
+        - 轻量检查（默认）：内存、磁盘等基础指标
+        - 深度检查（deep=true）：数据库、Redis 等所有依赖
+
+        返回格式：
+        {
+            "status": "healthy/degraded/unhealthy",
+            "version": "1.0.0",
+            "module": "m8",
+            "timestamp": "2024-01-01T00:00:00Z",
+            "uptime_seconds": 3600,
+            "checks": {
+                "database": {"status": "healthy", "response_time_ms": 5},
+                "memory": {"status": "healthy", "percent": 45.2},
+            }
+        }
+        """
+        result = await checker.async_check(deep=deep)
+        return result.to_dict()
+
+    @router.get("/metrics", summary="Prometheus 指标")
+    async def metrics_endpoint(request: Request):
+        """Prometheus 格式的指标端点
+
+        输出标准 Prometheus 文本格式，包含：
+        - 请求数（按状态码分类）
+        - 请求延迟（直方图 + 分位数）
+        - 错误数
+        - 活跃请求数
+        - 内存使用
+        - 自定义指标
+        """
+        metrics = get_metrics()
+        # 刷新内存指标
+        metrics.update_memory_usage(service_name)
+        return Response(
+            content=metrics.to_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    # 根据配置移除不需要的端点
+    if not enable_health:
+        # 从路由中移除 health 端点
+        router.routes = [r for r in router.routes if r.path != "/health"]
+
+    if not enable_metrics:
+        router.routes = [r for r in router.routes if r.path != "/metrics"]
+
+    return router
