@@ -24,6 +24,9 @@
 """
 
 from typing import Optional, Dict, Any, List, Callable
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from fastapi import Depends, HTTPException, status, Request, Header
@@ -99,8 +102,9 @@ def create_jwt_dependency(
                             )
                     except HTTPException:
                         raise
-                    except Exception:
-                        pass  # 黑名单检查异常不影响主流程
+                    except Exception as e:
+                        # 黑名单检查异常不影响主流程，仅记录调试日志
+                        logger.debug("Token 黑名单检查失败: %s", e)
 
                 return {
                     "auth_type": "jwt",
@@ -284,9 +288,9 @@ def create_auth_dependency(
                             )
                     except HTTPException:
                         raise
-                    except Exception:
-                        pass
-
+                    except Exception as e:
+                        # 黑名单检查异常不影响主流程，仅记录调试日志
+                        logger.debug("Token 黑名单检查失败: %s", e)
                 return {
                     "auth_type": "jwt",
                     "user_id": payload.get("sub", ""),

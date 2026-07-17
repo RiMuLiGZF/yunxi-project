@@ -17,6 +17,14 @@
 - [7. 常见故障排查](#7-常见故障排查)
 - [8. 性能调优指南](#8-性能调优指南)
 - [9. 服务管理](#9-服务管理)
+  - [9.1 启动服务](#91-启动服务)
+  - [9.2 停止服务](#92-停止服务)
+  - [9.3 服务状态检查](#93-服务状态检查)
+  - [9.4 日志管理](#94-日志管理)
+    - [9.4.1 日志轮转机制（OP-006）](#941-日志轮转机制op-006)
+    - [9.4.2 日志清理工具](#942-日志清理工具)
+    - [9.4.3 各模块日志接入](#943-各模块日志接入)
+  - [9.5 进程管理](#95-进程管理)
 - [10. 安全运维](#10-安全运维)
 
 ---
@@ -938,6 +946,119 @@ python server.py
 # 列出可用的日志模块
 .\scripts\logs.ps1 -ListModules
 ```
+
+#### 9.4.1 日志轮转机制（OP-006）
+
+云汐系统内置了完善的日志轮转机制，防止日志文件无限增长导致磁盘空间耗尽。
+
+**默认配置**：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| 轮转方式 | 按天轮转（midnight） | 每天零点自动切分日志 |
+| 保留天数 | 30 天 | 自动清理 30 天前的日志 |
+| 单文件大小上限 | 100 MB | 防止单日日志过大 |
+| 自动压缩 | 启用（gzip） | 旧日志自动压缩为 .gz 格式 |
+| 错误日志 | 独立文件 | ERROR 及以上级别单独存储 |
+
+**日志文件结构**：
+
+```
+logs/
+├── yunxi.m8.log              # 当前主日志
+├── yunxi.m8-error.log        # 当前错误日志
+├── yunxi.m8.log.2026-07-16   # 历史日志（未压缩）
+├── yunxi.m8.log.2026-07-15.gz  # 历史日志（已压缩）
+├── yunxi.m8-error.log.2026-07-16.gz
+└── ...
+```
+
+**环境变量配置**：
+
+| 环境变量 | 类型 | 默认值 | 说明 |
+|---------|------|--------|------|
+| `LOG_ROTATION_ENABLED` | bool | `true` | 是否启用日志轮转 |
+| `LOG_ROTATION_WHEN` | string | `midnight` | 轮转时机：`midnight`/`hourly`/`weekly`/`daily` |
+| `LOG_ROTATION_BACKUP_COUNT` | int | `30` | 保留的备份文件数（天数） |
+| `LOG_ROTATION_MAX_BYTES` | int | `104857600` | 单文件最大字节数（size 模式） |
+| `LOG_ROTATION_COMPRESS` | bool | `true` | 是否自动 gzip 压缩旧日志 |
+| `LOG_ROTATION_INTERVAL` | int | `1` | 轮转间隔 |
+| `LOG_DIR` | string | `./logs` | 日志目录 |
+
+**配置示例**：
+
+```bash
+# 生产环境：保留 60 天，按周轮转
+LOG_ROTATION_WHEN=weekly
+LOG_ROTATION_BACKUP_COUNT=60
+LOG_ROTATION_COMPRESS=true
+
+# 开发环境：禁用压缩，保留 7 天
+LOG_ROTATION_BACKUP_COUNT=7
+LOG_ROTATION_COMPRESS=false
+
+# 高频日志场景：按小时轮转
+LOG_ROTATION_WHEN=hourly
+LOG_ROTATION_BACKUP_COUNT=168  # 7天 * 24小时
+```
+
+#### 9.4.2 日志清理工具
+
+系统提供了内置的日志清理 Python API，可用于自动化运维脚本：
+
+```python
+from shared.core.observability import get_log_dir_size, clean_expired_logs, archive_logs
+
+# 1. 统计日志目录大小
+total_bytes, file_count = get_log_dir_size("./logs")
+print(f"日志目录: {total_bytes / 1024 / 1024:.2f} MB, {file_count} 个文件")
+
+# 2. 清理过期日志（保留 30 天）
+result = clean_expired_logs("./logs", max_age_days=30)
+print(f"删除 {result['deleted']} 个文件, 释放 {result['freed_mb']} MB")
+
+# 3. 试运行清理（不实际删除）
+result = clean_expired_logs("./logs", max_age_days=30, dry_run=True)
+
+# 4. 归档指定时间段日志
+result = archive_logs(
+    log_dir="./logs",
+    output_dir="./log_archive/2026-07",
+    start_date="2026-07-01",
+    end_date="2026-07-15",
+)
+print(f"归档了 {result['archived']} 个文件")
+```
+
+**PowerShell 一键清理**：
+
+```powershell
+# 清理超过 30 天的旧日志（保留最近 30 天）
+Get-ChildItem .\logs -Recurse -File | 
+  Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | 
+  Remove-Item -Force
+
+# 查看各模块日志大小
+Get-ChildItem .\logs -File | 
+  Sort-Object Length -Descending | 
+  Select-Object Name, @{Name="SizeMB";Expression={[math]::Round($_.Length/1MB,2)}} |
+  Format-Table -AutoSize
+```
+
+#### 9.4.3 各模块日志接入
+
+以下模块已自动接入统一日志轮转：
+
+| 模块 | 日志文件 | 说明 |
+|------|---------|------|
+| M8 控制塔 | `logs/yunxi.m8.log` | 主控制塔日志 |
+| M9 开发工坊 | `logs/yunxi.m9.log` | 代码开发日志 |
+| M10 系统卫士 | `logs/yunxi.m10.log` | 系统监控日志 |
+| M11 MCP 总线 | `logs/yunxi.m11.log` | MCP 服务日志 |
+| M12 安全盾 | `logs/yunxi.m12.log` | 安全防护日志 |
+| API Gateway | `logs/yunxi.gateway.log` | 网关访问日志 |
+
+所有模块均使用相同的轮转配置（通过环境变量统一控制），确保运维一致性。
 
 ### 9.5 进程管理
 

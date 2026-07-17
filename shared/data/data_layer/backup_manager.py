@@ -30,11 +30,14 @@ import zipfile
 import hashlib
 import base64
 import threading
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Callable, Tuple, Union
 from pathlib import Path
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
 
 # 可选加密依赖（cryptography）
 try:
@@ -370,9 +373,11 @@ class LocalStorageBackend(StorageBackend):
                         "modified": stat.st_mtime,
                     })
                 except Exception:
+                    # 单个文件 stat 失败跳过，不影响整体列表
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            # 目录读取失败返回空列表，由上层处理
+            logger.warning("列出备份目录失败 %s: %s", target_dir, e)
         return results
     
     def exists(self, path: str) -> bool:
@@ -385,8 +390,9 @@ class LocalStorageBackend(StorageBackend):
                 return target.stat().st_size
             elif target.is_dir():
                 return sum(f.stat().st_size for f in target.rglob("*") if f.is_file())
-        except Exception:
-            pass
+        except Exception as e:
+            # 获取文件大小失败返回 0，属于非关键操作
+            logger.debug("获取备份文件大小失败 %s: %s", path, e)
         return 0
 
 
@@ -691,8 +697,9 @@ class BackupNotifier:
         for hook in self._hooks:
             try:
                 hook(event_type, data)
-            except Exception:
-                pass
+            except Exception as e:
+                # 单个通知钩子失败不影响其他钩子和主流程
+                logger.warning("备份通知钩子执行失败: %s", e, exc_info=True)
         
         # 调用 Webhook（异步执行，避免阻塞）
         if self._webhooks:
@@ -711,10 +718,12 @@ class BackupNotifier:
                 for url in self._webhooks:
                     try:
                         httpx.post(url, json=payload, timeout=5.0)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except Exception as e:
+                        # 单个 Webhook 推送失败不影响其他 Webhook
+                        logger.debug("备份 Webhook 推送失败 %s: %s", url, e)
+            except Exception as e:
+                # Webhook 整体推送失败不影响备份主流程
+                logger.warning("备份 Webhook 通知异常: %s", e)
         
         thread = threading.Thread(target=_send, daemon=True)
         thread.start()
@@ -1193,8 +1202,9 @@ class BackupManager:
             try:
                 with open(meta_path, "w", encoding="utf-8") as f:
                     json.dump(meta, f, indent=2, ensure_ascii=False)
-            except Exception:
-                pass
+            except Exception as e:
+                # 元数据写入失败不影响备份本身，但会影响后续恢复校验
+                logger.warning("写入备份元数据失败 %s: %s", meta_path, e)
             
             return result
         except Exception as e:
@@ -1290,8 +1300,9 @@ class BackupManager:
                         try:
                             backup_name = target_path.name + ".bak"
                             target_path.rename(target_path.parent / backup_name)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            # 重命名失败继续尝试其他恢复方式
+                            logger.debug("重命名目标文件失败 %s: %s", target_path, e)
                     
                     src = sqlite3.connect(str(current_file))
                     dst = sqlite3.connect(str(target_path))
@@ -1323,8 +1334,9 @@ class BackupManager:
                 try:
                     if Path(f).exists():
                         Path(f).unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 临时文件清理失败不影响恢复结果
+                    logger.debug("清理临时文件失败 %s: %s", f, e)
     
     # --------------------------------------------------------
     # 基础备份方法（保持向后兼容）
@@ -1549,8 +1561,9 @@ class BackupManager:
             manifest_path = backup_dir / "backup_manifest.json"
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
+        except Exception as e:
+            # 清单写入失败不影响备份数据本身，但会影响备份管理功能
+            logger.warning("写入备份清单失败 %s: %s", manifest_path, e)
         
         # 清理该模块的旧备份
         self._apply_retention_policy(

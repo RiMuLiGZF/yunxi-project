@@ -4,11 +4,14 @@ M8 管理工作台 - 审计日志模块
 
 import json
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from functools import wraps
 from fastapi import Request
+
+logger = logging.getLogger(__name__)
 
 # 审计日志使用 JSON 文件存储（只追加模式）
 # 同时也支持 SQLAlchemy 模型（如果数据库可用）
@@ -30,8 +33,9 @@ def _load_all_logs() -> list:
         try:
             with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            # 审计日志文件损坏时返回空列表，避免影响系统启动
+            logger.warning("加载审计日志文件失败: %s", e)
     return []
 
 
@@ -117,12 +121,15 @@ def add_audit_log(
             )
             db.add(db_log)
             db.commit()
-        except Exception:
+        except Exception as e:
             db.rollback()
+            # 数据库写入失败不影响文件日志记录
+            logger.debug("审计日志写入数据库失败: %s", e)
         finally:
             db.close()
-    except Exception:
-        pass
+    except Exception as e:
+        # 数据库不可用时不影响审计功能（文件日志已写入）
+        logger.debug("审计数据库不可用: %s", e)
 
     return log_entry
 

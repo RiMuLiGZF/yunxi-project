@@ -17,6 +17,8 @@
 - [技术栈](#技术栈)
 - [文档索引](#文档索引)
 - [版本信息](#版本信息)
+- [变更日志](#变更日志)
+- [贡献指南](#贡献指南)
 - [许可证](#许可证)
 
 ---
@@ -203,6 +205,8 @@ cd ..\..
 | **API 文档** | API 设计规范、各模块端点、认证方式 | [docs/API.md](docs/API.md) |
 | **运维手册** | 日常运维、监控告警、备份恢复、故障排查 | [docs/OPS.md](docs/OPS.md) |
 | **开发者指南** | 环境搭建、代码规范、测试规范、调试技巧 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| **变更日志** | 版本历史、功能变更、Bug 修复记录 | [CHANGELOG.md](CHANGELOG.md) |
+| **贡献指南** | 参与贡献的规范和流程 | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ### 专项文档
 
@@ -272,6 +276,29 @@ cd ..\..
 - **100+ RESTful API 端点**
 - **12 个 Vue 3 前端页面**
 - **2,109 项测试用例**
+
+---
+
+## 变更日志
+
+详细的版本变更记录请参阅 [CHANGELOG.md](CHANGELOG.md)。
+
+变更日志遵循 **Keep a Changelog** 规范，版本号遵循 **语义化版本** 规范，按版本倒序排列。
+
+---
+
+## 贡献指南
+
+欢迎参与云汐项目的贡献！详细的贡献规范和流程请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+内容包括：
+- 如何报告 Bug 和提交功能建议
+- 开发环境搭建步骤
+- Python 代码规范和命名约定
+- Conventional Commits 提交规范
+- 分支策略和 Pull Request 流程
+- 模块开发规范和 M8 标准对接要求
+- Issue 模板
 
 ---
 

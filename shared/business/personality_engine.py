@@ -17,11 +17,13 @@ import time
 import uuid
 import math
 import threading
+import logging
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any, Tuple
 
+logger = logging.getLogger(__name__)
 
 class BigFiveTrait(str, Enum):
     """大五人格特质"""
@@ -217,8 +219,9 @@ class PersonalityEngine:
                 with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 self._profiles[user_id] = PersonalityProfile.from_dict(data)
-            except Exception:
-                pass
+            except Exception as e:
+                # 单个用户画像加载失败不影响其他用户
+                logger.warning("加载用户人格画像失败 %s: %s", user_id, e)
     
     def _save_profile(self, user_id: str):
         """保存用户人格画像"""

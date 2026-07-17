@@ -18,11 +18,14 @@ import time
 import base64
 import hashlib
 import threading
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 
 class ModalityType(str, Enum):
@@ -332,8 +335,9 @@ class MultimodalEngine:
                 if "," in image_input and image_input.startswith("data:image"):
                     image_input = image_input.split(",", 1)[1]
                 return base64.b64decode(image_input)
-            except Exception:
-                pass
+            except Exception as e:
+                # base64 解码失败是预期内的尝试，继续往下走抛出统一异常
+                logger.debug("图像 base64 解码失败: %s", e)
             
             raise ValueError(f"无法解析图像输入: {image_input[:50]}...")
         

@@ -476,8 +476,9 @@ class ProxyService:
             data = {}
             try:
                 data = response.json()
-            except Exception:
-                pass
+            except Exception as e:
+                # 健康检查响应 JSON 解析失败不影响健康状态判断
+                logger.debug("解析健康检查响应 JSON 失败: %s", e)
 
             return {
                 "status": "healthy" if response.status_code == 200 else "unhealthy",

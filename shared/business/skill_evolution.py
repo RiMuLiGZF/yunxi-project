@@ -15,10 +15,13 @@ import time
 import uuid
 import math
 import threading
+import logging
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class SkillCategory(str, Enum):
@@ -243,8 +246,9 @@ class SkillEvolutionEngine:
                 self._skills[user_id] = {
                     k: SkillScore(**v) for k, v in data.items()
                 }
-            except Exception:
-                pass
+            except Exception as e:
+                # 单个用户技能数据损坏跳过，不影响其他用户
+                logger.warning("加载用户技能评分失败 %s: %s", user_id, e)
         
         # 加载改进计划
         for f in self._data_dir.glob("*_plans.json"):
@@ -253,8 +257,9 @@ class SkillEvolutionEngine:
                 with open(f, "r", encoding="utf-8") as fp:
                     data = json.load(fp)
                 self._plans[user_id] = [ImprovementPlan(**p) for p in data]
-            except Exception:
-                pass
+            except Exception as e:
+                # 单个用户计划数据损坏跳过，不影响其他用户
+                logger.warning("加载用户改进计划失败 %s: %s", user_id, e)
     
     def _save_skills(self, user_id: str):
         """保存能力评分"""

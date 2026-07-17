@@ -271,8 +271,9 @@ class WafMiddleware(BaseHTTPMiddleware):
                 # 重建请求体流（关键：否则后续路由拿不到body）
                 # 通过覆盖 request._receive 来重新播放 body
                 await self._rebuild_request_body(request, body_bytes)
-            except Exception:
-                pass
+            except Exception as e:
+                # 请求体读取/重建失败不阻断请求，WAF 降级为仅检测 header 和 query
+                logger.debug("WAF 读取请求体失败: %s", e)
 
         return {
             "method": request.method,

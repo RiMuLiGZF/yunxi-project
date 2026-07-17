@@ -8,10 +8,13 @@ import sys
 import time
 import uuid
 import httpx
+import logging
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -283,8 +286,9 @@ async def _recall_memory(query: str, user_id: str = "default"):
                 if memories:
                     mem_texts = [f"- {m.get('content', '')}" for m in memories[:5]]
                     return "\n相关记忆：\n" + "\n".join(mem_texts)
-    except Exception:
-        pass
+    except Exception as e:
+        # 记忆检索失败不影响主对话流程
+        logger.debug("记忆检索失败: %s", e)
     return ""
 
 
@@ -305,8 +309,9 @@ async def _archive_memory(content: str, user_id: str = "default", tags: list = N
                     "source": "conversation",
                 }
             )
-    except Exception:
-        pass
+    except Exception as e:
+        # 记忆归档失败不影响对话响应
+        logger.debug("记忆归档失败: %s", e)
 
 
 def _recall_long_term_memory(query: str, user_id: str = "default", limit: int = 5) -> str:
@@ -369,8 +374,9 @@ def _build_rag_context(query: str, category: str = "general") -> str:
         if context and results:
             sources = [f"第{i+1}条" for i in range(len(results))]
             return f"\n知识库参考（{len(results)}条）：\n{context}"
-    except Exception:
-        pass
+    except Exception as e:
+        # RAG 检索失败不影响主对话流程
+        logger.debug("RAG 知识库检索失败: %s", e)
     
     return ""
 
@@ -397,8 +403,9 @@ def _apply_cot_enhancement(query: str, mode: str = "main-chat") -> str:
                 domain = "math"
             
             return cot.build_cot_prompt(query, mode=reasoning_mode, domain=domain)
-    except Exception:
-        pass
+    except Exception as e:
+        # CoT 构建失败不影响对话，使用普通模式即可
+        logger.debug("CoT 提示词构建失败: %s", e)
     
     return query
 
@@ -479,8 +486,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
         if profile_mgr:
             try:
                 personalization_context = profile_mgr.get_personalized_prompt(user_id, "")
-            except Exception:
-                pass
+            except Exception as e:
+                # 用户画像获取失败不影响对话，使用默认风格
+                logger.debug("获取用户个性化提示失败: %s", e)
         
         # 从人格引擎获取人格提示词
         personality_context = ""
@@ -488,8 +496,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
         if personality_engine:
             try:
                 personality_context = personality_engine.generate_personality_prompt(user_id)
-            except Exception:
-                pass
+            except Exception as e:
+                # 人格引擎获取失败不影响对话，使用默认人格
+                logger.debug("获取人格提示失败: %s", e)
 
         # 根据模式构建系统提示词
         mode = req.mode or "main-chat"
@@ -614,8 +623,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     key_points=[req.message[:80], reply[:80]],
                     emotions=[],
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 对话摘要保存失败不影响主对话流程
+                logger.debug("保存对话摘要失败: %s", e)
 
         # 用户画像学习：记录交互 + 学习偏好
         if profile_mgr:
@@ -633,8 +643,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     reply,
                     feedback=None
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 用户画像学习失败不影响对话响应
+                logger.debug("用户画像学习失败: %s", e)
         
         # === Agent智能体：检测是否需要工具辅助 ===
         agent_result = None
@@ -649,8 +660,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 if agent_result and agent_result.tools_used:
                     tool_info = f"\n\n（我使用了 {', '.join(agent_result.tools_used)} 工具来帮助你）"
                     reply += tool_info
-            except Exception:
-                pass
+            except Exception as e:
+                # Agent 工具调用失败不影响主对话，降级为普通回复
+                logger.debug("Agent 工具调用失败: %s", e)
         
         # === 多Agent团队协作：复杂任务触发 ===
         team_result = None
@@ -664,8 +676,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                 if team_result and team_result.success and len(team_result.agents_involved) > 1:
                     team_info = f"\n\n（我组织了 {len(team_result.agents_involved)} 位Agent协作完成任务：{', '.join(team_result.agents_involved)}）"
                     reply += team_info
-            except Exception:
-                pass
+            except Exception as e:
+                # 多Agent团队协作失败不影响主对话，降级为单Agent回复
+                logger.debug("多Agent团队协作失败: %s", e)
         
         # === 自我进化：对话后学习 ===
         
@@ -680,8 +693,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     assistant_reply=reply,
                     mode=mode,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 自主学习失败不影响对话响应
+                logger.debug("自主学习提取失败: %s", e)
         
         # 2. 人格沉淀：从交互中更新人格特质
         pers_engine = _get_personality_engine()
@@ -693,8 +707,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     assistant_reply=reply,
                     interaction_type="chat",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 人格更新失败不影响对话响应
+                logger.debug("人格特质更新失败: %s", e)
         
         # 3. 技能进化：从用户反馈中调整能力评分
         skill_evo = _get_skill_evo_engine()
@@ -706,8 +721,9 @@ async def chat_send(req: ChatSendRequest, current_user: dict = Depends(get_curre
                     assistant_reply=reply,
                     conversation_id=conversation_id,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 技能进化处理失败不影响对话响应
+                logger.debug("技能进化反馈处理失败: %s", e)
 
         return ApiResponse(
             code=0,
@@ -961,8 +977,9 @@ async def chat_send_with_image(req: ChatImageMessage, current_user: dict = Depen
     if profile_mgr:
         try:
             personalization_context = profile_mgr.get_personalized_prompt(user_id, "")
-        except Exception:
-            pass
+        except Exception as e:
+            # 用户画像获取失败不影响对话，使用默认风格
+            logger.debug("获取用户个性化提示失败: %s", e)
 
     system_prompt = f"""你是云汐，一个温暖、智慧、有洞察力的AI伙伴。
 用户给你发送了一张图片，你已经看到了图片的内容描述。
@@ -1015,8 +1032,9 @@ async def chat_send_with_image(req: ChatImageMessage, current_user: dict = Depen
                     req.message or "图片对话",
                     metadata={"mode": req.mode, "task_type": req.task_type}
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                # 用户画像记录失败不影响对话响应
+                logger.debug("记录图片对话交互失败: %s", e)
 
         return ApiResponse(
             code=0,

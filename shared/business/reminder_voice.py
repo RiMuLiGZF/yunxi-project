@@ -6,8 +6,11 @@
 import os
 import asyncio
 import threading
+import logging
 from typing import Optional, Dict, Any
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from .context_aware import get_context_engine, Reminder
 
@@ -204,8 +207,9 @@ class ReminderVoiceNotifier:
                         # 播放音频文件
                         self._play_audio_file(audio_url)
                         return
-        except Exception:
-            pass
+        except Exception as e:
+            # TTS 服务调用失败，fallback 到本地音频或蜂鸣
+            logger.warning("TTS 语音合成失败: %s", e)
 
         # 备用：直接播放音频文件路径
         audio_path = config.get("audio_path")
@@ -278,8 +282,9 @@ class ReminderVoiceNotifier:
                     winsound.Beep(800, 500)
                 else:
                     winsound.Beep(600, 300)
-            except Exception:
-                pass
+            except Exception as e:
+                # 蜂鸣失败不影响提醒功能，有文本提示作为兜底
+                logger.debug("系统蜂鸣失败: %s", e)
         else:
             # 终端响铃
             print("\a")

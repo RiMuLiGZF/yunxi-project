@@ -48,6 +48,12 @@ from .unified_logger import (
     TextFormatter,
     RedisLogHandler,
     ContextFilter,
+    LogRotationConfig,
+    GzipTimedRotatingFileHandler,
+    GzipRotatingFileHandler,
+    get_log_dir_size,
+    clean_expired_logs,
+    archive_logs,
 )
 from .tracing import (
     TraceContext,
@@ -112,6 +118,13 @@ __all__ = [
     "TextFormatter",
     "RedisLogHandler",
     "ContextFilter",
+    # ---- Log Rotation ----
+    "LogRotationConfig",
+    "GzipTimedRotatingFileHandler",
+    "GzipRotatingFileHandler",
+    "get_log_dir_size",
+    "clean_expired_logs",
+    "archive_logs",
     # ---- Tracing ----
     "TraceContext",
     "Span",

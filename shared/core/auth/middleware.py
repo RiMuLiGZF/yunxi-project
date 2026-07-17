@@ -366,8 +366,9 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
                                 if self.token_blacklist_checker(jti):
                                     auth_error = "Token 已失效"
                                     payload = None
-                            except Exception:
-                                pass  # 黑名单检查失败不影响主流程
+                            except Exception as e:
+                                # 黑名单检查失败不影响主流程，仅记录调试日志
+                                logger.debug("Token 黑名单检查失败: %s", e)
 
                         if payload:
                             user_info = {
@@ -414,8 +415,9 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
                     self.audit_logger.log_auth(
                         request, "success", auth_type, user_info
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 审计日志写入失败不影响正常业务响应
+                    logger.warning("认证成功审计日志写入失败: %s", e)
 
             return await call_next(request)
 
@@ -428,8 +430,9 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
                         request, "failed", None, None,
                         auth_error or "未提供有效认证凭证"
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 审计日志写入失败不影响正常业务响应
+                    logger.warning("认证失败审计日志写入失败: %s", e)
 
             return self._auth_failed_response(
                 auth_error or "未认证或认证已过期"

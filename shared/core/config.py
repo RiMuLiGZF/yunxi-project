@@ -296,14 +296,17 @@ class BaseConfig(BaseSettings):
     @classmethod
     def _find_project_root(cls) -> Optional[Path]:
         """查找项目根目录（从当前文件向上查找包含 config/yunxi.env 的目录）"""
+        import logging
+        logger = logging.getLogger(__name__)
         try:
             current = Path(__file__).resolve()
             for _ in range(10):
                 current = current.parent
                 if (current / "config" / "yunxi.env").exists():
                     return current
-        except Exception:
-            pass
+        except Exception as e:
+            # 路径解析异常不影响配置加载，返回 None 由上层 fallback
+            logger.debug("查找项目根目录失败: %s", e)
         return None
 
     @classmethod
@@ -368,9 +371,13 @@ class BaseConfig(BaseSettings):
                         cls._yaml_config = result
                         break
                     except ImportError:
+                        # yaml 模块未安装，跳过 YAML 配置源（兼容性处理）
                         pass
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        # YAML 配置文件解析失败不阻断启动，仅记录警告
+                        logger.warning("读取 YAML 配置文件失败 %s: %s", yaml_path, e)
 
             return result
 
@@ -628,11 +635,14 @@ class BaseConfig(BaseSettings):
 
         # 触发热更新钩子
         if changes:
+            import logging
+            logger = logging.getLogger(__name__)
             for hook in self._hot_reload_hooks:
                 try:
                     hook(self)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 单个热更新钩子失败不影响其他钩子和主流程
+                    logger.warning("配置热更新钩子执行失败: %s", e, exc_info=True)
 
         return changes
 
@@ -668,8 +678,11 @@ class BaseConfig(BaseSettings):
                                 value = value.strip().strip('"').strip("'")
                                 if key:
                                     os.environ[key] = value
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        # .env 文件读取失败不阻断启动，环境变量可能已通过其他方式设置
+                        logger.debug("读取 .env 文件失败 %s: %s", env_file, e)
 
     def register_hot_reload_hook(self, hook: Callable[["BaseConfig"], None]) -> None:
         """

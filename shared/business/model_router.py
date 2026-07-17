@@ -973,11 +973,13 @@ class ThreeTierModelRouter:
                     source="pynvml",
                     gpu_count=device_count,
                 )
-            except Exception:
+            except Exception as e:
                 try:
                     pynvml.nvmlShutdown()
                 except Exception:
+                    # shutdown 失败不影响主流程
                     pass
+                logger.debug("pynvml 显存探测失败", error=str(e))
                 return None
         except ImportError:
             return None
@@ -1013,8 +1015,9 @@ class ThreeTierModelRouter:
                             source="nvidia-smi",
                             gpu_count=gpu_count,
                         )
-        except Exception:
-            pass
+        except Exception as e:
+            # nvidia-smi 探测失败不影响路由功能，由上层 fallback 到估算
+            logger.debug("nvidia-smi 显存探测失败", error=str(e))
         return None
 
     def _estimate_vram(self) -> VramStatus:

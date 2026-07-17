@@ -13,10 +13,12 @@ import io
 import time
 import asyncio
 import tempfile
+import logging
 import numpy as np
 from typing import Optional, Dict, Any, List, Tuple, Generator, AsyncGenerator
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 class TTSEngine:
     """语音合成引擎（统一接口）
@@ -472,8 +474,9 @@ class TTSEngine:
             if output_path and os.path.exists(output_path):
                 try:
                     os.unlink(output_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 清理失败不影响错误处理流程
+                    logger.debug("清理 Fish Speech 输出文件失败: %s", e)
             raise
 
     # ============================================================
@@ -602,8 +605,9 @@ class TTSEngine:
             if output_path and os.path.exists(output_path):
                 try:
                     os.unlink(output_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 清理失败不影响降级逻辑
+                    logger.debug("清理 CosyVoice 输出文件失败: %s", e)
             # 标记为不可用，后续请求直接降级
             self._cosyvoice_available = False
             raise
@@ -1543,8 +1547,9 @@ class ASREngine:
                 finally:
                     try:
                         os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        # 临时文件清理失败不影响识别结果
+                        logger.debug("清理 ASR 临时文件失败: %s", e)
 
         # 处理剩余音频
         if len(audio_buffer) > 0:
@@ -1573,8 +1578,9 @@ class ASREngine:
                 finally:
                     try:
                         os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        # 临时文件清理失败不影响识别结果
+                        logger.debug("清理 ASR 剩余音频临时文件失败: %s", e)
 
     def _vad_on_chunk(self, pcm_data: bytes, sample_rate: int) -> Dict[str, Any]:
         """对单chunk PCM数据进行VAD检测（内存中处理，不写文件）"""
@@ -1735,8 +1741,9 @@ class ASREngine:
             # 清理临时文件
             try:
                 os.unlink(segment_audio)
-            except Exception:
-                pass
+            except Exception as e:
+                # 片段音频清理失败不影响唤醒词检测结果
+                logger.debug("清理唤醒词检测片段音频失败: %s", e)
 
             if not result.get('success'):
                 continue

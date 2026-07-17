@@ -23,8 +23,11 @@ import io
 import sys
 import time
 import tempfile
+import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, JSONResponse, StreamingResponse
@@ -69,8 +72,9 @@ def get_cosyvoice():
         # 尝试导入 CosyVoice
         try:
             sys.path.append('third_party/Matcha-TTS')
-        except Exception:
-            pass
+        except Exception as e:
+            # 路径添加失败不影响主流程，CosyVoice 可能通过其他方式导入
+            logger.debug("添加 Matcha-TTS 路径失败: %s", e)
         
         from cosyvoice.cli.cosyvoice import AutoModel
         import torch

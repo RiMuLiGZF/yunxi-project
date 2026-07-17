@@ -16,9 +16,12 @@ import os
 import json
 import time
 import shutil
+import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -325,8 +328,9 @@ class VoicePresetManager:
         if preset.reference_audio_path and os.path.exists(preset.reference_audio_path):
             try:
                 os.unlink(preset.reference_audio_path)
-            except Exception:
-                pass
+            except Exception as e:
+                # 参考音频文件删除失败不影响预设删除本身
+                logger.debug("删除参考音频文件失败 %s: %s", preset.reference_audio_path, e)
         
         del self._presets[preset_id]
         
@@ -474,8 +478,9 @@ class VoicePresetManager:
         try:
             with open(self.presets_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            # 预设持久化失败不影响运行时功能，但重启后配置会丢失
+            logger.warning("保存音色预设失败 %s: %s", self.presets_file, e)
 
     # ============================================================
     # 场景-音色关联

@@ -27,6 +27,7 @@ try:
                 sys.path.insert(0, str(_current_m12))
             break
 except Exception:
+    # 项目根目录查找失败不影响启动，使用默认路径即可
     pass
 
 # 统一可观测性

@@ -1073,8 +1073,9 @@ class BackupOrchestratorService:
                                 "system", "storage_warning",
                                 f"备份磁盘空间不足，剩余 {free_pct}%"
                             )
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 存储监控单次失败不影响后续检查，记录告警即可
+                    logger.warning("存储监控检查失败: %s", e)
 
         thread = threading.Thread(target=_monitor_loop, daemon=True)
         thread.start()
@@ -1121,8 +1122,9 @@ class BackupOrchestratorService:
             for scheduler in self._schedulers.values():
                 try:
                     scheduler.stop()
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 单个调度器停止失败不影响整体关闭流程
+                    logger.warning("停止备份调度器失败: %s", e)
             self._schedulers.clear()
             self._initialized = False
             logger.info("备份调度中心已关闭")

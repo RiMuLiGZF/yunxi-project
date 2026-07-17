@@ -18,10 +18,13 @@ import time
 import uuid
 import hashlib
 import threading
+import logging
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeStatus(str, Enum):
@@ -180,8 +183,9 @@ class RAGKnowledgeBase:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return [Chunk.from_dict(c) for c in data]
-            except Exception:
-                pass
+            except Exception as e:
+                # 分块文件读取/解析失败视为无缓存，重新生成即可
+                logger.debug("加载文档分块失败 %s: %s", doc_id, e)
         return []
     
     def _save_chunks(self, doc_id: str, chunks: List[Chunk]):
@@ -462,8 +466,9 @@ class RAGKnowledgeBase:
             )
             if resp.status_code == 200:
                 return resp.json().get("embedding")
-        except Exception:
-            pass
+        except Exception as e:
+            # Ollama embedding 服务不可用时返回 None，由上层 fallback 处理
+            logger.warning("Ollama embedding 调用失败: %s", e)
         return None
     
     def _embed_chunks(self, chunks: List[Chunk]):

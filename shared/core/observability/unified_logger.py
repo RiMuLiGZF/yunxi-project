@@ -6,10 +6,19 @@
 - 多输出目标（控制台 + 文件 + Redis 通道）
 - 日志级别动态调整（环境变量配置）
 - 上下文注入（trace_id、user_id、span_id 等）
-- 日志轮转（按天轮转 + 大小限制 + 自动清理）
+- 日志轮转（按天轮转 + 大小限制 + 自动清理 + gzip 压缩）
 - 敏感字段自动脱敏（password, token, secret, key 等）
 - 高性能：异步批量写入、惰性初始化
 - 向后兼容：兼容标准 logging 用法
+- 日志清理工具：过期日志清理、目录大小统计、日志归档
+
+轮转配置（环境变量）：
+    LOG_ROTATION_ENABLED=true/false        # 是否启用轮转，默认 true
+    LOG_ROTATION_WHEN=midnight/hourly/weekly/daily  # 轮转时机，默认 midnight
+    LOG_ROTATION_BACKUP_COUNT=30           # 保留份数/天数，默认 30
+    LOG_ROTATION_MAX_BYTES=104857600       # 单文件最大字节数，默认 100MB
+    LOG_ROTATION_COMPRESS=true/false       # 是否自动 gzip 压缩，默认 true
+    LOG_ROTATION_INTERVAL=1                # 轮转间隔，默认 1
 
 使用方式：
     from shared.core.observability import get_logger
@@ -20,15 +29,437 @@
 """
 import os
 import sys
+import gzip
+import shutil
 import json
 import re
 import logging
 import logging.handlers
-from typing import Optional, Dict, Any, List, Set
+from typing import Optional, Dict, Any, List, Set, Tuple
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextvars import ContextVar
 from functools import lru_cache
+
+
+# ============================================================================
+# 日志轮转配置
+# ============================================================================
+
+class LogRotationConfig:
+    """日志轮转配置（支持环境变量覆盖）
+
+    默认配置：
+    - 按天轮转（midnight）
+    - 保留 30 天
+    - 单个日志文件最大 100MB（兜底防止单日过大）
+    - 自动 gzip 压缩旧日志
+    - 轮转功能默认启用
+
+    环境变量：
+        LOG_ROTATION_ENABLED=true/false    # 是否启用轮转
+        LOG_ROTATION_WHEN=midnight/hourly/weekly/daily  # 轮转时机
+        LOG_ROTATION_BACKUP_COUNT=30       # 保留份数/天数
+        LOG_ROTATION_MAX_BYTES=104857600   # 单文件最大字节数（兜底）
+        LOG_ROTATION_COMPRESS=true/false   # 是否自动压缩旧日志
+        LOG_ROTATION_INTERVAL=1            # 轮转间隔
+    """
+
+    # 默认值
+    DEFAULT_ENABLED = True
+    DEFAULT_WHEN = "midnight"
+    DEFAULT_BACKUP_COUNT = 30
+    DEFAULT_MAX_BYTES = 100 * 1024 * 1024  # 100MB
+    DEFAULT_COMPRESS = True
+    DEFAULT_INTERVAL = 1
+
+    # 合法的 when 值
+    VALID_WHEN_VALUES = {"S", "M", "H", "D", "W0", "W1", "W2", "W3", "W4", "W5", "W6",
+                         "midnight", "hourly", "daily", "weekly"}
+
+    # when 到标准值的映射（友好名称 -> logging.handlers 标准值）
+    _WHEN_MAPPING = {
+        "hourly": "H",
+        "daily": "midnight",
+        "weekly": "W0",
+    }
+
+    def __init__(
+        self,
+        enabled: Optional[bool] = None,
+        when: Optional[str] = None,
+        backup_count: Optional[int] = None,
+        max_bytes: Optional[int] = None,
+        compress: Optional[bool] = None,
+        interval: Optional[int] = None,
+    ):
+        """
+        初始化轮转配置，未指定的参数从环境变量读取，环境变量未设置则使用默认值。
+
+        Args:
+            enabled: 是否启用轮转
+            when: 轮转时机（midnight/hourly/weekly/daily 或标准值）
+            backup_count: 保留的备份文件数
+            max_bytes: 单文件最大字节数（size 模式或兜底）
+            compress: 是否自动 gzip 压缩
+            interval: 轮转间隔（配合 when 使用）
+        """
+        # 从环境变量读取
+        env_enabled = os.getenv("LOG_ROTATION_ENABLED",
+                                os.getenv("YUNXI_LOG_ROTATION_ENABLED", ""))
+        env_when = os.getenv("LOG_ROTATION_WHEN",
+                             os.getenv("YUNXI_LOG_ROTATION_WHEN", ""))
+        env_backup = os.getenv("LOG_ROTATION_BACKUP_COUNT",
+                               os.getenv("YUNXI_LOG_ROTATION_BACKUP_COUNT", ""))
+        env_max_bytes = os.getenv("LOG_ROTATION_MAX_BYTES",
+                                  os.getenv("YUNXI_LOG_ROTATION_MAX_BYTES", ""))
+        env_compress = os.getenv("LOG_ROTATION_COMPRESS",
+                                 os.getenv("YUNXI_LOG_ROTATION_COMPRESS", ""))
+        env_interval = os.getenv("LOG_ROTATION_INTERVAL",
+                                 os.getenv("YUNXI_LOG_ROTATION_INTERVAL", ""))
+
+        # enabled
+        if enabled is not None:
+            self.enabled = enabled
+        elif env_enabled:
+            self.enabled = env_enabled.lower() in ("true", "1", "yes", "on")
+        else:
+            self.enabled = self.DEFAULT_ENABLED
+
+        # when
+        if when is not None:
+            self.when = self._normalize_when(when)
+        elif env_when:
+            self.when = self._normalize_when(env_when)
+        else:
+            self.when = self.DEFAULT_WHEN
+
+        # backup_count
+        if backup_count is not None:
+            self.backup_count = max(0, backup_count)
+        elif env_backup:
+            try:
+                self.backup_count = max(0, int(env_backup))
+            except (ValueError, TypeError):
+                self.backup_count = self.DEFAULT_BACKUP_COUNT
+        else:
+            self.backup_count = self.DEFAULT_BACKUP_COUNT
+
+        # max_bytes
+        if max_bytes is not None:
+            self.max_bytes = max(0, max_bytes)
+        elif env_max_bytes:
+            try:
+                self.max_bytes = max(0, int(env_max_bytes))
+            except (ValueError, TypeError):
+                self.max_bytes = self.DEFAULT_MAX_BYTES
+        else:
+            self.max_bytes = self.DEFAULT_MAX_BYTES
+
+        # compress
+        if compress is not None:
+            self.compress = compress
+        elif env_compress:
+            self.compress = env_compress.lower() in ("true", "1", "yes", "on")
+        else:
+            self.compress = self.DEFAULT_COMPRESS
+
+        # interval
+        if interval is not None:
+            self.interval = max(1, interval)
+        elif env_interval:
+            try:
+                self.interval = max(1, int(env_interval))
+            except (ValueError, TypeError):
+                self.interval = self.DEFAULT_INTERVAL
+        else:
+            self.interval = self.DEFAULT_INTERVAL
+
+    @classmethod
+    def _normalize_when(cls, when: str) -> str:
+        """标准化 when 值，支持友好名称"""
+        when_lower = when.lower().strip()
+        if when_lower in cls._WHEN_MAPPING:
+            return cls._WHEN_MAPPING[when_lower]
+        # 检查是否为标准值（不区分大小写匹配）
+        for valid in cls.VALID_WHEN_VALUES:
+            if when_lower == valid.lower():
+                return valid
+        # 不合法时返回默认
+        return cls.DEFAULT_WHEN
+
+    @property
+    def is_time_based(self) -> bool:
+        """是否为基于时间的轮转"""
+        return self.when != "size" and self.when in {"S", "M", "H", "D", "W0", "W1",
+                                                      "W2", "W3", "W4", "W5", "W6", "midnight"}
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "enabled": self.enabled,
+            "when": self.when,
+            "backup_count": self.backup_count,
+            "max_bytes": self.max_bytes,
+            "compress": self.compress,
+            "interval": self.interval,
+            "is_time_based": self.is_time_based,
+        }
+
+    def __repr__(self) -> str:
+        return (f"LogRotationConfig(enabled={self.enabled}, when='{self.when}', "
+                f"backup_count={self.backup_count}, max_bytes={self.max_bytes}, "
+                f"compress={self.compress}, interval={self.interval})")
+
+
+# ============================================================================
+# 带 gzip 压缩的轮转文件处理器
+# ============================================================================
+
+class GzipTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """支持自动 gzip 压缩的时间轮转文件处理器
+
+    轮转时自动将旧日志文件压缩为 .gz 格式，节省磁盘空间。
+    线程安全（继承自父类的锁机制）。
+    """
+
+    def __init__(self, *args, compress: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.compress = compress
+
+    def doRollover(self):
+        """执行轮转，完成后自动压缩旧文件"""
+        # 先执行父类的轮转逻辑
+        super().doRollover()
+
+        if not self.compress:
+            return
+
+        # 找到刚轮转出来的旧文件并压缩
+        # TimedRotatingFileHandler 轮转后，旧文件名为 baseFilename + suffix
+        # 我们需要找到所有未压缩的旧日志文件并压缩
+        self._compress_rotated_files()
+
+    def _compress_rotated_files(self):
+        """压缩所有已轮转但未压缩的旧日志文件"""
+        import glob
+
+        # 获取 baseFilename 的目录和前缀
+        base_dir = os.path.dirname(self.baseFilename) or "."
+        base_name = os.path.basename(self.baseFilename)
+
+        # 查找已轮转的文件（带有日期后缀，不是 .gz）
+        pattern = os.path.join(base_dir, f"{base_name}.*")
+        for filepath in glob.glob(pattern):
+            # 跳过已经压缩的文件
+            if filepath.endswith(".gz"):
+                continue
+            # 跳过当前正在写入的文件
+            if filepath == self.baseFilename:
+                continue
+            # 跳过 error 日志的压缩（已由 error handler 自己处理）
+            # 检查是否存在对应的 .gz 文件，如果已存在则跳过
+            gz_path = filepath + ".gz"
+            if os.path.exists(gz_path):
+                continue
+
+            try:
+                with open(filepath, 'rb') as f_in:
+                    with gzip.open(gz_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                # 压缩成功后删除原文件
+                os.remove(filepath)
+            except Exception:
+                # 压缩失败时静默，不影响日志写入
+                pass
+
+
+class GzipRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """支持自动 gzip 压缩的大小轮转文件处理器
+
+    轮转时自动将旧日志文件压缩为 .gz 格式，节省磁盘空间。
+    线程安全（继承自父类的锁机制）。
+    """
+
+    def __init__(self, *args, compress: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.compress = compress
+
+    def doRollover(self):
+        """执行轮转，完成后自动压缩旧文件"""
+        super().doRollover()
+
+        if not self.compress:
+            return
+
+        self._compress_rotated_files()
+
+    def _compress_rotated_files(self):
+        """压缩所有已轮转但未压缩的旧日志文件"""
+        import glob
+
+        base_dir = os.path.dirname(self.baseFilename) or "."
+        base_name = os.path.basename(self.baseFilename)
+
+        # 查找已轮转的文件（带有数字后缀，不是 .gz）
+        pattern = os.path.join(base_dir, f"{base_name}.*")
+        for filepath in glob.glob(pattern):
+            if filepath.endswith(".gz"):
+                continue
+            if filepath == self.baseFilename:
+                continue
+
+            gz_path = filepath + ".gz"
+            if os.path.exists(gz_path):
+                continue
+
+            try:
+                with open(filepath, 'rb') as f_in:
+                    with gzip.open(gz_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                os.remove(filepath)
+            except Exception:
+                pass
+
+
+# ============================================================================
+# 日志清理工具函数
+# ============================================================================
+
+def get_log_dir_size(log_dir: str) -> Tuple[int, int]:
+    """统计日志目录的总大小和文件数量
+
+    Args:
+        log_dir: 日志目录路径
+
+    Returns:
+        (总字节数, 文件数量)
+    """
+    total_size = 0
+    file_count = 0
+    log_path = Path(log_dir)
+
+    if not log_path.exists():
+        return 0, 0
+
+    for f in log_path.rglob("*"):
+        if f.is_file():
+            try:
+                total_size += f.stat().st_size
+                file_count += 1
+            except OSError:
+                pass
+
+    return total_size, file_count
+
+
+def clean_expired_logs(
+    log_dir: str,
+    max_age_days: int = 30,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """清理过期日志文件
+
+    Args:
+        log_dir: 日志目录路径
+        max_age_days: 最大保留天数
+        dry_run: 试运行模式，只统计不删除
+
+    Returns:
+        清理结果字典
+    """
+    log_path = Path(log_dir)
+    if not log_path.exists():
+        return {"deleted": 0, "freed_bytes": 0, "log_dir": log_dir, "dry_run": dry_run}
+
+    cutoff_time = datetime.now() - timedelta(days=max_age_days)
+    deleted_count = 0
+    freed_bytes = 0
+
+    for f in log_path.rglob("*"):
+        if not f.is_file():
+            continue
+        try:
+            mtime = datetime.fromtimestamp(f.stat().st_mtime)
+            if mtime < cutoff_time:
+                size = f.stat().st_size
+                if not dry_run:
+                    f.unlink()
+                deleted_count += 1
+                freed_bytes += size
+        except OSError:
+            pass
+
+    return {
+        "deleted": deleted_count,
+        "freed_bytes": freed_bytes,
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+        "log_dir": log_dir,
+        "max_age_days": max_age_days,
+        "dry_run": dry_run,
+    }
+
+
+def archive_logs(
+    log_dir: str,
+    output_dir: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """归档指定时间段的日志
+
+    Args:
+        log_dir: 日志目录
+        output_dir: 归档输出目录
+        start_date: 开始日期（YYYY-MM-DD）
+        end_date: 结束日期（YYYY-MM-DD）
+
+    Returns:
+        归档结果字典
+    """
+    log_path = Path(log_dir)
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    if not log_path.exists():
+        return {"archived": 0, "output_dir": str(output_dir)}
+
+    # 解析日期
+    start_dt = None
+    end_dt = None
+    if start_date:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    if end_date:
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+
+    archived_count = 0
+
+    for f in log_path.rglob("*"):
+        if not f.is_file():
+            continue
+        try:
+            mtime = datetime.fromtimestamp(f.stat().st_mtime)
+            # 日期过滤
+            if start_dt and mtime < start_dt:
+                continue
+            if end_dt and mtime >= end_dt:
+                continue
+
+            # 复制到归档目录，保持目录结构
+            rel_path = f.relative_to(log_path)
+            dest = out_path / rel_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(f), str(dest))
+            archived_count += 1
+        except (OSError, ValueError):
+            pass
+
+    return {
+        "archived": archived_count,
+        "output_dir": str(output_dir),
+        "start_date": start_date,
+        "end_date": end_date,
+    }
 
 
 # ============================================================================
@@ -399,13 +830,14 @@ class UnifiedLogger:
         level: str = "INFO",
         log_dir: Optional[str] = None,
         json_format: Optional[bool] = None,
-        max_bytes: int = 50 * 1024 * 1024,  # 50MB
-        backup_count: int = 30,  # 保留30天/30份
+        max_bytes: int = 50 * 1024 * 1024,  # 50MB（兼容旧参数）
+        backup_count: int = 30,  # 保留30天/30份（兼容旧参数）
         console_output: bool = True,
         file_output: bool = True,
         redis_output: bool = False,
         redis_key: str = "yunxi:logs",
-        rotation: str = "daily",  # daily / size
+        rotation: str = "daily",  # daily / size（兼容旧参数）
+        rotation_config: Optional[LogRotationConfig] = None,
         env: Optional[str] = None,
     ):
         """
@@ -416,20 +848,18 @@ class UnifiedLogger:
             level: 日志级别 (DEBUG/INFO/WARNING/ERROR/CRITICAL)
             log_dir: 日志目录，None则使用默认路径
             json_format: 是否使用JSON格式，None则根据环境自动判断
-            max_bytes: 单个日志文件最大大小（size模式下）
-            backup_count: 保留的日志文件数/天数
+            max_bytes: 单个日志文件最大大小（size模式下，兼容旧参数）
+            backup_count: 保留的日志文件数/天数（兼容旧参数）
             console_output: 是否输出到控制台
             file_output: 是否输出到文件
             redis_output: 是否输出到 Redis 通道
             redis_key: Redis 日志通道 key
-            rotation: 轮转方式 daily/size
+            rotation: 轮转方式 daily/size（兼容旧参数）
+            rotation_config: 轮转配置对象（优先使用，覆盖旧参数）
             env: 运行环境 development/production，None则从环境变量读取
         """
         self.name = name
         self.level = getattr(logging, level.upper(), logging.INFO)
-        self.rotation = rotation
-        self.max_bytes = max_bytes
-        self.backup_count = backup_count
         self.console_output = console_output
         self.file_output = file_output
         self.redis_output = redis_output
@@ -449,6 +879,28 @@ class UnifiedLogger:
         if log_dir is None and file_output:
             log_dir = os.getenv("LOG_DIR", "./logs")
         self.log_dir = Path(log_dir) if log_dir else None
+
+        # 轮转配置：优先使用 rotation_config，否则从旧参数+环境变量构建
+        if rotation_config is not None:
+            self.rotation_config = rotation_config
+        else:
+            # 根据旧参数构建配置（保持向后兼容）
+            config_kwargs = {}
+            if rotation == "size":
+                # size 模式下使用 max_bytes
+                config_kwargs["max_bytes"] = max_bytes
+                config_kwargs["when"] = "size"
+            else:
+                # daily 模式
+                config_kwargs["when"] = "midnight"
+            config_kwargs["backup_count"] = backup_count
+            # 其他参数从环境变量读取
+            self.rotation_config = LogRotationConfig(**config_kwargs)
+
+        # 兼容旧属性访问
+        self.rotation = rotation
+        self.max_bytes = self.rotation_config.max_bytes
+        self.backup_count = self.rotation_config.backup_count
 
         # 构建日志器
         self._logger = self._build_logger()
@@ -505,24 +957,42 @@ class UnifiedLogger:
         return logger
 
     def _create_file_handler(self, filename: str, level: int) -> logging.Handler:
-        """创建文件 handler（根据轮转方式）"""
-        if self.rotation == "daily":
-            handler = logging.handlers.TimedRotatingFileHandler(
+        """创建文件 handler（根据轮转配置）
+
+        如果轮转被禁用，则使用普通的 FileHandler。
+        否则根据配置选择时间轮转或大小轮转，并支持 gzip 压缩。
+        """
+        config = self.rotation_config
+
+        # 轮转被禁用时使用普通 FileHandler
+        if not config.enabled:
+            handler = logging.FileHandler(filename, encoding="utf-8")
+            handler.setLevel(level)
+            return handler
+
+        # 根据轮转类型选择 handler
+        if config.is_time_based:
+            # 时间轮转（支持 gzip 压缩）
+            handler = GzipTimedRotatingFileHandler(
                 filename,
-                when="midnight",
-                interval=1,
-                backupCount=self.backup_count,
+                when=config.when,
+                interval=config.interval,
+                backupCount=config.backup_count,
                 encoding="utf-8",
                 utc=False,
+                compress=config.compress,
             )
             handler.suffix = "%Y-%m-%d"
-        else:  # size
-            handler = logging.handlers.RotatingFileHandler(
+        else:
+            # 大小轮转（支持 gzip 压缩）
+            handler = GzipRotatingFileHandler(
                 filename,
-                maxBytes=self.max_bytes,
-                backupCount=self.backup_count,
+                maxBytes=config.max_bytes,
+                backupCount=config.backup_count,
                 encoding="utf-8",
+                compress=config.compress,
             )
+
         handler.setLevel(level)
         return handler
 
@@ -649,6 +1119,7 @@ def get_logger(
     json_format: Optional[bool] = None,
     file_output: Optional[bool] = None,
     redis_output: Optional[bool] = None,
+    rotation_config: Optional[LogRotationConfig] = None,
 ) -> UnifiedLogger:
     """
     获取统一日志器（单例模式，线程安全）
@@ -663,6 +1134,14 @@ def get_logger(
         LOG_REDIS_OUTPUT: 是否输出到 Redis (true/false)
         YUNXI_ENV / ENV: 运行环境
 
+        轮转相关环境变量（详见 LogRotationConfig）:
+        LOG_ROTATION_ENABLED: 是否启用轮转 (true/false)
+        LOG_ROTATION_WHEN: 轮转时机 (midnight/hourly/weekly/daily)
+        LOG_ROTATION_BACKUP_COUNT: 保留份数 (默认 30)
+        LOG_ROTATION_MAX_BYTES: 单文件最大字节数 (默认 100MB)
+        LOG_ROTATION_COMPRESS: 是否自动压缩 (true/false)
+        LOG_ROTATION_INTERVAL: 轮转间隔 (默认 1)
+
     Args:
         name: 日志器名称
         level: 日志级别，None使用环境变量或默认
@@ -670,6 +1149,7 @@ def get_logger(
         json_format: 是否使用JSON格式，None自动判断
         file_output: 是否输出到文件，None使用环境变量或默认
         redis_output: 是否输出到 Redis，None使用环境变量或默认
+        rotation_config: 轮转配置对象，None则从环境变量自动构建
 
     Returns:
         UnifiedLogger 实例
@@ -693,6 +1173,10 @@ def get_logger(
                 redis_env = os.getenv("LOG_REDIS_OUTPUT", os.getenv("YUNXI_LOG_REDIS", "false"))
                 redis_output = redis_env.lower() in ("true", "1", "yes", "on")
 
+            # 轮转配置：参数优先，否则自动从环境变量构建
+            if rotation_config is None:
+                rotation_config = LogRotationConfig()
+
             _loggers[name] = UnifiedLogger(
                 name=name,
                 level=level,
@@ -700,6 +1184,7 @@ def get_logger(
                 json_format=json_format,
                 file_output=file_output,
                 redis_output=redis_output,
+                rotation_config=rotation_config,
             )
 
         return _loggers[name]

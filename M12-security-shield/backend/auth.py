@@ -10,6 +10,7 @@
 import hashlib
 import secrets
 import uuid
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
@@ -22,6 +23,8 @@ except ImportError:
     from config import get_settings
     from database import get_db
     from models import ApiKey, TokenBlacklist
+
+logger = logging.getLogger(__name__)
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -456,8 +459,9 @@ async def get_current_user(
             # 自动清理过期黑名单 Token（静默失败不影响主流程）
             try:
                 clean_expired_blacklist_tokens(db)
-            except Exception:
-                pass
+            except Exception as e:
+                # 过期 Token 清理失败不影响认证结果，仅记录调试日志
+                logger.debug("清理过期黑名单 Token 失败: %s", e)
             return {
                 "auth_type": "jwt",
                 "user_id": payload.get("sub", ""),

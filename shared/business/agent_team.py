@@ -10,7 +10,10 @@ import re
 import json
 import time
 import random
+import logging
 from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 from .multi_agent import (
     BaseAgent, AgentTask, AgentResult, AgentSpecialty, TaskType,
@@ -51,8 +54,9 @@ class ResearchAgent(BaseAgent):
                     for m in memories[:2]:
                         findings.append(f"（来自记忆）{m.title}：{m.content[:150]}")
                     sources.append("长期记忆")
-            except Exception:
-                pass
+            except Exception as e:
+                # 长期记忆检索失败不影响研究流程，仅记录调试日志
+                logger.debug("长期记忆检索失败: %s", e)
             
             # 2. 搜索知识库
             try:
@@ -63,8 +67,9 @@ class ResearchAgent(BaseAgent):
                     for r in results[:2]:
                         findings.append(f"（来自知识库）{r.chunk.text[:150]}")
                     sources.append("RAG知识库")
-            except Exception:
-                pass
+            except Exception as e:
+                # 知识库检索失败不影响研究流程，仅记录调试日志
+                logger.debug("RAG 知识库检索失败: %s", e)
             
             # 3. 如果没有外部信息，生成结构化研究框架
             if not findings:

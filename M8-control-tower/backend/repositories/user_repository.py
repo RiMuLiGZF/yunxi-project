@@ -6,6 +6,7 @@ P2-21: 用户数据仓库（Database 版）
 """
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -13,6 +14,8 @@ from sqlalchemy.orm import Session
 
 from ..models import User
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _get_users_json_path() -> Path:
@@ -29,8 +32,9 @@ def _load_users_json() -> List[Dict[str, Any]]:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            # JSON 文件损坏时返回空列表，DB 为主数据源
+            logger.warning("加载用户 JSON 文件失败: %s", e)
     return []
 
 
@@ -77,8 +81,9 @@ def migrate_users_from_json(db: Session) -> int:
         if u.get("last_login"):
             try:
                 last_login = datetime.strptime(u["last_login"], "%Y-%m-%d %H:%M:%S")
-            except Exception:
-                pass
+            except Exception as e:
+                # 时间格式解析失败保持 None，不影响用户数据迁移
+                logger.debug("解析用户 last_login 时间失败: %s", e)
 
         db_user = User(
             id=u.get("id"),

@@ -33,9 +33,12 @@
 
 import secrets
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 try:
     from passlib.context import CryptContext
@@ -409,8 +412,9 @@ class ApiKeyValidator:
                 # 更新使用统计
                 try:
                     self.store.increment_usage(key_info)
-                except Exception:
-                    pass  # 统计更新失败不影响主流程
+                except Exception as e:
+                    # 统计更新失败不影响主流程，仅记录调试日志
+                    logger.debug("API Key 使用统计更新失败: %s", e)
                 return key_info
 
         return None
@@ -436,8 +440,9 @@ class ApiKeyValidator:
         if key_info and key_info.is_active and not key_info.is_expired():
             try:
                 self.store.increment_usage(key_info)
-            except Exception:
-                pass
+            except Exception as e:
+                # 统计更新失败不影响主流程，仅记录调试日志
+                logger.debug("API Key 使用统计更新失败: %s", e)
             return key_info
 
         return None

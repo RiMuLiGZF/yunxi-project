@@ -897,8 +897,9 @@ def get_auto_response_engine() -> AutoResponseEngine:
                     settings = get_settings()
                     persist_path = settings.data_dir / "auto_response.json"
                     engine.set_persist_path(str(persist_path))
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 持久化路径设置失败不影响自动响应功能，仅内存模式运行
+                    logger.warning("设置自动响应持久化路径失败: %s", e)
 
                 _auto_response_engine = engine
     return _auto_response_engine

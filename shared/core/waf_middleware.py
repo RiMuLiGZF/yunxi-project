@@ -626,9 +626,9 @@ class WafMiddleware(BaseHTTPMiddleware):
                 # 重建请求体流，确保后续路由能正常读取
                 if body_bytes:
                     await self._rebuild_request_body(request, body_bytes)
-            except Exception:
-                pass
-
+            except Exception as e:
+                # 请求体读取/重建失败不阻断请求，WAF 降级为仅检测 header 和 query
+                logger.debug("WAF 读取请求体失败: %s", e)
         return {
             "method": request.method,
             "path": request.url.path,
@@ -671,8 +671,9 @@ class WafMiddleware(BaseHTTPMiddleware):
                 return await original_receive()
 
             request._receive = receive
-        except Exception:
-            pass
+        except Exception as e:
+            # 请求体重建失败不影响主流程，WAF 降级即可
+            logger.debug("WAF 重建请求体流失败: %s", e)
 
     def get_stats(self) -> dict:
         """获取中间件统计信息"""

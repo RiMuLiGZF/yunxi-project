@@ -23,9 +23,12 @@ import io
 import time
 import base64
 import tempfile
+import logging
 from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -195,8 +198,9 @@ class CosyVoiceClient:
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get('speakers', [])
-        except Exception:
-            pass
+        except Exception as e:
+            # 说话人列表获取失败返回空列表，不影响主流程
+            logger.warning("获取 CosyVoice 说话人列表失败: %s", e)
         return []
 
     # ============================================================

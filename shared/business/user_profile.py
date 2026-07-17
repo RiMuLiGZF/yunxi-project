@@ -11,12 +11,14 @@
 import json
 import time
 import threading
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from collections import defaultdict
 from enum import Enum
 
+logger = logging.getLogger(__name__)
 
 class PreferenceCategory(str, Enum):
     """偏好类别"""
@@ -198,10 +200,13 @@ class UserProfileManager:
                         data = json.load(f)
                     profile = UserProfile.from_dict(data)
                     self._profiles[profile.user_id] = profile
-                except Exception:
+                except Exception as e:
+                    # 单个画像文件损坏跳过，不影响其他用户
+                    logger.warning("加载用户画像文件失败 %s: %s", file, e)
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            # 目录读取失败不影响运行，后续会通过创建补全
+            logger.debug("读取用户画像目录失败: %s", e)
     
     def _save_profile(self, profile: UserProfile):
         """保存用户画像到文件"""
