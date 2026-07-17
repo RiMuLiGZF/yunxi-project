@@ -559,7 +559,7 @@ class TestBackwardCompatibility:
         assert verify_api_key(key, [key]) == {}
 
         # 元组格式
-        result = verify_api_key(key, [(key_hash, {"name": "test", "permissions": ["*"])])
+        result = verify_api_key(key, [(key_hash, {"name": "test", "permissions": ["*"]})])
         assert result is not None
         assert result["name"] == "test"
         assert result["permissions"] == ["*"]
