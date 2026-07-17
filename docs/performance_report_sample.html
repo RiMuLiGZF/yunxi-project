@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云汐系统性能基准测试报告</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        header h1 { font-size: 28px; margin-bottom: 10px; }
+        header .meta { opacity: 0.9; font-size: 14px; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .summary-card .label { font-size: 13px; color: #888; margin-bottom: 5px; }
+        .summary-card .value { font-size: 24px; font-weight: 600; color: #333; }
+        .summary-card .unit { font-size: 14px; color: #888; font-weight: normal; }
+        section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        section h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tr:hover { background: #f8f9fa; }
+        .bar-cell { min-width: 150px; }
+        .bar-container {
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .bar-fill.fast { background: linear-gradient(90deg, #11998e, #38ef7d); }
+        .bar-fill.medium { background: linear-gradient(90deg, #f093fb, #f5576c); }
+        .bar-fill.slow { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+        .bar-label {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #666;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-fast { background: #d4edda; color: #155724; }
+        .status-medium { background: #fff3cd; color: #856404; }
+        .status-slow { background: #f8d7da; color: #721c24; }
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .category-tab {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .category-tab:hover { background: #e0e0e0; }
+        .category-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        .test-group { display: none; }
+        .test-group.active { display: block; }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 13px;
+        }
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { color: #666; }
+        .metric-value { font-weight: 600; }
+        .comparison-table { margin-top: 15px; }
+        .trend-chart {
+            display: flex;
+            align-items: flex-end;
+            height: 150px;
+            gap: 5px;
+            padding: 20px 0;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .trend-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            border-radius: 4px 4px 0 0;
+            min-height: 5px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .trend-bar:hover { opacity: 0.8; }
+        .trend-bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #999;
+            white-space: nowrap;
+        }
+        .memory-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .memory-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .memory-card h4 { margin-bottom: 10px; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>云汐系统性能基准测试报告</h1>
+            <div class="meta">
+                生成时间: 2026-07-18 00:19:04 |
+                测试项: 23 项 |
+                环境: production
+            </div>
+        </header>
+
+        <!-- 汇总卡片 -->
+        <div class="summary-grid">
+            
+        <div class="summary-card">
+            <div class="label">测试项总数</div>
+            <div class="value">23<span class="unit"> 项</span></div>
+        </div>
+        
+        <div class="summary-card">
+            <div class="label">平均响应时间</div>
+            <div class="value">1.12<span class="unit"> ms</span></div>
+        </div>
+        
+        <div class="summary-card">
+            <div class="label">总吞吐量</div>
+            <div class="value">4864318<span class="unit"> QPS</span></div>
+        </div>
+        
+        <div class="summary-card">
+            <div class="label">快速项</div>
+            <div class="value">22<span class="unit"> 项</span></div>
+        </div>
+        
+        </div>
+
+        <!-- 分类标签 -->
+        <section>
+            <h2>测试结果详情</h2>
+            <div class="category-tabs">
+                <div class="category-tab active" data-category="数据库" onclick="showCategory('数据库')">数据库</div><div class="category-tab " data-category="内存" onclick="showCategory('内存')">内存</div>
+            </div>
+            
+        <div class="test-group active" data-category="数据库">
+            
+    <table>
+        <thead>
+            <tr>
+                <th>测试项</th>
+                <th>次数</th>
+                <th>平均耗时</th>
+                <th>P95</th>
+                <th>P99</th>
+                <th>QPS</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+        <tr>
+            <td><code>db_aggregation_query</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 22.4%"></div>
+                    <span class="bar-label">2.805 ms</span>
+                </div>
+            </td>
+            <td>4.507 ms</td>
+            <td>4.553 ms</td>
+            <td>356.5</td>
+            <td><span class="status-badge status-fast">快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_batch_insert</code></td>
+            <td>10</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 42.9%"></div>
+                    <span class="bar-label">5.376 ms</span>
+                </div>
+            </td>
+            <td>8.986 ms</td>
+            <td>11.396 ms</td>
+            <td>186.0</td>
+            <td><span class="status-badge status-fast">快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_concurrent_reads</code></td>
+            <td>200</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 3.9%"></div>
+                    <span class="bar-label">0.490 ms</span>
+                </div>
+            </td>
+            <td>1.155 ms</td>
+            <td>1.590 ms</td>
+            <td>2,040.5</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_count_query</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 3.5%"></div>
+                    <span class="bar-label">0.435 ms</span>
+                </div>
+            </td>
+            <td>0.715 ms</td>
+            <td>0.830 ms</td>
+            <td>2,299.1</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_delete</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.2%"></div>
+                    <span class="bar-label">0.020 ms</span>
+                </div>
+            </td>
+            <td>0.028 ms</td>
+            <td>0.034 ms</td>
+            <td>49,212.6</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_like_query</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 4.3%"></div>
+                    <span class="bar-label">0.541 ms</span>
+                </div>
+            </td>
+            <td>1.010 ms</td>
+            <td>1.079 ms</td>
+            <td>1,849.7</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_new_connection</code></td>
+            <td>50</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 6.7%"></div>
+                    <span class="bar-label">0.834 ms</span>
+                </div>
+            </td>
+            <td>0.975 ms</td>
+            <td>1.081 ms</td>
+            <td>1,199.0</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_query_no_index</code></td>
+            <td>50</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 7.5%"></div>
+                    <span class="bar-label">0.943 ms</span>
+                </div>
+            </td>
+            <td>1.107 ms</td>
+            <td>1.419 ms</td>
+            <td>1,060.6</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_query_with_index</code></td>
+            <td>50</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 3.0%"></div>
+                    <span class="bar-label">0.373 ms</span>
+                </div>
+            </td>
+            <td>0.397 ms</td>
+            <td>0.469 ms</td>
+            <td>2,680.3</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_read_throughput</code></td>
+            <td>1</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.1%"></div>
+                    <span class="bar-label">0.015 ms</span>
+                </div>
+            </td>
+            <td>0.000 ms</td>
+            <td>0.000 ms</td>
+            <td>64,516.1</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_read_write_mixed</code></td>
+            <td>1</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill medium" style="width: 100.0%"></div>
+                    <span class="bar-label">12.540 ms</span>
+                </div>
+            </td>
+            <td>0.000 ms</td>
+            <td>0.000 ms</td>
+            <td>79.8</td>
+            <td><span class="status-badge status-medium">中等</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_reused_connection</code></td>
+            <td>50</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 1.6%"></div>
+                    <span class="bar-label">0.202 ms</span>
+                </div>
+            </td>
+            <td>0.015 ms</td>
+            <td>4.858 ms</td>
+            <td>4,944.0</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_select_by_category</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 3.6%"></div>
+                    <span class="bar-label">0.447 ms</span>
+                </div>
+            </td>
+            <td>0.472 ms</td>
+            <td>0.488 ms</td>
+            <td>2,235.8</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_select_by_id</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.1%"></div>
+                    <span class="bar-label">0.010 ms</span>
+                </div>
+            </td>
+            <td>0.011 ms</td>
+            <td>0.012 ms</td>
+            <td>97,627.6</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_select_with_limit</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.9%"></div>
+                    <span class="bar-label">0.112 ms</span>
+                </div>
+            </td>
+            <td>0.139 ms</td>
+            <td>0.148 ms</td>
+            <td>8,952.1</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_single_insert</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.5%"></div>
+                    <span class="bar-label">0.057 ms</span>
+                </div>
+            </td>
+            <td>0.106 ms</td>
+            <td>0.131 ms</td>
+            <td>17,587.7</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>db_update</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.2%"></div>
+                    <span class="bar-label">0.021 ms</span>
+                </div>
+            </td>
+            <td>0.043 ms</td>
+            <td>0.066 ms</td>
+            <td>46,873.5</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        </tbody>
+    </table>
+    
+        </div>
+        
+        <div class="test-group " data-category="内存">
+            
+    <table>
+        <thead>
+            <tr>
+                <th>测试项</th>
+                <th>次数</th>
+                <th>平均耗时</th>
+                <th>P95</th>
+                <th>P99</th>
+                <th>QPS</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+        <tr>
+            <td><code>memory_dict_creation</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.1%"></div>
+                    <span class="bar-label">0.001 ms</span>
+                </div>
+            </td>
+            <td>0.001 ms</td>
+            <td>0.001 ms</td>
+            <td>1,808,318.1</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>memory_list_comprehension</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 100.0%"></div>
+                    <span class="bar-label">0.575 ms</span>
+                </div>
+            </td>
+            <td>0.629 ms</td>
+            <td>0.686 ms</td>
+            <td>1,739.9</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>memory_small_object_creation</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.2%"></div>
+                    <span class="bar-label">0.001 ms</span>
+                </div>
+            </td>
+            <td>0.001 ms</td>
+            <td>0.002 ms</td>
+            <td>882,612.7</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>memory_string_fstring</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.2%"></div>
+                    <span class="bar-label">0.001 ms</span>
+                </div>
+            </td>
+            <td>0.001 ms</td>
+            <td>0.001 ms</td>
+            <td>1,109,877.7</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>memory_string_join</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 0.2%"></div>
+                    <span class="bar-label">0.001 ms</span>
+                </div>
+            </td>
+            <td>0.001 ms</td>
+            <td>0.002 ms</td>
+            <td>732,064.5</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        <tr>
+            <td><code>memory_string_plus</code></td>
+            <td>100</td>
+            <td class="bar-cell">
+                <div class="bar-container">
+                    <div class="bar-fill fast" style="width: 6.7%"></div>
+                    <span class="bar-label">0.038 ms</span>
+                </div>
+            </td>
+            <td>0.049 ms</td>
+            <td>0.059 ms</td>
+            <td>26,003.7</td>
+            <td><span class="status-badge status-fast">极快</span></td>
+        </tr>
+        
+        </tbody>
+    </table>
+    
+        </div>
+        
+        </section>
+
+        <!-- 内存测试 -->
+        
+    <section>
+        <h2>内存使用测试</h2>
+        <div class="memory-section">
+            
+        <div class="memory-card">
+            <h4>memory_cache_1000_entries</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">0.329 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">0.329 MB</span>
+            </div>
+        </div>
+        
+        <div class="memory-card">
+            <h4>memory_cache_scalability</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">1.193 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">1.313 MB</span>
+            </div>
+        </div>
+        
+        <div class="memory-card">
+            <h4>memory_cache_large_values</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">0.980 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">1.217 MB</span>
+            </div>
+        </div>
+        
+        <div class="memory-card">
+            <h4>memory_db_queries</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">0.016 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">1.155 MB</span>
+            </div>
+        </div>
+        
+        <div class="memory-card">
+            <h4>memory_db_large_query</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">1.345 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">1.400 MB</span>
+            </div>
+        </div>
+        
+        <div class="memory-card">
+            <h4>memory_logger_1000_lines</h4>
+            <div class="metric-row">
+                <span class="metric-label">内存增长</span>
+                <span class="metric-value">0.047 MB</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">峰值内存</span>
+                <span class="metric-value">0.799 MB</span>
+            </div>
+        </div>
+        
+        </div>
+    </section>
+    
+
+        <!-- 性能指标说明 -->
+        <section>
+            <h2>性能指标说明</h2>
+            <div class="metric-row">
+                <span class="metric-label">mean (平均值)</span>
+                <span class="metric-value">所有测量值的算术平均</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">median (中位数)</span>
+                <span class="metric-value">中间值，不受极端值影响</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">P95 / P99</span>
+                <span class="metric-value">95% / 99% 的请求在此时间内完成</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">QPS</span>
+                <span class="metric-value">每秒查询数（吞吐量）</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">stdev (标准差)</span>
+                <span class="metric-value">性能波动程度，越小越稳定</span>
+            </div>
+        </section>
+
+        <footer>
+            云汐系统性能测试框架 v1.0 | 报告自动生成
+        </footer>
+    </div>
+
+    <script>
+        // 分类切换
+        function showCategory(category) {{
+            document.querySelectorAll('.category-tab').forEach(tab => {{
+                tab.classList.toggle('active', tab.dataset.category === category);
+            }});
+            document.querySelectorAll('.test-group').forEach(group => {{
+                group.classList.toggle('active', group.dataset.category === category);
+            }});
+        }}
+
+        // 默认显示第一个分类
+        document.addEventListener('DOMContentLoaded', function() {{
+            const firstTab = document.querySelector('.category-tab');
+            if (firstTab) {{
+                showCategory(firstTab.dataset.category);
+            }}
+        }});
+    </script>
+</body>
+</html>
