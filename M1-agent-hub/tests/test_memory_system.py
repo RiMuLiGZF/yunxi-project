@@ -6,7 +6,7 @@ sys.path.insert(0, "/workspace")
 import pytest
 import time
 
-from agent_cluster.memory_system import (
+from agent_cluster.memory.memory_system import (
     MemoryManager,
     WorkingMemory,
     ShortTermMemory,

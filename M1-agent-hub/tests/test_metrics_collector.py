@@ -5,7 +5,7 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.metrics_collector import MetricsCollector
+from agent_cluster.observability.metrics_collector import MetricsCollector
 
 
 def test_record_latency():

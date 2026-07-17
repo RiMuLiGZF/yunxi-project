@@ -6,7 +6,7 @@ sys.path.insert(0, "/workspace")
 import pytest
 import time
 
-from agent_cluster.tracing import Tracer, SpanKind, SpanStatus, Trace, Span
+from agent_cluster.observability.tracing import Tracer, SpanKind, SpanStatus, Trace, Span
 
 
 def test_start_trace():

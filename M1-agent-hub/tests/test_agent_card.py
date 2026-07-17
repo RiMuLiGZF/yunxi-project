@@ -5,7 +5,7 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.agent_card import (
+from agent_cluster.agents.agent_card import (
     AgentCard,
     AgentCapability,
     AgentCardRegistry,

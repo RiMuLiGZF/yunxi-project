@@ -5,7 +5,7 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.adaptive_router import AdaptiveRouter
+from agent_cluster.core.adaptive_router import AdaptiveRouter
 
 
 def test_register_and_select_single():

@@ -5,8 +5,8 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.intent_classifier_v2 import SemanticIntentClassifier
-from agent_cluster.intent_classifier import IntentRule
+from agent_cluster.core.intent_classifier_v2 import SemanticIntentClassifier
+from agent_cluster.core.intent_classifier import IntentRule
 
 
 @pytest.fixture

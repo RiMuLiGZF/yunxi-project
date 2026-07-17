@@ -5,8 +5,8 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.feedback_loop import FeedbackCollector, SelfOptimizer
-from agent_cluster.intent_classifier import IntentClassifier
+from agent_cluster.core.feedback_loop import FeedbackCollector, SelfOptimizer
+from agent_cluster.core.intent_classifier import IntentClassifier
 
 
 def test_collect_explicit_feedback():

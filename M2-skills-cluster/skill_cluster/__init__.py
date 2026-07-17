@@ -29,6 +29,53 @@ def _load_system_version() -> str:
 
 SYSTEM_VERSION = _load_system_version()
 
+
+# ============================================================
+# 预注册向后兼容存根模块到 sys.modules
+# 必须在主导入之前执行，确保内部模块引用 skill_cluster.xxx 时能找到存根
+# ============================================================
+
+_STUB_MODULES = [
+    'a2a_bus', 'a2a_protocol', 'adaptive_router', 'agent_memory', 'agent_runtime',
+    'api_v2', 'ast_scanner', 'circuit_breaker', 'code_execution_bridge',
+    'config_center', 'edge_cloud_orchestrator', 'event_bus', 'function_schema',
+    'health_checker', 'hooks', 'http_api', 'idempotency', 'm8_auth_middleware',
+    'mcp_bridge', 'memory_skill_bridge', 'metrics', 'middleware', 'permissions',
+    'pipeline_store', 'plugin_loader', 'rate_limiter', 'result_renderer', 'sandbox',
+    'skill_bandit_router', 'skill_cache', 'skill_discovery', 'skill_experience',
+    'skill_graph', 'skill_handbook', 'skill_health', 'skill_pipeline',
+    'skill_recommender', 'skill_registry', 'skill_router', 'skill_selection',
+    'streaming', 'test_endpoints', 'token_budget', 'tool_lazy_discoverer',
+    'trace_aggregator', 'upgrade_endpoints', 'voice_polish',
+]
+
+
+def _register_stub_modules():
+    """将存根模块预注册到 sys.modules，使 from skill_cluster.xxx import 能正常工作。
+    
+    由于部分内部模块仍引用旧的根级模块名（如 skill_router），
+    必须在主导入之前将这些存根注册到 sys.modules，避免 ImportError。
+    """
+    import sys
+    import importlib
+    import warnings
+    
+    for name in _STUB_MODULES:
+        full_name = f'skill_cluster.{name}'
+        if full_name not in sys.modules:
+            try:
+                # 从 stubs 子包导入存根模块
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", DeprecationWarning)
+                    mod = importlib.import_module(f'skill_cluster.stubs.{name}')
+                sys.modules[full_name] = mod
+            except Exception:
+                pass  # 导入失败不影响主包启动
+
+
+_register_stub_modules()
+
+
 from skill_cluster.interfaces import (
     ISkill,
     SkillConfig,
@@ -357,3 +404,20 @@ __all__ = [
     "MarketRegistry",
     "market_router",
 ]
+
+
+def __getattr__(name):
+    """属性访问兜底，保持向后兼容。
+    
+    存根模块已在包加载时预注册到 sys.modules，
+    此函数用于属性访问形式的兜底（如 skill_cluster.skill_router）。
+    """
+    if name in _STUB_MODULES:
+        import sys
+        full_name = f'skill_cluster.{name}'
+        if full_name in sys.modules:
+            return sys.modules[full_name]
+        import importlib
+        mod = importlib.import_module(f'skill_cluster.stubs.{name}')
+        return mod
+    raise AttributeError(f"module 'skill_cluster' has no attribute '{name}'")

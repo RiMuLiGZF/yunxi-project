@@ -36,9 +36,9 @@ for p in [PACKAGE_DIR, WORKSPACE_DIR]:
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 
-from agent_cluster.task_dispatcher import TaskDispatcher  # noqa: E402
-from agent_cluster.message_bus import MessageBus  # noqa: E402
-from agent_cluster.agent_registry import AgentRegistry  # noqa: E402
+from agent_cluster.core.task_dispatcher import TaskDispatcher  # noqa: E402
+from agent_cluster.core.message_bus import MessageBus  # noqa: E402
+from agent_cluster.agents.agent_registry import AgentRegistry  # noqa: E402
 from interfaces import (  # noqa: E402
     AgentTask,
     AgentResult,

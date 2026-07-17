@@ -2,9 +2,9 @@
 
 **模块代号**：M1
 **模块名称**：多Agent集群调度
-**版本**：v11.1
+**版本**：v11.2
 **端口**：8001
-**技术栈**：FastAPI + 联邦调度 + 8 个子 Agent
+**技术栈**：FastAPI + 联邦调度 + 8 个子 Agent + src/ 标准包结构
 
 ---
 
@@ -41,7 +41,52 @@ M1 多Agent集群调度是云汐系统的核心调度中枢，采用联邦调度
 
 ---
 
-## 三、配置说明
+## 三、目录结构
+
+v11.2 版本起采用标准 `src/` 包结构，根目录仅保留入口点与配置文件。
+
+```
+M1-agent-hub/
+├── src/                          # 源代码（21个子模块）
+│   ├── agents/                   # Agent注册管理 + 8个子Agent
+│   │   ├── arbiter/             # 仲裁者Agent
+│   │   ├── budget/              # 预算官Agent
+│   │   ├── bus/                 # 消息总线Agent
+│   │   ├── discovery/           # 发现者Agent
+│   │   ├── lifecycle/           # 生命周期Agent
+│   │   ├── pool/                # 分身池
+│   │   ├── security/            # 安全官Agent
+│   │   ├── snapshot/            # 快照师Agent
+│   │   └── voice/               # 语音师Agent
+│   ├── orchestration/            # 编排引擎（9版本orchestrator + 工作流 + 群聊）
+│   ├── core/                     # 核心调度引擎（23模块）
+│   ├── resilience/               # 弹性与容错（熔断/舱壁/降级/重试）
+│   ├── memory/                   # 记忆系统（向量/桥接/RBAC）
+│   ├── observability/            # 可观测性（日志/追踪/指标/健康）
+│   ├── tools/                    # 工具集成（MCP/LLM/HTTP）
+│   ├── config/                   # 配置管理
+│   ├── models/                   # 数据模型
+│   ├── federation/               # 联邦调度系统
+│   ├── api/                      # API层
+│   └── orchestrator/             # 编排者Agent
+├── tests/                        # 测试套件（53个测试文件）
+├── docs/                         # 文档
+├── server.py                     # 启动入口
+├── app_bootstrap.py              # 应用引导
+├── guardrails.py / guardrails_v2.py  # 护栏
+├── conftest.py                   # pytest配置（src/ + agent_cluster命名空间）
+├── *.yaml / *.env                # 配置文件
+└── README.md
+```
+
+**导入方式**：
+- 推荐：`from src.core.task_dispatcher import TaskDispatcher`
+- 兼容：`from agent_cluster.core.task_dispatcher import TaskDispatcher`
+  （通过 conftest.py 的命名空间注册实现）
+
+---
+
+## 四、配置说明
 
 ### 配置文件
 
@@ -75,9 +120,9 @@ http://localhost:8001/docs
 
 ---
 
-## 四、API 接口
+## 五、API 接口
 
-### 4.1 M8 标准接口
+### 5.1 M8 标准接口
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -94,7 +139,7 @@ http://localhost:8001/docs
 | `POST /api/v1/chat` | POST | 同步对话 |
 | `POST /api/v1/chat/stream` | POST | 流式对话 |
 
-### 4.3 Agent 管理
+### 5.3 Agent 管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -158,7 +203,7 @@ pytest tests/test_v11_1_m8_integration.py -v
 
 ---
 
-## 七、与其他模块关系
+## 八、与其他模块关系
 
 - **上游**：M8 管理台通过 M8 标准接口纳管 M1
 - **下游**：调用 M2 技能集群扩展能力

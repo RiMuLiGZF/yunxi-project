@@ -7,15 +7,15 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from agent_cluster.orchestrator_v2 import OrchestratorV2
-from agent_cluster.agent_registry import AgentRegistry
-from agent_cluster.task_dispatcher import TaskDispatcher
-from agent_cluster.intent_classifier_v2 import SemanticIntentClassifier
+from agent_cluster.orchestration.orchestrator_v2 import OrchestratorV2
+from agent_cluster.agents.agent_registry import AgentRegistry
+from agent_cluster.core.task_dispatcher import TaskDispatcher
+from agent_cluster.core.intent_classifier_v2 import SemanticIntentClassifier
 from agent_cluster.guardrails import GuardrailPipeline, KeywordBlockGuardrail
-from agent_cluster.tracing import Tracer
-from agent_cluster.agent_card import AgentCardRegistry
-from agent_cluster.interfaces import AgentTask, AgentResult, IAgentPlugin
-from agent_cluster.workflow_engine import WorkflowDefinition, WorkflowState, AgentNode
+from agent_cluster.observability.tracing import Tracer
+from agent_cluster.agents.agent_card import AgentCardRegistry
+from agent_cluster.tools.interfaces import AgentTask, AgentResult, IAgentPlugin
+from agent_cluster.orchestration.workflow_engine import WorkflowDefinition, WorkflowState, AgentNode
 
 
 class DummyAgent(IAgentPlugin):

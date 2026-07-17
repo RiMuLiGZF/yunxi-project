@@ -36,7 +36,7 @@ for p in [PACKAGE_DIR, WORKSPACE_DIR]:
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 
-from agent_cluster.message_bus import MessageBus  # noqa: E402
+from agent_cluster.core.message_bus import MessageBus  # noqa: E402
 from interfaces import BusMessage, BusHandler  # noqa: E402
 
 

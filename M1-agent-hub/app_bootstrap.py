@@ -23,46 +23,46 @@ from typing import Any
 
 import structlog
 
-from config_manager import ConfigManager
-from message_bus import MessageBus
-from agent_registry import AgentRegistry
-from task_dispatcher import TaskDispatcher
-from a2a_protocol import MemoryTransport
-from message_adapter import MessageAdapter
-from intent_classifier_v2 import SemanticIntentClassifier
-from orchestrator_v2 import OrchestratorV2
-from orchestrator_v3 import OrchestratorV3
-from orchestrator_v4 import OrchestratorV4
-from orchestrator_v5 import OrchestratorV5
-from orchestrator_v7 import OrchestratorV7
-from orchestrator_v8 import OrchestratorV8
-from orchestrator_v9 import OrchestratorV9
-from event_store import EventStore
-from streaming_engine import StreamingEngine
-from llm_provider import LLMProviderFactory
-from circuit_breaker import CircuitBreakerRegistry
-from persistence import SQLitePersistence
-from vector_memory import VectorMemory
-from plugin_loader import PluginLoader
-from mcp_server import MCPServer
-from lifecycle_manager import LifecycleManager
-from health_monitor import HealthMonitor
-from api.server import YunxiAPI
-from ensemble_engine import EnsembleEngine
-from budget_manager import BudgetManager
-from task_durability import TaskDurabilityManager
-from enhanced_registry import EnhancedRegistry, LoopGuard
-from checkpointer import Checkpointer
-from rbac_memory import RBACMemoryGuard
-from swarm_and_innovation import SwarmManager, TraceToMemory, RetrospectiveEngine, ModelRotationManager
-from semantic_intent_v3 import SemanticIntentClassifierV3
-from otlp_exporter import OTLPExporter
+from src.config.config_manager import ConfigManager
+from src.core.message_bus import MessageBus
+from src.agents.agent_registry import AgentRegistry
+from src.core.task_dispatcher import TaskDispatcher
+from src.core.a2a_protocol import MemoryTransport
+from src.core.message_adapter import MessageAdapter
+from src.core.intent_classifier_v2 import SemanticIntentClassifier
+from src.orchestration.orchestrator_v2 import OrchestratorV2
+from src.orchestration.orchestrator_v3 import OrchestratorV3
+from src.orchestration.orchestrator_v4 import OrchestratorV4
+from src.orchestration.orchestrator_v5 import OrchestratorV5
+from src.orchestration.orchestrator_v7 import OrchestratorV7
+from src.orchestration.orchestrator_v8 import OrchestratorV8
+from src.orchestration.orchestrator_v9 import OrchestratorV9
+from src.core.event_store import EventStore
+from src.core.streaming_engine import StreamingEngine
+from src.tools.llm_provider import LLMProviderFactory
+from src.resilience.circuit_breaker import CircuitBreakerRegistry
+from src.core.persistence import SQLitePersistence
+from src.memory.vector_memory import VectorMemory
+from src.core.plugin_loader import PluginLoader
+from src.tools.mcp_server import MCPServer
+from src.core.lifecycle_manager import LifecycleManager
+from src.observability.health_monitor import HealthMonitor
+from src.api.server import YunxiAPI
+from src.orchestration.ensemble_engine import EnsembleEngine
+from src.resilience.budget_manager import BudgetManager
+from src.core.task_durability import TaskDurabilityManager
+from src.agents.enhanced_registry import EnhancedRegistry, LoopGuard
+from src.core.checkpointer import Checkpointer
+from src.memory.rbac_memory import RBACMemoryGuard
+from src.orchestration.swarm_and_innovation import SwarmManager, TraceToMemory, RetrospectiveEngine, ModelRotationManager
+from src.core.semantic_intent_v3 import SemanticIntentClassifierV3
+from src.observability.otlp_exporter import OTLPExporter
 from guardrails_v2 import GuardrailsV2
-from ledger_engine import LedgerEngine
-from federation.registry import ExternalAgentRegistry
-from federation.scheduler import FederatedScheduler
-from federation.cost_controller import CostController
-from federation.privacy_guard import FederationPrivacyGuard
+from src.core.ledger_engine import LedgerEngine
+from src.federation.registry import ExternalAgentRegistry
+from src.federation.scheduler import FederatedScheduler
+from src.federation.cost_controller import CostController
+from src.federation.privacy_guard import FederationPrivacyGuard
 
 logger = structlog.get_logger(__name__)
 
@@ -232,10 +232,10 @@ class YunxiApplication:
 
         # 10.5 手动注册内置 Agent（从 ./agents 目录加载）
         # 插件系统因目录配置问题可能加载失败，这里直接 import 并注册，确保核心 Agent 可用
-        from agents.agent_emotion import EmotionAgent
-        from agents.agent_dev import DevAgent
-        from agents.agent_note import NoteAgent
-        from agents.agent_review import ReviewAgent
+        from src.agents.agent_emotion import EmotionAgent
+        from src.agents.agent_dev import DevAgent
+        from src.agents.agent_note import NoteAgent
+        from src.agents.agent_review import ReviewAgent
 
         builtin_agents = [EmotionAgent(), DevAgent(), NoteAgent(), ReviewAgent()]
         for agent in builtin_agents:

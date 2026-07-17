@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from agent_cluster.workflow_engine import (
+from agent_cluster.orchestration.workflow_engine import (
     WorkflowEngine,
     WorkflowDefinition,
     WorkflowNode,
@@ -21,7 +21,7 @@ from agent_cluster.workflow_engine import (
     WorkflowPatterns,
     WorkflowStatus,
 )
-from agent_cluster.interfaces import AgentTask, AgentResult, IAgentPlugin
+from agent_cluster.tools.interfaces import AgentTask, AgentResult, IAgentPlugin
 
 
 class MockAgent(IAgentPlugin):

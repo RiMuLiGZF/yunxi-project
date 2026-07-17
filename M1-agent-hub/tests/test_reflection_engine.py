@@ -5,14 +5,14 @@ sys.path.insert(0, "/workspace")
 
 import pytest
 
-from agent_cluster.reflection_engine import (
+from agent_cluster.core.reflection_engine import (
     Evaluator,
     Reflector,
     ReflectionEngine,
     MultiAgentPeerReview,
     EvaluationResult,
 )
-from agent_cluster.interfaces import AgentResult
+from agent_cluster.tools.interfaces import AgentResult
 
 
 def test_evaluate_success():

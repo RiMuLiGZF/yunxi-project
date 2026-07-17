@@ -17,7 +17,7 @@ from typing import Any
 
 import structlog
 
-from semantic_intent_v3 import SemanticIntentClassifierV3
+from src.core.semantic_intent_v3 import SemanticIntentClassifierV3
 
 logger = structlog.get_logger(__name__)
 
