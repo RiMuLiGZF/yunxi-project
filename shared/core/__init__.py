@@ -19,6 +19,7 @@
 - logger_redis: Redis 日志通道
 - middleware: 中间件集合（链路追踪等）
 - observability: 可观测性（统一日志 / 追踪 / 指标）
+- audit_framework: 统一审计框架（SC-007 P1级，审计日志全覆盖）
 - bounded_collections: 有界集合工具（防止内存无界增长）
 """
 
@@ -167,6 +168,24 @@ from .observability import (
     MetricsEndpoint,
 )
 
+# 统一审计框架（SC-007 P1级）
+from .audit_framework import (
+    AuditCategory,
+    AuditLevel,
+    AuditResult,
+    AuditEvent,
+    AuditStorageBackend,
+    MemoryAuditStorage,
+    JsonFileAuditStorage,
+    AuditLogger,
+    audit_log,
+    AuditMiddleware,
+    AuthAuditHook,
+    get_audit_logger,
+    set_audit_logger,
+    audit_event,
+)
+
 # 有界集合工具（内存无界增长防护）
 from .bounded_collections import (
     BoundedList,
@@ -236,6 +255,11 @@ __all__ = [
     "start_span", "end_span", "get_trace_headers", "extract_trace_headers",
     "MetricsCollector", "Counter", "Gauge", "Histogram", "get_metrics",
     "ObservabilityMiddleware", "MetricsEndpoint",
+    # Audit Framework (SC-007 P1级)
+    "AuditCategory", "AuditLevel", "AuditResult", "AuditEvent",
+    "AuditStorageBackend", "MemoryAuditStorage", "JsonFileAuditStorage",
+    "AuditLogger", "audit_log", "AuditMiddleware", "AuthAuditHook",
+    "get_audit_logger", "set_audit_logger", "audit_event",
     # Bounded Collections (内存防护)
     "BoundedList", "LRUDict", "BoundedSet", "EvictionReason",
 ]
