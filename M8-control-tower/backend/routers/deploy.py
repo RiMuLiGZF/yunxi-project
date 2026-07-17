@@ -1,6 +1,11 @@
 """
 部署中心路由 - 模块管理
 支持模块的真实启停、进程监控
+
+【去重标注 AR-005 phase-1】
+模块管理主入口已统一为 /api/modules/*（见 routers/modules.py，63个端点）
+本文件 /api/deploy/modules/* 保留部署专用功能（进程监控、日志、仓库信息），
+通用模块管理功能请使用 /api/modules/* 路径。
 """
 
 import sys

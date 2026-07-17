@@ -41,7 +41,7 @@ logger = get_logger("m8.m4_proxy_middleware")
 # ---------------------------------------------------------------------------
 
 #: 代理模式: off / fallback / on
-M4_PROXY_MODE = os.environ.get("M4_BUSINESS_PROXY_MODE", "off").lower()
+M4_PROXY_MODE = os.environ.get("M4_BUSINESS_PROXY_MODE", "on").lower()  # phase-1: 默认启用代理，本地实现已归档
 
 #: M4 服务地址
 M4_BASE_URL = os.environ.get("M4_BASE_URL", "http://localhost:8004")

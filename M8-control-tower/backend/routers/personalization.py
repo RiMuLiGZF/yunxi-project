@@ -1,237 +1,162 @@
 """
-用户画像与个性化设置 API
+个性化设置 路由 - M4 代理版
+
+个性化设置迁移到 M4 场景引擎（路由层代理）
+
+原本地实现已迁移至 M4 模块。
+所有请求通过路由层直接代理转发到 M4。
+
+代理路径映射：
+  M8 /api/personalization/*  →  M4 /api/v1/personalization/*
+
+回滚方式：
+  从 _archive/m8_migrated/routers/ 恢复原文件即可
 """
 
-import sys
-from pathlib import Path
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+import os
+from typing import Optional
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse, Response
+import httpx
 
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from ..schemas import ApiResponse
 from ..auth import get_current_user
-from shared.user_profile import get_user_profile_manager, PreferenceCategory
+from ..schemas import ApiResponse
 
 router = APIRouter()
-profile_mgr = get_user_profile_manager()
+
+# M4 服务配置
+MODULE_BASE_URL = os.environ.get("M4_BASE_URL", "http://localhost:8004")
+MODULE_ADMIN_TOKEN = os.environ.get("M4_ADMIN_TOKEN", "")
+MODULE_TIMEOUT = float(os.environ.get("M4_TIMEOUT", "30"))
 
 
-# ==================== Pydantic 模型 ====================
-
-class PreferenceUpdate(BaseModel):
-    """偏好更新请求"""
-    category: str
-    key: str
-    value: Any
-    source: str = "explicit"
-
-
-class ProfileUpdate(BaseModel):
-    """画像更新请求"""
-    nickname: Optional[str] = None
-    avatar: Optional[str] = None
-    age: Optional[int] = None
-    gender: Optional[str] = None
-    location: Optional[str] = None
-    language: Optional[str] = None
-
-
-class UserCreate(BaseModel):
-    """创建用户请求"""
-    user_id: str
-    nickname: str = ""
-    avatar: str = ""
-
-
-# ==================== 用户画像接口 ====================
-
-@router.get("/profile")
-async def get_profile(
-    user_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """获取用户画像"""
-    uid = user_id or "default"
-    profile = profile_mgr.get_profile(uid)
-    return ApiResponse.success(data=profile.to_dict())
-
-
-@router.put("/profile")
-async def update_profile(
-    update: ProfileUpdate,
-    user_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """更新用户画像基本信息"""
-    uid = user_id or "default"
-    profile = profile_mgr.get_profile(uid)
-    
-    update_data = update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        if hasattr(profile, key):
-            setattr(profile, key, value)
-    
-    # 手动触发保存
-    profile_mgr._save_profile(profile)
-    
-    return ApiResponse.success(
-        message="画像更新成功",
-        data=profile.to_dict()
+def _get_client() -> httpx.AsyncClient:
+    """获取 HTTP 客户端"""
+    return httpx.AsyncClient(
+        base_url=MODULE_BASE_URL,
+        timeout=MODULE_TIMEOUT,
+        follow_redirects=True,
     )
 
 
-@router.get("/users")
-async def list_users(current_user: dict = Depends(get_current_user)):
-    """获取所有用户列表"""
-    users = profile_mgr.get_all_users()
+@router.get("/health", summary=f"个性化设置服务状态（M4代理）")
+async def module_health(
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """检查 M4 服务健康状态"""
+    try:
+        async with _get_client() as client:
+            response = await client.get("/health")
+            data = response.json()
+            return ApiResponse.success(data={
+                **data,
+                "proxied": True,
+                "service": "personalization",
+                "service_name": "个性化设置",
+                "target_module": "m4",
+                "target_url": MODULE_BASE_URL,
+            })
+    except Exception as e:
+        return ApiResponse(
+            code=503,
+            message="M4 服务不可用",
+            data={"status": "unavailable", "error": str(e), "proxied": True},
+        )
+
+
+@router.get("/proxy-info", summary="代理转发信息")
+async def proxy_info(
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """获取代理转发配置"""
     return ApiResponse.success(data={
-        "total": len(users),
-        "items": users,
+        "service": "personalization",
+        "service_name": "个性化设置",
+        "target_module": "m4",
+        "target_base_url": MODULE_BASE_URL,
+        "target_prefix": "/api/v1/personalization",
+        "m8_prefix": "/api/personalization",
+        "timeout": MODULE_TIMEOUT,
+        "migrated": True,
+        "migration_phase": "phase-1",
     })
 
 
-@router.post("/users")
-async def create_user(
-    user: UserCreate,
-    current_user: dict = Depends(get_current_user)
+# 通用代理接口（捕获所有子路径，转发到目标模块）
+@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def generic_proxy(
+    path: str,
+    request: Request,
+    current_user: Optional[dict] = Depends(get_current_user),
 ):
-    """创建新用户"""
-    profile = profile_mgr.create_profile(
-        user_id=user.user_id,
-        nickname=user.nickname,
-        avatar=user.avatar,
-    )
-    return ApiResponse.success(
-        message="用户创建成功",
-        data=profile.to_dict()
-    )
-
-
-@router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """删除用户"""
-    success = profile_mgr.delete_profile(user_id)
-    if not success:
-        return ApiResponse.error(message="删除失败或用户不存在")
-    return ApiResponse.success(message="用户删除成功")
-
-
-# ==================== 偏好设置接口 ====================
-
-@router.get("/preferences")
-async def get_preferences(
-    user_id: Optional[str] = None,
-    category: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """获取用户偏好"""
-    uid = user_id or "default"
-    prefs = profile_mgr.get_all_preferences(uid, category)
-    return ApiResponse.success(data=prefs)
-
-
-@router.put("/preferences")
-async def set_preference(
-    pref: PreferenceUpdate,
-    user_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """设置用户偏好"""
-    uid = user_id or "default"
-    profile_mgr.set_preference(
-        uid,
-        category=pref.category,
-        key=pref.key,
-        value=pref.value,
-        source=pref.source,
-    )
-    return ApiResponse.success(message="偏好设置成功")
-
-
-@router.get("/preferences/categories")
-async def get_preference_categories(current_user: dict = Depends(get_current_user)):
-    """获取偏好类别列表"""
-    categories = [
-        {"id": cat.value, "name": _get_category_name(cat.value), "description": _get_category_desc(cat.value)}
-        for cat in PreferenceCategory
-    ]
-    return ApiResponse.success(data=categories)
-
-
-@router.get("/preferences/topics")
-async def get_top_topics(
-    user_id: Optional[str] = None,
-    top_n: int = 5,
-    current_user: dict = Depends(get_current_user)
-):
-    """获取用户最感兴趣的话题"""
-    uid = user_id or "default"
-    topics = profile_mgr.get_topics(uid, top_n)
-    return ApiResponse.success(data={
-        "topics": [{"topic": t, "confidence": c} for t, c in topics]
-    })
-
-
-@router.get("/preferences/active-hours")
-async def get_active_hours(
-    user_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """获取用户活跃时段"""
-    uid = user_id or "default"
-    hours = profile_mgr.get_active_hours(uid)
-    return ApiResponse.success(data={"active_hours": hours})
-
-
-# ==================== 个性化提示词接口 ====================
-
-@router.post("/personalize-prompt")
-async def personalize_prompt(
-    prompt: str,
-    user_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """生成个性化提示词"""
-    uid = user_id or "default"
-    personalized = profile_mgr.get_personalized_prompt(uid, prompt)
-    return ApiResponse.success(data={
-        "original": prompt,
-        "personalized": personalized,
-        "has_enhancements": personalized != prompt,
-    })
-
-
-# ==================== 辅助函数 ====================
-
-def _get_category_name(category: str) -> str:
-    """获取类别中文名"""
-    names = {
-        "communication_style": "沟通风格",
-        "content_depth": "内容深度",
-        "voice": "语音偏好",
-        "topic_interest": "话题兴趣",
-        "language": "语言偏好",
-        "visual": "视觉偏好",
-        "habit": "使用习惯",
-    }
-    return names.get(category, category)
-
-
-def _get_category_desc(category: str) -> str:
-    """获取类别描述"""
-    descs = {
-        "communication_style": "语气、正式程度、回复长度等沟通偏好",
-        "content_depth": "内容详细程度、技术深度偏好",
-        "voice": "音色、语速、情感等语音偏好",
-        "topic_interest": "感兴趣的话题领域",
-        "language": "使用语言、方言偏好",
-        "visual": "界面主题、视觉效果偏好",
-        "habit": "使用时段、常用功能等习惯",
-    }
-    return descs.get(category, "")
+    """通用代理接口，将请求转发到 M4 /api/v1/personalization/<path>"""
+    user_id = "default"
+    if current_user:
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get("user_id", current_user.get("id", "default")))
+        elif hasattr(current_user, "id"):
+            user_id = str(current_user.id)
+    
+    # 构建请求头
+    headers = {}
+    for key, value in request.headers.items():
+        if key.lower() in ("host", "content-length"):
+            continue
+        headers[key] = value
+    headers["X-M8-Proxy"] = "true"
+    headers["X-M8-User-Id"] = user_id
+    headers["X-Forwarded-For"] = request.client.host if request.client else "unknown"
+    if MODULE_ADMIN_TOKEN:
+        headers["X-M8-Token"] = MODULE_ADMIN_TOKEN
+    
+    # 构建查询参数
+    query_params = dict(request.query_params)
+    if "user_id" not in query_params:
+        query_params["user_id"] = user_id
+    
+    # 获取请求体
+    try:
+        body = await request.body() if request.method in ("POST", "PUT", "PATCH") else None
+    except Exception:
+        body = None
+    
+    # 构建目标路径
+    target_path = f"/api/v1/personalization/{path}" if path else "/api/v1/personalization"
+    
+    try:
+        async with _get_client() as client:
+            kwargs = {"params": query_params, "headers": headers}
+            if body is not None:
+                kwargs["content"] = body
+            
+            response = await client.request(request.method, target_path, **kwargs)
+            
+            # 构建响应
+            response_headers = {}
+            for key, value in response.headers.items():
+                if key.lower() in ("content-encoding", "transfer-encoding", "content-length"):
+                    continue
+                response_headers[key] = value
+            response_headers["X-M4-Proxied"] = "true"
+            
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=response_headers,
+                media_type=response.headers.get("content-type"),
+            )
+    except httpx.ConnectError:
+        return JSONResponse(
+            status_code=503,
+            content={"code": 503, "message": "M4 服务不可用", "data": None},
+        )
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=504,
+            content={"code": 504, "message": "M4 请求超时", "data": None},
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=502,
+            content={"code": 502, "message": f"M4 代理失败: {str(e)}", "data": None},
+        )

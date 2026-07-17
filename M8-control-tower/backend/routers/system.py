@@ -345,6 +345,10 @@ async def clear_cache(current_user: dict = Depends(get_current_user)):
 
 
 # ==================== 模块管理接口 ====================
+# 【去重标注 AR-005 phase-1】
+# 模块管理主入口已统一为 /api/modules/*（见 routers/modules.py，63个端点）
+# 此处 /api/system/modules/* 保留用于向后兼容，后续版本将迁移到 modules.py
+# 推荐使用: GET /api/modules/list, POST /api/modules/{key}/start 等
 
 @router.get("/modules")
 async def list_modules(
