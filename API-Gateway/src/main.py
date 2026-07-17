@@ -2,23 +2,42 @@
 云汐 API 网关 - 主入口
 """
 import time
-import logging
+import sys
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+
+# 将项目根目录加入 path，以便导入 shared 模块
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from .config import settings
 from .middleware.auth import AuthMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 from .services.proxy_service import get_proxy_service
 
-# 配置日志
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger("yunxi-gateway")
+# 统一日志和可观测性（优先使用 shared observability，回退到标准 logging）
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _observability_available = True
+except ImportError:
+    import logging
+    _observability_available = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 初始化日志系统
+if _observability_available:
+    logger = init_module_logger("gateway")
+else:
+    import logging
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    logger = logging.getLogger("yunxi-gateway")
 
 
 @asynccontextmanager
@@ -60,7 +79,7 @@ def _resolve_cors_origins() -> list:
         origins = [f"http://localhost:{p}" for p in dev_ports] + \
                   [f"http://127.0.0.1:{p}" for p in dev_ports]
         logger.warning(
-            f"[CORS] ⚠️ 开发环境 CORS 配置为 '{raw}'，"
+            f"[CORS] 开发环境 CORS 配置为 '{raw}'，"
             f"已自动替换为 localhost 默认端口列表（{len(origins)} 个来源）。"
         )
         return origins
@@ -76,6 +95,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+if _observability_available:
+    app.add_middleware(
+        ObservabilityMiddleware,
+        service_name="gateway",
+        log_level=settings.log_level,
+        slow_request_threshold=5.0,  # 网关超时阈值稍高
+        exclude_paths=["/health", "/m8/health", "/m8/metrics", "/routes"],
+    )
+    logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
 
 # 速率限制中间件
 app.add_middleware(RateLimitMiddleware)

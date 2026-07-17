@@ -16,6 +16,11 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+# 将项目根目录加入 path，以便导入 shared 模块
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from fastapi import FastAPI, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -36,9 +41,17 @@ from routers.backup import router as backup_router
 # 导入中间件
 from core.auth_middleware import AuthMiddleware, RateLimitMiddleware
 
-# 导入日志和错误处理
-from core.logging_config import setup_logging, get_logger
+# 导入错误处理
 from core.error_handler import global_exception_handler
+
+# 统一日志和可观测性（优先使用 shared observability，回退到本地 logging_config）
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _observability_available = True
+except ImportError:
+    from core.logging_config import setup_logging, get_logger
+    _observability_available = False
+    ObservabilityMiddleware = None  # type: ignore
 
 
 # ===== 初始化配置 =====
@@ -58,9 +71,17 @@ _request_total_time = 0.0
 _request_lock = threading.Lock()
 
 # ===== 创建 FastAPI 应用 =====
-# 初始化日志系统
-setup_logging(level="DEBUG" if settings.debug else "INFO", log_dir=str(settings.data_dir), log_file="m9.log")
-logger = get_logger("main")
+# 初始化日志系统（优先使用统一日志系统）
+if _observability_available:
+    logger = init_module_logger("m9")
+    # 同步日志级别
+    if settings.debug:
+        from shared.core.observability import set_global_level
+        set_global_level("DEBUG")
+else:
+    from core.logging_config import setup_logging, get_logger
+    setup_logging(level="DEBUG" if settings.debug else "INFO", log_dir=str(settings.data_dir), log_file="m9.log")
+    logger = get_logger("main")
 
 
 @asynccontextmanager
@@ -154,6 +175,22 @@ app = FastAPI(
 # 注册全局异常处理器
 app.add_exception_handler(Exception, global_exception_handler)
 
+# ===== 统一异常处理器（6 位错误码体系 + 标准化响应格式）=====
+# 优先使用 shared 核心库的统一异常处理器，保持与全系统一致
+try:
+    import sys as _sys_m9_unified
+    from pathlib import Path as _Path_m9_unified
+    _project_root_m9 = _Path_m9_unified(__file__).resolve().parent.parent.parent.parent
+    if str(_project_root_m9) not in _sys_m9_unified.path:
+        _sys_m9_unified.path.insert(0, str(_project_root_m9))
+    from shared.core.responses import register_global_exception_handler
+    from core.logging_config import get_logger as _get_m9_logger
+    _m9_unified_logger = _get_m9_logger("unified_exception_handler")
+    register_global_exception_handler(app, logger=_m9_unified_logger)
+    logger.info("统一异常处理器已注册（6 位错误码体系）")
+except ImportError as _unified_import_err:
+    logger.warning(f"统一异常处理器不可用: {_unified_import_err}，将使用本地错误处理器")
+
 # ===== 配置 CORS 中间件（统一安全策略：生产环境禁用通配符） =====
 import os as _os_m9_cors
 _cors_env = _os_m9_cors.environ.get("YUNXI_ENV", _os_m9_cors.environ.get("ENV", "development")).lower()
@@ -175,6 +212,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ===== 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警） =====
+if _observability_available:
+    app.add_middleware(
+        ObservabilityMiddleware,
+        service_name="m9",
+        log_level="DEBUG" if settings.debug else "INFO",
+        slow_request_threshold=3.0,
+        exclude_paths=["/health", "/m8/health", "/m8/metrics", "/m8/config", "/api/info"],
+    )
+    logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
 
 # ===== 认证中间件 =====
 # 全环境启用，保护除白名单外的所有 API 接口

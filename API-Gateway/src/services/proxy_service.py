@@ -102,6 +102,17 @@ class ProxyService:
         forwarded_headers["X-Forwarded-For"] = client_ip
         forwarded_headers["X-Forwarded-Proto"] = "http"
         forwarded_headers["X-Gateway"] = "yunxi-api-gateway"
+
+        # 确保 trace_id / span_id 被传递（跨模块链路追踪）
+        # 如果请求已有 X-Trace-Id 则直接传递，否则从上下文生成
+        has_trace_id = any(k.lower() == "x-trace-id" for k in forwarded_headers)
+        if not has_trace_id:
+            try:
+                from shared.core.observability import get_trace_headers
+                trace_headers = get_trace_headers()
+                forwarded_headers.update(trace_headers)
+            except ImportError:
+                pass
         
         try:
             response = await client.request(
