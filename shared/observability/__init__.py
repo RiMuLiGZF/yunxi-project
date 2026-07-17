@@ -1,45 +1,28 @@
 """
-云汐可观测性模块
-统一日志、追踪、监控
-"""
-from .unified_logger import UnifiedLogger, get_logger
-from .tracing import (
-    TraceContext,
-    Span,
-    get_trace_id,
-    get_current_trace,
-    start_trace,
-    end_trace,
-    start_span,
-    end_span,
-    get_trace_headers,
-    extract_trace_headers,
-)
-from .metrics import MetricsCollector, Counter, Gauge, Histogram, get_metrics
-from .fastapi_middleware import ObservabilityMiddleware, MetricsEndpoint
+shared.observability（向后兼容存根包）
 
-__all__ = [
-    # Logger
-    "UnifiedLogger",
-    "get_logger",
-    # Tracing
-    "TraceContext",
-    "Span",
-    "get_trace_id",
-    "get_current_trace",
-    "start_trace",
-    "end_trace",
-    "start_span",
-    "end_span",
-    "get_trace_headers",
-    "extract_trace_headers",
-    # Metrics
-    "MetricsCollector",
-    "Counter",
-    "Gauge",
-    "Histogram",
-    "get_metrics",
-    # Middleware
-    "ObservabilityMiddleware",
-    "MetricsEndpoint",
-]
+.. deprecated:: 1.0.0
+   包已迁移至 `shared.core.observability`。
+   旧路径 `shared.observability` 将在未来版本中移除，请尽快更新 import。
+
+推荐用法：
+    from shared.core.observability import ...
+"""
+
+import warnings as _warnings
+
+_warnings.warn(
+    "包 shared.observability 已弃用，已迁移至 shared.core.observability。"
+    "请更新 import 路径为 'from shared.core.observability import ...'。"
+    "旧路径将在未来版本中移除。",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# 从新路径 re-export 所有内容
+from shared.core.observability import *  # noqa: F401,F403
+try:
+    from shared.core.observability import __all__ as _new_all  # noqa: F401
+    __all__ = _new_all
+except ImportError:
+    pass

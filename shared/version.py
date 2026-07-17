@@ -1,7 +1,28 @@
 """
-云汐系统版本信息
+系统版本信息（向后兼容存根）
+
+.. deprecated:: 1.0.0
+   模块已迁移至 `shared.core.version`。
+   旧路径 `shared.version` 将在未来版本中移除，请尽快更新 import。
+
+推荐用法：
+    from shared.core.version import ...
 """
 
-SYSTEM_VERSION = "v0.5.0"
-BUILD_DATE = "2026-07-14"
-VERSION_CODE = 50
+import warnings as _warnings
+
+_warnings.warn(
+    f"模块 {__name__} 已弃用，已迁移至 shared.core.version。"
+    f"请更新 import 路径为 'from shared.core.version import ...'。"
+    f"旧路径将在未来版本中移除。",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# 从新路径 re-export 所有内容
+from shared.core.version import *  # noqa: F401,F403
+try:
+    from shared.core.version import __all__ as _new_all  # noqa: F401
+    __all__ = _new_all
+except ImportError:
+    pass

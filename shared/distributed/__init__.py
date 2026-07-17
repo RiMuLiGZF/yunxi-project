@@ -1,23 +1,28 @@
-"""分布式基础设施模块
+"""
+shared.distributed（向后兼容存根包）
 
-提供轻量级的分布式节点管理能力，无需依赖 Consul / etcd 等外部服务。
+.. deprecated:: 1.0.0
+   包已迁移至 `shared.business.distributed`。
+   旧路径 `shared.distributed` 将在未来版本中移除，请尽快更新 import。
 
-导出:
-    NodeConfig   — 节点配置（环境变量加载）
-    NodeInfo     — 节点信息数据结构
-    NodeRegistry — 节点注册中心（主节点运行）
-    NodeClient   — 节点客户端（边缘节点使用）
-    MessageBus   — 跨节点消息总线
+推荐用法：
+    from shared.business.distributed import ...
 """
 
-from .node_config import NodeConfig
-from .node_registry import NodeRegistry, NodeInfo, NodeClient
-from .cluster_bus import MessageBus
+import warnings as _warnings
 
-__all__ = [
-    "NodeConfig",
-    "NodeInfo",
-    "NodeRegistry",
-    "NodeClient",
-    "MessageBus",
-]
+_warnings.warn(
+    "包 shared.distributed 已弃用，已迁移至 shared.business.distributed。"
+    "请更新 import 路径为 'from shared.business.distributed import ...'。"
+    "旧路径将在未来版本中移除。",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# 从新路径 re-export 所有内容
+from shared.business.distributed import *  # noqa: F401,F403
+try:
+    from shared.business.distributed import __all__ as _new_all  # noqa: F401
+    __all__ = _new_all
+except ImportError:
+    pass
