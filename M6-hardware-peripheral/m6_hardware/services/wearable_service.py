@@ -10,16 +10,116 @@
 
 P0 批次迁移：手表/可穿戴数据从 M8 迁到 M6
 数据主权：可穿戴设备数据归属 M6 硬件外设模块
+
+P1 优化：
+- P1-6-1: LRU 缓存 + TTL 容量治理，防止内存泄漏
+- P1-3: 业务规则校验增强
+- P1-03: 事件回调钩子（设备状态变更触发）
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import time
+from collections import OrderedDict
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from threading import Lock
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# P1-6-1: LRU 缓存实现（容量上限 + TTL 过期）
+# ============================================================================
+
+class TTLCache:
+    """带 TTL 的 LRU 缓存
+
+    特性：
+    - 容量上限，超出自动淘汰最久未使用
+    - 条目 TTL 过期，查询时惰性清理
+    - 线程安全
+    """
+
+    def __init__(self, max_size: int = 500, ttl_seconds: float = 300.0):
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+        self._cache: "OrderedDict[str, Tuple[float, Any]]" = OrderedDict()
+        self._lock = Lock()
+        self._hits = 0
+        self._misses = 0
+        self._evicted = 0
+        self._expired = 0
+
+    def get(self, key: str) -> Optional[Any]:
+        """获取缓存值，过期返回 None"""
+        now = time.time()
+        with self._lock:
+            if key not in self._cache:
+                self._misses += 1
+                return None
+
+            expire_at, value = self._cache[key]
+            if now > expire_at:
+                # 过期，删除
+                del self._cache[key]
+                self._expired += 1
+                self._misses += 1
+                return None
+
+            # 命中，移到末尾（LRU）
+            self._cache.move_to_end(key)
+            self._hits += 1
+            return value
+
+    def set(self, key: str, value: Any) -> None:
+        """设置缓存值"""
+        expire_at = time.time() + self.ttl_seconds
+        with self._lock:
+            if key in self._cache:
+                self._cache[key] = (expire_at, value)
+                self._cache.move_to_end(key)
+            else:
+                self._cache[key] = (expire_at, value)
+                # 超出容量，淘汰最久未使用
+                if len(self._cache) > self.max_size:
+                    self._cache.popitem(last=False)
+                    self._evicted += 1
+
+    def invalidate(self, key: str) -> bool:
+        """失效指定缓存"""
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
+                return True
+            return False
+
+    def clear(self) -> None:
+        """清空缓存"""
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+            self._evicted = 0
+            self._expired = 0
+
+    def stats(self) -> Dict[str, Any]:
+        """获取缓存统计"""
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = round(self._hits / total * 100, 2) if total > 0 else 0.0
+            return {
+                "size": len(self._cache),
+                "max_size": self.max_size,
+                "ttl_seconds": self.ttl_seconds,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate_percent": hit_rate,
+                "evicted": self._evicted,
+                "expired": self._expired,
+            }
 
 
 class WearableService:
@@ -29,13 +129,22 @@ class WearableService:
     所有方法均接受外部传入的 db_manager 实例，支持依赖注入。
     """
 
-    def __init__(self, db_manager=None, db_name: str = "m6_wearable"):
+    def __init__(
+        self,
+        db_manager=None,
+        db_name: str = "m6_wearable",
+        *,
+        cache_max_size: int = 500,
+        cache_ttl_seconds: float = 300.0,
+    ):
         """
         初始化可穿戴设备服务
 
         Args:
             db_manager: DatabaseManager 实例，None 则自动导入 shared 单例
             db_name: 数据库名称（在 data_root 下的文件名）
+            cache_max_size: 设备信息缓存容量上限（P1-6-1）
+            cache_ttl_seconds: 缓存条目 TTL 秒数（P1-6-1）
         """
         if db_manager is None:
             try:
@@ -58,6 +167,20 @@ class WearableService:
         self._db_manager = db_manager
         self.db_name = db_name
         self._fallback_conn = None  # 降级模式的本地连接
+
+        # P1-6-1: LRU 缓存（设备信息，容量上限 + TTL）
+        self._device_cache = TTLCache(max_size=cache_max_size, ttl_seconds=cache_ttl_seconds)
+
+        # P1-03: 事件回调钩子
+        self._event_handlers: Dict[str, List[Callable]] = {
+            "device_created": [],
+            "device_updated": [],
+            "device_deleted": [],
+            "device_status_changed": [],
+            "health_data_received": [],
+            "notification_sent": [],
+            "settings_updated": [],
+        }
 
     # ========================================================================
     # 内部工具：数据库访问适配
@@ -194,6 +317,49 @@ class WearableService:
         conn.commit()
 
     # ========================================================================
+    # P1-03: 事件钩子管理
+    # ========================================================================
+
+    def on(self, event: str, handler: Callable) -> None:
+        """注册事件回调
+
+        支持的事件：
+        - device_created: 设备创建 (device_data)
+        - device_updated: 设备更新 (device_id, updates)
+        - device_deleted: 设备删除 (device_id)
+        - device_status_changed: 设备状态变更 (device_id, old_status, new_status)
+        - health_data_received: 健康数据接收 (device_id, data_type, value)
+        - notification_sent: 通知发送 (notification_id, device_id)
+        - settings_updated: 配置更新 (device_id)
+        """
+        if event not in self._event_handlers:
+            raise ValueError(
+                f"不支持的事件类型: {event}，支持: {list(self._event_handlers.keys())}"
+            )
+        self._event_handlers[event].append(handler)
+        logger.debug(f"注册事件回调: {event} (当前 {len(self._event_handlers[event])} 个)")
+
+    def _emit_event(self, event: str, *args, **kwargs) -> None:
+        """触发事件（同步执行，异常不影响主流程）"""
+        handlers = self._event_handlers.get(event, [])
+        if not handlers:
+            return
+        for handler in handlers:
+            try:
+                handler(*args, **kwargs)
+            except Exception as e:
+                logger.warning(f"事件回调执行失败 event={event}: {e}")
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息（P1-6-1 可观测性）"""
+        return self._device_cache.stats()
+
+    def clear_cache(self) -> None:
+        """清空设备信息缓存"""
+        self._device_cache.clear()
+        logger.info("设备缓存已清空")
+
+    # ========================================================================
     # 可穿戴设备管理
     # ========================================================================
 
@@ -237,13 +403,25 @@ class WearableService:
         return devices, total
 
     def get_device(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """根据 device_id 获取设备"""
+        """根据 device_id 获取设备（带缓存，P1-6-1）"""
+        # 先查缓存
+        cached = self._device_cache.get(device_id)
+        if cached is not None:
+            logger.debug(f"缓存命中 device_id={device_id}")
+            return cached
+
         sql = "SELECT * FROM wearable_devices WHERE device_id = ?"
         result = self._execute_query(sql, (device_id,))
-        return result[0] if result else None
+        device = result[0] if result else None
+
+        # 写入缓存
+        if device:
+            self._device_cache.set(device_id, device)
+
+        return device
 
     def create_device(self, device_data: Dict[str, Any]) -> Dict[str, Any]:
-        """创建设备，返回创建后的设备数据"""
+        """创建设备，返回创建后的设备数据（触发事件 + 缓存更新）"""
         now = datetime.now().isoformat()
         data = {
             "device_id": device_data["device_id"],
@@ -264,7 +442,7 @@ class WearableService:
 
         if self._has_shared_layer():
             row_id = self._db_manager.insert(self.db_name, "wearable_devices", data)
-            return self._db_manager.query_one(
+            device = self._db_manager.query_one(
                 self.db_name,
                 "SELECT * FROM wearable_devices WHERE id = ?",
                 (row_id,),
@@ -276,13 +454,26 @@ class WearableService:
             values = tuple(data[col] for col in columns)
             sql = f"INSERT INTO wearable_devices ({', '.join(columns)}) VALUES ({placeholders})"
             self._execute_query(sql, values, write=True)
-            return self.get_device(data["device_id"])
+            device = self.get_device(data["device_id"])
+
+        # P1-6-1: 更新缓存
+        if device:
+            self._device_cache.set(device["device_id"], device)
+
+        # P1-03: 触发事件
+        self._emit_event("device_created", device)
+
+        return device
 
     def update_device(self, device_id: str, updates: Dict[str, Any]) -> bool:
-        """更新设备信息"""
+        """更新设备信息（失效缓存 + 触发事件）"""
         if not updates:
             return False
         updates["updated_at"] = datetime.now().isoformat()
+
+        # P1-03: 状态变更检测（需要先查旧状态）
+        old_device = self.get_device(device_id)
+        old_status = old_device.get("status") if old_device else None
 
         if self._has_shared_layer():
             rows = self._db_manager.update(
@@ -292,16 +483,30 @@ class WearableService:
                 "device_id = ?",
                 (device_id,),
             )
-            return rows > 0
+            success = rows > 0
         else:
             set_clause = ", ".join(f"{k} = ?" for k in updates.keys())
             params = list(updates.values()) + [device_id]
             sql = f"UPDATE wearable_devices SET {set_clause} WHERE device_id = ?"
             rows = self._execute_query(sql, tuple(params), write=True)
-            return rows > 0
+            success = rows > 0
+
+        if success:
+            # P1-6-1: 失效缓存
+            self._device_cache.invalidate(device_id)
+
+            # P1-03: 触发设备更新事件
+            self._emit_event("device_updated", device_id, updates)
+
+            # P1-03: 状态变更事件
+            new_status = updates.get("status")
+            if new_status and old_status and new_status != old_status:
+                self._emit_event("device_status_changed", device_id, old_status, new_status)
+
+        return success
 
     def delete_device(self, device_id: str) -> bool:
-        """删除设备"""
+        """删除设备（失效缓存 + 触发事件）"""
         if self._has_shared_layer():
             rows = self._db_manager.delete(
                 self.db_name,
@@ -309,11 +514,20 @@ class WearableService:
                 "device_id = ?",
                 (device_id,),
             )
-            return rows > 0
+            success = rows > 0
         else:
             sql = "DELETE FROM wearable_devices WHERE device_id = ?"
             rows = self._execute_query(sql, (device_id,), write=True)
-            return rows > 0
+            success = rows > 0
+
+        if success:
+            # P1-6-1: 失效缓存
+            self._device_cache.invalidate(device_id)
+
+            # P1-03: 触发删除事件
+            self._emit_event("device_deleted", device_id)
+
+        return success
 
     # ========================================================================
     # 健康数据管理

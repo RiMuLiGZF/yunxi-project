@@ -17,8 +17,16 @@ P0 批次迁移：手表/可穿戴数据从 M8 迁到 M6 硬件外设模块。
 - 数据校验：迁移前后数量对比
 - 失败回滚：异常时自动回滚事务
 
+P1 优化：
+- P1-03: 失败重试（指数退避）+ 最大重试次数
+- P1-04: 断点续传（checkpoint），中断后可从上次位置继续
+- P1-05: 进度报告（百分比 + ETA）
+- 可配置批量大小，适应不同数据量场景
+
 使用方式：
     python migrate_wearable_m8_to_m6.py [--full] [--start-date YYYY-MM-DD] [--dry-run]
+    python migrate_wearable_m8_to_m6.py --resume  # 从上次断点继续
+    python migrate_wearable_m8_to_m6.py --batch-size 2000 --max-retries 5
 """
 
 from __future__ import annotations
@@ -30,7 +38,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # 路径配置
@@ -110,6 +118,146 @@ class MigrationStats:
             "duration_seconds": round(self.duration_seconds, 2),
             "errors": self.errors,
         }
+
+
+# ---------------------------------------------------------------------------
+# P1-04: 断点续传 - Checkpoint 管理
+# ---------------------------------------------------------------------------
+
+# Checkpoint 文件路径（与 M6 数据库同目录）
+CHECKPOINT_PATH = M6_DB_PATH.parent / "migration_checkpoint.json"
+
+
+def load_checkpoint() -> Optional[Dict[str, Any]]:
+    """加载迁移断点"""
+    if not CHECKPOINT_PATH.exists():
+        return None
+    try:
+        with open(CHECKPOINT_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"  [WARN] 读取 checkpoint 失败: {e}，将从头开始")
+        return None
+
+
+def save_checkpoint(data: Dict[str, Any]) -> None:
+    """保存迁移断点"""
+    try:
+        CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except IOError as e:
+        print(f"  [WARN] 保存 checkpoint 失败: {e}")
+
+
+def clear_checkpoint() -> None:
+    """清除断点文件（迁移完成后调用）"""
+    if CHECKPOINT_PATH.exists():
+        try:
+            CHECKPOINT_PATH.unlink()
+        except IOError:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# P1-03: 重试工具（指数退避）
+# ---------------------------------------------------------------------------
+
+def retry_with_backoff(
+    func,
+    *args,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    **kwargs,
+):
+    """带指数退避的重试工具
+
+    Args:
+        func: 要执行的函数
+        max_retries: 最大重试次数（不含首次）
+        base_delay: 初始延迟秒数
+        backoff_factor: 退避因子
+
+    Returns:
+        函数执行结果
+
+    Raises:
+        最后一次失败的异常
+    """
+    last_exception = None
+    for attempt in range(max_retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            if attempt < max_retries:
+                delay = base_delay * (backoff_factor ** attempt)
+                print(f"  [RETRY] 第 {attempt + 1} 次失败: {e}，{delay:.1f}s 后重试...")
+                time.sleep(delay)
+            else:
+                print(f"  [ERROR] 重试 {max_retries} 次后仍失败: {e}")
+    raise last_exception
+
+
+# ---------------------------------------------------------------------------
+# P1-05: 进度报告工具
+# ---------------------------------------------------------------------------
+
+class ProgressTracker:
+    """进度追踪器，计算百分比和 ETA"""
+
+    def __init__(self, total: int, label: str = "进度"):
+        self.total = total
+        self.label = label
+        self.current = 0
+        self.start_time = time.time()
+        self.last_report = 0.0
+        self.report_interval = 5.0  # 每 5 秒报告一次
+
+    def update(self, count: int) -> None:
+        """更新已处理数量"""
+        self.current += count
+
+    def should_report(self) -> bool:
+        """是否应该报告进度"""
+        now = time.time()
+        if now - self.last_report >= self.report_interval:
+            self.last_report = now
+            return True
+        return False
+
+    def get_report(self) -> str:
+        """获取进度报告字符串"""
+        if self.total == 0:
+            return f"{self.label}: 0%"
+
+        elapsed = time.time() - self.start_time
+        percent = min(self.current / self.total * 100, 100.0)
+
+        if self.current > 0 and elapsed > 0.001:
+            rate = self.current / elapsed  # 条/秒
+            remaining = (self.total - self.current) / rate if rate > 0 else 0
+            eta_str = format_duration(remaining)
+        else:
+            eta_str = "计算中..."
+
+        return (
+            f"{self.label}: {self.current}/{self.total} "
+            f"({percent:.1f}%) ETA: {eta_str}"
+        )
+
+
+def format_duration(seconds: float) -> str:
+    """格式化时长为人类可读格式"""
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m {seconds % 60}s"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    return f"{hours}h {minutes}m"
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +489,7 @@ def migrate_health_data(
     start_date: str = None,
     dry_run: bool = False,
     batch_size: int = 1000,
+    start_offset: int = 0,
 ) -> None:
     """
     迁移健康数据表：watch_health_data → wearable_health_data
@@ -356,6 +505,10 @@ def migrate_health_data(
         quality → quality
         user_id → user_id
         created_at → created_at
+
+    P1 优化：
+    - 支持 start_offset 断点续传
+    - ProgressTracker 进度报告（百分比 + ETA）
     """
     print("\n" + "=" * 60)
     print("  迁移：健康数据 (watch_health_data → wearable_health_data)")
@@ -370,12 +523,17 @@ def migrate_health_data(
     else:
         m8_cursor = m8_conn.execute("SELECT COUNT(*) as cnt FROM watch_health_data")
     stats.health_m8 = m8_cursor.fetchone()["cnt"]
-    print(f"  M8 源数据: {stats.health_m8} 条")
+    print(f"  M8 源数据: {stats.health_m8:,} 条")
 
     # 统计 M6 现有数据量
     m6_cursor = m6_conn.execute("SELECT COUNT(*) as cnt FROM wearable_health_data")
     stats.health_m6_before = m6_cursor.fetchone()["cnt"]
-    print(f"  M6 现有: {stats.health_m6_before} 条")
+    print(f"  M6 现有: {stats.health_m6_before:,} 条")
+
+    if start_offset > 0:
+        print(f"  断点偏移: {start_offset:,} 条")
+        remaining = max(stats.health_m8 - start_offset, 0)
+        print(f"  待迁移: {remaining:,} 条")
 
     if dry_run:
         print("  [DRY-RUN] 跳过实际迁移")
@@ -383,7 +541,11 @@ def migrate_health_data(
 
     migrated = 0
     skipped = 0
-    offset = 0
+    offset = start_offset
+
+    # P1-05: 进度追踪
+    total_to_migrate = max(stats.health_m8 - start_offset, 0)
+    progress = ProgressTracker(total_to_migrate, label="健康数据迁移")
 
     try:
         while True:
@@ -444,12 +606,27 @@ def migrate_health_data(
             migrated += batch_migrated
             m6_conn.commit()
 
-            print(f"  进度: {offset + len(batch)}/{stats.health_m8} (已迁移 {migrated} 条)")
+            # P1-05: 更新进度
+            progress.update(len(batch))
+
+            # P1-05: 定期报告进度
+            if progress.should_report():
+                print(f"  进度: {progress.get_report()}")
+
+            # P1-04: 每 10 批保存一次 checkpoint
+            if (offset // batch_size) % 10 == 0 and offset > 0:
+                save_checkpoint({
+                    "timestamp": datetime.now().isoformat(),
+                    "health_offset": offset,
+                    "migrated_so_far": migrated,
+                    "skipped_so_far": skipped,
+                })
+
             offset += batch_size
 
         stats.health_migrated = migrated
         stats.health_skipped = skipped
-        print(f"  迁移完成: 新增 {migrated} 条，跳过 {skipped} 条")
+        print(f"  迁移完成: 新增 {migrated:,} 条，跳过 {skipped:,} 条")
 
     except Exception as e:
         m6_conn.rollback()
@@ -648,7 +825,15 @@ def migrate_settings(
 # 主迁移流程
 # ---------------------------------------------------------------------------
 
-def run_migration(full: bool = False, start_date: str = None, dry_run: bool = False) -> MigrationStats:
+def run_migration(
+    full: bool = False,
+    start_date: str = None,
+    dry_run: bool = False,
+    *,
+    batch_size: int = 1000,
+    max_retries: int = 3,
+    resume: bool = False,
+) -> MigrationStats:
     """
     执行完整的迁移流程
 
@@ -656,6 +841,9 @@ def run_migration(full: bool = False, start_date: str = None, dry_run: bool = Fa
         full: 是否全量迁移（True=全量，False=仅设备和配置）
         start_date: 健康数据起始日期（YYYY-MM-DD），None 表示全量
         dry_run: 试运行模式（不实际写入数据）
+        batch_size: 健康数据批量迁移大小（P1-05）
+        max_retries: 失败最大重试次数（P1-03）
+        resume: 是否从断点继续（P1-04）
 
     Returns:
         MigrationStats 统计信息
@@ -663,12 +851,25 @@ def run_migration(full: bool = False, start_date: str = None, dry_run: bool = Fa
     stats = MigrationStats()
     stats.start_time = datetime.now()
 
+    # P1-04: 加载断点
+    checkpoint = None
+    health_offset = 0
+    if resume:
+        checkpoint = load_checkpoint()
+        if checkpoint:
+            health_offset = checkpoint.get("health_offset", 0)
+            print(f"\n  [RESUME] 从断点继续，健康数据偏移: {health_offset}")
+        else:
+            print("\n  [INFO] 未找到断点，将从头开始")
+
     print("\n" + "#" * 60)
     print("  M8 → M6 可穿戴数据迁移工具")
     print(f"  模式: {'DRY-RUN' if dry_run else '正式迁移'}")
-    print(f"  范围: {'全量' if full else '设备+配置'}")
+    print(f"  范围: {'全量' if full else '设备+配置+通知'}")
     if start_date:
         print(f"  健康数据起始: {start_date}")
+    print(f"  批量大小: {batch_size}")
+    print(f"  最大重试: {max_retries}")
     print("#" * 60)
     print(f"\n  M8 数据库: {M8_DB_PATH}")
     print(f"  M6 数据库: {M6_DB_PATH}")
@@ -677,27 +878,60 @@ def run_migration(full: bool = False, start_date: str = None, dry_run: bool = Fa
         m8_conn = get_m8_connection()
         m6_conn = get_m6_connection()
 
+        # P1-03: 用重试包装迁移函数
+        def _migrate_devices():
+            migrate_devices(m8_conn, m6_conn, stats, dry_run=dry_run)
+
+        def _migrate_settings():
+            migrate_settings(m8_conn, m6_conn, stats, dry_run=dry_run)
+
+        def _migrate_notifications():
+            migrate_notifications(m8_conn, m6_conn, stats, dry_run=dry_run)
+
+        def _migrate_health():
+            migrate_health_data(
+                m8_conn, m6_conn, stats,
+                start_date=start_date,
+                dry_run=dry_run,
+                batch_size=batch_size,
+                start_offset=health_offset,
+            )
+
         # 1. 迁移设备（始终执行）
-        migrate_devices(m8_conn, m6_conn, stats, dry_run=dry_run)
+        retry_with_backoff(_migrate_devices, max_retries=max_retries)
 
         # 2. 迁移配置（始终执行）
-        migrate_settings(m8_conn, m6_conn, stats, dry_run=dry_run)
+        retry_with_backoff(_migrate_settings, max_retries=max_retries)
 
         # 3. 迁移通知（始终执行）
-        migrate_notifications(m8_conn, m6_conn, stats, dry_run=dry_run)
+        retry_with_backoff(_migrate_notifications, max_retries=max_retries)
 
         # 4. 迁移健康数据（full 模式或指定 start_date 时执行）
         if full or start_date:
-            migrate_health_data(m8_conn, m6_conn, stats, start_date=start_date, dry_run=dry_run)
+            retry_with_backoff(_migrate_health, max_retries=max_retries)
         else:
             print("\n  [INFO] 跳过健康数据迁移（使用 --full 或 --start-date 启用）")
 
         m8_conn.close()
         m6_conn.close()
 
+        # P1-04: 迁移成功，清除断点
+        if not dry_run:
+            clear_checkpoint()
+
     except Exception as e:
         stats.errors.append(f"迁移过程异常: {str(e)}")
         print(f"\n[FATAL] 迁移失败: {e}")
+
+        # P1-04: 失败时保存断点
+        if not dry_run:
+            save_checkpoint({
+                "timestamp": datetime.now().isoformat(),
+                "health_offset": stats.health_migrated + stats.health_skipped,
+                "stats": stats.to_dict(),
+                "error": str(e),
+            })
+            print(f"  [CHECKPOINT] 断点已保存到: {CHECKPOINT_PATH}")
 
     stats.end_time = datetime.now()
 
@@ -715,7 +949,7 @@ def run_migration(full: bool = False, start_date: str = None, dry_run: bool = Fa
         print(f"    新增:         {table_stats['migrated']}")
         print(f"    跳过(已存在): {table_stats['skipped']}")
 
-    print(f"\n  耗时: {result['duration_seconds']} 秒")
+    print(f"\n  耗时: {format_duration(result['duration_seconds'])}")
 
     if stats.errors:
         print(f"\n  [ERRORS] {len(stats.errors)} 个错误:")
@@ -733,7 +967,7 @@ def run_migration(full: bool = False, start_date: str = None, dry_run: bool = Fa
 
 def main():
     parser = argparse.ArgumentParser(
-        description="M8 → M6 可穿戴数据迁移工具 (P0 批次)",
+        description="M8 → M6 可穿戴数据迁移工具 (P1 优化版)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -748,6 +982,12 @@ def main():
 
   # 从指定日期开始迁移健康数据
   python migrate_wearable_m8_to_m6.py --start-date 2024-01-01
+
+  # P1: 从断点继续
+  python migrate_wearable_m8_to_m6.py --full --resume
+
+  # P1: 自定义批量大小和重试次数
+  python migrate_wearable_m8_to_m6.py --full --batch-size 2000 --max-retries 5
         """,
     )
     parser.add_argument(
@@ -766,9 +1006,33 @@ def main():
         action="store_true",
         help="试运行模式，不实际写入数据",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1000,
+        help="健康数据批量迁移大小（默认 1000）",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=3,
+        help="失败最大重试次数（默认 3）",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="从上次断点继续迁移",
+    )
 
     args = parser.parse_args()
-    stats = run_migration(full=args.full, start_date=args.start_date, dry_run=args.dry_run)
+    stats = run_migration(
+        full=args.full,
+        start_date=args.start_date,
+        dry_run=args.dry_run,
+        batch_size=args.batch_size,
+        max_retries=args.max_retries,
+        resume=args.resume,
+    )
 
     # 有错误则返回非零退出码
     if stats.errors:

@@ -1,0 +1,1157 @@
+{
+  "audit_time": "2026-07-16T21:30:24.138949",
+  "project_root": "C:\\云汐\\工作台\\yunxi-project",
+  "summary": {
+    "total_findings": 127,
+    "critical": 3,
+    "high": 68,
+    "medium": 14,
+    "low": 42,
+    "info": 0
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": ".env.test",
+      "line": 15,
+      "code": "TEST_ADMIN_PASSWORD=admin123456",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": ".env.test",
+      "line": 18,
+      "code": "JWT_SECRET=yunxi-test-jwt-secret-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 46,
+      "code": "M1_ADMIN_TOKEN=yunxi-m1-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 48,
+      "code": "M1_JWT_SECRET=yunxi-m1-jwt-secret-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 54,
+      "code": "FEDERATION_INTERNAL_SECRET=yunxi-fed-internal-secret",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 60,
+      "code": "M2_ADMIN_TOKEN=yunxi-m2-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 68,
+      "code": "M3_ADMIN_TOKEN=yunxi-m3-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 76,
+      "code": "M4_ADMIN_TOKEN=yunxi-m4-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 78,
+      "code": "M4_JWT_SECRET=yunxi-m4-jwt-secret-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 85,
+      "code": "M5_ADMIN_TOKEN=yunxi-m5-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 87,
+      "code": "M5_JWT_SECRET=yunxi-m5-jwt-secret-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 95,
+      "code": "M6_ADMIN_TOKEN=yunxi-m6-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 103,
+      "code": "M7_ADMIN_TOKEN=yunxi-m7-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.016480"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 111,
+      "code": "M8_ADMIN_TOKEN=yunxi-m8-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.017481"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 113,
+      "code": "M8_ADMIN_PASSWORD=admin123456",
+      "timestamp": "2026-07-16T21:30:19.017481"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 114,
+      "code": "M8_JWT_SECRET=yunxi-m8-jwt-secret-2026",
+      "timestamp": "2026-07-16T21:30:19.017481"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 121,
+      "code": "M9_ADMIN_TOKEN=yunxi-m9-admin-token-2026",
+      "timestamp": "2026-07-16T21:30:19.017481"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Secret Key泄露",
+      "file_path": "config\\yunxi.env",
+      "line": 135,
+      "code": "M12_JWT_SECRET=yunxi-dev-secret-do-not-use-in-production-20260714",
+      "timestamp": "2026-07-16T21:30:19.017481"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M1-agent-hub\\federation\\desensitization.py",
+      "line": 94,
+      "code": "PASSWORD = \"password\"",
+      "timestamp": "2026-07-16T21:30:19.560365"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 39,
+      "code": "api_key=\"sk-real-secret-key-1234567890\",",
+      "timestamp": "2026-07-16T21:30:19.726750"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 57,
+      "code": "api_key=\"sk-trusted-caller-key-12345\",",
+      "timestamp": "2026-07-16T21:30:19.726750"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 75,
+      "code": "api_key=\"sk-untrusted-secret-key-67890\",",
+      "timestamp": "2026-07-16T21:30:19.726750"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 460,
+      "code": "content = 'API_Key = \"sk-abcdefghijklmnopqrstuvwxyz123456\"'",
+      "timestamp": "2026-07-16T21:30:19.728435"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 506,
+      "code": "original = '配置文件内容：api_key = \"sk-abcdefghijklmnopqrstuvwxyz123456\"'",
+      "timestamp": "2026-07-16T21:30:19.729538"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_1_fixes.py",
+      "line": 518,
+      "code": "original = \"配置信息：password = my_secret_password_123，请妥善保管\"",
+      "timestamp": "2026-07-16T21:30:19.729538"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "M1-agent-hub\\tests\\test_v11_federation.py",
+      "line": 789,
+      "code": "content='api_key = \"sk-1234567890abcdefghijklmnop\"',",
+      "timestamp": "2026-07-16T21:30:19.737462"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\backend\\routers\\auth_api.py",
+      "line": 115,
+      "code": "refresh_token = create_refresh_token(",
+      "timestamp": "2026-07-16T21:30:19.951512"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\backend\\routers\\auth_api.py",
+      "line": 158,
+      "code": "new_refresh_token = create_refresh_token(",
+      "timestamp": "2026-07-16T21:30:19.951512"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\backend\\services\\masking.py",
+      "line": 327,
+      "code": "test_token = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0\"",
+      "timestamp": "2026-07-16T21:30:19.981008"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 119,
+      "code": "token = create_refresh_token(data=self.test_user)",
+      "timestamp": "2026-07-16T21:30:19.993109"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 161,
+      "code": "self.mock_pwd = self.patcher.start()",
+      "timestamp": "2026-07-16T21:30:19.993109"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 200,
+      "code": "password = \"my_secure_password\"",
+      "timestamp": "2026-07-16T21:30:19.993109"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 215,
+      "code": "password = \"same_password\"",
+      "timestamp": "2026-07-16T21:30:19.993109"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 305,
+      "code": "result = login(username=\"admin\", password=\"admin123\", remember_me=False)",
+      "timestamp": "2026-07-16T21:30:19.993109"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 315,
+      "code": "result = login(username=\"testuser\", password=\"testpass\", remember_me=False)",
+      "timestamp": "2026-07-16T21:30:19.994108"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\tests\\test_auth.py",
+      "line": 356,
+      "code": "result = refresh_token(refresh_token=\"invalid-refresh-token\")",
+      "timestamp": "2026-07-16T21:30:19.994108"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_input_validation.py",
+      "line": 133,
+      "code": "LoginRequest(username=\"ab\", password=\"password\")",
+      "timestamp": "2026-07-16T21:30:19.998266"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M12-security-shield\\tests\\test_input_validation.py",
+      "line": 136,
+      "code": "LoginRequest(username=\"a\" * 101, password=\"password\")",
+      "timestamp": "2026-07-16T21:30:19.998266"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\tests\\test_masking.py",
+      "line": 102,
+      "code": "token = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0\"",
+      "timestamp": "2026-07-16T21:30:20.002282"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M12-security-shield\\tests\\test_masking.py",
+      "line": 350,
+      "code": "token = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"",
+      "timestamp": "2026-07-16T21:30:20.003286"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M2-skills-cluster\\skill_cluster\\api\\v2.py",
+      "line": 234,
+      "code": "admin_token = get_admin_token_from_env()",
+      "timestamp": "2026-07-16T21:30:20.054977"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_m8_integration.py",
+      "line": 45,
+      "code": "expected_token=\"test-secret-token-123\",",
+      "timestamp": "2026-07-16T21:30:20.214093"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_m8_integration.py",
+      "line": 202,
+      "code": "token = get_admin_token_from_env()",
+      "timestamp": "2026-07-16T21:30:20.214630"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_m8_integration.py",
+      "line": 467,
+      "code": "app = self._create_full_app(token=\"integration-test-token\")",
+      "timestamp": "2026-07-16T21:30:20.216282"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Token泄露",
+      "file_path": "M7-workflow-builder\\src\\m8_api\\m8_auth_middleware.py",
+      "line": 59,
+      "code": "self._expected_token = \"m7-dev-token-default\"",
+      "timestamp": "2026-07-16T21:30:20.655224"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 88,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 101,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 114,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 127,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 139,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 151,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.739734"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 258,
+      "code": "auth_router.LoginRequest(username=\"admin\", password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.740328"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 279,
+      "code": "auth_router.LoginRequest(username=\"admin\", password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.740328"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\test_security_kernel.py",
+      "line": 299,
+      "code": "auth_router.TotpDisableRequest(password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.740328"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\routers\\users.py",
+      "line": 119,
+      "code": "password: Optional[str] = None  # 可选：管理员重置密码",
+      "timestamp": "2026-07-16T21:30:20.906966"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 88,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 101,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 114,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 127,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 139,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 151,
+      "code": "password=\"test123456\",",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 258,
+      "code": "auth_router.LoginRequest(username=\"admin\", password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 279,
+      "code": "auth_router.LoginRequest(username=\"admin\", password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的Password泄露",
+      "file_path": "M8-control-tower\\backend\\tests\\test_security_kernel.py",
+      "line": 299,
+      "code": "auth_router.TotpDisableRequest(password=\"admin123456\"),",
+      "timestamp": "2026-07-16T21:30:20.972295"
+    },
+    {
+      "severity": "high",
+      "category": "sensitive_data",
+      "description": "可能的API Key泄露",
+      "file_path": "shared\\auth.py",
+      "line": 303,
+      "code": ">>> get_api_key = create_api_key_dependency(valid_keys=[\"my-secret-key\"])",
+      "timestamp": "2026-07-16T21:30:21.035080"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "exec使用",
+      "file_path": "M2-skills-cluster\\skill_cluster\\security\\sandbox.py",
+      "line": 284,
+      "code": "exec({repr(code)}, {{\"__builtins__\": _restricted, \"__builtins__\": _restricted}}, _locals)",
+      "timestamp": "2026-07-16T21:30:22.386887"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_ast_scanner.py",
+      "line": 30,
+      "code": "result = scanner.scan(\"x = eval(input())\")",
+      "timestamp": "2026-07-16T21:30:22.459766"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "exec使用",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_ast_scanner.py",
+      "line": 37,
+      "code": "result = scanner.scan(\"exec('import os')\")",
+      "timestamp": "2026-07-16T21:30:22.459766"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "M2-skills-cluster\\skill_cluster\\tests\\test_sandbox.py",
+      "line": 29,
+      "code": "ok, err = policy.check_code(\"eval('1+1')\")",
+      "timestamp": "2026-07-16T21:30:22.501526"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "M8-control-tower\\backend\\routers\\evolution_auditor.py",
+      "line": 75,
+      "code": "(\"eval(\", \"eval 函数执行任意代码\"),",
+      "timestamp": "2026-07-16T21:30:23.297964"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "exec使用",
+      "file_path": "M8-control-tower\\backend\\routers\\evolution_auditor.py",
+      "line": 76,
+      "code": "(\"exec(\", \"exec 函数执行任意代码\"),",
+      "timestamp": "2026-07-16T21:30:23.297964"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "pickle反序列化风险",
+      "file_path": "M8-control-tower\\backend\\routers\\evolution_auditor.py",
+      "line": 81,
+      "code": "(\"pickle.loads(\", \"反序列化风险\"),",
+      "timestamp": "2026-07-16T21:30:23.297964"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "pickle反序列化风险",
+      "file_path": "M8-control-tower\\backend\\routers\\evolution_auditor.py",
+      "line": 82,
+      "code": "(\"pickle.load(\", \"反序列化风险\"),",
+      "timestamp": "2026-07-16T21:30:23.297964"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "yaml不安全加载",
+      "file_path": "M8-control-tower\\backend\\routers\\evolution_auditor.py",
+      "line": 83,
+      "code": "(\"yaml.load(\", \"YAML 反序列化风险\"),",
+      "timestamp": "2026-07-16T21:30:23.297964"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "description": "命令注入风险",
+      "file_path": "M8-control-tower\\backend\\routers\\work_dev.py",
+      "line": 2456,
+      "code": "subprocess.Popen([code_cmd, workspace_path], shell=True)",
+      "timestamp": "2026-07-16T21:30:23.455153"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "description": "命令注入风险",
+      "file_path": "M8-control-tower\\backend\\routers\\work_dev.py",
+      "line": 2458,
+      "code": "subprocess.Popen([code_cmd], shell=True)",
+      "timestamp": "2026-07-16T21:30:23.455153"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "description": "命令注入风险",
+      "file_path": "M8-control-tower\\backend\\routers\\work_dev.py",
+      "line": 2484,
+      "code": "subprocess.Popen([code_cmd, \"--goto\", goto_arg], shell=True)",
+      "timestamp": "2026-07-16T21:30:23.455153"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "M9-dev-workshop\\backend\\tests\\unit\\test_sandbox_security.py",
+      "line": 119,
+      "code": "code = \"eval('console.log(1)')\"",
+      "timestamp": "2026-07-16T21:30:23.552912"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "exec使用",
+      "file_path": "M9-dev-workshop\\backend\\tests\\unit\\test_sandbox_security.py",
+      "line": 131,
+      "code": "code = \"exec('ls -la')\"",
+      "timestamp": "2026-07-16T21:30:23.552912"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "M9-dev-workshop\\backend\\tests\\unit\\test_sandbox_security.py",
+      "line": 326,
+      "code": "code = \"eval('os.system(\\'ls\\')')\"",
+      "timestamp": "2026-07-16T21:30:23.554420"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "eval使用",
+      "file_path": "shared\\builtin_tools.py",
+      "line": 59,
+      "code": "result = eval(expression, {\"__builtins__\": {}}, self._allowed_names)",
+      "timestamp": "2026-07-16T21:30:23.586188"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "description": "exec使用",
+      "file_path": "tests\\test_m7\\test_workflow_exec.py",
+      "line": 74,
+      "code": "def exec(self):",
+      "timestamp": "2026-07-16T21:30:23.748968"
+    },
+    {
+      "severity": "critical",
+      "category": "config",
+      "description": "发现默认密码",
+      "file_path": ".env.test",
+      "line": null,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:23.939313"
+    },
+    {
+      "severity": "critical",
+      "category": "config",
+      "description": "发现默认密码",
+      "file_path": "config\\yunxi.env",
+      "line": null,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:23.939313"
+    },
+    {
+      "severity": "critical",
+      "category": "config",
+      "description": "发现默认密码",
+      "file_path": "M8-control-tower\\backend\\.env.example",
+      "line": null,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:23.943459"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: uvicorn",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 30,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: aiohttp",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 31,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: python-dotenv",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 32,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: openai",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 33,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: SQLAlchemy",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 34,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: numpy",
+      "file_path": "M1-agent-hub\\requirements.txt",
+      "line": 35,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M11-mcp-bus\\requirements.txt",
+      "line": 9,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.134874"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: aiohttp",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 24,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: httpx",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 25,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: python-dotenv",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 26,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 27,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: beautifulsoup4",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 28,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: markdown",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 29,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: langdetect",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 30,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: chardet",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 31,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: PyMuPDF",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 32,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: pandas",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 33,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: matplotlib",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 34,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: typing-extensions",
+      "file_path": "M2-skills-cluster\\requirements.txt",
+      "line": 35,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: httpx",
+      "file_path": "M3-edge-cloud\\requirements.txt",
+      "line": 35,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M3-edge-cloud\\requirements.txt",
+      "line": 36,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: SQLAlchemy",
+      "file_path": "M3-edge-cloud\\requirements.txt",
+      "line": 37,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: uvicorn",
+      "file_path": "M4-scene-engine\\requirements.txt",
+      "line": 9,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: pydantic-settings",
+      "file_path": "M4-scene-engine\\requirements.txt",
+      "line": 10,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M4-scene-engine\\requirements.txt",
+      "line": 11,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: SQLAlchemy",
+      "file_path": "M4-scene-engine\\requirements.txt",
+      "line": 12,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: uvicorn",
+      "file_path": "M6-hardware-peripheral\\requirements.txt",
+      "line": 9,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M6-hardware-peripheral\\requirements.txt",
+      "line": 10,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.136387"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: uvicorn",
+      "file_path": "M7-workflow-builder\\requirements.txt",
+      "line": 9,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M7-workflow-builder\\requirements.txt",
+      "line": 10,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: fastapi",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 2,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: uvicorn",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 3,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: pydantic",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 4,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: python-dotenv",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 5,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: pydantic-settings",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 6,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: python-jose[cryptography]",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 7,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: bcrypt",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 8,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: SQLAlchemy",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 9,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: alembic",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 10,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: cryptography",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 11,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: httpx",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 12,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    },
+    {
+      "severity": "low",
+      "category": "dependencies",
+      "description": "未固定版本的依赖: psutil",
+      "file_path": "M8-control-tower\\requirements.txt",
+      "line": 13,
+      "code": null,
+      "timestamp": "2026-07-16T21:30:24.137942"
+    }
+  ]
+}

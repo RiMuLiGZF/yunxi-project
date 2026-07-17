@@ -3,14 +3,39 @@ M6 硬件外设 - 数据库连接管理
 
 P1-5 改造：提供上下文管理器封装的事务连接，
 支持自动建表与连接复用。
+
+P1-08 优化：SQLite 性能增强
+- WAL 模式提升读写并发
+- 合理 cache_size 减少磁盘 IO
+- busy_timeout 避免 database is locked
+- 定期过期数据清理（TTL）
 """
 
 import sqlite3
 import logging
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# P1-08: SQLite 性能 PRAGMA 默认配置
+# ============================================================================
+
+DEFAULT_PRAGMAS = {
+    "journal_mode": "WAL",          # WAL 模式：读写并发，读不阻塞写
+    "synchronous": "NORMAL",        # 平衡安全与性能（WAL 模式下 NORMAL 足够安全）
+    "cache_size": "-20000",         # 约 20MB 页缓存（负数表示 KB）
+    "busy_timeout": "5000",         # 5 秒忙等待，避免 database is locked
+    "foreign_keys": "ON",           # 外键约束
+    "temp_store": "MEMORY",         # 临时表放内存
+}
+
+# 健康数据默认保留天数（TTL）
+DEFAULT_HEALTH_TTL_DAYS = 90
+# 通知数据默认保留天数
+DEFAULT_NOTIFICATION_TTL_DAYS = 30
 
 
 class DatabaseConnection:
@@ -41,6 +66,8 @@ class DatabaseConnection:
             timeout=self.timeout,
             isolation_level=self.isolation_level,
         )
+        # P1-08: 应用性能 PRAGMA
+        _apply_pragmas(self._conn)
         return self._conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -54,6 +81,62 @@ class DatabaseConnection:
             logger.exception("[DatabaseConnection] 关闭连接时异常")
         finally:
             self._conn = None
+
+
+def _apply_pragmas(conn: sqlite3.Connection) -> None:
+    """P1-08: 应用 SQLite 性能优化 PRAGMA"""
+    cursor = conn.cursor()
+    for key, value in DEFAULT_PRAGMAS.items():
+        try:
+            cursor.execute(f"PRAGMA {key} = {value}")
+        except Exception as e:
+            logger.warning(f"设置 PRAGMA {key} 失败: {e}")
+
+
+def cleanup_expired_data(
+    conn: sqlite3.Connection,
+    *,
+    health_ttl_days: int = DEFAULT_HEALTH_TTL_DAYS,
+    notification_ttl_days: int = DEFAULT_NOTIFICATION_TTL_DAYS,
+) -> dict[str, int]:
+    """P1-08 / P1-6-1: 清理过期数据（TTL）
+
+    Args:
+        conn: 数据库连接
+        health_ttl_days: 健康数据保留天数
+        notification_ttl_days: 通知数据保留天数
+
+    Returns:
+        各表删除的行数
+    """
+    cursor = conn.cursor()
+    result = {}
+    now = datetime.now()
+
+    # 清理过期健康数据
+    if health_ttl_days > 0:
+        cutoff = (now - timedelta(days=health_ttl_days)).isoformat()
+        cursor.execute(
+            "DELETE FROM wearable_health_data WHERE recorded_at < ?",
+            (cutoff,),
+        )
+        result["health_data_deleted"] = cursor.rowcount
+        if cursor.rowcount > 0:
+            logger.info(f"清理过期健康数据: {cursor.rowcount} 条 (保留 {health_ttl_days} 天)")
+
+    # 清理过期通知
+    if notification_ttl_days > 0:
+        cutoff = (now - timedelta(days=notification_ttl_days)).isoformat()
+        cursor.execute(
+            "DELETE FROM wearable_notifications WHERE created_at < ?",
+            (cutoff,),
+        )
+        result["notifications_deleted"] = cursor.rowcount
+        if cursor.rowcount > 0:
+            logger.info(f"清理过期通知: {cursor.rowcount} 条 (保留 {notification_ttl_days} 天)")
+
+    conn.commit()
+    return result
 
 
 def _init_tables(conn: sqlite3.Connection) -> None:

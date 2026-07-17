@@ -1,0 +1,376 @@
+{
+  "phase": "P0",
+  "title": "手表/可穿戴设备数据主权迁移 - M8 → M6",
+  "version": "1.0",
+  "status": "planned",
+  "domain": "watch",
+
+  "background": {
+    "current_state": "手表数据分散在 M4（场景引擎）和 M8（控制塔）中，M6（硬件外设）仅有传感器数据表",
+    "target_state": "M6 成为所有可穿戴设备数据的权威拥有者，M4/M8 通过 API 获取数据",
+    "reasoning": [
+      "可穿戴设备（手表、手环、戒指等）属于硬件外设范畴",
+      "M6 定位就是硬件外设管理模块",
+      "M4 是场景引擎，不应直接管理设备数据",
+      "M8 是控制塔，不应持有业务数据"
+    ]
+  },
+
+  "current_data_locations": {
+    "M8": {
+      "database": "m8.db",
+      "tables": [
+        {
+          "name": "watch_devices",
+          "fields_count": 17,
+          "key_fields": ["id", "device_id", "user_id", "name", "device_type", "brand", "model", "mac_address", "status", "last_sync_at", "created_at"],
+          "notes": "设备表，device_type 支持 watch/ring/glasses"
+        },
+        {
+          "name": "watch_health_data",
+          "fields_count": 11,
+          "key_fields": ["id", "device_id", "user_id", "data_type", "value", "unit", "timestamp", "source", "quality"],
+          "notes": "健康数据表，支持 heart_rate/spo2/steps/sleep/temperature/calories"
+        },
+        {
+          "name": "watch_notifications",
+          "fields_count": 14,
+          "key_fields": ["id", "notification_id", "device_id", "user_id", "title", "content", "type", "status", "created_at"],
+          "notes": "通知推送记录表"
+        },
+        {
+          "name": "watch_settings",
+          "fields_count": 5,
+          "key_fields": ["id", "device_id", "settings_json", "user_id", "updated_at"],
+          "notes": "手表配置表（M8新增，M4是设备表带settings字段）"
+        }
+      ],
+      "estimated_rows": "unknown",
+      "access_pattern": "M8 直接读写，用于控制塔展示和管理"
+    },
+    "M4": {
+      "database": "m4.db",
+      "tables": [
+        {
+          "name": "watch_devices",
+          "fields_count": 18,
+          "key_fields": ["id", "device_id", "user_id", "name", "device_type", "brand", "model", "mac_address", "status", "settings", "last_sync_at", "created_at", "updated_at"],
+          "notes": "设备表带 settings JSON 字段，device_type 支持 watch/ring/band"
+        },
+        {
+          "name": "watch_health_data",
+          "fields_count": 9,
+          "key_fields": ["id", "device_id", "user_id", "data_type", "value", "unit", "recorded_at", "created_at"],
+          "notes": "健康数据表，字段名 recorded_at（M8叫timestamp），缺少 source 和 quality 字段"
+        },
+        {
+          "name": "watch_notifications",
+          "fields_count": 14,
+          "key_fields": ["id", "notification_id", "device_id", "user_id", "title", "content", "type", "status", "source", "created_at"],
+          "notes": "通知推送记录表"
+        }
+      ],
+      "estimated_rows": "unknown",
+      "access_pattern": "M4 场景内直接读写，用于场景联动（如运动场景触发）"
+    },
+    "M6": {
+      "database": "m6.db",
+      "tables": [
+        {
+          "name": "sensor_data",
+          "fields_count": "sensor_id, data_type, value, unit, timestamp, quality",
+          "notes": "通用传感器数据表，结构与手表健康数据类似但是通用设计"
+        },
+        {
+          "name": "device_status_history",
+          "fields_count": "device_id, status, timestamp, detail_json",
+          "notes": "设备状态历史记录"
+        }
+      ],
+      "estimated_rows": "unknown",
+      "access_pattern": "M6 硬件外设管理使用"
+    }
+  },
+
+  "target_schema": {
+    "module": "M6",
+    "database": "m6.db",
+    "tables": [
+      {
+        "name": "wearable_devices",
+        "description": "可穿戴设备表（统一手表、手环、戒指、眼镜等）",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "device_id", "type": "String(64)", "unique": true, "description": "设备唯一标识"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "所属用户"},
+          {"name": "name", "type": "String(100)", "description": "设备名称"},
+          {"name": "device_type", "type": "String(20)", "index": true, "description": "设备类型: watch/ring/band/glasses"},
+          {"name": "brand", "type": "String(50)", "description": "品牌"},
+          {"name": "model", "type": "String(50)", "description": "型号"},
+          {"name": "mac_address", "type": "String(50)", "description": "MAC地址"},
+          {"name": "status", "type": "String(20)", "index": true, "description": "状态: online/offline/charging/warning"},
+          {"name": "battery_level", "type": "Float", "description": "电量百分比"},
+          {"name": "firmware_version", "type": "String(32)", "description": "固件版本"},
+          {"name": "last_sync_at", "type": "DateTime", "description": "最后同步时间"},
+          {"name": "paired_at", "type": "DateTime", "description": "配对时间"},
+          {"name": "created_at", "type": "DateTime", "default": "now"},
+          {"name": "updated_at", "type": "DateTime", "default": "now", "onupdate": "now"}
+        ]
+      },
+      {
+        "name": "wearable_health_data",
+        "description": "可穿戴健康数据表",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "device_id", "type": "String(64)", "index": true, "description": "设备标识"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "用户标识"},
+          {"name": "data_type", "type": "String(20)", "index": true, "description": "数据类型: heart_rate/spo2/steps/sleep/temperature/calories"},
+          {"name": "value", "type": "Float", "description": "数值"},
+          {"name": "unit", "type": "String(20)", "description": "单位"},
+          {"name": "recorded_at", "type": "DateTime", "index": true, "description": "采集时间"},
+          {"name": "source", "type": "String(20)", "description": "数据来源: device/manual/synced"},
+          {"name": "quality", "type": "String(10)", "description": "数据质量: good/poor"},
+          {"name": "created_at", "type": "DateTime", "default": "now"}
+        ],
+        "indexes": [
+          {"fields": ["device_id", "data_type", "recorded_at"], "unique": false}
+        ]
+      },
+      {
+        "name": "wearable_notifications",
+        "description": "可穿戴通知推送记录",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "notification_id", "type": "String(64)", "unique": true, "description": "通知唯一ID"},
+          {"name": "device_id", "type": "String(64)", "index": true, "description": "目标设备"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "用户标识"},
+          {"name": "title", "type": "String(255)", "description": "通知标题"},
+          {"name": "content", "type": "Text", "description": "通知内容"},
+          {"name": "type", "type": "String(30)", "index": true, "description": "通知类型"},
+          {"name": "status", "type": "String(20)", "index": true, "description": "状态: pending/sent/delivered/failed/read"},
+          {"name": "source", "type": "String(20)", "description": "来源: system/app/api"},
+          {"name": "delivered_at", "type": "DateTime", "description": "送达时间"},
+          {"name": "created_at", "type": "DateTime", "default": "now"}
+        ]
+      },
+      {
+        "name": "wearable_settings",
+        "description": "可穿戴设备配置",
+        "fields": [
+          {"name": "id", "type": "Integer", "primary_key": true, "auto": true},
+          {"name": "device_id", "type": "String(64)", "unique": true, "description": "设备标识"},
+          {"name": "user_id", "type": "String(128)", "index": true, "description": "用户标识"},
+          {"name": "settings_json", "type": "JSON", "description": "配置JSON"},
+          {"name": "updated_at", "type": "DateTime", "default": "now", "onupdate": "now"}
+        ]
+      }
+    ]
+  },
+
+  "migration_strategy": {
+    "approach": "四步迁移法：双写 → 切读 → 停写 → 清理",
+    "estimated_duration": "2 weeks",
+    "steps": [
+      {
+        "step": 1,
+        "name": "准备阶段",
+        "duration": "2 days",
+        "tasks": [
+          "在 M6 中创建 4 张新表（wearable_* 系列）",
+          "M6 提供完整的 CRUD API 接口",
+          "M6 接入统一备份机制",
+          "编写数据迁移脚本（M8→M6, M4→M6）"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "双写阶段",
+        "duration": "3 days",
+        "tasks": [
+          "M4 的手表写操作同时写入 M6 API",
+          "M8 的手表写操作同时写入 M6 API",
+          "每日数据对账，验证一致性",
+          "发现不一致立即修复"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "切读阶段",
+        "duration": "3 days",
+        "tasks": [
+          "M4 的手表读操作改为调用 M6 API",
+          "M8 的手表读操作改为调用 M6 API",
+          "保留本地缓存（5分钟过期）",
+          "持续监控错误率"
+        ]
+      },
+      {
+        "step": 4,
+        "name": "停写清理阶段",
+        "duration": "2 days + 7 days观察",
+        "tasks": [
+          "停止 M4/M8 的手表本地写操作",
+          "M6 成为唯一数据源",
+          "观察 7 天确认无问题",
+          "备份 M4/M8 旧表后删除"
+        ]
+      }
+    ]
+  },
+
+  "api_design": {
+    "base_path": "/api/v1/wearable",
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/devices",
+        "description": "获取用户设备列表",
+        "consumers": ["M4", "M8"]
+      },
+      {
+        "method": "GET",
+        "path": "/devices/{device_id}",
+        "description": "获取单个设备详情",
+        "consumers": ["M4", "M8"]
+      },
+      {
+        "method": "POST",
+        "path": "/devices",
+        "description": "注册新设备",
+        "consumers": ["M6自身", "M8"]
+      },
+      {
+        "method": "PUT",
+        "path": "/devices/{device_id}",
+        "description": "更新设备信息",
+        "consumers": ["M6自身"]
+      },
+      {
+        "method": "DELETE",
+        "path": "/devices/{device_id}",
+        "description": "删除设备",
+        "consumers": ["M8"]
+      },
+      {
+        "method": "GET",
+        "path": "/health-data",
+        "description": "查询健康数据（支持时间范围、数据类型过滤）",
+        "consumers": ["M4", "M8", "M5"]
+      },
+      {
+        "method": "POST",
+        "path": "/health-data",
+        "description": "上报健康数据",
+        "consumers": ["M6自身", "设备SDK"]
+      },
+      {
+        "method": "GET",
+        "path": "/notifications",
+        "description": "获取通知列表",
+        "consumers": ["M4", "M8"]
+      },
+      {
+        "method": "POST",
+        "path": "/notifications",
+        "description": "发送通知",
+        "consumers": ["M4", "M8"]
+      },
+      {
+        "method": "GET",
+        "path": "/settings/{device_id}",
+        "description": "获取设备配置",
+        "consumers": ["M4", "M8"]
+      },
+      {
+        "method": "PUT",
+        "path": "/settings/{device_id}",
+        "description": "更新设备配置",
+        "consumers": ["M4", "M8"]
+      }
+    ]
+  },
+
+  "field_mapping": {
+    "M8_to_M6": {
+      "watch_devices -> wearable_devices": {
+        "status_note": "device_type 增加 band 类型，统一为 watch/ring/band/glasses",
+        "added_fields": ["battery_level", "firmware_version", "paired_at", "updated_at"],
+        "removed_fields": []
+      },
+      "watch_health_data -> wearable_health_data": {
+        "field_rename": {"timestamp": "recorded_at"},
+        "added_fields": [],
+        "note": "字段基本一致，M6 是 M8 的超集"
+      },
+      "watch_notifications -> wearable_notifications": {
+        "status_note": "status 统一为 pending/sent/delivered/failed/read",
+        "added_fields": ["delivered_at"],
+        "note": "title 长度从 100 扩展为 255"
+      },
+      "watch_settings -> wearable_settings": {
+        "note": "直接迁移，结构一致"
+      }
+    },
+    "M4_to_M6": {
+      "watch_devices -> wearable_devices": {
+        "field_extract": {"settings": "迁移到 wearable_settings 表"},
+        "status_note": "status 增加 charging/warning 状态",
+        "device_type_note": "增加 glasses 类型"
+      },
+      "watch_health_data -> wearable_health_data": {
+        "field_rename": {"recorded_at": "recorded_at"},
+        "added_fields": ["source", "quality"],
+        "default_values": {"source": "device", "quality": "good"}
+      },
+      "watch_notifications -> wearable_notifications": {
+        "status_note": "status 增加 sent 状态",
+        "title_note": "title 长度从 100 扩展为 255"
+      }
+    }
+  },
+
+  "risks": [
+    {
+      "risk": "M4 场景引擎依赖手表数据做场景联动，API 调用延迟可能影响实时性",
+      "level": "medium",
+      "mitigation": "M4 本地保留 5 分钟缓存，关键路径走事件通知机制"
+    },
+    {
+      "risk": "M8 控制塔展示手表数据需要实时性",
+      "level": "low",
+      "mitigation": "M8 通过 API 获取 + 本地缓存，非实时要求不高"
+    },
+    {
+      "risk": "双写期间数据不一致",
+      "level": "medium",
+      "mitigation": "每日对账脚本，发现不一致以 M6 为准自动修复"
+    },
+    {
+      "risk": "user_id 类型不匹配（M8 Integer vs M6 String）",
+      "level": "high",
+      "mitigation": "M6 使用 String(128) 兼容两种类型，迁移时做类型转换"
+    }
+  ],
+
+  "rollback_plan": {
+    "trigger_conditions": [
+      "双写阶段数据不一致率超过 1%",
+      "切读阶段错误率超过 0.5%",
+      "M6 API 可用性低于 99.9%"
+    ],
+    "rollback_steps": [
+      "立即恢复 M4/M8 的本地读写",
+      "用 M6 数据回灌到 M4/M8（如果 M6 数据更新）",
+      "保留 M6 表数据用于调试",
+      "排查问题后重新启动下一次迁移"
+    ]
+  },
+
+  "success_criteria": [
+    "M6 手表 API 可用性 >= 99.9%",
+    "数据迁移后一致性 100%（对账通过）",
+    "M4/M8 手表相关功能正常运行",
+    "M4/M8 手表相关表已删除",
+    "文档和测试全部通过"
+  ]
+}

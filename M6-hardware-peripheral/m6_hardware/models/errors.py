@@ -46,6 +46,17 @@ class ErrorCode(IntEnum):
     SSE_TOKEN_EXPIRED = 301
     SSE_LIMIT_EXCEEDED = 302
 
+    # 可穿戴设备错误 (440-459 范围，避免与 HTTP 状态码冲突)
+    WEARABLE_DEVICE_NOT_FOUND = 440
+    WEARABLE_DEVICE_ALREADY_EXISTS = 441
+    WEARABLE_DEVICE_TYPE_INVALID = 442
+    WEARABLE_HEALTH_DATA_INVALID = 443
+    WEARABLE_HEALTH_DATA_TYPE_UNSUPPORTED = 444
+    WEARABLE_NOTIFICATION_NOT_FOUND = 445
+    WEARABLE_SETTINGS_NOT_FOUND = 446
+    WEARABLE_BATCH_SIZE_EXCEEDED = 447
+    WEARABLE_MAC_ADDRESS_INVALID = 448
+
 
 class M6Exception(Exception):
     """M6 业务异常
@@ -72,18 +83,28 @@ class M6Exception(Exception):
         """根据错误码推断默认 HTTP 状态码"""
         if code == ErrorCode.SUCCESS:
             return 200
-        if code in (ErrorCode.BAD_REQUEST, ErrorCode.SENSOR_DATA_INVALID):
+        # 404 - 资源不存在（优先判断，避免被 409 或 400 误匹配）
+        if code in (
+            ErrorCode.NOT_FOUND,
+            ErrorCode.DEVICE_NOT_FOUND,
+            ErrorCode.SENSOR_NOT_FOUND,
+            ErrorCode.WEARABLE_DEVICE_NOT_FOUND,
+            ErrorCode.WEARABLE_NOTIFICATION_NOT_FOUND,
+            ErrorCode.WEARABLE_SETTINGS_NOT_FOUND,
+        ):
+            return 404
+        # 400 - 参数错误 / 数据无效
+        if code in (
+            ErrorCode.BAD_REQUEST,
+            ErrorCode.SENSOR_DATA_INVALID,
+            ErrorCode.WEARABLE_HEALTH_DATA_INVALID,
+        ):
             return 400
         if code == ErrorCode.UNAUTHORIZED:
             return 401
         if code == ErrorCode.FORBIDDEN:
             return 403
-        if code in (
-            ErrorCode.NOT_FOUND,
-            ErrorCode.DEVICE_NOT_FOUND,
-            ErrorCode.SENSOR_NOT_FOUND,
-        ):
-            return 404
+        # 409 - 冲突 / 业务条件不满足
         if code in (
             ErrorCode.DEVICE_OFFLINE,
             ErrorCode.DEVICE_ALREADY_PAIRED,
@@ -92,8 +113,13 @@ class M6Exception(Exception):
             ErrorCode.SSE_TOKEN_INVALID,
             ErrorCode.SSE_TOKEN_EXPIRED,
             ErrorCode.SSE_LIMIT_EXCEEDED,
+            ErrorCode.WEARABLE_DEVICE_ALREADY_EXISTS,
+            ErrorCode.WEARABLE_DEVICE_TYPE_INVALID,
+            ErrorCode.WEARABLE_HEALTH_DATA_TYPE_UNSUPPORTED,
+            ErrorCode.WEARABLE_BATCH_SIZE_EXCEEDED,
+            ErrorCode.WEARABLE_MAC_ADDRESS_INVALID,
         ):
-            return 409  # Conflict / 业务条件不满足
+            return 409
         return 500
 
     def to_dict(self) -> Dict[str, Any]:

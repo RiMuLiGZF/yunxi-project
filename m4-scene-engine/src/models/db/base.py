@@ -46,8 +46,8 @@ def get_db_path(base_dir: Path | None = None) -> str:
     Returns:
         数据库文件绝对路径
     """
-    # 环境变量优先
-    env_path = os.environ.get("M4_DATA_PATH", "")
+    # 环境变量优先（支持 M4_DATABASE_PATH 和 M4_DATA_PATH 两种命名）
+    env_path = os.environ.get("M4_DATABASE_PATH", "") or os.environ.get("M4_DATA_PATH", "")
     if env_path:
         # 如果是目录，拼接 m4.db
         if env_path.endswith(".db"):

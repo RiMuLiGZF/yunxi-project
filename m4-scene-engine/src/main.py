@@ -224,8 +224,8 @@ def _init_services() -> None:
     )
     app.state.switch_manager = switch_manager
 
-    # 上下文存储
-    persist_path = os.environ.get("M4_DATA_PATH", "")
+    # 上下文存储（支持 M4_DATABASE_PATH 和 M4_DATA_PATH 两种环境变量命名）
+    persist_path = os.environ.get("M4_DATABASE_PATH", "") or os.environ.get("M4_DATA_PATH", "")
     context_store = ContextStore(
         persist_path=persist_path,
         auto_save=True,
