@@ -1,0 +1,122 @@
+/* ============================================================
+ * YunXi UI Kit - Switch Component
+ * 云汐组件库 - 开关组件
+ * ============================================================ */
+
+.yx-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  vertical-align: middle;
+}
+
+.yx-switch--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.yx-switch__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.yx-switch__track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--yx-color-gray-300);
+  border-radius: var(--yx-radius-full);
+  transition: background-color var(--yx-transition-base);
+  flex-shrink: 0;
+}
+
+.yx-switch:hover:not(.yx-switch--disabled) .yx-switch__track {
+  background: var(--yx-color-gray-400);
+}
+
+.yx-switch--checked .yx-switch__track {
+  background: var(--yx-color-primary);
+}
+
+.yx-switch--checked:hover:not(.yx-switch--disabled) .yx-switch__track {
+  background: var(--yx-color-primary-hover);
+}
+
+.yx-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: var(--yx-shadow-sm);
+  transition: transform var(--yx-transition-base);
+}
+
+.yx-switch--checked .yx-switch__thumb {
+  transform: translateX(18px);
+}
+
+/* Focus */
+.yx-switch__input:focus-visible + .yx-switch__track {
+  box-shadow: 0 0 0 3px var(--yx-color-primary-light);
+}
+
+/* Size variants */
+.yx-switch--sm {
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-switch--sm .yx-switch__track {
+  width: 32px;
+  height: 18px;
+}
+
+.yx-switch--sm .yx-switch__thumb {
+  width: 14px;
+  height: 14px;
+  top: 2px;
+  left: 2px;
+}
+
+.yx-switch--sm.yx-switch--checked .yx-switch__thumb {
+  transform: translateX(14px);
+}
+
+.yx-switch--lg {
+  font-size: var(--yx-font-size-lg);
+}
+
+.yx-switch--lg .yx-switch__track {
+  width: 48px;
+  height: 26px;
+}
+
+.yx-switch--lg .yx-switch__thumb {
+  width: 22px;
+  height: 22px;
+  top: 2px;
+  left: 2px;
+}
+
+.yx-switch--lg.yx-switch--checked .yx-switch__thumb {
+  transform: translateX(22px);
+}
+
+/* Loading */
+.yx-switch--loading .yx-switch__thumb {
+  animation: yx-switch-loading 1s ease-in-out infinite;
+}
+
+@keyframes yx-switch-loading {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

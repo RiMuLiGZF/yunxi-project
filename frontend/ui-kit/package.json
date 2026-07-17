@@ -1,0 +1,26 @@
+{
+  "name": "@yunxi/ui-kit",
+  "version": "1.0.0",
+  "description": "云汐统一前端组件库 - 轻量级、零依赖、主题化、框架无关",
+  "main": "src/index.js",
+  "style": "src/index.css",
+  "files": [
+    "src/"
+  ],
+  "keywords": [
+    "ui-kit",
+    "components",
+    "yunxi",
+    "vanilla-js",
+    "web-components",
+    "css-variables",
+    "theme"
+  ],
+  "author": "YunXi Team",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}

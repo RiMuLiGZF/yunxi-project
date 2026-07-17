@@ -1,0 +1,183 @@
+/* ============================================================
+ * YunXi UI Kit - Dropdown Component
+ * 云汐组件库 - 下拉菜单组件
+ * ============================================================ */
+
+.yx-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.yx-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--yx-color-bg-surface);
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-lg);
+  box-shadow: var(--yx-shadow-lg);
+  z-index: var(--yx-z-dropdown);
+  padding: var(--yx-spacing-1);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  pointer-events: none;
+  transition: opacity var(--yx-transition-fast),
+              transform var(--yx-transition-fast);
+  transform-origin: top left;
+}
+
+.yx-dropdown--open .yx-dropdown__menu {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Placement variants */
+.yx-dropdown--right .yx-dropdown__menu {
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+
+.yx-dropdown--top .yx-dropdown__menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom left;
+  transform: translateY(4px) scale(0.98);
+}
+
+.yx-dropdown--top.yx-dropdown--open .yx-dropdown__menu {
+  transform: translateY(0) scale(1);
+}
+
+.yx-dropdown--top-right .yx-dropdown__menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  left: auto;
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateY(4px) scale(0.98);
+}
+
+.yx-dropdown--top-right.yx-dropdown--open .yx-dropdown__menu {
+  transform: translateY(0) scale(1);
+}
+
+/* Menu items */
+.yx-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+  padding: var(--yx-spacing-2) var(--yx-spacing-3);
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  border-radius: var(--yx-radius-sm);
+  cursor: pointer;
+  transition: background-color var(--yx-transition-fast);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.yx-dropdown__item:hover {
+  background: var(--yx-color-bg-disabled);
+  color: var(--yx-color-primary);
+}
+
+.yx-dropdown__item--active {
+  background: var(--yx-color-primary-light);
+  color: var(--yx-color-primary);
+  font-weight: var(--yx-font-weight-medium);
+}
+
+.yx-dropdown__item--disabled {
+  color: var(--yx-color-text-disabled);
+  cursor: not-allowed;
+}
+
+.yx-dropdown__item--disabled:hover {
+  background: transparent;
+  color: var(--yx-color-text-disabled);
+}
+
+.yx-dropdown__item--danger {
+  color: var(--yx-color-error);
+}
+
+.yx-dropdown__item--danger:hover {
+  background: var(--yx-color-error-light);
+  color: var(--yx-color-error);
+}
+
+.yx-dropdown__item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.yx-dropdown__item-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Divider */
+.yx-dropdown__divider {
+  height: 1px;
+  margin: var(--yx-spacing-1) 0;
+  background: var(--yx-color-border-subtle);
+}
+
+/* Group title */
+.yx-dropdown__group-title {
+  padding: var(--yx-spacing-2) var(--yx-spacing-3) var(--yx-spacing-1);
+  font-size: var(--yx-font-size-xs);
+  font-weight: var(--yx-font-weight-semibold);
+  color: var(--yx-color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--yx-letter-spacing-wide);
+}
+
+/* Submenu */
+.yx-dropdown__item--has-submenu::after {
+  content: '›';
+  margin-left: auto;
+  color: var(--yx-color-text-tertiary);
+  font-size: var(--yx-font-size-lg);
+}
+
+/* Trigger button customization */
+.yx-dropdown__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yx-spacing-1);
+}
+
+.yx-dropdown__trigger-arrow {
+  width: 12px;
+  height: 12px;
+  transition: transform var(--yx-transition-base);
+}
+
+.yx-dropdown--open .yx-dropdown__trigger-arrow {
+  transform: rotate(180deg);
+}
+
+.yx-dropdown__trigger-arrow svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

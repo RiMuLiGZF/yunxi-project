@@ -1,0 +1,182 @@
+/* ============================================================
+ * YunXi UI Kit - Drawer Component
+ * 云汐组件库 - 抽屉组件
+ * ============================================================ */
+
+.yx-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: var(--yx-z-drawer);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--yx-transition-base), visibility var(--yx-transition-base);
+}
+
+.yx-drawer-overlay--open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.yx-drawer {
+  position: fixed;
+  background: var(--yx-color-bg-surface);
+  box-shadow: var(--yx-shadow-2xl);
+  z-index: calc(var(--yx-z-drawer) + 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform var(--yx-transition-slower);
+}
+
+/* Placement variants */
+.yx-drawer--right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 90vw;
+  transform: translateX(100%);
+  border-left: 1px solid var(--yx-color-border-default);
+}
+
+.yx-drawer-overlay--open .yx-drawer--right {
+  transform: translateX(0);
+}
+
+.yx-drawer--left {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 90vw;
+  transform: translateX(-100%);
+  border-right: 1px solid var(--yx-color-border-default);
+}
+
+.yx-drawer-overlay--open .yx-drawer--left {
+  transform: translateX(0);
+}
+
+.yx-drawer--top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  max-height: 500px;
+  transform: translateY(-100%);
+  border-bottom: 1px solid var(--yx-color-border-default);
+}
+
+.yx-drawer-overlay--open .yx-drawer--top {
+  transform: translateY(0);
+}
+
+.yx-drawer--bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  max-height: 500px;
+  transform: translateY(100%);
+  border-top: 1px solid var(--yx-color-border-default);
+}
+
+.yx-drawer-overlay--open .yx-drawer--bottom {
+  transform: translateY(0);
+}
+
+/* Header */
+.yx-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--yx-spacing-4) var(--yx-spacing-5);
+  border-bottom: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-4);
+  flex-shrink: 0;
+}
+
+.yx-drawer__title {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-semibold);
+  color: var(--yx-color-text-primary);
+  margin: 0;
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-drawer__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--yx-color-text-tertiary);
+  border-radius: var(--yx-radius-sm);
+  cursor: pointer;
+  transition: var(--yx-transition-colors);
+  flex-shrink: 0;
+}
+
+.yx-drawer__close:hover {
+  background: var(--yx-color-bg-disabled);
+  color: var(--yx-color-text-secondary);
+}
+
+.yx-drawer__close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Body */
+.yx-drawer__body {
+  padding: var(--yx-spacing-5);
+  overflow-y: auto;
+  flex: 1;
+  color: var(--yx-color-text-secondary);
+  font-size: var(--yx-font-size-base);
+  line-height: var(--yx-line-height-relaxed);
+}
+
+/* Footer */
+.yx-drawer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--yx-spacing-3) var(--yx-spacing-5);
+  border-top: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-3);
+  flex-shrink: 0;
+  background: var(--yx-color-bg-base);
+}
+
+/* Size variants (for left/right drawers) */
+.yx-drawer--sm.yx-drawer--left,
+.yx-drawer--sm.yx-drawer--right {
+  width: 280px;
+}
+
+.yx-drawer--lg.yx-drawer--left,
+.yx-drawer--lg.yx-drawer--right {
+  width: 520px;
+}
+
+.yx-drawer--xl.yx-drawer--left,
+.yx-drawer--xl.yx-drawer--right {
+  width: 720px;
+}
+
+/* Body scroll lock */
+.yx-drawer-open {
+  overflow: hidden;
+}

@@ -1,0 +1,186 @@
+/* ============================================================
+ * YunXi UI Kit - Toast Component
+ * 云汐组件库 - 消息提示组件
+ * ============================================================ */
+
+.yx-toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--yx-z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--yx-spacing-3);
+  pointer-events: none;
+  max-width: 90vw;
+}
+
+.yx-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--yx-spacing-3);
+  padding: var(--yx-spacing-3) var(--yx-spacing-5);
+  background: var(--yx-color-bg-surface);
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-lg);
+  box-shadow: var(--yx-shadow-lg);
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  min-width: 200px;
+  max-width: 500px;
+  pointer-events: auto;
+  animation: yx-toast-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.yx-toast--leaving {
+  animation: yx-toast-out 0.3s ease forwards;
+}
+
+@keyframes yx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes yx-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+.yx-toast__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yx-toast__icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.yx-toast__content {
+  flex: 1;
+  min-width: 0;
+  line-height: var(--yx-line-height-normal);
+}
+
+.yx-toast__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: var(--yx-spacing-1);
+  border: none;
+  background: transparent;
+  color: var(--yx-color-text-tertiary);
+  cursor: pointer;
+  border-radius: var(--yx-radius-sm);
+  transition: var(--yx-transition-colors);
+}
+
+.yx-toast__close:hover {
+  background: var(--yx-color-bg-disabled);
+  color: var(--yx-color-text-secondary);
+}
+
+.yx-toast__close svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Type variants */
+.yx-toast--success .yx-toast__icon {
+  color: var(--yx-color-success);
+}
+
+.yx-toast--error .yx-toast__icon {
+  color: var(--yx-color-error);
+}
+
+.yx-toast--warning .yx-toast__icon {
+  color: var(--yx-color-warning);
+}
+
+.yx-toast--info .yx-toast__icon {
+  color: var(--yx-color-info);
+}
+
+.yx-toast--loading .yx-toast__icon {
+  color: var(--yx-color-primary);
+  animation: yx-toast-spin 1s linear infinite;
+}
+
+@keyframes yx-toast-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Top / Bottom positions */
+.yx-toast-container--bottom {
+  top: auto;
+  bottom: 20px;
+}
+
+.yx-toast-container--bottom .yx-toast {
+  animation: yx-toast-in-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.yx-toast-container--bottom .yx-toast--leaving {
+  animation: yx-toast-out-bottom 0.3s ease forwards;
+}
+
+@keyframes yx-toast-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes yx-toast-out-bottom {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+}
+
+/* Simple toast (no icon) */
+.yx-toast--simple .yx-toast__icon {
+  display: none;
+}

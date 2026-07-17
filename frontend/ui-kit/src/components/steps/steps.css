@@ -1,0 +1,270 @@
+/* ============================================================
+ * YunXi UI Kit - Steps Component
+ * 云汐组件库 - 步骤条组件
+ * ============================================================ */
+
+.yx-steps {
+  display: flex;
+  width: 100%;
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-steps__item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.yx-steps__item:last-child {
+  flex: 0 0 auto;
+}
+
+.yx-steps__item-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 0 var(--yx-spacing-2);
+}
+
+/* Step icon / number */
+.yx-steps__icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--yx-color-bg-surface);
+  border: 2px solid var(--yx-color-border-default);
+  color: var(--yx-color-text-tertiary);
+  font-weight: var(--yx-font-weight-semibold);
+  font-size: var(--yx-font-size-base);
+  z-index: 1;
+  transition: var(--yx-transition-all);
+  flex-shrink: 0;
+}
+
+.yx-steps__icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Wait state */
+.yx-steps__item--wait .yx-steps__icon {
+  border-color: var(--yx-color-border-default);
+  color: var(--yx-color-text-tertiary);
+}
+
+/* Process / Current state */
+.yx-steps__item--process .yx-steps__icon {
+  border-color: var(--yx-color-primary);
+  background: var(--yx-color-primary);
+  color: var(--yx-color-text-inverse);
+}
+
+/* Finish state */
+.yx-steps__item--finish .yx-steps__icon {
+  border-color: var(--yx-color-primary);
+  background: var(--yx-color-primary-light);
+  color: var(--yx-color-primary);
+}
+
+/* Error state */
+.yx-steps__item--error .yx-steps__icon {
+  border-color: var(--yx-color-error);
+  background: var(--yx-color-error-light);
+  color: var(--yx-color-error);
+}
+
+/* Step title */
+.yx-steps__title {
+  margin-top: var(--yx-spacing-2);
+  font-size: var(--yx-font-size-sm);
+  font-weight: var(--yx-font-weight-medium);
+  color: var(--yx-color-text-primary);
+  line-height: var(--yx-line-height-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.yx-steps__item--wait .yx-steps__title {
+  color: var(--yx-color-text-tertiary);
+}
+
+.yx-steps__item--error .yx-steps__title {
+  color: var(--yx-color-error);
+}
+
+/* Step description */
+.yx-steps__description {
+  margin-top: var(--yx-spacing-1);
+  font-size: var(--yx-font-size-xs);
+  color: var(--yx-color-text-secondary);
+  line-height: var(--yx-line-height-normal);
+}
+
+/* Connector line */
+.yx-steps__line {
+  position: absolute;
+  top: 16px;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 2px;
+  background: var(--yx-color-border-default);
+  transition: background-color var(--yx-transition-base);
+}
+
+.yx-steps__item:last-child .yx-steps__line {
+  display: none;
+}
+
+.yx-steps__item--finish .yx-steps__line {
+  background: var(--yx-color-primary);
+}
+
+/* Horizontal (default) */
+.yx-steps--horizontal {
+  flex-direction: row;
+}
+
+/* Vertical */
+.yx-steps--vertical {
+  flex-direction: column;
+}
+
+.yx-steps--vertical .yx-steps__item {
+  flex-direction: row;
+  align-items: flex-start;
+  padding-bottom: var(--yx-spacing-6);
+}
+
+.yx-steps--vertical .yx-steps__item:last-child {
+  padding-bottom: 0;
+}
+
+.yx-steps--vertical .yx-steps__item-content {
+  flex-direction: row;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0;
+  gap: var(--yx-spacing-3);
+  flex: none;
+}
+
+.yx-steps--vertical .yx-steps__title {
+  margin-top: 6px;
+}
+
+.yx-steps--vertical .yx-steps__line {
+  position: absolute;
+  top: 40px;
+  left: 15px;
+  width: 2px;
+  height: calc(100% - 40px);
+  right: auto;
+  bottom: 0;
+}
+
+.yx-steps--vertical .yx-steps__item:last-child .yx-steps__line {
+  display: none;
+}
+
+.yx-steps--vertical .yx-steps__item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Size variants */
+.yx-steps--sm .yx-steps__icon {
+  width: 24px;
+  height: 24px;
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-steps--sm .yx-steps__icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.yx-steps--sm .yx-steps__title {
+  font-size: var(--yx-font-size-xs);
+}
+
+.yx-steps--sm .yx-steps__line {
+  top: 12px;
+  left: calc(50% + 14px);
+  right: calc(-50% + 14px);
+}
+
+.yx-steps--sm.yx-steps--vertical .yx-steps__line {
+  top: 30px;
+  left: 11px;
+  height: calc(100% - 30px);
+}
+
+.yx-steps--lg .yx-steps__icon {
+  width: 40px;
+  height: 40px;
+  font-size: var(--yx-font-size-lg);
+}
+
+.yx-steps--lg .yx-steps__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.yx-steps--lg .yx-steps__title {
+  font-size: var(--yx-font-size-base);
+}
+
+.yx-steps--lg .yx-steps__line {
+  top: 20px;
+  left: calc(50% + 24px);
+  right: calc(-50% + 24px);
+}
+
+.yx-steps--lg.yx-steps--vertical .yx-steps__line {
+  top: 48px;
+  left: 19px;
+  height: calc(100% - 48px);
+}
+
+/* Dot style steps */
+.yx-steps--dots .yx-steps__icon {
+  width: 12px;
+  height: 12px;
+  border-width: 0;
+  background: var(--yx-color-border-default);
+}
+
+.yx-steps--dots .yx-steps__item--process .yx-steps__icon {
+  background: var(--yx-color-primary);
+  box-shadow: 0 0 0 4px var(--yx-color-primary-light);
+}
+
+.yx-steps--dots .yx-steps__item--finish .yx-steps__icon {
+  background: var(--yx-color-primary);
+}
+
+.yx-steps--dots .yx-steps__icon svg {
+  display: none;
+}
+
+.yx-steps--dots .yx-steps__line {
+  top: 6px;
+  left: calc(50% + 10px);
+  right: calc(-50% + 10px);
+}

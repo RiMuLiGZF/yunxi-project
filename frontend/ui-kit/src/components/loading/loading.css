@@ -1,0 +1,208 @@
+/* ============================================================
+ * YunXi UI Kit - Loading Component
+ * 云汐组件库 - 加载组件
+ * ============================================================ */
+
+/* Spinner */
+.yx-loading--spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yx-color-primary);
+}
+
+.yx-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--yx-color-primary-lighter);
+  border-top-color: var(--yx-color-primary);
+  border-radius: 50%;
+  animation: yx-loading-spin 0.8s linear infinite;
+}
+
+.yx-loading--sm .yx-loading__spinner {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.yx-loading--lg .yx-loading__spinner {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+@keyframes yx-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Dots */
+.yx-loading--dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.yx-loading__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--yx-color-primary);
+  animation: yx-loading-dot 1.4s ease-in-out infinite;
+}
+
+.yx-loading--sm .yx-loading__dot {
+  width: 6px;
+  height: 6px;
+}
+
+.yx-loading--lg .yx-loading__dot {
+  width: 12px;
+  height: 12px;
+}
+
+.yx-loading__dot:nth-child(1) { animation-delay: -0.32s; }
+.yx-loading__dot:nth-child(2) { animation-delay: -0.16s; }
+.yx-loading__dot:nth-child(3) { animation-delay: 0; }
+
+@keyframes yx-loading-dot {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Pulse */
+.yx-loading--pulse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yx-loading__pulse {
+  width: 32px;
+  height: 32px;
+  background: var(--yx-color-primary);
+  border-radius: 50%;
+  animation: yx-loading-pulse 1.5s ease-in-out infinite;
+}
+
+.yx-loading--sm .yx-loading__pulse { width: 20px; height: 20px; }
+.yx-loading--lg .yx-loading__pulse { width: 48px; height: 48px; }
+
+@keyframes yx-loading-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* Fullscreen overlay */
+.yx-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yx-spacing-4);
+  z-index: var(--yx-z-modal);
+}
+
+html.yx-dark .yx-loading-overlay {
+  background: rgba(10, 25, 41, 0.8);
+}
+
+.yx-loading-overlay__text {
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-secondary);
+}
+
+/* Container loading */
+.yx-loading-container {
+  position: relative;
+}
+
+.yx-loading-container--loading .yx-loading-container__content {
+  opacity: 0.5;
+  pointer-events: none;
+  filter: blur(1px);
+  transition: opacity var(--yx-transition-base), filter var(--yx-transition-base);
+}
+
+.yx-loading-container__spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--yx-spacing-3);
+}
+
+.yx-loading-container__text {
+  font-size: var(--yx-font-size-sm);
+  color: var(--yx-color-text-secondary);
+}
+
+/* Skeleton */
+.yx-skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--yx-color-gray-100) 25%,
+    var(--yx-color-gray-200) 50%,
+    var(--yx-color-gray-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: yx-skeleton-shine 1.5s ease-in-out infinite;
+  border-radius: var(--yx-radius-md);
+}
+
+html.yx-dark .yx-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.08) 25%,
+    rgba(148, 163, 184, 0.15) 50%,
+    rgba(148, 163, 184, 0.08) 75%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes yx-skeleton-shine {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.yx-skeleton--text {
+  height: 14px;
+  width: 100%;
+}
+
+.yx-skeleton--circle {
+  border-radius: 50%;
+}
+
+.yx-skeleton--rect {
+  border-radius: var(--yx-radius-md);
+}
+
+.yx-skeleton-paragraph {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yx-spacing-2);
+}
+
+.yx-skeleton-paragraph .yx-skeleton:last-child {
+  width: 60%;
+}

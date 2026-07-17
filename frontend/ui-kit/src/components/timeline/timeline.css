@@ -1,0 +1,224 @@
+/* ============================================================
+ * YunXi UI Kit - Timeline Component
+ * 云汐组件库 - 时间线组件
+ * ============================================================ */
+
+.yx-timeline {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.yx-timeline::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 11px;
+  width: 2px;
+  background: var(--yx-color-border-default);
+}
+
+.yx-timeline__item {
+  position: relative;
+  padding: 0 0 var(--yx-spacing-6) 36px;
+  list-style: none;
+}
+
+.yx-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.yx-timeline__item:last-child::after {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 11px;
+  bottom: 0;
+  width: 2px;
+  background: var(--yx-color-bg-card);
+}
+
+/* Dot / Node */
+.yx-timeline__dot {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--yx-color-bg-surface);
+  border: 3px solid var(--yx-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.yx-timeline__dot--success {
+  border-color: var(--yx-color-success);
+  background: var(--yx-color-success-light);
+}
+
+.yx-timeline__dot--error {
+  border-color: var(--yx-color-error);
+  background: var(--yx-color-error-light);
+}
+
+.yx-timeline__dot--warning {
+  border-color: var(--yx-color-warning);
+  background: var(--yx-color-warning-light);
+}
+
+.yx-timeline__dot--custom {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.yx-timeline__dot svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.yx-timeline__dot--success svg { color: var(--yx-color-success); }
+.yx-timeline__dot--error svg { color: var(--yx-color-error); }
+.yx-timeline__dot--warning svg { color: var(--yx-color-warning); }
+
+/* Content */
+.yx-timeline__content {
+  color: var(--yx-color-text-primary);
+  font-size: var(--yx-font-size-base);
+  line-height: var(--yx-line-height-normal);
+}
+
+.yx-timeline__title {
+  font-weight: var(--yx-font-weight-semibold);
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  margin-bottom: var(--yx-spacing-1);
+}
+
+.yx-timeline__description {
+  font-size: var(--yx-font-size-sm);
+  color: var(--yx-color-text-secondary);
+  line-height: var(--yx-line-height-relaxed);
+}
+
+.yx-timeline__time {
+  font-size: var(--yx-font-size-xs);
+  color: var(--yx-color-text-tertiary);
+  margin-top: var(--yx-spacing-2);
+}
+
+/* Alternate layout */
+.yx-timeline--alternate {
+  display: block;
+}
+
+.yx-timeline--alternate::before {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.yx-timeline--alternate .yx-timeline__item {
+  width: 50%;
+  padding: 0 0 var(--yx-spacing-6) 0;
+}
+
+.yx-timeline--alternate .yx-timeline__item:nth-child(odd) {
+  padding-right: calc(50% + 24px);
+  text-align: right;
+}
+
+.yx-timeline--alternate .yx-timeline__item:nth-child(odd) .yx-timeline__dot {
+  left: auto;
+  right: -12px;
+}
+
+.yx-timeline--alternate .yx-timeline__item:nth-child(even) {
+  margin-left: 50%;
+  padding-left: calc(0px + 24px);
+}
+
+.yx-timeline--alternate .yx-timeline__item:nth-child(even) .yx-timeline__dot {
+  left: -12px;
+}
+
+/* Right side mode */
+.yx-timeline--right::before {
+  left: auto;
+  right: 11px;
+}
+
+.yx-timeline--right .yx-timeline__item {
+  padding: 0 36px var(--yx-spacing-6) 0;
+  text-align: right;
+}
+
+.yx-timeline--right .yx-timeline__dot {
+  left: auto;
+  right: 0;
+}
+
+/* Pending / last item with dashed line */
+.yx-timeline__item--pending .yx-timeline__dot {
+  border-style: dashed;
+  border-color: var(--yx-color-text-tertiary);
+  background: transparent;
+}
+
+.yx-timeline__item--pending .yx-timeline__content {
+  opacity: 0.6;
+}
+
+/* Size variants */
+.yx-timeline--sm .yx-timeline__dot {
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  border-width: 2px;
+}
+
+.yx-timeline--sm::before {
+  left: 11px;
+}
+
+.yx-timeline--sm .yx-timeline__item {
+  padding-left: 28px;
+  padding-bottom: var(--yx-spacing-4);
+}
+
+.yx-timeline--sm .yx-timeline__title {
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-timeline--sm .yx-timeline__description {
+  font-size: var(--yx-font-size-xs);
+}
+
+.yx-timeline--lg .yx-timeline__dot {
+  width: 32px;
+  height: 32px;
+  left: -4px;
+  border-width: 4px;
+}
+
+.yx-timeline--lg::before {
+  left: 12px;
+}
+
+.yx-timeline--lg .yx-timeline__item {
+  padding-left: 44px;
+  padding-bottom: var(--yx-spacing-8);
+}
+
+.yx-timeline--lg .yx-timeline__title {
+  font-size: var(--yx-font-size-lg);
+}

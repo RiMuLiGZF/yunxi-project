@@ -1,0 +1,185 @@
+/* ============================================================
+ * YunXi UI Kit - Card Component
+ * 云汐组件库 - 卡片组件
+ * ============================================================ */
+
+.yx-card {
+  background: var(--yx-color-bg-card);
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-lg);
+  box-shadow: var(--yx-shadow-sm);
+  overflow: hidden;
+  transition: var(--yx-transition-shadow), var(--yx-transition-transform);
+}
+
+.yx-card:hover {
+  box-shadow: var(--yx-shadow-md);
+}
+
+/* Hover lift effect */
+.yx-card--hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--yx-shadow-lg);
+}
+
+/* Card Header */
+.yx-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--yx-spacing-4) var(--yx-spacing-5);
+  border-bottom: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-4);
+}
+
+.yx-card__title {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-semibold);
+  color: var(--yx-color-text-primary);
+  line-height: var(--yx-line-height-tight);
+  margin: 0;
+}
+
+.yx-card__subtitle {
+  font-size: var(--yx-font-size-sm);
+  color: var(--yx-color-text-secondary);
+  margin-top: var(--yx-spacing-1);
+}
+
+.yx-card__extra {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+}
+
+/* Card Body */
+.yx-card__body {
+  padding: var(--yx-spacing-5);
+  color: var(--yx-color-text-secondary);
+  font-size: var(--yx-font-size-base);
+  line-height: var(--yx-line-height-relaxed);
+}
+
+/* Card Footer */
+.yx-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--yx-spacing-3) var(--yx-spacing-5);
+  border-top: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-2);
+  background: var(--yx-color-bg-base);
+}
+
+/* Card Cover Image */
+.yx-card__cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--yx-color-bg-disabled);
+}
+
+.yx-card__cover + .yx-card__header,
+.yx-card__cover + .yx-card__body {
+  border-top: none;
+}
+
+/* Card with actions in header */
+.yx-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+}
+
+/* Size variants */
+.yx-card--sm .yx-card__header {
+  padding: var(--yx-spacing-3) var(--yx-spacing-4);
+}
+
+.yx-card--sm .yx-card__body {
+  padding: var(--yx-spacing-4);
+}
+
+.yx-card--sm .yx-card__footer {
+  padding: var(--yx-spacing-2) var(--yx-spacing-4);
+}
+
+.yx-card--sm .yx-card__title {
+  font-size: var(--yx-font-size-base);
+}
+
+.yx-card--lg .yx-card__header {
+  padding: var(--yx-spacing-5) var(--yx-spacing-6);
+}
+
+.yx-card--lg .yx-card__body {
+  padding: var(--yx-spacing-6);
+}
+
+.yx-card--lg .yx-card__footer {
+  padding: var(--yx-spacing-4) var(--yx-spacing-6);
+}
+
+.yx-card--lg .yx-card__title {
+  font-size: var(--yx-font-size-xl);
+}
+
+/* Bordered variant */
+.yx-card--borderless {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.yx-card--borderless:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+/* Glass variant */
+.yx-card--glass {
+  background: var(--yx-color-bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: var(--yx-color-border-subtle);
+}
+
+/* Loading state */
+.yx-card--loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.yx-card--loading .yx-card__body {
+  opacity: 0.5;
+}
+
+.yx-card--loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: yx-card-skeleton 1.5s ease-in-out infinite;
+}
+
+@keyframes yx-card-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Grid layout for card groups */
+.yx-card-grid {
+  display: grid;
+  gap: var(--yx-spacing-4);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}

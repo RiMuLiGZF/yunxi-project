@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YunXi UI Kit - 云汐组件库文档</title>
+  <link rel="stylesheet" href="../src/index.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--yx-font-family-base);
+      background: var(--yx-color-bg-gradient);
+      background-attachment: fixed;
+      color: var(--yx-color-text-primary);
+      min-height: 100vh;
+    }
+
+    .doc-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--yx-color-bg-overlay);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--yx-color-border-subtle);
+      padding: var(--yx-spacing-4) var(--yx-spacing-8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .doc-header__title {
+      display: flex;
+      align-items: center;
+      gap: var(--yx-spacing-3);
+    }
+
+    .doc-header__logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--yx-color-primary), var(--yx-color-secondary));
+      border-radius: var(--yx-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .doc-header__name {
+      font-size: var(--yx-font-size-xl);
+      font-weight: var(--yx-font-weight-semibold);
+    }
+
+    .doc-header__version {
+      font-size: var(--yx-font-size-xs);
+      color: var(--yx-color-text-tertiary);
+      background: var(--yx-color-bg-disabled);
+      padding: 2px 8px;
+      border-radius: var(--yx-radius-full);
+    }
+
+    .doc-header__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--yx-spacing-3);
+    }
+
+    .doc-layout {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: var(--yx-spacing-8);
+      gap: var(--yx-spacing-8);
+    }
+
+    .doc-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 80px;
+      align-self: flex-start;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+    }
+
+    .doc-sidebar__title {
+      font-size: var(--yx-font-size-xs);
+      font-weight: var(--yx-font-weight-semibold);
+      color: var(--yx-color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--yx-letter-spacing-wide);
+      margin-bottom: var(--yx-spacing-3);
+      margin-top: var(--yx-spacing-4);
+    }
+
+    .doc-sidebar__title:first-child {
+      margin-top: 0;
+    }
+
+    .doc-sidebar__nav {
+      display: flex;
+      flex-direction: column;
+      gap: var(--yx-spacing-1);
+    }
+
+    .doc-sidebar__link {
+      display: block;
+      padding: var(--yx-spacing-2) var(--yx-spacing-3);
+      font-size: var(--yx-font-size-sm);
+      color: var(--yx-color-text-secondary);
+      border-radius: var(--yx-radius-md);
+      transition: var(--yx-transition-colors);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .doc-sidebar__link:hover {
+      background: var(--yx-color-bg-disabled);
+      color: var(--yx-color-primary);
+    }
+
+    .doc-sidebar__link--active {
+      background: var(--yx-color-primary-light);
+      color: var(--yx-color-primary);
+      font-weight: var(--yx-font-weight-medium);
+    }
+
+    .doc-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .doc-section {
+      margin-bottom: var(--yx-spacing-12);
+      scroll-margin-top: 80px;
+    }
+
+    .doc-section__title {
+      font-size: var(--yx-font-size-3xl);
+      font-weight: var(--yx-font-weight-bold);
+      margin-bottom: var(--yx-spacing-2);
+      display: flex;
+      align-items: center;
+      gap: var(--yx-spacing-3);
+    }
+
+    .doc-section__desc {
+      color: var(--yx-color-text-secondary);
+      margin-bottom: var(--yx-spacing-6);
+      font-size: var(--yx-font-size-base);
+    }
+
+    .doc-demo {
+      background: var(--yx-color-bg-card);
+      border: 1px solid var(--yx-color-border-default);
+      border-radius: var(--yx-radius-xl);
+      overflow: hidden;
+      margin-bottom: var(--yx-spacing-6);
+    }
+
+    .doc-demo__preview {
+      padding: var(--yx-spacing-6);
+      border-bottom: 1px solid var(--yx-color-border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--yx-spacing-4);
+      align-items: center;
+    }
+
+    .doc-demo__preview--column {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .doc-demo__label {
+      font-size: var(--yx-font-size-xs);
+      color: var(--yx-color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: var(--yx-letter-spacing-wide);
+      font-weight: var(--yx-font-weight-semibold);
+      margin-bottom: var(--yx-spacing-2);
+      width: 100%;
+    }
+
+    .doc-demo__code {
+      padding: var(--yx-spacing-4) var(--yx-spacing-5);
+      background: var(--yx-color-gray-900);
+      color: #e2e8f0;
+      font-family: var(--yx-font-family-mono);
+      font-size: var(--yx-font-size-sm);
+      line-height: 1.6;
+      overflow-x: auto;
+      margin: 0;
+    }
+
+    .doc-hero {
+      text-align: center;
+      padding: var(--yx-spacing-12) var(--yx-spacing-4);
+      margin-bottom: var(--yx-spacing-12);
+    }
+
+    .doc-hero__title {
+      font-size: var(--yx-font-size-5xl);
+      font-weight: var(--yx-font-weight-bold);
+      margin-bottom: var(--yx-spacing-4);
+      background: linear-gradient(135deg, var(--yx-color-primary), var(--yx-color-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .doc-hero__subtitle {
+      font-size: var(--yx-font-size-lg);
+      color: var(--yx-color-text-secondary);
+      margin-bottom: var(--yx-spacing-6);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .doc-hero__stats {
+      display: flex;
+      justify-content: center;
+      gap: var(--yx-spacing-8);
+      margin-top: var(--yx-spacing-8);
+    }
+
+    .doc-hero__stat {
+      text-align: center;
+    }
+
+    .doc-hero__stat-num {
+      font-size: var(--yx-font-size-4xl);
+      font-weight: var(--yx-font-weight-bold);
+      color: var(--yx-color-primary);
+    }
+
+    .doc-hero__stat-label {
+      font-size: var(--yx-font-size-sm);
+      color: var(--yx-color-text-secondary);
+      margin-top: var(--yx-spacing-1);
+    }
+
+    .demo-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--yx-spacing-2);
+    }
+
+    .demo-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--yx-spacing-3);
+      align-items: center;
+    }
+
+    .table-demo {
+      width: 100%;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: var(--yx-spacing-3);
+      width: 100%;
+    }
+
+    .color-item {
+      display: flex;
+      flex-direction: column;
+      gap: var(--yx-spacing-2);
+    }
+
+    .color-swatch {
+      height: 60px;
+      border-radius: var(--yx-radius-md);
+      border: 1px solid var(--yx-color-border-subtle);
+    }
+
+    .color-name {
+      font-size: var(--yx-font-size-xs);
+      color: var(--yx-color-text-secondary);
+      font-family: var(--yx-font-family-mono);
+    }
+
+    .spacer {
+      height: var(--yx-spacing-4);
+    }
+
+    @media (max-width: 768px) {
+      .doc-sidebar {
+        display: none;
+      }
+      .doc-layout {
+        padding: var(--yx-spacing-4);
+      }
+      .doc-header {
+        padding: var(--yx-spacing-3) var(--yx-spacing-4);
+      }
+    }
+  </style>
+</head>
+<body class="yx-ui">
+  <header class="doc-header">
+    <div class="doc-header__title">
+      <div class="doc-header__logo">云</div>
+      <div>
+        <div class="doc-header__name">YunXi UI Kit</div>
+      </div>
+      <span class="doc-header__version">v1.0.0</span>
+    </div>
+    <div class="doc-header__actions">
+      <button class="yx-btn yx-btn--ghost yx-btn--icon yx-btn--round" id="themeToggle" title="切换主题">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.93 4.93 1.41 1.41"></path>
+          <path d="m17.66 17.66 1.41 1.41"></path>
+          <path d="M2 12h2"></path>
+          <path d="M20 12h2"></path>
+          <path d="m6.34 17.66-1.41 1.41"></path>
+          <path d="m19.07 4.93-1.41 1.41"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar__title">快速开始</div>
+      <nav class="doc-sidebar__nav">
+        <a class="doc-sidebar__link" href="#overview">概览</a>
+        <a class="doc-sidebar__link" href="#getting-started">安装使用</a>
+        <a class="doc-sidebar__link" href="#theme">主题定制</a>
+      </nav>
+
+      <div class="doc-sidebar__title">基础组件</div>
+      <nav class="doc-sidebar__nav">
+        <a class="doc-sidebar__link" href="#button">Button 按钮</a>
+        <a class="doc-sidebar__link" href="#input">Input 输入框</a>
+        <a class="doc-sidebar__link" href="#textarea">Textarea 多行文本</a>
+        <a class="doc-sidebar__link" href="#select">Select 下拉选择</a>
+        <a class="doc-sidebar__link" href="#checkbox">Checkbox 复选框</a>
+        <a class="doc-sidebar__link" href="#radio">Radio 单选框</a>
+        <a class="doc-sidebar__link" href="#switch">Switch 开关</a>
+        <a class="doc-sidebar__link" href="#card">Card 卡片</a>
+        <a class="doc-sidebar__link" href="#modal">Modal 弹窗</a>
+        <a class="doc-sidebar__link" href="#drawer">Drawer 抽屉</a>
+        <a class="doc-sidebar__link" href="#tabs">Tabs 标签页</a>
+        <a class="doc-sidebar__link" href="#table">Table 表格</a>
+        <a class="doc-sidebar__link" href="#pagination">Pagination 分页</a>
+        <a class="doc-sidebar__link" href="#toast">Toast 消息提示</a>
+        <a class="doc-sidebar__link" href="#loading">Loading 加载</a>
+        <a class="doc-sidebar__link" href="#dropdown">Dropdown 下拉菜单</a>
+      </nav>
+
+      <div class="doc-sidebar__title">业务组件</div>
+      <nav class="doc-sidebar__nav">
+        <a class="doc-sidebar__link" href="#timeline">Timeline 时间线</a>
+        <a class="doc-sidebar__link" href="#steps">Steps 步骤条</a>
+        <a class="doc-sidebar__link" href="#chart">Chart 图表</a>
+      </nav>
+
+      <div class="doc-sidebar__title">工具函数</div>
+      <nav class="doc-sidebar__nav">
+        <a class="doc-sidebar__link" href="#utils">Utils 工具库</a>
+      </nav>
+    </aside>
+
+    <main class="doc-content">
+      <!-- Hero / Overview -->
+      <section id="overview" class="doc-section">
+        <div class="doc-hero">
+          <h1 class="doc-hero__title">云汐统一组件库</h1>
+          <p class="doc-hero__subtitle">
+            轻量级、零依赖、主题化、框架无关的前端组件库<br>
+            为云汐系统各模块提供统一的 UI 基础
+          </p>
+          <div style="display:flex;justify-content:center;gap:var(--yx-spacing-3);">
+            <button class="yx-btn yx-btn--primary yx-btn--lg" onclick="document.getElementById('getting-started').scrollIntoView({behavior:'smooth'})">
+              快速开始
+            </button>
+            <button class="yx-btn yx-btn--secondary yx-btn--lg" onclick="document.getElementById('button').scrollIntoView({behavior:'smooth'})">
+              查看组件
+            </button>
+          </div>
+          <div class="doc-hero__stats">
+            <div class="doc-hero__stat">
+              <div class="doc-hero__stat-num">19</div>
+              <div class="doc-hero__stat-label">组件数量</div>
+            </div>
+            <div class="doc-hero__stat">
+              <div class="doc-hero__stat-num">0</div>
+              <div class="doc-hero__stat-label">外部依赖</div>
+            </div>
+            <div class="doc-hero__stat">
+              <div class="doc-hero__stat-num">2</div>
+              <div class="doc-hero__stat-label">主题模式</div>
+            </div>
+            <div class="doc-hero__stat">
+              <div class="doc-hero__stat-num">10+</div>
+              <div class="doc-hero__stat-label">工具函数</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Getting Started -->
+      <section id="getting-started" class="doc-section">
+        <h2 class="doc-section__title">快速开始</h2>
+        <p class="doc-section__desc">引入组件库样式和脚本即可使用，支持完整引入和按需引入两种方式。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview doc-demo__preview--column">
+            <div class="doc-demo__label">完整引入</div>
+            <p style="color:var(--yx-color-text-secondary);font-size:var(--yx-font-size-sm);">
+              最简单的方式，一次性引入所有组件样式和脚本。
+            </p>
+          </div>
+          <pre class="doc-demo__code">&lt;link rel="stylesheet" href="ui-kit/src/index.css"&gt;
+&lt;script src="ui-kit/src/index.js"&gt;&lt;/script&gt;
+&lt;script src="ui-kit/src/utils/index.js"&gt;&lt;/script&gt;</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview doc-demo__preview--column">
+            <div class="doc-demo__label">按需引入</div>
+            <p style="color:var(--yx-color-text-secondary);font-size:var(--yx-font-size-sm);">
+              只引入需要的组件，减少体积。需先引入基础样式。
+            </p>
+          </div>
+          <pre class="doc-demo__code">&lt;!-- 基础样式（必须） --&gt;
+&lt;link rel="stylesheet" href="ui-kit/src/styles/variables.css"&gt;
+&lt;link rel="stylesheet" href="ui-kit/src/styles/reset.css"&gt;
+&lt;link rel="stylesheet" href="ui-kit/src/styles/base.css"&gt;
+
+&lt;!-- 按需引入组件 --&gt;
+&lt;link rel="stylesheet" href="ui-kit/src/components/button/button.css"&gt;
+&lt;script src="ui-kit/src/components/button/button.js"&gt;&lt;/script&gt;</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview doc-demo__preview--column">
+            <div class="doc-demo__label">纯 CSS 使用</div>
+            <p style="color:var(--yx-color-text-secondary);font-size:var(--yx-font-size-sm);">
+              也可以只使用 CSS 类名，不使用 JS API。
+            </p>
+          </div>
+          <pre class="doc-demo__code">&lt;button class="yx-btn yx-btn--primary"&gt;主按钮&lt;/button&gt;
+&lt;input class="yx-input" placeholder="请输入"&gt;
+&lt;div class="yx-card"&gt;...&lt;/div&gt;</pre>
+        </div>
+      </section>
+
+      <!-- Theme -->
+      <section id="theme" class="doc-section">
+        <h2 class="doc-section__title">主题系统</h2>
+        <p class="doc-section__desc">基于 CSS 变量的主题系统，支持浅色/深色双主题，可自定义覆盖。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview doc-demo__preview--column">
+            <div class="doc-demo__label">主色调</div>
+            <div class="color-grid">
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary-50)"></div><span class="color-name">primary-50</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary-100)"></div><span class="color-name">primary-100</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary-300)"></div><span class="color-name">primary-300</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary-500)"></div><span class="color-name">primary-500</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary)"></div><span class="color-name">primary</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-primary-800)"></div><span class="color-name">primary-800</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview doc-demo__preview--column">
+            <div class="doc-demo__label">语义色</div>
+            <div class="color-grid">
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-success)"></div><span class="color-name">success</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-warning)"></div><span class="color-name">warning</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-error)"></div><span class="color-name">error</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-info)"></div><span class="color-name">info</span></div>
+              <div class="color-item"><div class="color-swatch" style="background:var(--yx-color-secondary)"></div><span class="color-name">secondary</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary" onclick="YunXiUI.Utils.Theme.set('light')">浅色主题</button>
+            <button class="yx-btn yx-btn--secondary" onclick="YunXiUI.Utils.Theme.set('dark')">深色主题</button>
+            <button class="yx-btn yx-btn--outline" onclick="YunXiUI.Utils.Theme.toggle()">切换主题</button>
+          </div>
+          <pre class="doc-demo__code">// 获取主题
+YunXiUI.Utils.Theme.get(); // 'light' | 'dark'
+
+// 设置主题
+YunXiUI.Utils.Theme.set('dark');
+
+// 切换主题
+YunXiUI.Utils.Theme.toggle();</pre>
+        </div>
+      </section>
+
+      <!-- Button -->
+      <section id="button" class="doc-section">
+        <h2 class="doc-section__title">Button 按钮</h2>
+        <p class="doc-section__desc">触发操作的交互元素，支持多种类型、尺寸和状态。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__label" style="padding:var(--yx-spacing-4) var(--yx-spacing-6) 0;">类型</div>
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary">主按钮</button>
+            <button class="yx-btn yx-btn--secondary">次按钮</button>
+            <button class="yx-btn yx-btn--outline">描边按钮</button>
+            <button class="yx-btn yx-btn--ghost">文字按钮</button>
+            <button class="yx-btn yx-btn--danger">危险按钮</button>
+            <button class="yx-btn yx-btn--link">链接按钮</button>
+          </div>
+          <pre class="doc-demo__code">&lt;button class="yx-btn yx-btn--primary"&gt;主按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--secondary"&gt;次按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--outline"&gt;描边按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--ghost"&gt;文字按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--danger"&gt;危险按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--link"&gt;链接按钮&lt;/button&gt;</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__label" style="padding:var(--yx-spacing-4) var(--yx-spacing-6) 0;">尺寸</div>
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary yx-btn--sm">小按钮</button>
+            <button class="yx-btn yx-btn--primary">中按钮</button>
+            <button class="yx-btn yx-btn--primary yx-btn--lg">大按钮</button>
+          </div>
+          <pre class="doc-demo__code">&lt;button class="yx-btn yx-btn--primary yx-btn--sm"&gt;小按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--primary"&gt;中按钮&lt;/button&gt;
+&lt;button class="yx-btn yx-btn--primary yx-btn--lg"&gt;大按钮&lt;/button&gt;</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__label" style="padding:var(--yx-spacing-4) var(--yx-spacing-6) 0;">状态</div>
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary yx-btn--loading">加载中</button>
+            <button class="yx-btn yx-btn--primary" disabled>禁用</button>
+            <button class="yx-btn yx-btn--primary yx-btn--round">圆角</button>
+            <button class="yx-btn yx-btn--primary yx-btn--icon">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+          <pre class="doc-demo__code">// JS API
+const btn = YunXiUI.Button.create({ text: '提交', type: 'primary' });
+YunXiUI.Button.setLoading(btn, true); // 设为加载中
+YunXiUI.Button.setDisabled(btn, true); // 禁用</pre>
+        </div>
+      </section>
+
+      <!-- Input -->
+      <section id="input" class="doc-section">
+        <h2 class="doc-section__title">Input 输入框</h2>
+        <p class="doc-section__desc">基础文本输入组件，支持多种类型和验证状态。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-3);max-width:400px;">
+            <input class="yx-input" placeholder="请输入内容">
+            <input class="yx-input yx-input--sm" placeholder="小号输入框">
+            <input class="yx-input yx-input--lg" placeholder="大号输入框">
+            <input class="yx-input" value="只读内容" readonly>
+            <input class="yx-input" value="禁用状态" disabled>
+          </div>
+          <pre class="doc-demo__code">&lt;input class="yx-input" placeholder="请输入内容"&gt;
+&lt;input class="yx-input yx-input--sm" placeholder="小号"&gt;
+&lt;input class="yx-input yx-input--lg" placeholder="大号"&gt;</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-3);max-width:400px;">
+            <div id="input-demo"></div>
+            <div id="input-demo-error"></div>
+            <div id="input-demo-success"></div>
+            <div id="input-demo-password"></div>
+            <div id="input-demo-search"></div>
+          </div>
+          <pre class="doc-demo__code">// JS API
+const input = YunXiUI.Input.create({
+  placeholder: '请输入邮箱',
+  label: '邮箱地址',
+  required: true,
+  helpText: '我们不会泄露您的邮箱',
+  onChange: function(e) { console.log(e.target.value); }
+});
+
+// 设置验证状态
+YunXiUI.Input.setStatus(input, 'error', '邮箱格式不正确');</pre>
+        </div>
+      </section>
+
+      <!-- Textarea -->
+      <section id="textarea" class="doc-section">
+        <h2 class="doc-section__title">Textarea 多行文本</h2>
+        <p class="doc-section__desc">多行文本输入组件，支持自适应高度和字数统计。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-3);max-width:500px;">
+            <textarea class="yx-textarea" rows="4" placeholder="请输入内容..."></textarea>
+            <div id="textarea-demo"></div>
+          </div>
+          <pre class="doc-demo__code">// JS API - 带字数统计
+const ta = YunXiUI.Textarea.create({
+  placeholder: '请输入描述...',
+  rows: 4,
+  maxLength: 200,
+  showCount: true
+});</pre>
+        </div>
+      </section>
+
+      <!-- Select -->
+      <section id="select" class="doc-section">
+        <h2 class="doc-section__title">Select 下拉选择</h2>
+        <p class="doc-section__desc">下拉选择组件，支持单选、多选和搜索。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-3);max-width:300px;">
+            <div id="select-demo"></div>
+            <div id="select-search-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const select = YunXiUI.Select.create({
+  options: [
+    { value: 'beijing', label: '北京' },
+    { value: 'shanghai', label: '上海' },
+    { value: 'guangzhou', label: '广州' },
+    { value: 'shenzhen', label: '深圳' }
+  ],
+  placeholder: '请选择城市',
+  searchable: true,
+  onChange: function(val) { console.log(val); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Checkbox -->
+      <section id="checkbox" class="doc-section">
+        <h2 class="doc-section__title">Checkbox 复选框</h2>
+        <p class="doc-section__desc">复选框组件，支持单个、组和半选状态。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;gap:var(--yx-spacing-3);">
+            <div class="demo-row">
+              <label class="yx-checkbox yx-checkbox--checked"><input type="checkbox" class="yx-checkbox__input" checked><span class="yx-checkbox__box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span>已选中</span></label>
+              <label class="yx-checkbox"><input type="checkbox" class="yx-checkbox__input"><span class="yx-checkbox__box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span>未选中</span></label>
+              <label class="yx-checkbox yx-checkbox--disabled"><input type="checkbox" class="yx-checkbox__input" disabled><span class="yx-checkbox__box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span>禁用</span></label>
+            </div>
+            <div id="checkbox-group-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const group = YunXiUI.Checkbox.createGroup({
+  options: [
+    { label: '选项A', value: 'a' },
+    { label: '选项B', value: 'b' },
+    { label: '选项C', value: 'c', disabled: true }
+  ],
+  value: ['a'],
+  horizontal: true,
+  onChange: function(vals) { console.log(vals); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Radio -->
+      <section id="radio" class="doc-section">
+        <h2 class="doc-section__title">Radio 单选框</h2>
+        <p class="doc-section__desc">单选框组件，支持垂直和水平布局，以及按钮样式。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;gap:var(--yx-spacing-4);">
+            <div id="radio-demo"></div>
+            <div id="radio-btn-demo"></div>
+          </div>
+          <pre class="doc-demo__code">// 普通单选组
+YunXiUI.Radio.createGroup({
+  options: [{ label: '选项A', value: 'a' }, { label: '选项B', value: 'b' }],
+  value: 'a',
+  horizontal: true
+});
+
+// 按钮样式
+YunXiUI.Radio.createGroup({
+  options: [{ label: '日', value: 'day' }, { label: '周', value: 'week' }, { label: '月', value: 'month' }],
+  value: 'week',
+  buttonStyle: true
+});</pre>
+        </div>
+      </section>
+
+      <!-- Switch -->
+      <section id="switch" class="doc-section">
+        <h2 class="doc-section__title">Switch 开关</h2>
+        <p class="doc-section__desc">开关选择器，表示两种状态之间的切换。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <label class="yx-switch"><input type="checkbox" class="yx-switch__input"><span class="yx-switch__track"><span class="yx-switch__thumb"></span></span><span>关闭</span></label>
+            <label class="yx-switch yx-switch--checked"><input type="checkbox" class="yx-switch__input" checked><span class="yx-switch__track"><span class="yx-switch__thumb"></span></span><span>开启</span></label>
+            <label class="yx-switch yx-switch--disabled"><input type="checkbox" class="yx-switch__input" disabled><span class="yx-switch__track"><span class="yx-switch__thumb"></span></span><span>禁用</span></label>
+            <label class="yx-switch yx-switch--sm yx-switch--checked"><input type="checkbox" class="yx-switch__input" checked><span class="yx-switch__track"><span class="yx-switch__thumb"></span></span><span>小号</span></label>
+            <label class="yx-switch yx-switch--lg yx-switch--checked"><input type="checkbox" class="yx-switch__input" checked><span class="yx-switch__track"><span class="yx-switch__thumb"></span></span><span>大号</span></label>
+          </div>
+          <pre class="doc-demo__code">const sw = YunXiUI.Switch.create({
+  label: '开启通知',
+  checked: true,
+  onChange: function(checked) { console.log(checked); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Card -->
+      <section id="card" class="doc-section">
+        <h2 class="doc-section__title">Card 卡片</h2>
+        <p class="doc-section__desc">信息展示容器，支持标题、内容、底部操作区。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="align-items:stretch;">
+            <div class="yx-card" style="width:280px;">
+              <div class="yx-card__header"><h3 class="yx-card__title">基础卡片</h3></div>
+              <div class="yx-card__body">这是卡片的内容区域，可以放置各种内容。支持文字、图片、列表等多种形式。</div>
+            </div>
+            <div class="yx-card yx-card--hoverable" style="width:280px;">
+              <div class="yx-card__header"><h3 class="yx-card__title">可悬停卡片</h3><div class="yx-card__extra"><span class="yx-text-caption">标签</span></div></div>
+              <div class="yx-card__body">鼠标悬停时卡片会有上浮效果，适用于列表展示等场景。</div>
+              <div class="yx-card__footer"><button class="yx-btn yx-btn--ghost yx-btn--sm">查看详情</button></div>
+            </div>
+            <div class="yx-card yx-card--glass" style="width:280px;">
+              <div class="yx-card__header"><h3 class="yx-card__title">玻璃拟态</h3></div>
+              <div class="yx-card__body">玻璃拟态风格的卡片，带有背景模糊效果，适合在渐变背景上使用。</div>
+            </div>
+          </div>
+          <pre class="doc-demo__code">const card = YunXiUI.Card.create({
+  title: '卡片标题',
+  content: '卡片内容...',
+  hoverable: true,
+  actions: [
+    YunXiUI.Button.create({ text: '确定', type: 'primary', size: 'sm' })
+  ]
+});</pre>
+        </div>
+      </section>
+
+      <!-- Modal -->
+      <section id="modal" class="doc-section">
+        <h2 class="doc-section__title">Modal 弹窗</h2>
+        <p class="doc-section__desc">模态对话框，在浮层中显示消息或表单。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary" onclick="demoModal()">打开弹窗</button>
+            <button class="yx-btn yx-btn--success" onclick="YunXiUI.Modal.success({title:'操作成功',content:'您的操作已成功完成'})">成功提示</button>
+            <button class="yx-btn yx-btn--warning" onclick="YunXiUI.Modal.confirm({title:'确认删除',content:'删除后无法恢复，确定继续吗？',type:'warning'})">确认框</button>
+            <button class="yx-btn yx-btn--danger" onclick="YunXiUI.Modal.error({title:'操作失败',content:'出现了一些错误，请重试'})">错误提示</button>
+          </div>
+          <pre class="doc-demo__code">// 基础弹窗
+const modal = YunXiUI.Modal.create({
+  title: '弹窗标题',
+  content: '&lt;p&gt;弹窗内容&lt;/p&gt;',
+  onOk: function() { console.log('ok'); }
+});
+modal.open();
+
+// 确认框
+YunXiUI.Modal.confirm({
+  title: '确认删除？',
+  content: '删除后无法恢复',
+  type: 'warning',
+  onOk: function() { /* 执行删除 */ }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Drawer -->
+      <section id="drawer" class="doc-section">
+        <h2 class="doc-section__title">Drawer 抽屉</h2>
+        <p class="doc-section__desc">从屏幕边缘滑出的面板，用于展示详情或操作。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--primary" onclick="demoDrawer()">右侧抽屉</button>
+            <button class="yx-btn yx-btn--secondary" onclick="demoDrawer('left')">左侧抽屉</button>
+            <button class="yx-btn yx-btn--outline" onclick="demoDrawer('bottom')">底部抽屉</button>
+          </div>
+          <pre class="doc-demo__code">const drawer = YunXiUI.Drawer.create({
+  title: '抽屉标题',
+  placement: 'right', // left | right | top | bottom
+  content: '&lt;p&gt;抽屉内容&lt;/p&gt;',
+  showFooter: true
+});
+drawer.open();</pre>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <section id="tabs" class="doc-section">
+        <h2 class="doc-section__title">Tabs 标签页</h2>
+        <p class="doc-section__desc">选项卡切换组件，支持多种样式和方向。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-6);">
+            <div id="tabs-demo"></div>
+            <div id="tabs-card-demo"></div>
+            <div id="tabs-segment-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const tabs = YunXiUI.Tabs.create({
+  items: [
+    { key: 'tab1', label: '标签一', content: '内容一' },
+    { key: 'tab2', label: '标签二', content: '内容二' },
+    { key: 'tab3', label: '标签三', content: '内容三' }
+  ],
+  type: 'line', // line | card | segment
+  onChange: function(key) { console.log(key); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Table -->
+      <section id="table" class="doc-section">
+        <h2 class="doc-section__title">Table 表格</h2>
+        <p class="doc-section__desc">展示行列数据，支持排序、斑马纹、行选择等功能。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview table-demo">
+            <div id="table-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const table = YunXiUI.Table.create({
+  columns: [
+    { key: 'name', title: '名称', sortable: true },
+    { key: 'status', title: '状态' },
+    { key: 'time', title: '创建时间', sortable: true }
+  ],
+  data: [
+    { key: 1, name: '项目A', status: '运行中', time: '2024-01-01' },
+    { key: 2, name: '项目B', status: '已停止', time: '2024-01-02' }
+  ],
+  striped: true,
+  rowSelection: true
+});</pre>
+        </div>
+      </section>
+
+      <!-- Pagination -->
+      <section id="pagination" class="doc-section">
+        <h2 class="doc-section__title">Pagination 分页</h2>
+        <p class="doc-section__desc">分页组件，用于数据量大时分页展示。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;gap:var(--yx-spacing-4);">
+            <div id="pagination-demo"></div>
+            <div id="pagination-sm-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const pager = YunXiUI.Pagination.create({
+  total: 156,
+  current: 1,
+  pageSize: 10,
+  showTotal: true,
+  showJumper: true,
+  onChange: function(page, size) { console.log(page, size); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Toast -->
+      <section id="toast" class="doc-section">
+        <h2 class="doc-section__title">Toast 消息提示</h2>
+        <p class="doc-section__desc">轻量级消息提示，从页面顶部滑入。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <button class="yx-btn yx-btn--success" onclick="YunXiUI.Toast.success('操作成功')">成功提示</button>
+            <button class="yx-btn yx-btn--danger" onclick="YunXiUI.Toast.error('操作失败')">错误提示</button>
+            <button class="yx-btn yx-btn--warning" onclick="YunXiUI.Toast.warning('请注意警告')">警告提示</button>
+            <button class="yx-btn yx-btn--primary" onclick="YunXiUI.Toast.info('这是一条信息')">信息提示</button>
+            <button class="yx-btn yx-btn--secondary" onclick="demoLoadingToast()">加载提示</button>
+          </div>
+          <pre class="doc-demo__code">YunXiUI.Toast.success('操作成功');
+YunXiUI.Toast.error('操作失败');
+YunXiUI.Toast.warning('警告信息');
+YunXiUI.Toast.info('普通信息');
+
+// Loading toast
+const loading = YunXiUI.Toast.loading('加载中...');
+setTimeout(() => loading.close(), 2000);</pre>
+        </div>
+      </section>
+
+      <!-- Loading -->
+      <section id="loading" class="doc-section">
+        <h2 class="doc-section__title">Loading 加载</h2>
+        <p class="doc-section__desc">加载状态组件，支持多种样式和骨架屏。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="gap:var(--yx-spacing-8);">
+            <div class="demo-group" style="align-items:center;">
+              <span class="yx-text-caption">spinner</span>
+              <div class="yx-loading yx-loading--spinner"><span class="yx-loading__spinner"></span></div>
+            </div>
+            <div class="demo-group" style="align-items:center;">
+              <span class="yx-text-caption">dots</span>
+              <div class="yx-loading yx-loading--dots">
+                <span class="yx-loading__dot"></span>
+                <span class="yx-loading__dot"></span>
+                <span class="yx-loading__dot"></span>
+              </div>
+            </div>
+            <div class="demo-group" style="align-items:center;">
+              <span class="yx-text-caption">pulse</span>
+              <div class="yx-loading yx-loading--pulse"><span class="yx-loading__pulse"></span></div>
+            </div>
+          </div>
+          <pre class="doc-demo__code">&lt;!-- spinner --&gt;
+&lt;div class="yx-loading yx-loading--spinner"&gt;
+  &lt;span class="yx-loading__spinner"&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;!-- dots --&gt;
+&lt;div class="yx-loading yx-loading--dots"&gt;
+  &lt;span class="yx-loading__dot"&gt;&lt;/span&gt;
+  &lt;span class="yx-loading__dot"&gt;&lt;/span&gt;
+  &lt;span class="yx-loading__dot"&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+// 全屏加载
+const loading = YunXiUI.Loading.fullscreen('加载中...');
+loading.close();</pre>
+        </div>
+
+        <div class="doc-demo">
+          <div class="doc-demo__label" style="padding:var(--yx-spacing-4) var(--yx-spacing-6) 0;">骨架屏</div>
+          <div class="doc-demo__preview" style="flex-direction:column;gap:var(--yx-spacing-3);width:100%;max-width:400px;">
+            <div style="display:flex;gap:var(--yx-spacing-3);align-items:center;">
+              <span class="yx-skeleton yx-skeleton--circle" style="width:48px;height:48px;"></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:var(--yx-spacing-2);">
+                <span class="yx-skeleton yx-skeleton--text" style="width:60%;"></span>
+                <span class="yx-skeleton yx-skeleton--text" style="width:80%;"></span>
+              </div>
+            </div>
+            <div class="yx-skeleton-paragraph">
+              <span class="yx-skeleton yx-skeleton--text"></span>
+              <span class="yx-skeleton yx-skeleton--text"></span>
+              <span class="yx-skeleton yx-skeleton--text"></span>
+            </div>
+          </div>
+          <pre class="doc-demo__code">// 骨架屏
+YunXiUI.Loading.skeleton({ variant: 'circle', width: '48px', height: '48px' });
+YunXiUI.Loading.skeleton({ variant: 'paragraph', rows: 3 });</pre>
+        </div>
+      </section>
+
+      <!-- Dropdown -->
+      <section id="dropdown" class="doc-section">
+        <h2 class="doc-section__title">Dropdown 下拉菜单</h2>
+        <p class="doc-section__desc">点击或悬停触发的下拉菜单。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview">
+            <div id="dropdown-demo"></div>
+            <div id="dropdown-hover-demo"></div>
+          </div>
+          <pre class="doc-demo__code">const dropdown = YunXiUI.Dropdown.create({
+  trigger: '更多操作',
+  items: [
+    { key: 'edit', label: '编辑', icon: editIcon },
+    { key: 'copy', label: '复制' },
+    { divider: true },
+    { key: 'delete', label: '删除', danger: true }
+  ],
+  onSelect: function(key) { console.log(key); }
+});</pre>
+        </div>
+      </section>
+
+      <!-- Timeline -->
+      <section id="timeline" class="doc-section">
+        <h2 class="doc-section__title">Timeline 时间线</h2>
+        <p class="doc-section__desc">垂直展示时间流信息的组件。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="width:100%;max-width:500px;">
+            <div id="timeline-demo"></div>
+          </div>
+          <pre class="doc-demo__code">YunXiUI.Timeline.create({
+  items: [
+    { title: '创建成功', time: '2024-01-01 10:00', color: 'success' },
+    { title: '处理中', time: '2024-01-02 14:30', description: '正在处理您的请求' },
+    { title: '待完成', time: '预计 2024-01-03', pending: true }
+  ],
+  mode: 'left'
+});</pre>
+        </div>
+      </section>
+
+      <!-- Steps -->
+      <section id="steps" class="doc-section">
+        <h2 class="doc-section__title">Steps 步骤条</h2>
+        <p class="doc-section__desc">引导用户按步骤完成任务的组件。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="width:100%;flex-direction:column;gap:var(--yx-spacing-6);">
+            <div id="steps-demo"></div>
+            <div>
+              <div class="doc-demo__label">点击切换当前步骤</div>
+              <div class="spacer"></div>
+              <div class="demo-row">
+                <button class="yx-btn yx-btn--sm yx-btn--secondary" onclick="setStep(0)">步骤1</button>
+                <button class="yx-btn yx-btn--sm yx-btn--secondary" onclick="setStep(1)">步骤2</button>
+                <button class="yx-btn yx-btn--sm yx-btn--secondary" onclick="setStep(2)">步骤3</button>
+                <button class="yx-btn yx-btn--sm yx-btn--secondary" onclick="setStep(3)">步骤4</button>
+              </div>
+            </div>
+          </div>
+          <pre class="doc-demo__code">const steps = YunXiUI.Steps.create({
+  steps: [
+    { title: '已完成', description: '步骤描述' },
+    { title: '进行中', description: '当前步骤' },
+    { title: '待开始', description: '' },
+    { title: '已完成', description: '' }
+  ],
+  current: 1,
+  direction: 'horizontal'
+});</pre>
+        </div>
+      </section>
+
+      <!-- Chart -->
+      <section id="chart" class="doc-section">
+        <h2 class="doc-section__title">Chart 图表</h2>
+        <p class="doc-section__desc">轻量级 Canvas 图表组件，支持柱状图、折线图和饼图。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="width:100%;flex-direction:column;gap:var(--yx-spacing-4);">
+            <div class="doc-demo__label">柱状图</div>
+            <div id="chart-bar-demo" style="height:260px;width:100%;"></div>
+            <div class="doc-demo__label">折线图</div>
+            <div id="chart-line-demo" style="height:260px;width:100%;"></div>
+            <div class="doc-demo__label">饼图</div>
+            <div id="chart-pie-demo" style="height:300px;width:100%;"></div>
+          </div>
+          <pre class="doc-demo__code">// 柱状图
+YunXiUI.Chart.bar({
+  labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+  series: [{ name: '销售额', data: [120, 200, 150, 80, 70, 110] }]
+});
+
+// 折线图
+YunXiUI.Chart.line({ labels: [...], series: [...] });
+
+// 饼图
+YunXiUI.Chart.pie({
+  data: [
+    { name: '直接访问', value: 335 },
+    { name: '搜索引擎', value: 310 },
+    { name: '邮件营销', value: 234 }
+  ]
+});</pre>
+        </div>
+      </section>
+
+      <!-- Utils -->
+      <section id="utils" class="doc-section">
+        <h2 class="doc-section__title">Utils 工具函数</h2>
+        <p class="doc-section__desc">内置常用工具函数库，包含类型判断、DOM操作、日期格式化等。</p>
+
+        <div class="doc-demo">
+          <div class="doc-demo__preview" style="flex-direction:column;align-items:stretch;gap:var(--yx-spacing-3);">
+            <div class="yx-card">
+              <div class="yx-card__body">
+                <strong style="color:var(--yx-color-primary);">Type 类型判断</strong>
+                <div class="spacer"></div>
+                <div style="font-family:var(--yx-font-family-mono);font-size:var(--yx-font-size-sm);color:var(--yx-color-text-secondary);">
+                  YunXiUI.Utils.Type.isString('hello')  // true<br>
+                  YunXiUI.Utils.Type.isArray([1, 2])     // true<br>
+                  YunXiUI.Utils.Type.isEmpty('')          // true<br>
+                  YunXiUI.Utils.Type.isDate(new Date())   // true
+                </div>
+              </div>
+            </div>
+            <div class="yx-card">
+              <div class="yx-card__body">
+                <strong style="color:var(--yx-color-primary);">Date 日期格式化</strong>
+                <div class="spacer"></div>
+                <div style="font-family:var(--yx-font-family-mono);font-size:var(--yx-font-size-sm);color:var(--yx-color-text-secondary);">
+                  format(new Date(), 'YYYY-MM-DD HH:mm:ss')<br>
+                  // "2024-01-15 14:30:00"<br><br>
+                  relativeTime(new Date(Date.now() - 300000))<br>
+                  // "5 分钟前"
+                </div>
+              </div>
+            </div>
+            <div class="yx-card">
+              <div class="yx-card__body">
+                <strong style="color:var(--yx-color-primary);">Number 数字格式化</strong>
+                <div class="spacer"></div>
+                <div style="font-family:var(--yx-font-family-mono);font-size:var(--yx-font-size-sm);color:var(--yx-color-text-secondary);">
+                  format(1234567)         // "1,234,567"<br>
+                  currency(99.9, '¥')     // "¥99.90"<br>
+                  formatBytes(1048576)    // "1 MB"<br>
+                  percent(0.85, 1)        // "85.0%"
+                </div>
+              </div>
+            </div>
+            <div class="yx-card">
+              <div class="yx-card__body">
+                <strong style="color:var(--yx-color-primary);">其他常用工具</strong>
+                <div class="spacer"></div>
+                <div style="font-family:var(--yx-font-family-mono);font-size:var(--yx-font-size-sm);color:var(--yx-color-text-secondary);">
+                  debounce(fn, 300)           // 防抖<br>
+                  throttle(fn, 300)           // 节流<br>
+                  deepClone(obj)              // 深拷贝<br>
+                  Validate.isEmail('a@b.com') // 邮箱验证<br>
+                  Storage.set/get/remove      // 本地存储
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style="text-align:center;padding:var(--yx-spacing-12) 0;color:var(--yx-color-text-tertiary);font-size:var(--yx-font-size-sm);">
+        YunXi UI Kit v1.0.0 · 云汐系统前端统一组件库
+      </div>
+    </main>
+  </div>
+
+  <script src="../src/index.js"></script>
+  <script src="../src/utils/index.js"></script>
+
+  <!-- Components JS -->
+  <script src="../src/components/button/button.js"></script>
+  <script src="../src/components/input/input.js"></script>
+  <script src="../src/components/textarea/textarea.js"></script>
+  <script src="../src/components/select/select.js"></script>
+  <script src="../src/components/checkbox/checkbox.js"></script>
+  <script src="../src/components/radio/radio.js"></script>
+  <script src="../src/components/switch/switch.js"></script>
+  <script src="../src/components/card/card.js"></script>
+  <script src="../src/components/modal/modal.js"></script>
+  <script src="../src/components/drawer/drawer.js"></script>
+  <script src="../src/components/tabs/tabs.js"></script>
+  <script src="../src/components/table/table.js"></script>
+  <script src="../src/components/pagination/pagination.js"></script>
+  <script src="../src/components/toast/toast.js"></script>
+  <script src="../src/components/loading/loading.js"></script>
+  <script src="../src/components/dropdown/dropdown.js"></script>
+  <script src="../src/components/timeline/timeline.js"></script>
+  <script src="../src/components/steps/steps.js"></script>
+  <script src="../src/components/chart/chart.js"></script>
+
+  <script>
+    // 初始化主题
+    YunXiUI.Utils.Theme.init();
+
+    // 主题切换按钮
+    document.getElementById('themeToggle').addEventListener('click', function() {
+      YunXiUI.Utils.Theme.toggle();
+    });
+
+    // Input demos
+    const inputDemo = YunXiUI.Input.create({
+      placeholder: '请输入内容',
+      label: '用户名',
+      required: true
+    });
+    document.getElementById('input-demo').appendChild(inputDemo);
+
+    const inputError = YunXiUI.Input.create({
+      placeholder: '请输入邮箱',
+      label: '邮箱',
+      status: 'error',
+      errorText: '邮箱格式不正确'
+    });
+    document.getElementById('input-demo-error').appendChild(inputError);
+
+    const inputSuccess = YunXiUI.Input.create({
+      value: 'valid-name',
+      label: '用户名',
+      status: 'success'
+    });
+    document.getElementById('input-demo-success').appendChild(inputSuccess);
+
+    const inputPassword = YunXiUI.Input.create({
+      type: 'password',
+      placeholder: '请输入密码',
+      label: '密码'
+    });
+    document.getElementById('input-demo-password').appendChild(inputPassword);
+
+    const inputSearch = YunXiUI.Input.create({
+      type: 'search',
+      placeholder: '搜索内容...'
+    });
+    document.getElementById('input-demo-search').appendChild(inputSearch);
+
+    // Textarea demo
+    const taDemo = YunXiUI.Textarea.create({
+      placeholder: '请输入描述信息...',
+      rows: 3,
+      maxLength: 200,
+      showCount: true
+    });
+    document.getElementById('textarea-demo').appendChild(taDemo);
+
+    // Select demos
+    const selectDemo = YunXiUI.Select.create({
+      options: [
+        { value: 'beijing', label: '北京' },
+        { value: 'shanghai', label: '上海' },
+        { value: 'guangzhou', label: '广州' },
+        { value: 'shenzhen', label: '深圳' },
+        { value: 'hangzhou', label: '杭州' },
+        { value: 'chengdu', label: '成都' }
+      ],
+      placeholder: '请选择城市'
+    });
+    document.getElementById('select-demo').appendChild(selectDemo);
+
+    const selectSearchDemo = YunXiUI.Select.create({
+      options: [
+        { value: 'apple', label: '苹果 Apple' },
+        { value: 'banana', label: '香蕉 Banana' },
+        { value: 'orange', label: '橙子 Orange' },
+        { value: 'grape', label: '葡萄 Grape' },
+        { value: 'mango', label: '芒果 Mango' }
+      ],
+      placeholder: '搜索水果',
+      searchable: true
+    });
+    document.getElementById('select-search-demo').appendChild(selectSearchDemo);
+
+    // Checkbox group demo
+    const checkboxGroup = YunXiUI.Checkbox.createGroup({
+      options: [
+        { label: '前端开发', value: 'frontend' },
+        { label: '后端开发', value: 'backend' },
+        { label: '测试', value: 'test', disabled: true },
+        { label: '运维', value: 'ops' }
+      ],
+      value: ['frontend'],
+      horizontal: true
+    });
+    document.getElementById('checkbox-group-demo').appendChild(checkboxGroup);
+
+    // Radio demos
+    const radioDemo = YunXiUI.Radio.createGroup({
+      options: [
+        { label: '选项 A', value: 'a' },
+        { label: '选项 B', value: 'b' },
+        { label: '选项 C', value: 'c' }
+      ],
+      value: 'a',
+      horizontal: true
+    });
+    document.getElementById('radio-demo').appendChild(radioDemo);
+
+    const radioBtnDemo = YunXiUI.Radio.createGroup({
+      options: [
+        { label: '日', value: 'day' },
+        { label: '周', value: 'week' },
+        { label: '月', value: 'month' },
+        { label: '年', value: 'year' }
+      ],
+      value: 'week',
+      buttonStyle: true
+    });
+    document.getElementById('radio-btn-demo').appendChild(radioBtnDemo);
+
+    // Modal demo
+    function demoModal() {
+      const modal = YunXiUI.Modal.create({
+        title: '弹窗标题',
+        content: '<p>这是弹窗的内容区域，可以放置各种内容，包括表单、列表、图片等。</p><p style="margin-top:12px;color:var(--yx-color-text-secondary);font-size:var(--yx-font-size-sm);">点击确定或取消按钮关闭弹窗。</p>',
+        onOk: function() {
+          YunXiUI.Toast.success('点击了确定');
+        }
+      });
+      modal.open();
+    }
+
+    // Drawer demo
+    function demoDrawer(placement) {
+      placement = placement || 'right';
+      const drawer = YunXiUI.Drawer.create({
+        title: '抽屉标题',
+        placement: placement,
+        content: '<p>这是抽屉的内容区域。</p><p style="margin-top:12px;color:var(--yx-color-text-secondary);">抽屉支持从四个方向滑出：左、右、上、下。</p>' +
+          '<p style="margin-top:12px;">可以用于展示详情信息、设置面板等。</p>',
+        showFooter: true
+      });
+      drawer.open();
+    }
+
+    // Tabs demos
+    const tabsDemo = YunXiUI.Tabs.create({
+      items: [
+        { key: 'tab1', label: '标签一', content: '<p>这是标签一的内容区域。</p><p style="margin-top:8px;color:var(--yx-color-text-secondary);">可以放置任意 HTML 内容。</p>' },
+        { key: 'tab2', label: '标签二', content: '<p>这是标签二的内容。</p>' },
+        { key: 'tab3', label: '标签三', content: '<p>这是标签三的内容。</p>' },
+        { key: 'tab4', label: '标签四', content: '<p>这是标签四的内容。</p>' }
+      ],
+      type: 'line'
+    });
+    document.getElementById('tabs-demo').appendChild(tabsDemo);
+
+    const tabsCardDemo = YunXiUI.Tabs.create({
+      items: [
+        { key: 'c1', label: '卡片样式一', content: '卡片式标签页内容一' },
+        { key: 'c2', label: '卡片样式二', content: '卡片式标签页内容二' },
+        { key: 'c3', label: '卡片样式三', content: '卡片式标签页内容三' }
+      ],
+      type: 'card'
+    });
+    document.getElementById('tabs-card-demo').appendChild(tabsCardDemo);
+
+    const tabsSegmentDemo = YunXiUI.Tabs.create({
+      items: [
+        { key: 's1', label: '日度', content: '' },
+        { key: 's2', label: '周度', content: '' },
+        { key: 's3', label: '月度', content: '' }
+      ],
+      type: 'segment'
+    });
+    document.getElementById('tabs-segment-demo').appendChild(tabsSegmentDemo);
+
+    // Table demo
+    const tableData = [
+      { key: 1, name: '云汐主控台 M0', status: '运行中', time: '2026-01-01', user: '张三' },
+      { key: 2, name: '技能集群 M2', status: '运行中', time: '2026-01-02', user: '李四' },
+      { key: 3, name: '场景引擎 M4', status: '已停止', time: '2026-01-03', user: '王五' },
+      { key: 4, name: '记忆潮汐 M5', status: '运行中', time: '2026-01-04', user: '赵六' },
+      { key: 5, name: '工作流 M7', status: '异常', time: '2026-01-05', user: '孙七' }
+    ];
+
+    const tableDemo = YunXiUI.Table.create({
+      columns: [
+        { key: 'name', title: '模块名称', sortable: true },
+        { key: 'status', title: '状态', render: function(val) {
+          const color = val === '运行中' ? 'var(--yx-color-success)' :
+                       val === '已停止' ? 'var(--yx-color-text-tertiary)' : 'var(--yx-color-error)';
+          return '<span style="display:inline-flex;align-items:center;gap:6px;">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:' + color + '"></span>' +
+            val + '</span>';
+        }},
+        { key: 'user', title: '负责人' },
+        { key: 'time', title: '创建时间', sortable: true, align: 'right' }
+      ],
+      data: tableData,
+      striped: true
+    });
+    document.getElementById('table-demo').appendChild(tableDemo);
+
+    // Pagination demos
+    const pagerDemo = YunXiUI.Pagination.create({
+      total: 156,
+      current: 1,
+      pageSize: 10,
+      showTotal: true,
+      showJumper: true
+    });
+    document.getElementById('pagination-demo').appendChild(pagerDemo);
+
+    const pagerSmDemo = YunXiUI.Pagination.create({
+      total: 50,
+      current: 3,
+      size: 'sm',
+      showTotal: false
+    });
+    document.getElementById('pagination-sm-demo').appendChild(pagerSmDemo);
+
+    // Loading toast demo
+    function demoLoadingToast() {
+      const loading = YunXiUI.Toast.loading('加载中...');
+      setTimeout(function() {
+        loading.close();
+        setTimeout(function() {
+          YunXiUI.Toast.success('加载完成');
+        }, 200);
+      }, 2000);
+    }
+
+    // Dropdown demos
+    const dropdownDemo = YunXiUI.Dropdown.create({
+      trigger: '点击菜单',
+      items: [
+        { key: 'edit', label: '编辑' },
+        { key: 'copy', label: '复制' },
+        { key: 'share', label: '分享' },
+        { divider: true },
+        { key: 'delete', label: '删除', danger: true }
+      ],
+      onSelect: function(key) {
+        YunXiUI.Toast.info('点击了: ' + key);
+      }
+    });
+    document.getElementById('dropdown-demo').appendChild(dropdownDemo);
+
+    const dropdownHoverDemo = YunXiUI.Dropdown.create({
+      trigger: '悬停菜单',
+      triggerType: 'hover',
+      placement: 'bottom-right',
+      items: [
+        { group: '操作' },
+        { key: 'view', label: '查看' },
+        { key: 'download', label: '下载' },
+        { group: '更多' },
+        { key: 'settings', label: '设置' }
+      ]
+    });
+    document.getElementById('dropdown-hover-demo').appendChild(dropdownHoverDemo);
+
+    // Timeline demo
+    const timelineDemo = YunXiUI.Timeline.create({
+      items: [
+        { title: '创建成功', description: '系统已成功创建您的账户', time: '2026-01-01 09:00', color: 'success' },
+        { title: '数据同步中', description: '正在同步您的历史数据，预计需要 5 分钟', time: '2026-01-01 10:30' },
+        { title: '配置审核', description: '您的配置正在审核中，请耐心等待', time: '2026-01-02 14:00', color: 'warning' },
+        { title: '全部完成', time: '预计 2026-01-03', pending: true }
+      ]
+    });
+    document.getElementById('timeline-demo').appendChild(timelineDemo);
+
+    // Steps demo
+    let stepsDemo;
+    stepsDemo = YunXiUI.Steps.create({
+      steps: [
+        { title: '已完成', description: '提交申请' },
+        { title: '进行中', description: '审核中' },
+        { title: '待开始', description: '配置环境' },
+        { title: '待开始', description: '完成交付' }
+      ],
+      current: 1
+    });
+    document.getElementById('steps-demo').appendChild(stepsDemo);
+
+    function setStep(index) {
+      YunXiUI.Steps.setCurrent(stepsDemo, index);
+    }
+
+    // Chart demos
+    setTimeout(function() {
+      const barChart = YunXiUI.Chart.bar({
+        title: '月度销售额（万元）',
+        labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+        series: [
+          { name: '产品A', data: [120, 200, 150, 80, 70, 110] },
+          { name: '产品B', data: [60, 90, 120, 100, 140, 130] }
+        ],
+        height: 260
+      });
+      document.getElementById('chart-bar-demo').appendChild(barChart);
+
+      const lineChart = YunXiUI.Chart.line({
+        title: '用户增长趋势',
+        labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+        series: [
+          { name: '新增用户', data: [120, 132, 101, 134, 90, 230, 210] },
+          { name: '活跃用户', data: [220, 182, 191, 234, 290, 330, 310] }
+        ],
+        height: 260
+      });
+      document.getElementById('chart-line-demo').appendChild(lineChart);
+
+      const pieChart = YunXiUI.Chart.pie({
+        title: '访问来源分布',
+        data: [
+          { name: '直接访问', value: 335 },
+          { name: '搜索引擎', value: 310 },
+          { name: '邮件营销', value: 234 },
+          { name: '联盟广告', value: 135 },
+          { name: '视频广告', value: 148 }
+        ],
+        height: 300
+      });
+      document.getElementById('chart-pie-demo').appendChild(pieChart);
+    }, 100);
+
+    // Sidebar active state on scroll
+    const sections = document.querySelectorAll('.doc-section');
+    const links = document.querySelectorAll('.doc-sidebar__link');
+
+    function updateActiveLink() {
+      let current = '';
+      sections.forEach(function(section) {
+        const top = section.getBoundingClientRect().top;
+        if (top <= 100) {
+          current = section.id;
+        }
+      });
+
+      links.forEach(function(link) {
+        link.classList.toggle('doc-sidebar__link--active',
+          link.getAttribute('href') === '#' + current);
+      });
+    }
+
+    window.addEventListener('scroll', YunXiUI.Utils.throttle(updateActiveLink, 100));
+    updateActiveLink();
+  </script>
+</body>
+</html>

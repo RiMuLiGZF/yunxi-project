@@ -1,0 +1,381 @@
+/* ============================================================
+ * YunXi UI Kit - Base Styles
+ * 云汐组件库 - 基础样式
+ * 提供全局排版、工具类等基础样式
+ * ============================================================ */
+
+/* ============================================================
+ * Base Typography / 基础排版
+ * ============================================================ */
+.yx-ui {
+  font-family: var(--yx-font-family-base);
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  line-height: var(--yx-line-height-normal);
+}
+
+.yx-ui h1,
+.yx-ui .yx-text-display {
+  font-family: var(--yx-font-family-display);
+  font-size: var(--yx-font-size-4xl);
+  font-weight: var(--yx-font-weight-bold);
+  line-height: var(--yx-line-height-tight);
+  letter-spacing: var(--yx-letter-spacing-tight);
+}
+
+.yx-ui h2,
+.yx-ui .yx-text-h1 {
+  font-family: var(--yx-font-family-display);
+  font-size: var(--yx-font-size-3xl);
+  font-weight: var(--yx-font-weight-semibold);
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-ui h3,
+.yx-ui .yx-text-h2 {
+  font-family: var(--yx-font-family-display);
+  font-size: var(--yx-font-size-2xl);
+  font-weight: var(--yx-font-weight-semibold);
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-ui h4,
+.yx-ui .yx-text-h3 {
+  font-size: var(--yx-font-size-xl);
+  font-weight: var(--yx-font-weight-semibold);
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-ui h5,
+.yx-ui .yx-text-h4 {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-semibold);
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-ui h6,
+.yx-ui .yx-text-h5 {
+  font-size: var(--yx-font-size-base);
+  font-weight: var(--yx-font-weight-semibold);
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-ui .yx-text-body {
+  font-size: var(--yx-font-size-base);
+  font-weight: var(--yx-font-weight-regular);
+  line-height: var(--yx-line-height-normal);
+}
+
+.yx-ui .yx-text-body-lg {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-regular);
+  line-height: var(--yx-line-height-normal);
+}
+
+.yx-ui .yx-text-caption {
+  font-size: var(--yx-font-size-sm);
+  font-weight: var(--yx-font-weight-regular);
+  line-height: var(--yx-line-height-normal);
+  color: var(--yx-color-text-secondary);
+}
+
+.yx-ui .yx-text-micro {
+  font-size: var(--yx-font-size-xs);
+  font-weight: var(--yx-font-weight-regular);
+  line-height: var(--yx-line-height-normal);
+  color: var(--yx-color-text-tertiary);
+}
+
+.yx-ui .yx-text-label {
+  font-size: var(--yx-font-size-xs);
+  font-weight: var(--yx-font-weight-medium);
+  line-height: var(--yx-line-height-normal);
+  letter-spacing: var(--yx-letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--yx-color-text-tertiary);
+}
+
+.yx-ui .yx-text-code {
+  font-family: var(--yx-font-family-mono);
+  font-size: var(--yx-font-size-sm);
+  padding: 0.15em 0.4em;
+  background: var(--yx-color-gray-100);
+  border-radius: var(--yx-radius-sm);
+}
+
+html.yx-dark .yx-ui .yx-text-code {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* ============================================================
+ * Utility Classes - Text Color / 文字颜色工具类
+ * ============================================================ */
+.yx-text-primary { color: var(--yx-color-text-primary); }
+.yx-text-secondary { color: var(--yx-color-text-secondary); }
+.yx-text-tertiary { color: var(--yx-color-text-tertiary); }
+.yx-text-disabled { color: var(--yx-color-text-disabled); }
+.yx-text-inverse { color: var(--yx-color-text-inverse); }
+.yx-text-brand { color: var(--yx-color-primary); }
+.yx-text-success { color: var(--yx-color-success); }
+.yx-text-warning { color: var(--yx-color-warning); }
+.yx-text-error { color: var(--yx-color-error); }
+.yx-text-info { color: var(--yx-color-info); }
+
+/* ============================================================
+ * Utility Classes - Background / 背景工具类
+ * ============================================================ */
+.yx-bg-primary { background: var(--yx-color-primary); }
+.yx-bg-surface { background: var(--yx-color-bg-surface); }
+.yx-bg-elevated { background: var(--yx-color-bg-elevated); }
+.yx-bg-card { background: var(--yx-color-bg-card); }
+.yx-bg-base { background: var(--yx-color-bg-base); }
+
+.yx-bg-gradient {
+  background: var(--yx-color-bg-gradient);
+  background-attachment: fixed;
+}
+
+.yx-bg-gradient-alt {
+  background: var(--yx-color-bg-gradient-alt);
+  background-attachment: fixed;
+}
+
+.yx-bg-brand-gradient {
+  background: linear-gradient(135deg, var(--yx-color-primary), var(--yx-color-secondary));
+}
+
+/* ============================================================
+ * Utility Classes - Glass Morphism / 玻璃拟态
+ * ============================================================ */
+.yx-glass {
+  background: var(--yx-color-bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--yx-color-border-subtle);
+}
+
+.yx-glass-strong {
+  background: var(--yx-color-bg-overlay);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--yx-color-border-default);
+}
+
+/* ============================================================
+ * Utility Classes - Border / 边框工具类
+ * ============================================================ */
+.yx-border { border: 1px solid var(--yx-color-border-default); }
+.yx-border-subtle { border: 1px solid var(--yx-color-border-subtle); }
+.yx-border-strong { border: 1px solid var(--yx-color-border-strong); }
+.yx-border-0 { border: none; }
+.yx-border-t { border-top: 1px solid var(--yx-color-border-default); }
+.yx-border-b { border-bottom: 1px solid var(--yx-color-border-default); }
+.yx-border-l { border-left: 1px solid var(--yx-color-border-default); }
+.yx-border-r { border-right: 1px solid var(--yx-color-border-default); }
+
+/* ============================================================
+ * Utility Classes - Radius / 圆角工具类
+ * ============================================================ */
+.yx-rounded-none { border-radius: var(--yx-radius-none); }
+.yx-rounded-sm { border-radius: var(--yx-radius-sm); }
+.yx-rounded-md { border-radius: var(--yx-radius-md); }
+.yx-rounded-lg { border-radius: var(--yx-radius-lg); }
+.yx-rounded-xl { border-radius: var(--yx-radius-xl); }
+.yx-rounded-2xl { border-radius: var(--yx-radius-2xl); }
+.yx-rounded-full { border-radius: var(--yx-radius-full); }
+
+/* ============================================================
+ * Utility Classes - Shadow / 阴影工具类
+ * ============================================================ */
+.yx-shadow-xs { box-shadow: var(--yx-shadow-xs); }
+.yx-shadow-sm { box-shadow: var(--yx-shadow-sm); }
+.yx-shadow-md { box-shadow: var(--yx-shadow-md); }
+.yx-shadow-lg { box-shadow: var(--yx-shadow-lg); }
+.yx-shadow-xl { box-shadow: var(--yx-shadow-xl); }
+.yx-shadow-2xl { box-shadow: var(--yx-shadow-2xl); }
+.yx-shadow-glow { box-shadow: var(--yx-shadow-glow); }
+.yx-shadow-glow-strong { box-shadow: var(--yx-shadow-glow-strong); }
+.yx-shadow-none { box-shadow: none; }
+
+/* ============================================================
+ * Utility Classes - Spacing / 间距工具类
+ * ============================================================ */
+/* Margin */
+.yx-m-0 { margin: 0; }
+.yx-m-1 { margin: var(--yx-spacing-1); }
+.yx-m-2 { margin: var(--yx-spacing-2); }
+.yx-m-3 { margin: var(--yx-spacing-3); }
+.yx-m-4 { margin: var(--yx-spacing-4); }
+.yx-m-5 { margin: var(--yx-spacing-5); }
+.yx-m-6 { margin: var(--yx-spacing-6); }
+.yx-m-8 { margin: var(--yx-spacing-8); }
+.yx-m-auto { margin: auto; }
+
+.yx-mt-0 { margin-top: 0; }
+.yx-mt-1 { margin-top: var(--yx-spacing-1); }
+.yx-mt-2 { margin-top: var(--yx-spacing-2); }
+.yx-mt-3 { margin-top: var(--yx-spacing-3); }
+.yx-mt-4 { margin-top: var(--yx-spacing-4); }
+.yx-mt-5 { margin-top: var(--yx-spacing-5); }
+.yx-mt-6 { margin-top: var(--yx-spacing-6); }
+.yx-mt-8 { margin-top: var(--yx-spacing-8); }
+
+.yx-mb-0 { margin-bottom: 0; }
+.yx-mb-1 { margin-bottom: var(--yx-spacing-1); }
+.yx-mb-2 { margin-bottom: var(--yx-spacing-2); }
+.yx-mb-3 { margin-bottom: var(--yx-spacing-3); }
+.yx-mb-4 { margin-bottom: var(--yx-spacing-4); }
+.yx-mb-5 { margin-bottom: var(--yx-spacing-5); }
+.yx-mb-6 { margin-bottom: var(--yx-spacing-6); }
+.yx-mb-8 { margin-bottom: var(--yx-spacing-8); }
+
+.yx-ml-0 { margin-left: 0; }
+.yx-ml-2 { margin-left: var(--yx-spacing-2); }
+.yx-ml-4 { margin-left: var(--yx-spacing-4); }
+
+.yx-mr-0 { margin-right: 0; }
+.yx-mr-2 { margin-right: var(--yx-spacing-2); }
+.yx-mr-4 { margin-right: var(--yx-spacing-4); }
+
+.yx-mx-auto { margin-left: auto; margin-right: auto; }
+.yx-my-2 { margin-top: var(--yx-spacing-2); margin-bottom: var(--yx-spacing-2); }
+.yx-my-4 { margin-top: var(--yx-spacing-4); margin-bottom: var(--yx-spacing-4); }
+
+/* Padding */
+.yx-p-0 { padding: 0; }
+.yx-p-1 { padding: var(--yx-spacing-1); }
+.yx-p-2 { padding: var(--yx-spacing-2); }
+.yx-p-3 { padding: var(--yx-spacing-3); }
+.yx-p-4 { padding: var(--yx-spacing-4); }
+.yx-p-5 { padding: var(--yx-spacing-5); }
+.yx-p-6 { padding: var(--yx-spacing-6); }
+.yx-p-8 { padding: var(--yx-spacing-8); }
+
+.yx-pt-2 { padding-top: var(--yx-spacing-2); }
+.yx-pt-4 { padding-top: var(--yx-spacing-4); }
+.yx-pb-2 { padding-bottom: var(--yx-spacing-2); }
+.yx-pb-4 { padding-bottom: var(--yx-spacing-4); }
+.yx-px-2 { padding-left: var(--yx-spacing-2); padding-right: var(--yx-spacing-2); }
+.yx-px-3 { padding-left: var(--yx-spacing-3); padding-right: var(--yx-spacing-3); }
+.yx-px-4 { padding-left: var(--yx-spacing-4); padding-right: var(--yx-spacing-4); }
+.yx-py-2 { padding-top: var(--yx-spacing-2); padding-bottom: var(--yx-spacing-2); }
+.yx-py-3 { padding-top: var(--yx-spacing-3); padding-bottom: var(--yx-spacing-3); }
+.yx-py-4 { padding-top: var(--yx-spacing-4); padding-bottom: var(--yx-spacing-4); }
+
+/* ============================================================
+ * Utility Classes - Layout / 布局工具类
+ * ============================================================ */
+.yx-flex { display: flex; }
+.yx-inline-flex { display: inline-flex; }
+.yx-grid { display: grid; }
+.yx-block { display: block; }
+.yx-inline-block { display: inline-block; }
+.yx-hidden { display: none; }
+
+.yx-flex-col { flex-direction: column; }
+.yx-flex-row { flex-direction: row; }
+.yx-flex-wrap { flex-wrap: wrap; }
+.yx-flex-1 { flex: 1; }
+
+.yx-items-center { align-items: center; }
+.yx-items-start { align-items: flex-start; }
+.yx-items-end { align-items: flex-end; }
+.yx-items-baseline { align-items: baseline; }
+
+.yx-justify-center { justify-content: center; }
+.yx-justify-start { justify-content: flex-start; }
+.yx-justify-end { justify-content: flex-end; }
+.yx-justify-between { justify-content: space-between; }
+.yx-justify-around { justify-content: space-around; }
+
+.yx-gap-1 { gap: var(--yx-spacing-1); }
+.yx-gap-2 { gap: var(--yx-spacing-2); }
+.yx-gap-3 { gap: var(--yx-spacing-3); }
+.yx-gap-4 { gap: var(--yx-spacing-4); }
+.yx-gap-6 { gap: var(--yx-spacing-6); }
+.yx-gap-8 { gap: var(--yx-spacing-8); }
+
+.yx-text-center { text-align: center; }
+.yx-text-left { text-align: left; }
+.yx-text-right { text-align: right; }
+
+.yx-relative { position: relative; }
+.yx-absolute { position: absolute; }
+.yx-fixed { position: fixed; }
+.yx-sticky { position: sticky; }
+
+.yx-w-full { width: 100%; }
+.yx-h-full { height: 100%; }
+.yx-min-h-screen { min-height: 100vh; }
+
+.yx-overflow-hidden { overflow: hidden; }
+.yx-overflow-auto { overflow: auto; }
+.yx-overflow-scroll { overflow: scroll; }
+.yx-overflow-x-auto { overflow-x: auto; }
+.yx-overflow-y-auto { overflow-y: auto; }
+
+/* ============================================================
+ * Utility Classes - Misc / 其他工具类
+ * ============================================================ */
+.yx-cursor-pointer { cursor: pointer; }
+.yx-cursor-not-allowed { cursor: not-allowed; }
+.yx-cursor-default { cursor: default; }
+
+.yx-pointer-events-none { pointer-events: none; }
+.yx-pointer-events-auto { pointer-events: auto; }
+
+.yx-select-none { user-select: none; -webkit-user-select: none; }
+.yx-select-all { user-select: all; -webkit-user-select: all; }
+
+.yx-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yx-line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.yx-line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.yx-transition { transition: var(--yx-transition-all); }
+.yx-transition-colors { transition: var(--yx-transition-colors); }
+.yx-transition-opacity { transition: var(--yx-transition-opacity); }
+.yx-transition-shadow { transition: var(--yx-transition-shadow); }
+.yx-transition-transform { transition: var(--yx-transition-transform); }
+
+.yx-opacity-0 { opacity: 0; }
+.yx-opacity-50 { opacity: 0.5; }
+.yx-opacity-75 { opacity: 0.75; }
+.yx-opacity-100 { opacity: 1; }
+
+.yx-rotate-180 { transform: rotate(180deg); }
+.yx-scale-95 { transform: scale(0.95); }
+.yx-scale-100 { transform: scale(1); }
+
+/* Gradient Text */
+.yx-gradient-text {
+  background: linear-gradient(135deg, var(--yx-color-primary), var(--yx-color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+ * Container / 容器
+ * ============================================================ */
+.yx-container {
+  width: 100%;
+  max-width: var(--yx-content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--yx-container-padding);
+}

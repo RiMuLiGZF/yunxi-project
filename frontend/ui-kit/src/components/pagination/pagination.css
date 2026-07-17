@@ -1,0 +1,173 @@
+/* ============================================================
+ * YunXi UI Kit - Pagination Component
+ * 云汐组件库 - 分页组件
+ * ============================================================ */
+
+.yx-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yx-spacing-2);
+  flex-wrap: wrap;
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-pagination__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--yx-spacing-2);
+  font-size: var(--yx-font-size-sm);
+  color: var(--yx-color-text-primary);
+  background: var(--yx-color-bg-surface);
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-md);
+  cursor: pointer;
+  transition: var(--yx-transition-colors);
+  user-select: none;
+  font-family: inherit;
+}
+
+.yx-pagination__item:hover:not(:disabled):not(.yx-pagination__item--active):not(.yx-pagination__item--dots) {
+  color: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+}
+
+.yx-pagination__item--active {
+  background: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+  color: var(--yx-color-text-inverse);
+  font-weight: var(--yx-font-weight-medium);
+  cursor: default;
+}
+
+.yx-pagination__item--disabled,
+.yx-pagination__item:disabled {
+  color: var(--yx-color-text-disabled);
+  border-color: var(--yx-color-border-subtle);
+  cursor: not-allowed;
+  background: var(--yx-color-bg-disabled);
+}
+
+.yx-pagination__item--dots {
+  border: none;
+  background: transparent;
+  cursor: default;
+  color: var(--yx-color-text-tertiary);
+}
+
+.yx-pagination__prev,
+.yx-pagination__next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yx-pagination__prev svg,
+.yx-pagination__next svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Total / Info */
+.yx-pagination__total {
+  color: var(--yx-color-text-secondary);
+  margin-right: var(--yx-spacing-2);
+}
+
+.yx-pagination__jumper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+  color: var(--yx-color-text-secondary);
+  margin-left: var(--yx-spacing-2);
+}
+
+.yx-pagination__jumper input {
+  width: 50px;
+  height: 32px;
+  padding: 0 var(--yx-spacing-2);
+  font-size: var(--yx-font-size-sm);
+  text-align: center;
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-md);
+  background: var(--yx-color-bg-surface);
+  color: var(--yx-color-text-primary);
+  outline: none;
+  transition: var(--yx-transition-colors);
+  font-family: inherit;
+}
+
+.yx-pagination__jumper input:focus {
+  border-color: var(--yx-color-primary);
+  box-shadow: 0 0 0 2px var(--yx-color-primary-light);
+}
+
+/* Page size selector */
+.yx-pagination__sizer {
+  margin-right: var(--yx-spacing-2);
+}
+
+.yx-pagination__sizer select {
+  height: 32px;
+  padding: 0 var(--yx-spacing-2);
+  font-size: var(--yx-font-size-sm);
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-md);
+  background: var(--yx-color-bg-surface);
+  color: var(--yx-color-text-primary);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.yx-pagination__sizer select:focus {
+  border-color: var(--yx-color-primary);
+}
+
+/* Size variants */
+.yx-pagination--sm .yx-pagination__item,
+.yx-pagination--sm .yx-pagination__jumper input,
+.yx-pagination--sm .yx-pagination__sizer select {
+  min-width: 28px;
+  height: 28px;
+  font-size: var(--yx-font-size-xs);
+}
+
+.yx-pagination--sm .yx-pagination__jumper input {
+  width: 44px;
+}
+
+.yx-pagination--lg .yx-pagination__item,
+.yx-pagination--lg .yx-pagination__jumper input,
+.yx-pagination--lg .yx-pagination__sizer select {
+  min-width: 36px;
+  height: 36px;
+  font-size: var(--yx-font-size-base);
+}
+
+.yx-pagination--lg .yx-pagination__jumper input {
+  width: 56px;
+}
+
+/* Simple mode */
+.yx-pagination--simple {
+  gap: var(--yx-spacing-3);
+}
+
+.yx-pagination--simple .yx-pagination__item:not(.yx-pagination__prev):not(.yx-pagination__next) {
+  display: none;
+}
+
+.yx-pagination--simple .yx-pagination__simple-text {
+  display: inline-flex;
+  align-items: center;
+  color: var(--yx-color-text-secondary);
+}

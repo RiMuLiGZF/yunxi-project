@@ -1,0 +1,142 @@
+/* ============================================================
+ * YunXi UI Kit - Checkbox Component
+ * 云汐组件库 - 复选框组件
+ * ============================================================ */
+
+.yx-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  vertical-align: middle;
+}
+
+.yx-checkbox--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.yx-checkbox__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.yx-checkbox__box {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--yx-color-border-strong);
+  border-radius: var(--yx-radius-sm);
+  background: var(--yx-color-bg-surface);
+  transition: var(--yx-transition-colors);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yx-checkbox:hover:not(.yx-checkbox--disabled) .yx-checkbox__box {
+  border-color: var(--yx-color-primary);
+}
+
+.yx-checkbox--checked .yx-checkbox__box {
+  background: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+}
+
+.yx-checkbox--indeterminate .yx-checkbox__box {
+  background: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+}
+
+.yx-checkbox__box svg {
+  width: 10px;
+  height: 10px;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity var(--yx-transition-fast), transform var(--yx-transition-fast);
+}
+
+.yx-checkbox--checked .yx-checkbox__box svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.yx-checkbox__indeterminate-icon {
+  position: absolute;
+  width: 8px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity var(--yx-transition-fast);
+}
+
+.yx-checkbox--indeterminate .yx-checkbox__indeterminate-icon {
+  opacity: 1;
+}
+
+.yx-checkbox--indeterminate .yx-checkbox__box svg {
+  opacity: 0;
+}
+
+/* Focus */
+.yx-checkbox__input:focus-visible + .yx-checkbox__box {
+  box-shadow: 0 0 0 3px var(--yx-color-primary-light);
+  border-color: var(--yx-color-primary);
+}
+
+/* Size variants */
+.yx-checkbox--sm {
+  font-size: var(--yx-font-size-sm);
+  gap: var(--yx-spacing-1);
+}
+
+.yx-checkbox--sm .yx-checkbox__box {
+  width: 14px;
+  height: 14px;
+}
+
+.yx-checkbox--sm .yx-checkbox__box svg {
+  width: 8px;
+  height: 8px;
+}
+
+.yx-checkbox--lg {
+  font-size: var(--yx-font-size-lg);
+  gap: var(--yx-spacing-2);
+}
+
+.yx-checkbox--lg .yx-checkbox__box {
+  width: 18px;
+  height: 18px;
+}
+
+.yx-checkbox--lg .yx-checkbox__box svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Group */
+.yx-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yx-spacing-2);
+}
+
+.yx-checkbox-group--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--yx-spacing-4);
+}

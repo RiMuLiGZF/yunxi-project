@@ -1,0 +1,315 @@
+/* ============================================================
+ * YunXi UI Kit - Design Tokens / CSS Variables
+ * 云汐组件库 - 设计令牌 / CSS 变量系统
+ * 与现有主题系统兼容，独立可用
+ * ============================================================ */
+
+:root {
+  /* ============================================================
+   * Color System - Primary / 主色系统
+   * ============================================================ */
+  --yx-color-primary-50: #eff6ff;
+  --yx-color-primary-100: #dbeafe;
+  --yx-color-primary-200: #bfdbfe;
+  --yx-color-primary-300: #93c5fd;
+  --yx-color-primary-400: #60a5fa;
+  --yx-color-primary-500: #3b82f6;
+  --yx-color-primary-600: #2563eb;
+  --yx-color-primary-700: #1d4ed8;
+  --yx-color-primary-800: #1e40af;
+  --yx-color-primary-900: #1e3a8a;
+
+  --yx-color-primary: var(--yx-color-primary-600);
+  --yx-color-primary-hover: var(--yx-color-primary-700);
+  --yx-color-primary-active: var(--yx-color-primary-800);
+  --yx-color-primary-light: var(--yx-color-primary-50);
+  --yx-color-primary-lighter: var(--yx-color-primary-100);
+
+  /* ============================================================
+   * Color System - Secondary / 辅助色
+   * ============================================================ */
+  --yx-color-secondary-50: #ecfeff;
+  --yx-color-secondary-100: #cffafe;
+  --yx-color-secondary-200: #a5f3fc;
+  --yx-color-secondary-300: #67e8f9;
+  --yx-color-secondary-400: #22d3ee;
+  --yx-color-secondary-500: #06b6d4;
+  --yx-color-secondary-600: #0891b2;
+  --yx-color-secondary-700: #0e7490;
+  --yx-color-secondary-800: #155e75;
+  --yx-color-secondary-900: #164e63;
+
+  --yx-color-secondary: var(--yx-color-secondary-600);
+  --yx-color-secondary-hover: var(--yx-color-secondary-700);
+  --yx-color-secondary-active: var(--yx-color-secondary-800);
+
+  /* ============================================================
+   * Color System - Semantic / 语义色
+   * ============================================================ */
+  --yx-color-success-50: #ecfdf5;
+  --yx-color-success-100: #d1fae5;
+  --yx-color-success-500: #10b981;
+  --yx-color-success-600: #059669;
+  --yx-color-success-700: #047857;
+  --yx-color-success: var(--yx-color-success-600);
+  --yx-color-success-light: var(--yx-color-success-50);
+
+  --yx-color-warning-50: #fffbeb;
+  --yx-color-warning-100: #fef3c7;
+  --yx-color-warning-500: #f59e0b;
+  --yx-color-warning-600: #d97706;
+  --yx-color-warning-700: #b45309;
+  --yx-color-warning: var(--yx-color-warning-600);
+  --yx-color-warning-light: var(--yx-color-warning-50);
+
+  --yx-color-error-50: #fef2f2;
+  --yx-color-error-100: #fee2e2;
+  --yx-color-error-500: #ef4444;
+  --yx-color-error-600: #dc2626;
+  --yx-color-error-700: #b91c1c;
+  --yx-color-error: var(--yx-color-error-600);
+  --yx-color-error-light: var(--yx-color-error-50);
+
+  --yx-color-info-50: #eff6ff;
+  --yx-color-info-100: #dbeafe;
+  --yx-color-info-500: #3b82f6;
+  --yx-color-info-600: #2563eb;
+  --yx-color-info: var(--yx-color-info-600);
+  --yx-color-info-light: var(--yx-color-info-50);
+
+  /* ============================================================
+   * Color System - Neutral / 中性色
+   * ============================================================ */
+  --yx-color-gray-50: #f8fafc;
+  --yx-color-gray-100: #f1f5f9;
+  --yx-color-gray-200: #e2e8f0;
+  --yx-color-gray-300: #cbd5e1;
+  --yx-color-gray-400: #94a3b8;
+  --yx-color-gray-500: #64748b;
+  --yx-color-gray-600: #475569;
+  --yx-color-gray-700: #334155;
+  --yx-color-gray-800: #1e293b;
+  --yx-color-gray-900: #0f172a;
+  --yx-color-gray-950: #020617;
+
+  /* ============================================================
+   * Color System - Background / 背景色
+   * ============================================================ */
+  --yx-color-bg-base: #e8f4f8;
+  --yx-color-bg-elevated: #ffffff;
+  --yx-color-bg-surface: #ffffff;
+  --yx-color-bg-card: #ffffff;
+  --yx-color-bg-overlay: rgba(255, 255, 255, 0.95);
+  --yx-color-bg-disabled: var(--yx-color-gray-100);
+
+  --yx-color-bg-gradient: linear-gradient(160deg, #dbeafe 0%, #cffafe 25%, #e0f2fe 50%, #bae6fd 75%, #e0f7fa 100%);
+  --yx-color-bg-gradient-alt: linear-gradient(200deg, #e0f2fe 0%, #ccfbf1 30%, #dbeafe 60%, #e0f7fa 80%, #f0f9ff 100%);
+
+  /* ============================================================
+   * Color System - Border / 边框色
+   * ============================================================ */
+  --yx-color-border-default: rgba(15, 23, 42, 0.1);
+  --yx-color-border-subtle: rgba(15, 23, 42, 0.06);
+  --yx-color-border-strong: rgba(15, 23, 42, 0.2);
+  --yx-color-border-focus: var(--yx-color-primary-500);
+
+  /* ============================================================
+   * Color System - Text / 文字色
+   * ============================================================ */
+  --yx-color-text-primary: var(--yx-color-gray-900);
+  --yx-color-text-secondary: var(--yx-color-gray-600);
+  --yx-color-text-tertiary: var(--yx-color-gray-400);
+  --yx-color-text-disabled: var(--yx-color-gray-300);
+  --yx-color-text-inverse: var(--yx-color-gray-50);
+  --yx-color-text-link: var(--yx-color-primary-600);
+  --yx-color-text-link-hover: var(--yx-color-primary-700);
+
+  /* ============================================================
+   * Typography / 字体系统
+   * ============================================================ */
+  --yx-font-family-base: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --yx-font-family-display: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --yx-font-family-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', monospace;
+
+  /* Font Size / 字号 (14px base) */
+  --yx-font-size-xs: 0.75rem;    /* 12px */
+  --yx-font-size-sm: 0.8125rem;  /* 13px */
+  --yx-font-size-base: 0.875rem; /* 14px */
+  --yx-font-size-lg: 1rem;       /* 16px */
+  --yx-font-size-xl: 1.125rem;   /* 18px */
+  --yx-font-size-2xl: 1.375rem;  /* 22px */
+  --yx-font-size-3xl: 1.625rem;  /* 26px */
+  --yx-font-size-4xl: 2rem;      /* 32px */
+  --yx-font-size-5xl: 2.5rem;    /* 40px */
+
+  /* Font Weight / 字重 */
+  --yx-font-weight-light: 300;
+  --yx-font-weight-regular: 400;
+  --yx-font-weight-medium: 500;
+  --yx-font-weight-semibold: 600;
+  --yx-font-weight-bold: 700;
+
+  /* Line Height / 行高 */
+  --yx-line-height-tight: 1.25;
+  --yx-line-height-normal: 1.5;
+  --yx-line-height-relaxed: 1.625;
+
+  /* Letter Spacing / 字间距 */
+  --yx-letter-spacing-tight: -0.02em;
+  --yx-letter-spacing-normal: 0;
+  --yx-letter-spacing-wide: 0.025em;
+
+  /* ============================================================
+   * Spacing / 间距系统 (4px base)
+   * ============================================================ */
+  --yx-spacing-0: 0;
+  --yx-spacing-1: 0.25rem;   /* 4px */
+  --yx-spacing-2: 0.5rem;    /* 8px */
+  --yx-spacing-3: 0.75rem;   /* 12px */
+  --yx-spacing-4: 1rem;      /* 16px */
+  --yx-spacing-5: 1.25rem;   /* 20px */
+  --yx-spacing-6: 1.5rem;    /* 24px */
+  --yx-spacing-8: 2rem;      /* 32px */
+  --yx-spacing-10: 2.5rem;   /* 40px */
+  --yx-spacing-12: 3rem;     /* 48px */
+  --yx-spacing-16: 4rem;     /* 64px */
+
+  /* ============================================================
+   * Border Radius / 圆角系统
+   * ============================================================ */
+  --yx-radius-none: 0;
+  --yx-radius-sm: 4px;
+  --yx-radius-md: 6px;
+  --yx-radius-lg: 8px;
+  --yx-radius-xl: 12px;
+  --yx-radius-2xl: 16px;
+  --yx-radius-full: 9999px;
+
+  /* ============================================================
+   * Shadow / 阴影系统
+   * ============================================================ */
+  --yx-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --yx-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --yx-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --yx-shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --yx-shadow-xl: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --yx-shadow-2xl: 0 20px 50px rgba(0, 0, 0, 0.15);
+  --yx-shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+
+  /* Glow Effects / 发光效果 */
+  --yx-shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --yx-shadow-glow-strong: 0 0 30px rgba(37, 99, 235, 0.18);
+  --yx-shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.15);
+  --yx-shadow-glow-warning: 0 0 20px rgba(245, 158, 11, 0.15);
+  --yx-shadow-glow-error: 0 0 20px rgba(239, 68, 68, 0.15);
+
+  /* ============================================================
+   * Transition / 动效系统
+   * ============================================================ */
+  --yx-transition-fast: 120ms ease;
+  --yx-transition-base: 200ms ease;
+  --yx-transition-slow: 300ms ease;
+  --yx-transition-slower: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  --yx-transition-colors: background-color var(--yx-transition-base),
+                          border-color var(--yx-transition-base),
+                          color var(--yx-transition-base),
+                          fill var(--yx-transition-base),
+                          stroke var(--yx-transition-base);
+  --yx-transition-opacity: opacity var(--yx-transition-base);
+  --yx-transition-shadow: box-shadow var(--yx-transition-base);
+  --yx-transition-transform: transform var(--yx-transition-base);
+  --yx-transition-all: all var(--yx-transition-base);
+
+  /* ============================================================
+   * Z-Index / 层级系统
+   * ============================================================ */
+  --yx-z-dropdown: 100;
+  --yx-z-sticky: 200;
+  --yx-z-drawer: 250;
+  --yx-z-modal-backdrop: 300;
+  --yx-z-modal: 400;
+  --yx-z-popover: 450;
+  --yx-z-toast: 500;
+  --yx-z-tooltip: 600;
+
+  /* ============================================================
+   * Layout / 布局常量
+   * ============================================================ */
+  --yx-header-height: 56px;
+  --yx-sidebar-width: 240px;
+  --yx-content-max-width: 1400px;
+  --yx-container-padding: var(--yx-spacing-6);
+
+  /* ============================================================
+   * Component Sizing / 组件尺寸
+   * ============================================================ */
+  --yx-component-size-sm: 28px;
+  --yx-component-size-md: 36px;
+  --yx-component-size-lg: 44px;
+}
+
+/* ============================================================
+ * Dark Mode / 深色模式
+ * ============================================================ */
+html.yx-dark,
+:root.yx-dark {
+  /* Primary - lightened for dark mode */
+  --yx-color-primary: var(--yx-color-primary-500);
+  --yx-color-primary-hover: var(--yx-color-primary-600);
+  --yx-color-primary-active: var(--yx-color-primary-700);
+  --yx-color-primary-light: rgba(59, 130, 246, 0.1);
+  --yx-color-primary-lighter: rgba(59, 130, 246, 0.15);
+
+  /* Secondary */
+  --yx-color-secondary: var(--yx-color-secondary-500);
+  --yx-color-secondary-hover: var(--yx-color-secondary-600);
+  --yx-color-secondary-active: var(--yx-color-secondary-700);
+
+  /* Semantic - lighter versions */
+  --yx-color-success: var(--yx-color-success-500);
+  --yx-color-success-light: rgba(16, 185, 129, 0.1);
+  --yx-color-warning: var(--yx-color-warning-500);
+  --yx-color-warning-light: rgba(245, 158, 11, 0.1);
+  --yx-color-error: var(--yx-color-error-500);
+  --yx-color-error-light: rgba(239, 68, 68, 0.1);
+  --yx-color-info: var(--yx-color-info-500);
+  --yx-color-info-light: rgba(59, 130, 246, 0.1);
+
+  /* Background */
+  --yx-color-bg-base: #0a1929;
+  --yx-color-bg-elevated: rgba(16, 40, 65, 0.75);
+  --yx-color-bg-surface: rgba(16, 40, 65, 0.75);
+  --yx-color-bg-card: rgba(16, 40, 65, 0.65);
+  --yx-color-bg-overlay: rgba(8, 20, 36, 0.92);
+  --yx-color-bg-disabled: rgba(148, 163, 184, 0.08);
+
+  --yx-color-bg-gradient: linear-gradient(160deg, #061220 0%, #0a2342 25%, #0d3050 50%, #0a2844 75%, #071a30 100%);
+  --yx-color-bg-gradient-alt: linear-gradient(200deg, #071828 0%, #0b2a4a 30%, #0e3858 60%, #0a2e4e 80%, #081e35 100%);
+
+  /* Border */
+  --yx-color-border-default: rgba(148, 163, 184, 0.12);
+  --yx-color-border-subtle: rgba(148, 163, 184, 0.06);
+  --yx-color-border-strong: rgba(148, 163, 184, 0.24);
+
+  /* Text */
+  --yx-color-text-primary: #f1f5f9;
+  --yx-color-text-secondary: #94a3b8;
+  --yx-color-text-tertiary: #64748b;
+  --yx-color-text-disabled: #475569;
+  --yx-color-text-inverse: var(--yx-color-gray-900);
+  --yx-color-text-link: var(--yx-color-primary-400);
+  --yx-color-text-link-hover: var(--yx-color-primary-300);
+
+  /* Shadows - stronger in dark mode */
+  --yx-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --yx-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --yx-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --yx-shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --yx-shadow-xl: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --yx-shadow-2xl: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+  /* Glow */
+  --yx-shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --yx-shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.25);
+}

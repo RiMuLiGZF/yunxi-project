@@ -1,0 +1,174 @@
+/* ============================================================
+ * YunXi UI Kit - Table Component
+ * 云汐组件库 - 表格组件
+ * ============================================================ */
+
+.yx-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--yx-radius-lg);
+  border: 1px solid var(--yx-color-border-default);
+  background: var(--yx-color-bg-surface);
+}
+
+.yx-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--yx-font-size-base);
+}
+
+/* Header */
+.yx-table thead th {
+  position: sticky;
+  top: 0;
+  padding: var(--yx-spacing-3) var(--yx-spacing-4);
+  text-align: left;
+  font-weight: var(--yx-font-weight-semibold);
+  font-size: var(--yx-font-size-sm);
+  color: var(--yx-color-text-secondary);
+  background: var(--yx-color-bg-base);
+  border-bottom: 1px solid var(--yx-color-border-default);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.yx-table thead th:first-child {
+  border-top-left-radius: var(--yx-radius-lg);
+}
+
+.yx-table thead th:last-child {
+  border-top-right-radius: var(--yx-radius-lg);
+}
+
+/* Sortable header */
+.yx-table th.yx-table__sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--yx-transition-fast);
+}
+
+.yx-table th.yx-table__sortable:hover {
+  color: var(--yx-color-primary);
+}
+
+.yx-table__sort-icon {
+  display: inline-flex;
+  flex-direction: column;
+  margin-left: var(--yx-spacing-1);
+  vertical-align: middle;
+  color: var(--yx-color-text-tertiary);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.yx-table__sort-icon--asc .yx-table__sort-up,
+.yx-table__sort-icon--desc .yx-table__sort-down {
+  color: var(--yx-color-primary);
+}
+
+/* Body */
+.yx-table tbody td {
+  padding: var(--yx-spacing-3) var(--yx-spacing-4);
+  color: var(--yx-color-text-primary);
+  border-bottom: 1px solid var(--yx-color-border-subtle);
+  vertical-align: middle;
+}
+
+.yx-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.yx-table tbody tr:hover td {
+  background: var(--yx-color-bg-base);
+}
+
+/* Striped */
+.yx-table--striped tbody tr:nth-child(even) td {
+  background: var(--yx-color-bg-base);
+}
+
+.yx-table--striped tbody tr:hover td {
+  background: var(--yx-color-primary-light);
+}
+
+/* Bordered */
+.yx-table--bordered .yx-table-wrapper,
+.yx-table--bordered {
+  border: 1px solid var(--yx-color-border-default);
+}
+
+.yx-table--bordered th,
+.yx-table--bordered td {
+  border-right: 1px solid var(--yx-color-border-subtle);
+}
+
+.yx-table--bordered th:last-child,
+.yx-table--bordered td:last-child {
+  border-right: none;
+}
+
+/* Size variants */
+.yx-table--sm th,
+.yx-table--sm td {
+  padding: var(--yx-spacing-2) var(--yx-spacing-3);
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-table--lg th,
+.yx-table--lg td {
+  padding: var(--yx-spacing-4) var(--yx-spacing-5);
+  font-size: var(--yx-font-size-base);
+}
+
+/* Empty state */
+.yx-table__empty {
+  padding: var(--yx-spacing-12) var(--yx-spacing-4);
+  text-align: center;
+  color: var(--yx-color-text-tertiary);
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-table__empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--yx-spacing-3);
+  opacity: 0.3;
+}
+
+/* Loading */
+.yx-table--loading {
+  position: relative;
+}
+
+.yx-table--loading .yx-table-wrapper {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.yx-table__loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* Selection */
+.yx-table__checkbox-cell {
+  width: 40px;
+  text-align: center;
+}
+
+/* Row selection */
+.yx-table tbody tr.yx-table__row--selected td {
+  background: var(--yx-color-primary-light);
+}
+
+/* Column alignment */
+.yx-table .yx-text-center { text-align: center; }
+.yx-table .yx-text-right { text-align: right; }
+.yx-table .yx-text-left { text-align: left; }

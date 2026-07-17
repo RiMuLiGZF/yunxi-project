@@ -1,0 +1,146 @@
+/* ============================================================
+ * YunXi UI Kit - Radio Component
+ * 云汐组件库 - 单选框组件
+ * ============================================================ */
+
+.yx-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yx-spacing-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-primary);
+  vertical-align: middle;
+}
+
+.yx-radio--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.yx-radio__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.yx-radio__circle {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--yx-color-border-strong);
+  border-radius: 50%;
+  background: var(--yx-color-bg-surface);
+  transition: var(--yx-transition-colors);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yx-radio:hover:not(.yx-radio--disabled) .yx-radio__circle {
+  border-color: var(--yx-color-primary);
+}
+
+.yx-radio--checked .yx-radio__circle {
+  border-color: var(--yx-color-primary);
+}
+
+.yx-radio__dot {
+  width: 8px;
+  height: 8px;
+  background: var(--yx-color-primary);
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  transition: transform var(--yx-transition-fast), opacity var(--yx-transition-fast);
+}
+
+.yx-radio--checked .yx-radio__dot {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Focus */
+.yx-radio__input:focus-visible + .yx-radio__circle {
+  box-shadow: 0 0 0 3px var(--yx-color-primary-light);
+  border-color: var(--yx-color-primary);
+}
+
+/* Size variants */
+.yx-radio--sm {
+  font-size: var(--yx-font-size-sm);
+  gap: var(--yx-spacing-1);
+}
+
+.yx-radio--sm .yx-radio__circle {
+  width: 14px;
+  height: 14px;
+}
+
+.yx-radio--sm .yx-radio__dot {
+  width: 6px;
+  height: 6px;
+}
+
+.yx-radio--lg {
+  font-size: var(--yx-font-size-lg);
+  gap: var(--yx-spacing-2);
+}
+
+.yx-radio--lg .yx-radio__circle {
+  width: 18px;
+  height: 18px;
+}
+
+.yx-radio--lg .yx-radio__dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* Group */
+.yx-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yx-spacing-2);
+}
+
+.yx-radio-group--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--yx-spacing-4);
+}
+
+/* Button-style radio group */
+.yx-radio-group--buttons {
+  display: inline-flex;
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-md);
+  overflow: hidden;
+  background: var(--yx-color-bg-surface);
+}
+
+.yx-radio-group--buttons .yx-radio {
+  margin: 0;
+  padding: 0 var(--yx-spacing-4);
+  height: var(--yx-component-size-md);
+  gap: 0;
+  border-right: 1px solid var(--yx-color-border-default);
+}
+
+.yx-radio-group--buttons .yx-radio:last-child {
+  border-right: none;
+}
+
+.yx-radio-group--buttons .yx-radio__circle {
+  display: none;
+}
+
+.yx-radio-group--buttons .yx-radio--checked {
+  background: var(--yx-color-primary-light);
+  color: var(--yx-color-primary);
+  font-weight: var(--yx-font-weight-medium);
+}

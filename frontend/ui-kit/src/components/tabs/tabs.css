@@ -1,0 +1,225 @@
+/* ============================================================
+ * YunXi UI Kit - Tabs Component
+ * 云汐组件库 - 标签页组件
+ * ============================================================ */
+
+.yx-tabs {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Tab Nav */
+.yx-tabs__nav {
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--yx-color-border-default);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.yx-tabs__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.yx-tabs__nav-list {
+  display: flex;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.yx-tabs__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yx-spacing-2);
+  padding: var(--yx-spacing-3) var(--yx-spacing-4);
+  font-size: var(--yx-font-size-base);
+  color: var(--yx-color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--yx-transition-colors);
+  font-weight: var(--yx-font-weight-medium);
+}
+
+.yx-tabs__tab:hover {
+  color: var(--yx-color-primary);
+}
+
+.yx-tabs__tab--active {
+  color: var(--yx-color-primary);
+}
+
+.yx-tabs__tab--disabled {
+  color: var(--yx-color-text-disabled);
+  cursor: not-allowed;
+}
+
+.yx-tabs__tab--disabled:hover {
+  color: var(--yx-color-text-disabled);
+}
+
+/* Active indicator (line) */
+.yx-tabs__indicator {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  background: var(--yx-color-primary);
+  border-radius: 2px;
+  transition: left var(--yx-transition-slow), width var(--yx-transition-slow);
+}
+
+/* Tab Content */
+.yx-tabs__content {
+  padding: var(--yx-spacing-5) 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.yx-tab-pane {
+  display: none;
+  animation: yx-tab-fade-in 0.2s ease;
+}
+
+.yx-tab-pane--active {
+  display: block;
+}
+
+@keyframes yx-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Type: Card */
+.yx-tabs--card .yx-tabs__nav {
+  border-bottom: none;
+  gap: var(--yx-spacing-1);
+  padding: var(--yx-spacing-1);
+  background: var(--yx-color-bg-base);
+  border-radius: var(--yx-radius-lg);
+}
+
+.yx-tabs--card .yx-tabs__tab {
+  padding: var(--yx-spacing-2) var(--yx-spacing-4);
+  border-radius: var(--yx-radius-md);
+  font-weight: var(--yx-font-weight-regular);
+}
+
+.yx-tabs--card .yx-tabs__tab--active {
+  background: var(--yx-color-bg-surface);
+  color: var(--yx-color-primary);
+  box-shadow: var(--yx-shadow-sm);
+  font-weight: var(--yx-font-weight-medium);
+}
+
+.yx-tabs--card .yx-tabs__indicator {
+  display: none;
+}
+
+/* Type: Button / Segment */
+.yx-tabs--segment .yx-tabs__nav {
+  border: 1px solid var(--yx-color-border-default);
+  border-radius: var(--yx-radius-md);
+  padding: 2px;
+  background: var(--yx-color-bg-surface);
+  display: inline-flex;
+  width: auto;
+  border-bottom: 1px solid var(--yx-color-border-default);
+}
+
+.yx-tabs--segment .yx-tabs__tab {
+  padding: var(--yx-spacing-1) var(--yx-spacing-4);
+  border-radius: var(--yx-radius-sm);
+  font-size: var(--yx-font-size-sm);
+  font-weight: var(--yx-font-weight-regular);
+}
+
+.yx-tabs--segment .yx-tabs__tab--active {
+  background: var(--yx-color-primary);
+  color: #fff;
+}
+
+.yx-tabs--segment .yx-tabs__indicator {
+  display: none;
+}
+
+/* Vertical tabs */
+.yx-tabs--vertical {
+  flex-direction: row;
+}
+
+.yx-tabs--vertical .yx-tabs__nav {
+  flex-direction: column;
+  border-bottom: none;
+  border-right: 1px solid var(--yx-color-border-default);
+  width: auto;
+  min-width: 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.yx-tabs--vertical .yx-tabs__nav-list {
+  flex-direction: column;
+  width: 100%;
+}
+
+.yx-tabs--vertical .yx-tabs__tab {
+  justify-content: flex-start;
+  padding: var(--yx-spacing-3) var(--yx-spacing-4);
+  width: 100%;
+}
+
+.yx-tabs--vertical .yx-tabs__indicator {
+  left: auto;
+  right: -1px;
+  top: 0;
+  width: 2px;
+  height: auto;
+  transition: top var(--yx-transition-slow), height var(--yx-transition-slow);
+}
+
+.yx-tabs--vertical .yx-tabs__content {
+  padding: 0 var(--yx-spacing-5);
+  flex: 1;
+}
+
+/* Size variants */
+.yx-tabs--sm .yx-tabs__tab {
+  padding: var(--yx-spacing-2) var(--yx-spacing-3);
+  font-size: var(--yx-font-size-sm);
+}
+
+.yx-tabs--lg .yx-tabs__tab {
+  padding: var(--yx-spacing-4) var(--yx-spacing-5);
+  font-size: var(--yx-font-size-lg);
+}
+
+/* Tab with icon */
+.yx-tabs__tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.yx-tabs__tab-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

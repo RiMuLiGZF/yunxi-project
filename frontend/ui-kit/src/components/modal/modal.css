@@ -1,0 +1,220 @@
+/* ============================================================
+ * YunXi UI Kit - Modal Component
+ * 云汐组件库 - 弹窗组件
+ * ============================================================ */
+
+.yx-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--yx-z-modal-backdrop);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--yx-transition-base), visibility var(--yx-transition-base);
+  padding: var(--yx-spacing-4);
+}
+
+.yx-modal-overlay--open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.yx-modal {
+  background: var(--yx-color-bg-surface);
+  border-radius: var(--yx-radius-xl);
+  box-shadow: var(--yx-shadow-2xl);
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - var(--yx-spacing-8));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
+  transition: transform var(--yx-transition-slow), opacity var(--yx-transition-base);
+  z-index: var(--yx-z-modal);
+}
+
+.yx-modal-overlay--open .yx-modal {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* Modal Header */
+.yx-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--yx-spacing-5) var(--yx-spacing-6);
+  border-bottom: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-4);
+  flex-shrink: 0;
+}
+
+.yx-modal__title {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-semibold);
+  color: var(--yx-color-text-primary);
+  margin: 0;
+  line-height: var(--yx-line-height-tight);
+}
+
+.yx-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--yx-color-text-tertiary);
+  border-radius: var(--yx-radius-sm);
+  cursor: pointer;
+  transition: var(--yx-transition-colors);
+  flex-shrink: 0;
+}
+
+.yx-modal__close:hover {
+  background: var(--yx-color-bg-disabled);
+  color: var(--yx-color-text-secondary);
+}
+
+.yx-modal__close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Modal Body */
+.yx-modal__body {
+  padding: var(--yx-spacing-6);
+  overflow-y: auto;
+  flex: 1;
+  color: var(--yx-color-text-secondary);
+  font-size: var(--yx-font-size-base);
+  line-height: var(--yx-line-height-relaxed);
+}
+
+/* Modal Footer */
+.yx-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--yx-spacing-4) var(--yx-spacing-6);
+  border-top: 1px solid var(--yx-color-border-subtle);
+  gap: var(--yx-spacing-3);
+  flex-shrink: 0;
+  background: var(--yx-color-bg-base);
+}
+
+/* Size variants */
+.yx-modal--sm {
+  max-width: 400px;
+}
+
+.yx-modal--lg {
+  max-width: 720px;
+}
+
+.yx-modal--xl {
+  max-width: 960px;
+}
+
+.yx-modal--full {
+  max-width: none;
+  width: calc(100vw - var(--yx-spacing-8));
+  max-height: calc(100vh - var(--yx-spacing-8));
+}
+
+/* Center variant (default) */
+.yx-modal-overlay--center {
+  align-items: center;
+}
+
+/* Top variant */
+.yx-modal-overlay--top .yx-modal {
+  align-self: flex-start;
+  margin-top: 10vh;
+}
+
+/* Confirm dialog */
+.yx-modal--confirm .yx-modal__body {
+  display: flex;
+  gap: var(--yx-spacing-4);
+  align-items: flex-start;
+}
+
+.yx-modal__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.yx-modal__icon--info {
+  background: var(--yx-color-info-light);
+  color: var(--yx-color-info);
+}
+
+.yx-modal__icon--success {
+  background: var(--yx-color-success-light);
+  color: var(--yx-color-success);
+}
+
+.yx-modal__icon--warning {
+  background: var(--yx-color-warning-light);
+  color: var(--yx-color-warning);
+}
+
+.yx-modal__icon--error {
+  background: var(--yx-color-error-light);
+  color: var(--yx-color-error);
+}
+
+.yx-modal__icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.yx-modal__confirm-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.yx-modal__confirm-title {
+  font-size: var(--yx-font-size-lg);
+  font-weight: var(--yx-font-weight-semibold);
+  color: var(--yx-color-text-primary);
+  margin-bottom: var(--yx-spacing-2);
+}
+
+.yx-modal__confirm-text {
+  color: var(--yx-color-text-secondary);
+  font-size: var(--yx-font-size-base);
+}
+
+/* Body scroll lock */
+.yx-modal-open {
+  overflow: hidden;
+}

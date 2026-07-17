@@ -1,0 +1,261 @@
+/* ============================================================
+ * YunXi UI Kit - Button Component
+ * 云汐组件库 - 按钮组件
+ * ============================================================ */
+
+.yx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yx-spacing-2);
+  padding: 0 var(--yx-spacing-4);
+  height: var(--yx-component-size-md);
+  font-size: var(--yx-font-size-base);
+  font-weight: var(--yx-font-weight-medium);
+  line-height: 1;
+  border-radius: var(--yx-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: var(--yx-transition-colors), var(--yx-transition-shadow),
+              transform var(--yx-transition-fast);
+  text-decoration: none;
+  vertical-align: middle;
+  position: relative;
+  overflow: hidden;
+}
+
+.yx-btn:focus-visible {
+  outline: 2px solid var(--yx-color-border-focus);
+  outline-offset: 2px;
+}
+
+/* === Size Variants === */
+.yx-btn--sm {
+  height: var(--yx-component-size-sm);
+  padding: 0 var(--yx-spacing-3);
+  font-size: var(--yx-font-size-sm);
+  border-radius: var(--yx-radius-sm);
+}
+
+.yx-btn--lg {
+  height: var(--yx-component-size-lg);
+  padding: 0 var(--yx-spacing-6);
+  font-size: var(--yx-font-size-lg);
+  border-radius: var(--yx-radius-lg);
+}
+
+.yx-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* === Type Variants === */
+/* Primary */
+.yx-btn--primary {
+  background: var(--yx-color-primary);
+  color: var(--yx-color-text-inverse);
+  border-color: var(--yx-color-primary);
+}
+
+.yx-btn--primary:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-primary-hover);
+  border-color: var(--yx-color-primary-hover);
+  box-shadow: var(--yx-shadow-glow);
+}
+
+.yx-btn--primary:active:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-primary-active);
+  border-color: var(--yx-color-primary-active);
+  transform: translateY(0);
+}
+
+/* Secondary / Default */
+.yx-btn--secondary,
+.yx-btn--default {
+  background: var(--yx-color-bg-surface);
+  color: var(--yx-color-text-primary);
+  border-color: var(--yx-color-border-default);
+}
+
+.yx-btn--secondary:hover:not(:disabled):not(.yx-btn--loading),
+.yx-btn--default:hover:not(:disabled):not(.yx-btn--loading) {
+  color: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+  background: var(--yx-color-primary-light);
+}
+
+.yx-btn--secondary:active:not(:disabled):not(.yx-btn--loading),
+.yx-btn--default:active:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-primary-lighter);
+}
+
+/* Outline */
+.yx-btn--outline {
+  background: transparent;
+  color: var(--yx-color-primary);
+  border-color: var(--yx-color-primary);
+}
+
+.yx-btn--outline:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-primary);
+  color: var(--yx-color-text-inverse);
+}
+
+.yx-btn--outline:active:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-primary-hover);
+}
+
+/* Ghost / Text */
+.yx-btn--ghost,
+.yx-btn--text {
+  background: transparent;
+  color: var(--yx-color-text-primary);
+  border-color: transparent;
+}
+
+.yx-btn--ghost:hover:not(:disabled):not(.yx-btn--loading),
+.yx-btn--text:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-bg-disabled);
+  color: var(--yx-color-primary);
+}
+
+/* Danger */
+.yx-btn--danger {
+  background: var(--yx-color-error);
+  color: var(--yx-color-text-inverse);
+  border-color: var(--yx-color-error);
+}
+
+.yx-btn--danger:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-error-700);
+  border-color: var(--yx-color-error-700);
+  box-shadow: var(--yx-shadow-glow-error);
+}
+
+.yx-btn--danger:active:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-error-700);
+}
+
+/* Success */
+.yx-btn--success {
+  background: var(--yx-color-success);
+  color: var(--yx-color-text-inverse);
+  border-color: var(--yx-color-success);
+}
+
+.yx-btn--success:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-success-700);
+  border-color: var(--yx-color-success-700);
+}
+
+/* Warning */
+.yx-btn--warning {
+  background: var(--yx-color-warning);
+  color: var(--yx-color-text-inverse);
+  border-color: var(--yx-color-warning);
+}
+
+.yx-btn--warning:hover:not(:disabled):not(.yx-btn--loading) {
+  background: var(--yx-color-warning-700);
+  border-color: var(--yx-color-warning-700);
+}
+
+/* Link */
+.yx-btn--link {
+  background: transparent;
+  color: var(--yx-color-text-link);
+  border-color: transparent;
+  padding: 0;
+  height: auto;
+}
+
+.yx-btn--link:hover:not(:disabled):not(.yx-btn--loading) {
+  color: var(--yx-color-text-link-hover);
+  text-decoration: underline;
+}
+
+/* === Disabled & Loading === */
+.yx-btn:disabled,
+.yx-btn--disabled,
+.yx-btn--loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.yx-btn--loading .yx-btn__text {
+  visibility: hidden;
+}
+
+/* === Loading Spinner === */
+.yx-btn__spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: yx-btn-spin 0.7s linear infinite;
+  opacity: 0;
+}
+
+.yx-btn--loading .yx-btn__spinner {
+  opacity: 1;
+}
+
+@keyframes yx-btn-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* === Icon === */
+.yx-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  font-size: 1em;
+  flex-shrink: 0;
+}
+
+.yx-btn__icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* === Rounded Variant === */
+.yx-btn--round {
+  border-radius: var(--yx-radius-full);
+}
+
+/* === Circle Icon Button === */
+.yx-btn--icon {
+  width: var(--yx-component-size-md);
+  height: var(--yx-component-size-md);
+  padding: 0;
+  border-radius: var(--yx-radius-md);
+}
+
+.yx-btn--icon.yx-btn--sm {
+  width: var(--yx-component-size-sm);
+  height: var(--yx-component-size-sm);
+}
+
+.yx-btn--icon.yx-btn--lg {
+  width: var(--yx-component-size-lg);
+  height: var(--yx-component-size-lg);
+}
+
+.yx-btn--icon.yx-btn--round {
+  border-radius: 50%;
+}
