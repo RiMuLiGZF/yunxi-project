@@ -178,14 +178,34 @@ class Settings(BaseSettings):
     def is_default_secret(self) -> bool:
         """检查是否使用了默认的 JWT 密钥
 
+        检查项（SC-001 安全加固）：
+        - 空密钥
+        - 默认占位密钥（DEFAULT_JWT_SECRET / CHANGE_ME_ 开头）
+        - 弱密钥模式（yunxi- 开头、CHANGEME_ 开头等）
+        - 密钥长度不足（< 16 字符）
+
         Returns:
-            True 表示使用的是默认密钥或空密钥，存在安全风险
+            True 表示使用的是默认密钥或弱密钥，存在安全风险
         """
-        return (
-            not self.jwt_secret
-            or self.jwt_secret == DEFAULT_JWT_SECRET
-            or len(self.jwt_secret) < 16
+        if not self.jwt_secret:
+            return True
+        if len(self.jwt_secret) < 16:
+            return True
+        if self.jwt_secret == DEFAULT_JWT_SECRET:
+            return True
+        # SC-001: 检测已知的弱密钥/默认密钥模式
+        weak_prefixes = (
+            "CHANGEME_", "changeme_",
+            "yunxi-", "YUNXI-",
+            "CHANGE_ME_", "change_me_",
+            "test-", "TEST-",
+            "default-", "DEFAULT-",
+            "example-", "EXAMPLE-",
         )
+        for prefix in weak_prefixes:
+            if self.jwt_secret.startswith(prefix):
+                return True
+        return False
 
     def validate_secret_security(self) -> None:
         """验证 JWT 密钥安全性

@@ -263,8 +263,10 @@ class TestBaseConfig:
     def test_is_production_property(self, test_config_class):
         """is_production 属性正确"""
         import os
-        os.environ["TESTCFG_ADMIN_TOKEN"] = "test-prod-token-1234567890"
-        os.environ["TESTCFG_DB_PASSWORD"] = "test-db-password-123456"
+        # 生产环境测试必须使用强密钥和具体CORS域名，否则会被安全校验拦截（SC-001/SC-002）
+        os.environ["TESTCFG_ADMIN_TOKEN"] = "sk-prod-9f8b7c6d5e4a3b2c1d0e1f2a3b4c5d6e"
+        os.environ["TESTCFG_DB_PASSWORD"] = "db-prod-7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d"
+        os.environ["TESTCFG_CORS_ORIGINS"] = "https://app.example.com,https://api.example.com"
         try:
             config = test_config_class(env=EnvType.PRODUCTION)
             assert config.is_production is True
@@ -274,6 +276,7 @@ class TestBaseConfig:
         finally:
             del os.environ["TESTCFG_ADMIN_TOKEN"]
             del os.environ["TESTCFG_DB_PASSWORD"]
+            del os.environ["TESTCFG_CORS_ORIGINS"]
 
     @pytest.mark.unit
     @pytest.mark.shared

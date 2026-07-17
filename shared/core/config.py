@@ -91,6 +91,147 @@ def is_sensitive_field(field_name: str) -> bool:
 
 
 # ============================================================
+# 密钥安全工具函数
+# ============================================================
+
+# 已知的弱密钥/默认密钥模式（前缀匹配，不区分大小写）
+WEAK_KEY_PATTERNS: List[str] = [
+    "changeme_",        # 占位符
+    "yunxi-",           # 旧默认前缀
+    "admin123",         # 弱密码
+    "password",         # 弱密码
+    "123456",           # 弱密码
+    "test",             # 测试值
+    "default",          # 默认值
+    "secret",           # 占位符
+    "your-",            # 占位符提示
+    "example",          # 示例值
+]
+
+# 各类密钥的建议最小长度（字节）
+MIN_KEY_LENGTHS: Dict[str, int] = {
+    "jwt_secret": 32,
+    "encryption_key": 32,
+    "admin_token": 16,
+    "api_key": 16,
+    "password": 8,
+    "master_key": 32,
+    "internal_secret": 32,
+}
+
+
+def generate_secure_key(length: int = 32, url_safe: bool = False) -> str:
+    """
+    生成安全的随机密钥。
+
+    使用 secrets 模块生成加密安全的随机字符串。
+
+    Args:
+        length: 密钥长度（字节数），默认 32 字节
+        url_safe: 是否使用 URL 安全字符集（base64url 编码）
+
+    Returns:
+        随机密钥字符串（hex 编码或 urlsafe base64）
+    """
+    if url_safe:
+        return secrets.token_urlsafe(length)
+    return secrets.token_hex(length)
+
+
+def _get_min_key_length(field_name: str) -> int:
+    """根据字段名推断最小密钥长度"""
+    name_lower = field_name.lower()
+    for key_pattern, min_len in MIN_KEY_LENGTHS.items():
+        if key_pattern in name_lower:
+            return min_len
+    # 默认敏感字段最小长度 8
+    return 8
+
+
+def validate_secret_key(
+    key: str,
+    name: str = "secret",
+    min_length: int | None = None,
+    check_weak: bool = True,
+) -> tuple[bool, str]:
+    """
+    校验密钥强度。
+
+    检查项：
+    1. 密钥不能为空
+    2. 密钥长度足够（根据字段类型自动判断或手动指定）
+    3. 不是已知的弱密钥/默认密钥
+
+    Args:
+        key: 待校验的密钥值
+        name: 密钥名称（用于错误信息）
+        min_length: 最小长度，None 时自动推断
+        check_weak: 是否检查弱密钥模式
+
+    Returns:
+        (is_valid, message): 校验是否通过 + 详细信息
+    """
+    if not key or not isinstance(key, str):
+        return False, f"{name} 不能为空"
+
+    key_stripped = key.strip()
+    if not key_stripped:
+        return False, f"{name} 不能为空白字符串"
+
+    # 长度检查
+    actual_min = min_length if min_length is not None else _get_min_key_length(name)
+    if len(key_stripped) < actual_min:
+        return False, (
+            f"{name} 长度不足：当前 {len(key_stripped)} 字符，"
+            f"最少需要 {actual_min} 字符"
+        )
+
+    # 弱密钥检查
+    if check_weak:
+        key_lower = key_stripped.lower()
+        for pattern in WEAK_KEY_PATTERNS:
+            if key_lower.startswith(pattern) or key_lower == pattern:
+                return False, (
+                    f"{name} 使用了默认/弱密钥值（'{pattern}'），"
+                    f"生产环境必须替换为强随机密钥"
+                )
+
+    # 常见弱密码额外检查（纯数字、连续字符等）
+    if "password" in name.lower():
+        # 纯数字
+        if key_stripped.isdigit():
+            return False, f"{name} 不能为纯数字，强度不足"
+        # 全相同字符
+        if len(set(key_stripped)) == 1:
+            return False, f"{name} 字符过于简单，强度不足"
+
+    return True, f"{name} 密钥强度合格（{len(key_stripped)} 字符）"
+
+
+def is_default_or_weak_key(key: str) -> bool:
+    """
+    快速判断密钥是否为默认值或弱密钥。
+
+    用于生产环境快速校验，比 validate_secret_key 更轻量。
+
+    Args:
+        key: 待检查的密钥
+
+    Returns:
+        True 表示是弱/默认密钥，False 表示通过基本检查
+    """
+    if not key or not isinstance(key, str):
+        return True
+    key_lower = key.strip().lower()
+    if not key_lower:
+        return True
+    for pattern in WEAK_KEY_PATTERNS:
+        if key_lower.startswith(pattern) or key_lower == pattern:
+            return True
+    return False
+
+
+# ============================================================
 # 基础配置基类
 # ============================================================
 
@@ -242,40 +383,166 @@ class BaseConfig(BaseSettings):
         )
 
     # ============================================================
-    # 生产环境校验
+    # 生产环境校验 + 开发环境警告
     # ============================================================
 
     @model_validator(mode="after")
-    def _validate_production_sensitive(self) -> "BaseConfig":
+    def _validate_sensitive_keys(self) -> "BaseConfig":
         """
-        生产环境校验：敏感字段不得使用默认值或空值。
+        敏感字段密钥校验。
 
-        对于标记为 sensitive 的字段（或字段名包含敏感关键词），
-        在 production 环境下如果值为空或为默认值，则抛出 ValidationError。
+        - 生产环境：严格校验，弱密钥/默认值直接抛出错误
+        - 开发/测试环境：输出警告日志，但不阻止启动
+        - 校验内容：空值、弱密钥模式、密钥长度
+
+        对于标记为敏感的字段（字段名包含敏感关键词），
+        使用 validate_secret_key 进行强度检查。
         """
-        if self.env != EnvType.PRODUCTION:
-            return self
+        import logging
+        logger = logging.getLogger(__name__)
 
-        errors = []
-        for field_name, field_info in self.model_fields.items():
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        for field_name in self.model_fields:
             # 跳过非敏感字段
             if not is_sensitive_field(field_name):
                 continue
 
             value = getattr(self, field_name, None)
-            # 空值或默认占位值不允许在生产环境使用
-            if not value:
-                errors.append(
-                    f"生产环境必须配置 '{field_name}'，禁止使用空默认值。"
-                    f"请通过环境变量或配置文件设置。"
+
+            # 跳过非字符串值和空值（空值在 require_production_secret 中处理）
+            if not isinstance(value, str) or not value:
+                if self.env == EnvType.PRODUCTION:
+                    errors.append(
+                        f"生产环境必须配置 '{field_name}'，禁止使用空值。"
+                        f"请通过环境变量或配置文件设置。"
+                    )
+                continue
+
+            # 使用统一的密钥校验函数
+            is_valid, message = validate_secret_key(value, field_name)
+
+            if not is_valid:
+                if self.env == EnvType.PRODUCTION:
+                    errors.append(
+                        f"[生产环境校验失败] {message}。"
+                        f"请使用 generate_secure_key() 或 openssl rand -hex 32 生成强密钥。"
+                    )
+                else:
+                    warnings.append(message)
+
+        # 开发环境输出警告（不阻止启动）
+        if warnings and self.env != EnvType.PRODUCTION:
+            logger.warning(
+                "检测到 %d 个敏感字段使用了默认/弱密钥（开发环境允许，生产环境禁止）：\n  - %s",
+                len(warnings),
+                "\n  - ".join(warnings),
+            )
+            # 同时在 __post_init__ 风格的输出中提示
+            self._weak_key_warnings = warnings  #  type: ignore[attr-defined]
+        else:
+            self._weak_key_warnings = []  #  type: ignore[attr-defined]
+
+        # 生产环境严格校验失败则抛出错误
+        if errors:
+            raise ValueError(
+                "生产环境密钥安全校验失败（共 "
+                f"{len(errors)} 项）：\n  - "
+                + "\n  - ".join(errors)
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def _validate_cors_security(self) -> "BaseConfig":
+        """
+        CORS 安全校验（SC-002 P0级）。
+
+        生产环境规则：
+        - cors_origins 不能包含 "*"
+        - 如果有 allow_credentials 相关字段且为 True，origins 绝对不能为 "*"
+
+        开发环境规则：
+        - 如果 cors_origins 为 "*"，输出警告
+        """
+        # 检查是否有 cors_origins 字段
+        if "cors_origins" not in self.model_fields:
+            return self
+
+        cors_val = getattr(self, "cors_origins", "")
+        if not isinstance(cors_val, str):
+            return self
+
+        origins = [o.strip() for o in cors_val.split(",") if o.strip()]
+        has_wildcard = "*" in origins
+
+        # 检查是否有 allow_credentials 字段
+        allow_creds = getattr(self, "cors_allow_credentials", None)
+        if allow_creds is None:
+            # 默认假设为 True（FastAPI 常见配置）
+            allow_creds = True
+
+        if self.env == EnvType.PRODUCTION:
+            # 生产环境：绝对不允许 "*"
+            if has_wildcard:
+                raise ValueError(
+                    "[SC-002 P0] 生产环境 CORS 安全校验失败：cors_origins 包含通配符 '*'。\n"
+                    "生产环境必须显式配置具体的允许来源域名，禁止使用 '*'。\n"
+                    "请修改 CORS_ORIGINS 配置为具体域名列表（逗号分隔）。"
                 )
-            elif isinstance(value, str) and value.startswith("yunxi-") and "default" in value.lower():
-                errors.append(
-                    f"生产环境 '{field_name}' 不能使用默认占位值，请修改为真实密钥。"
+            # allow_credentials + "*" 组合是绝对禁止的
+            if allow_creds and has_wildcard:
+                raise ValueError(
+                    "[SC-002 P0] 生产环境 CORS 严重安全风险：allow_credentials=True "
+                    "与 origins=['*'] 同时存在。\n"
+                    "这会导致 CSRF 漏洞，且浏览器规范不允许这种组合。\n"
+                    "请将 origins 配置为具体的域名列表。"
+                )
+            if not origins:
+                raise ValueError(
+                    "[SC-002 P0] 生产环境 CORS 安全校验失败：cors_origins 为空。\n"
+                    "生产环境必须显式配置具体的允许来源域名。"
                 )
 
-        if errors:
-            raise ValueError(";\n".join(errors))
+        return self
+
+    @model_validator(mode="after")
+    def _validate_waf_security(self) -> "BaseConfig":
+        """
+        WAF 安全校验（SC-003 P1级）。
+
+        生产环境规则：
+        - WAF 必须启用（waf_enabled=True）
+        - WAF 模式必须为 block（waf_mode="block"）
+        - 如果为 monitor 模式，输出严重警告
+
+        开发环境规则：
+        - 允许 monitor 模式，但输出提示
+        """
+        # 检查是否有 waf 相关字段
+        has_waf_enabled = "waf_enabled" in self.model_fields
+        has_waf_mode = "waf_mode" in self.model_fields
+
+        if not has_waf_enabled and not has_waf_mode:
+            return self
+
+        waf_enabled = getattr(self, "waf_enabled", True) if has_waf_enabled else True
+        waf_mode = getattr(self, "waf_mode", "monitor") if has_waf_mode else "monitor"
+
+        if self.env == EnvType.PRODUCTION:
+            if not waf_enabled:
+                raise ValueError(
+                    "[SC-003 P1] 生产环境安全校验失败：WAF 未启用（waf_enabled=False）。\n"
+                    "生产环境必须启用 WAF 以提供 Web 应用防火墙防护。\n"
+                    "请设置 WAF_ENABLED=true。"
+                )
+            if waf_mode and waf_mode.lower() != "block":
+                raise ValueError(
+                    f"[SC-003 P1] 生产环境安全校验失败：WAF 模式为 '{waf_mode}'。\n"
+                    "生产环境 WAF 必须设为 block 模式才能真正拦截攻击。\n"
+                    "请设置 WAF_MODE=block。"
+                )
 
         return self
 
@@ -641,6 +908,9 @@ class GlobalSecurityConfig(BaseModel):
     jwt_algorithm: str = Field(default="HS256", description="JWT 签名算法")
     access_token_expire_minutes: int = Field(default=1440, description="访问令牌有效期（分钟）")
     cors_origins: str = Field(default="*", description="全局 CORS 来源")
+    # WAF 配置（全局默认值，各模块可覆盖）
+    waf_enabled: bool = Field(default=True, description="是否启用 WAF")
+    waf_mode: str = Field(default="block", description="WAF 工作模式：monitor/block")
 
 
 class YunxiGlobalConfig(BaseConfig):
@@ -877,4 +1147,10 @@ __all__ = [
     # 工具函数
     "is_sensitive_field",
     "DEFAULT_SENSITIVE_KEYS",
+    # 密钥安全工具（SC-001 安全加固）
+    "generate_secure_key",
+    "validate_secret_key",
+    "is_default_or_weak_key",
+    "WEAK_KEY_PATTERNS",
+    "MIN_KEY_LENGTHS",
 ]

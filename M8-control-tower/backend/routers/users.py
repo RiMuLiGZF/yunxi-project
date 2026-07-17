@@ -1,5 +1,5 @@
 """
-用户管理路由
+用户管理路由（SC-004 P1级安全加固）
 """
 
 import sys
@@ -13,6 +13,12 @@ from typing import List, Optional
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from ..config import (
+    settings,
+    validate_password_strength,
+    is_weak_default_password,
+    generate_strong_password,
+)
 from ..schemas import ApiResponse
 from ..auth import get_current_user, get_password_hash, verify_password
 
@@ -35,7 +41,7 @@ _users_cache: Optional[List[dict]] = None
 
 
 def _load_users() -> List[dict]:
-    """从文件加载用户列表"""
+    """从文件加载用户列表（SC-004 P1级安全加固：默认用户使用配置密码）"""
     global _users_cache
     if USERS_FILE.exists():
         try:
@@ -45,12 +51,34 @@ def _load_users() -> List[dict]:
         except Exception:
             pass
 
-    # 首次运行：初始化 admin 用户
+    # 首次运行：初始化 admin 用户（使用配置的密码，而非硬编码弱密码）
+    admin_pwd = settings.admin_password
+    if not admin_pwd or is_weak_default_password(admin_pwd):
+        # 开发环境：如果未配置或配置了弱密码，生成临时强密码
+        if not settings.is_production:
+            admin_pwd = generate_strong_password(16)
+            import logging
+            logger = logging.getLogger("m8.users")
+            logger.warning(
+                "[SC-004 P1] 开发环境：M8_ADMIN_PASSWORD 未配置或为弱密码，已生成临时强密码\n"
+                f"       用户名: {settings.admin_username}\n"
+                "       生产环境请务必配置强密码"
+            )
+        else:
+            # 生产环境：使用强随机密码（应在启动前配置好）
+            admin_pwd = generate_strong_password(20)
+            import logging
+            logger = logging.getLogger("m8.users")
+            logger.critical(
+                "[SC-004 P1] 生产环境：M8_ADMIN_PASSWORD 未配置或为弱密码，已自动生成随机密码！\n"
+                "       请立即修改配置并重启服务！"
+            )
+
     default_users = [
         {
             "id": 1,
-            "username": "admin",
-            "password_hash": get_password_hash("admin123456"),
+            "username": settings.admin_username,
+            "password_hash": get_password_hash(admin_pwd),
             "role": "admin",
             "nickname": "超级管理员",
             "email": "admin@yunxi.local",
@@ -134,7 +162,7 @@ async def create_user(
     req: UserCreate,
     current_user: dict = Depends(get_current_user),
 ):
-    """新增用户"""
+    """新增用户（SC-004 P1级：强制密码强度校验）"""
     # 仅管理员可创建用户
     if current_user.get("role") != "admin":
         return ApiResponse.error(code=403, message="无权限创建用户")
@@ -148,6 +176,14 @@ async def create_user(
     # 校验角色
     if req.role not in ("admin", "operator", "viewer"):
         return ApiResponse.error(code=400, message="角色值无效，仅支持 admin/operator/viewer")
+
+    # 校验密码强度（SC-004）
+    strong, msg = validate_password_strength(req.password)
+    if not strong:
+        return ApiResponse.error(
+            code=400,
+            message=f"密码强度不足：{msg}"
+        )
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     new_user = {
@@ -195,8 +231,13 @@ async def update_user(
                     return ApiResponse.error(code=400, message="状态值无效")
                 user["status"] = req.status
             if req.password is not None:
-                if len(req.password) < 6:
-                    return ApiResponse.error(code=400, message="密码长度不能少于6位")
+                # 校验密码强度（SC-004）
+                strong, msg = validate_password_strength(req.password)
+                if not strong:
+                    return ApiResponse.error(
+                        code=400,
+                        message=f"密码强度不足：{msg}"
+                    )
                 user["password_hash"] = get_password_hash(req.password)
 
             _save_users(users)

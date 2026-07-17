@@ -364,12 +364,32 @@ def _get_env_list(name: str, default: Optional[List[str]] = None) -> List[str]:
 # ===========================================================================
 
 WAF_ENABLED = _get_env_bool("WAF_ENABLED", True)
-WAF_MODE = os.environ.get("WAF_MODE", "monitor").lower()
+WAF_MODE = os.environ.get("WAF_MODE", "block").lower()
 
 # 验证模式
 if WAF_MODE not in ("monitor", "block"):
-    logger.warning("Invalid WAF_MODE: %s, using default 'monitor'", WAF_MODE)
-    WAF_MODE = "monitor"
+    logger.warning("Invalid WAF_MODE: %s, using default 'block'", WAF_MODE)
+    WAF_MODE = "block"
+
+# 运行环境
+_WAF_ENV = os.environ.get("YUNXI_ENV", os.environ.get("ENV", "development")).lower()
+_WAF_IS_PRODUCTION = _WAF_ENV in ("production", "prod", "release")
+
+# 生产环境 WAF 安全校验（SC-003 P1级）
+if _WAF_IS_PRODUCTION:
+    if not WAF_ENABLED:
+        logger.critical(
+            "[SC-003 P1] 生产环境安全告警：WAF 未启用（WAF_ENABLED=false）！\n"
+            "生产环境必须启用 WAF 以提供 Web 应用防火墙防护。\n"
+            "请设置 WAF_ENABLED=true。"
+        )
+    if WAF_MODE != "block":
+        logger.critical(
+            "[SC-003 P1] 生产环境安全告警：WAF 模式为 '%s'，攻击不会被拦截！\n"
+            "生产环境 WAF 必须设为 block 模式才能真正拦截攻击。\n"
+            "请设置 WAF_MODE=block。",
+            WAF_MODE,
+        )
 
 # 启用的规则类型
 WAF_RULE_TYPES = set(_get_env_list("WAF_RULE_TYPES")) or ALL_RULE_TYPES
