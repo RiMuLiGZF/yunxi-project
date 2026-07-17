@@ -1070,6 +1070,168 @@ Get-Process | Where-Object { $_.ProcessName -like "*python*" } | Format-Table Id
 Stop-Process -Id <pid>
 ```
 
+### 9.6 模块注册表管理（CQ-001）
+
+云汐系统 v1.0 引入了**模块注册表**机制，所有模块的启动配置（端口、目录、命令、优先级等）统一从 `config/modules.yaml` 配置文件加载，不再硬编码在代码中。
+
+#### 9.6.1 配置文件结构
+
+配置文件位于 `config/modules.yaml`，包含 `modules` 和 `global` 两个顶级节点：
+
+```yaml
+modules:
+  m8-control-tower:
+    id: m8
+    name: 控制塔
+    port: 8008
+    directory: M8-control-tower
+    start_command: "python server.py"
+    enabled: true
+    priority: 1          # 启动优先级，数字越小越先启动
+    category: management  # management / core / tool / infra
+    health_check_path: /health
+    # ... 更多字段
+
+global:
+  health_timeout: 5
+  startup_timeout: 30
+  heartbeat_interval: 0     # 0 表示不启用心跳检测
+  heartbeat_timeout: 30
+  python_executable: "python"
+```
+
+**模块字段说明**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | string | 是 | 模块唯一标识（如 m0, m1, gateway） |
+| name | string | 是 | 模块显示名称 |
+| port | int | 是 | 服务监听端口 |
+| directory | string | 是 | 模块工作目录（相对于项目根） |
+| start_command | string | 是 | 启动命令 |
+| entrypoint | string | 否 | 入口文件，默认 server.py |
+| enabled | bool | 否 | 是否启用，默认 true |
+| priority | int | 否 | 启动优先级，默认 100，数字越小越先启动 |
+| category | string | 否 | 分类：management / core / tool / infra |
+| health_check_path | string | 否 | 健康检查路径，默认 /health |
+| description | string | 否 | 模块描述 |
+| version | string | 否 | 模块版本 |
+| host | string | 否 | 监听地址，默认 127.0.0.1 |
+| python_executable | string | 否 | Python 可执行文件路径 |
+
+**Tier 分级规则**（根据 priority 自动推断）：
+
+| priority 范围 | Tier | 说明 |
+|--------------|------|------|
+| 0 - 9 | Tier 0 | 管控基础设施 |
+| 10 - 19 | Tier 1 | 核心能力 |
+| 20 - 29 | Tier 2 | 按需能力 |
+| 30 - 99 | Tier 3 | 即用即启 |
+| 100+ | Tier 4 | 自定义 / 动态注册 |
+
+#### 9.6.2 新增模块
+
+添加新模块只需在 `config/modules.yaml` 中增加配置，无需修改代码：
+
+```yaml
+modules:
+  # ... 已有模块 ...
+
+  m13-new-module:
+    id: m13
+    name: 新模块
+    port: 8013
+    directory: M13-new-module
+    start_command: "python server.py"
+    enabled: true
+    priority: 50
+    category: core
+    health_check_path: /health
+```
+
+保存后重启启动编排器即可自动识别新模块。
+
+#### 9.6.3 启用/禁用模块
+
+修改配置文件中的 `enabled` 字段：
+
+```yaml
+m6-hardware-peripheral:
+  enabled: false  # 禁用硬件外设模块
+```
+
+也可以通过 M8 控制塔的 API 动态启用/禁用（不持久化，需调用 save 保存）。
+
+#### 9.6.4 调整启动顺序
+
+修改 `priority` 字段值即可调整启动顺序，数字越小越先启动：
+
+```yaml
+m1-agent-hub:
+  priority: 5   # 提前到 Tier 0 启动
+```
+
+#### 9.6.5 M8 控制塔模块管理 API
+
+M8 控制塔提供了完整的模块注册表管理 API（需管理员权限）：
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/modules/registry/list` | GET | 获取所有模块列表（含配置） |
+| `/modules/registry/{id}` | GET | 获取指定模块详情 |
+| `/modules/registry/register` | POST | 动态注册新模块 |
+| `/modules/registry/{id}` | PUT | 更新模块配置 |
+| `/modules/registry/{id}` | DELETE | 注销模块 |
+| `/modules/registry/{id}/enable` | POST | 启用模块 |
+| `/modules/registry/{id}/disable` | POST | 禁用模块 |
+| `/modules/registry/save` | POST | 保存配置到文件 |
+| `/modules/registry/reload` | POST | 重新从文件加载配置 |
+| `/modules/registry/status/summary` | GET | 状态汇总统计 |
+| `/modules/registry/startup/order` | GET | 获取启动顺序 |
+| `/modules/registry/heartbeat` | POST | 模块心跳上报（公开） |
+| `/modules/registry/self-register` | POST | 模块自注册（公开） |
+
+#### 9.6.6 模块自注册与心跳
+
+各模块启动时可以调用自注册 API 向注册中心注册自己：
+
+```python
+from shared.business.module_self_register import auto_register
+
+# 一键注册并启动心跳
+register = auto_register(
+    module_id="m8",
+    module_name="控制塔",
+    port=8008,
+)
+
+# 退出时注销
+register.unregister()
+```
+
+也可以通过 HTTP API 自注册：
+
+```bash
+curl -X POST http://localhost:8008/api/modules/registry/self-register \
+  -H "Content-Type: application/json" \
+  -d '{"id":"m13","name":"新模块","port":8013,"category":"core"}'
+```
+
+心跳上报：
+
+```bash
+curl -X POST http://localhost:8008/api/modules/registry/heartbeat \
+  -H "Content-Type: application/json" \
+  -d '{"module_id":"m13","status":"running"}'
+```
+
+#### 9.6.7 向后兼容
+
+- 如果 `config/modules.yaml` 不存在，系统会自动使用内置的默认配置（与原硬编码一致）
+- `MODULE_CONFIGS` 变量仍然可用，内部从注册表动态生成
+- `ProcessManager` 和 `StartupOrchestrator` 的旧接口完全兼容
+- 环境变量 `YUNXI_MODULES_CONFIG` 可指定配置文件路径
+
 ---
 
 ## 10. 安全运维

@@ -182,6 +182,9 @@ __all__ = [
     "__version__",
     # Config
     "YunxiConfig", "get_config",
+    # Module Registry (CQ-001)
+    "ModuleRegistry", "ModuleInfo", "ModuleCategory", "ModuleStatus",
+    "HealthStatus", "get_module_registry",
     # Logger
     "get_logger",
     # Errors - 枚举

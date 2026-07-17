@@ -6,6 +6,10 @@
 再启动下一个模块。提供启动进度查询、状态回调、Tier 等待等能力，
 支持前端轮询展示启动状态。
 
+CQ-001 改造：模块配置从 ModuleRegistry 读取，Tier 分级也从注册表的
+priority 字段推断（priority < 10 = Tier 0, < 20 = Tier 1, 等）。
+同时保留旧的 TIER_MODULES 配置作为向后兼容的 fallback。
+
 Tier 分级说明：
   - Tier 0（管控基础设施）：m8（控制塔）、m10（系统卫士）、m12（安全盾）
   - Tier 1（核心能力，优先启动）：m1（代理集群）、m5（潮汐记忆）、m2（技能集群）
@@ -28,12 +32,26 @@ import threading
 from typing import Callable, Dict, List, Optional
 from pathlib import Path
 
+# 确保可以导入 shared 包
+_shared_parent = Path(__file__).resolve().parent.parent.parent
+if str(_shared_parent) not in sys.path:
+    sys.path.insert(0, str(_shared_parent))
+
+from shared.core.module_registry import (
+    ModuleRegistry,
+    ModuleInfo,
+    ModuleStatus,
+    get_module_registry,
+)
+
 
 # =============================================================================
-#  模块 Tier 分级配置
+#  模块 Tier 分级配置（向后兼容 fallback）
 # =============================================================================
 
 # 每个 Tier 内的模块按数组顺序启动
+# CQ-001: 优先从 ModuleRegistry 的 priority 字段推断 Tier，
+#         本配置仅在注册表不可用时作为 fallback
 TIER_MODULES: Dict[int, List[str]] = {
     0: ["m8", "m10", "m12"],
     1: ["m1", "m5", "m2"],
@@ -41,7 +59,8 @@ TIER_MODULES: Dict[int, List[str]] = {
     3: ["m6", "m0", "m11"],
 }
 
-# 模块元信息（名称 + 端口），与 process_manager.MODULE_CONFIGS 保持一致
+# 模块元信息（名称 + 端口），向后兼容
+# CQ-001: 优先从 ModuleRegistry 读取，本配置作为 fallback
 MODULE_META: Dict[str, dict] = {
     "m0":  {"name": "主理人管控台", "port": 8000},
     "m1":  {"name": "代理集群",     "port": 8001},
@@ -55,6 +74,7 @@ MODULE_META: Dict[str, dict] = {
     "m10": {"name": "系统卫士",     "port": 8010},
     "m11": {"name": "MCP总线",      "port": 8011},
     "m12": {"name": "安全盾",       "port": 8012},
+    "gateway": {"name": "API网关",  "port": 8080},
 }
 
 # 模块状态常量
@@ -206,6 +226,7 @@ class StartupOrchestrator:
         self,
         module_timeout: int = DEFAULT_MODULE_TIMEOUT,
         project_root: Optional[Path] = None,
+        registry: Optional[ModuleRegistry] = None,
     ):
         """
         初始化启动编排器。
@@ -213,13 +234,20 @@ class StartupOrchestrator:
         Args:
             module_timeout: 单个模块的启动超时时间（秒）
             project_root: 项目根目录，用于定位模块工作目录
+            registry: 模块注册表实例，None 时使用全局注册表
         """
         if self._initialized:
             return
         self._initialized = True
 
         self._module_timeout = module_timeout
-        self._project_root = project_root or Path(__file__).resolve().parent.parent
+        self._project_root = project_root or Path(__file__).resolve().parent.parent.parent
+
+        # 模块注册表（CQ-001）
+        self._registry = registry or get_module_registry()
+
+        # 从注册表计算 Tier 分级（基于 priority 字段）
+        self._tier_modules = self._compute_tier_modules()
 
         # 进程管理器（延迟导入，避免循环依赖）
         self._process_manager = None
@@ -241,7 +269,7 @@ class StartupOrchestrator:
 
         # 各 Tier 完成事件（用于 wait_for_tier）
         self._tier_events: Dict[int, threading.Event] = {
-            tier: threading.Event() for tier in TIER_MODULES.keys()
+            tier: threading.Event() for tier in self._tier_modules.keys()
         }
 
         # 状态回调列表（每次状态变化时调用）
@@ -251,16 +279,72 @@ class StartupOrchestrator:
     #  初始化
     # ------------------------------------------------------------------
 
+    def _compute_tier_modules(self) -> Dict[int, List[str]]:
+        """
+        从模块注册表的 priority 字段计算 Tier 分级。
+
+        规则：
+          - priority < 10: Tier 0（管控基础设施）
+          - priority < 20: Tier 1（核心能力）
+          - priority < 30: Tier 2（按需能力）
+          - priority < 100: Tier 3（即用即启）
+          - priority >= 100: Tier 4（其他/自定义）
+
+        每个 Tier 内按 priority 升序排列。
+        """
+        tiers: Dict[int, List[str]] = {}
+        enabled_modules = self._registry.list_modules(enabled_only=True)
+
+        for module in enabled_modules:
+            # 根据 priority 计算 Tier
+            if module.priority < 10:
+                tier = 0
+            elif module.priority < 20:
+                tier = 1
+            elif module.priority < 30:
+                tier = 2
+            elif module.priority < 100:
+                tier = 3
+            else:
+                tier = 4
+
+            if tier not in tiers:
+                tiers[tier] = []
+            tiers[tier].append(module.id)
+
+        # 每个 Tier 内按 priority 排序
+        for tier in tiers:
+            tiers[tier].sort(
+                key=lambda mid: self._registry.get_module(mid).priority
+                if self._registry.get_module(mid) else 999
+            )
+
+        # 如果注册表为空，使用 fallback 配置
+        if not tiers:
+            return TIER_MODULES.copy()
+
+        return dict(sorted(tiers.items()))
+
     def _init_modules(self):
         """按 Tier 顺序初始化所有模块的状态信息"""
-        for tier in sorted(TIER_MODULES.keys()):
-            for key in TIER_MODULES[tier]:
-                meta = MODULE_META.get(key, {"name": key, "port": 0})
+        for tier in sorted(self._tier_modules.keys()):
+            for key in self._tier_modules[tier]:
+                # 优先从注册表获取模块信息
+                reg_module = self._registry.get_module(key)
+                if reg_module:
+                    name = reg_module.name
+                    port = reg_module.port
+                else:
+                    # fallback 到 MODULE_META
+                    meta = MODULE_META.get(key, {"name": key, "port": 0})
+                    name = meta["name"]
+                    port = meta["port"]
+
                 info = ModuleStartupInfo(
                     key=key,
-                    name=meta["name"],
+                    name=name,
                     tier=tier,
-                    port=meta["port"],
+                    port=port,
                 )
                 self._modules.append(info)
                 self._module_map[key] = info
@@ -347,11 +431,11 @@ class StartupOrchestrator:
     def _run_startup(self):
         """启动流程主逻辑（在后台线程中执行）"""
         try:
-            for tier in sorted(TIER_MODULES.keys()):
+            for tier in sorted(self._tier_modules.keys()):
                 if self._stop_event.is_set():
                     break
 
-                tier_modules = TIER_MODULES[tier]
+                tier_modules = self._tier_modules[tier]
 
                 for module_key in tier_modules:
                     if self._stop_event.is_set():
@@ -516,8 +600,8 @@ class StartupOrchestrator:
 
         # 各 Tier 状态
         phases = {}
-        for tier in sorted(TIER_MODULES.keys()):
-            tier_keys = TIER_MODULES[tier]
+        for tier in sorted(self._tier_modules.keys()):
+            tier_keys = self._tier_modules[tier]
             tier_done = all(
                 self._module_map[k].status
                 in (STATUS_RUNNING, STATUS_SKIPPED, STATUS_ERROR)

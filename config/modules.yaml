@@ -1,0 +1,219 @@
+# ============================================================
+# 云汐系统模块注册表配置 (CQ-001)
+# ============================================================
+# 所有模块的启动配置、端口、目录等信息统一在此文件管理。
+# 修改此文件无需改动代码，系统启动时自动加载。
+#
+# 优先级：环境变量 > 此文件 > 代码内置默认值
+# ============================================================
+
+modules:
+  # ---- 管控基础设施 (Tier 0) ----
+
+  m8-control-tower:
+    id: m8
+    name: 控制塔
+    port: 8008
+    directory: M8-control-tower
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 1
+    category: management
+    health_check_path: /health
+    description: 算力调度、API网关、统一管控台
+    version: v1.0.0
+
+  m10-system-guard:
+    id: m10
+    name: 系统卫士
+    port: 8010
+    directory: M10-system-guard
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 2
+    category: management
+    health_check_path: /health
+    description: 系统资源监控、进程管理、阈值防护、审计日志
+    version: v1.0.0
+
+  m12-security-shield:
+    id: m12
+    name: 安全盾
+    port: 8012
+    directory: M12-security-shield
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 3
+    category: management
+    health_check_path: /health
+    description: 安全防护、攻击检测、漏洞扫描
+    version: v1.0.0
+
+  # ---- 核心能力 (Tier 1) ----
+
+  m1-agent-hub:
+    id: m1
+    name: 代理集群
+    port: 8001
+    directory: M1-agent-hub
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 10
+    category: core
+    health_check_path: /health
+    description: 多智能体协作、联邦调度、任务编排
+    version: v1.0.0
+
+  m5-tide-memory:
+    id: m5
+    name: 潮汐记忆
+    port: 8005
+    directory: M5-tide-memory
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 11
+    category: core
+    health_check_path: /health
+    description: 长期记忆、向量检索、知识图谱
+    version: v1.0.0
+
+  m2-skills-cluster:
+    id: m2
+    name: 技能集群
+    port: 8002
+    directory: M2-skills-cluster
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 12
+    category: core
+    health_check_path: /health
+    description: 技能库管理、技能发现、技能执行引擎
+    version: v1.0.0
+
+  # ---- 按需能力 (Tier 2) ----
+
+  m4-scene-engine:
+    id: m4
+    name: 场景引擎
+    port: 8004
+    directory: m4-scene-engine
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 20
+    category: core
+    health_check_path: /health
+    description: 场景模板、场景编排、交互引擎
+    version: v1.0.0
+
+  m7-workflow-builder:
+    id: m7
+    name: 工作流构建器
+    port: 8007
+    directory: M7-workflow-builder
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 21
+    category: tool
+    health_check_path: /health
+    description: 可视化流程编排、自动化任务、触发器
+    version: v1.0.0
+
+  m3-edge-cloud:
+    id: m3
+    name: 边缘云端
+    port: 8003
+    directory: M3-edge-cloud
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 22
+    category: infra
+    health_check_path: /health
+    description: 边缘计算、云边协同、混合算力调度
+    version: v1.0.0
+
+  # ---- 即用即启 (Tier 3) ----
+
+  m6-hardware-peripheral:
+    id: m6
+    name: 硬件外设
+    port: 8006
+    directory: M6-hardware-peripheral
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 30
+    category: infra
+    health_check_path: /health
+    description: 硬件驱动、外设管理、设备联动
+    version: v1.0.0
+
+  m0-principal-console:
+    id: m0
+    name: 主理人管控台
+    port: 8000
+    directory: M0-principal-console
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 31
+    category: management
+    health_check_path: /health
+    description: 云汐系统主理人专属管控平台，最高权限
+    version: v1.0.0
+
+  m11-mcp-bus:
+    id: m11
+    name: MCP总线
+    port: 8011
+    directory: M11-mcp-bus
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 32
+    category: infra
+    health_check_path: /health
+    description: MCP 服务总线、工具协议适配
+    version: v1.0.0
+
+  # ---- API Gateway (独立入口) ----
+
+  api-gateway:
+    id: gateway
+    name: API网关
+    port: 8080
+    directory: API-Gateway
+    start_command: "python server.py"
+    entrypoint: server.py
+    enabled: true
+    priority: 0
+    category: infra
+    health_check_path: /health
+    description: 统一接入层、路由转发、限流熔断
+    version: v1.0.0
+
+# ============================================================
+# 全局配置
+# ============================================================
+
+global:
+  # 默认健康检查超时（秒）
+  health_timeout: 5
+  # 默认启动超时（秒）
+  startup_timeout: 30
+  # 心跳检测间隔（秒），0 表示不启用
+  heartbeat_interval: 0
+  # 心跳超时阈值（秒）
+  heartbeat_timeout: 30
+  # 项目根目录（相对路径解析的基准）
+  project_root: "."
+  # 默认 Python 可执行文件
+  python_executable: "python"

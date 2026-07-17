@@ -1002,3 +1002,361 @@ async def m7_apply_template(
         return ApiResponse.success(data=result.get("data", result), message="模板应用成功")
     except Exception as exc:
         return _module_unavailable("m7", str(exc))
+
+
+# ═══════════════════════════════════════════════════════
+# 模块注册表管理 API (CQ-001, P1级)
+# ═══════════════════════════════════════════════════════
+#
+# 基于 ModuleRegistry 的模块管理接口，支持：
+# - 列出所有已注册模块（含配置信息）
+# - 获取模块详情
+# - 启用/禁用模块
+# - 动态注册/注销模块
+# - 修改模块配置
+# - 保存配置到文件
+# - 模块自注册（心跳上报）
+#
+# 注：这些接口操作的是内存中的注册表，
+#     调用 /save 才会持久化到 config/modules.yaml
+
+from shared.core.module_registry import (
+    ModuleRegistry,
+    ModuleInfo,
+    ModuleCategory,
+    ModuleStatus,
+    get_module_registry as get_core_module_registry,
+)
+
+_core_registry = get_core_module_registry()
+
+
+@router.get("/registry/list")
+async def registry_list_modules(
+    category: Optional[str] = Query(None, description="按分类筛选"),
+    enabled_only: bool = Query(False, description="是否只返回启用的模块"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    获取注册表中的所有模块列表（含完整配置信息）。
+
+    CQ-001: 基于 ModuleRegistry 的模块列表接口，
+    比 GET /modules 更详细，包含启动配置、优先级等。
+    """
+    try:
+        modules = _core_registry.list_modules(
+            category=category,
+            enabled_only=enabled_only,
+        )
+        data = [m.to_dict(include_runtime=True) for m in modules]
+        return ApiResponse.success(
+            data={
+                "items": data,
+                "total": len(data),
+                "summary": _core_registry.get_status_summary(),
+            },
+            message="获取模块列表成功",
+        )
+    except Exception as exc:
+        logger.error(f"获取注册表模块列表失败: {exc}")
+        return ApiResponse.error(code=500, message=f"获取模块列表失败: {exc}")
+
+
+@router.get("/registry/{module_id}")
+async def registry_get_module(
+    module_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取指定模块的详细配置信息"""
+    module = _core_registry.get_module(module_id)
+    if not module:
+        raise NotFoundError(
+            message=f"未找到模块: {module_id}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_id": module_id},
+        )
+
+    return ApiResponse.success(data=module.to_dict(include_runtime=True))
+
+
+@router.post("/registry/register")
+async def registry_register_module(
+    body: dict = Body(..., description="模块配置信息"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    动态注册新模块。
+
+    请求体示例：
+    {
+        "id": "m13",
+        "name": "新模块",
+        "port": 8013,
+        "directory": "M13-new-module",
+        "start_command": "python server.py",
+        "category": "core",
+        "priority": 50,
+        "enabled": true
+    }
+    """
+    try:
+        module_info = ModuleInfo(**body)
+        result = _core_registry.register_module(module_info)
+        logger.info(f"模块 {module_info.id} 已通过 API 注册")
+        return ApiResponse.success(
+            data=result.to_dict(),
+            message=f"模块 {module_info.id} 注册成功",
+        )
+    except Exception as exc:
+        logger.error(f"注册模块失败: {exc}")
+        return ApiResponse.error(code=400, message=f"注册模块失败: {exc}")
+
+
+@router.delete("/registry/{module_id}")
+async def registry_unregister_module(
+    module_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """注销模块（从注册表中移除）"""
+    if not _core_registry.has_module(module_id):
+        raise NotFoundError(
+            message=f"未找到模块: {module_id}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_id": module_id},
+        )
+
+    success = _core_registry.unregister_module(module_id)
+    if success:
+        logger.info(f"模块 {module_id} 已通过 API 注销")
+        return ApiResponse.success(message=f"模块 {module_id} 注销成功")
+    else:
+        return ApiResponse.error(code=500, message=f"模块 {module_id} 注销失败")
+
+
+@router.put("/registry/{module_id}")
+async def registry_update_module(
+    module_id: str,
+    body: dict = Body(..., description="要更新的模块配置字段"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    更新模块配置。
+
+    可更新字段：name, port, directory, start_command, priority,
+                enabled, category, health_check_path, description 等
+    """
+    if not _core_registry.has_module(module_id):
+        raise NotFoundError(
+            message=f"未找到模块: {module_id}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_id": module_id},
+        )
+
+    try:
+        # 不允许修改 id
+        body.pop("id", None)
+        result = _core_registry.update_module(module_id, **body)
+        if result:
+            return ApiResponse.success(
+                data=result.to_dict(),
+                message=f"模块 {module_id} 更新成功",
+            )
+        else:
+            return ApiResponse.error(code=500, message=f"模块 {module_id} 更新失败")
+    except Exception as exc:
+        logger.error(f"更新模块 {module_id} 失败: {exc}")
+        return ApiResponse.error(code=400, message=f"更新模块失败: {exc}")
+
+
+@router.post("/registry/{module_id}/enable")
+async def registry_enable_module(
+    module_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """启用模块"""
+    if not _core_registry.has_module(module_id):
+        raise NotFoundError(
+            message=f"未找到模块: {module_id}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_id": module_id},
+        )
+
+    _core_registry.enable_module(module_id)
+    return ApiResponse.success(message=f"模块 {module_id} 已启用")
+
+
+@router.post("/registry/{module_id}/disable")
+async def registry_disable_module(
+    module_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """禁用模块"""
+    if not _core_registry.has_module(module_id):
+        raise NotFoundError(
+            message=f"未找到模块: {module_id}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_id": module_id},
+        )
+
+    _core_registry.disable_module(module_id)
+    return ApiResponse.success(message=f"模块 {module_id} 已禁用")
+
+
+@router.post("/registry/save")
+async def registry_save_config(
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    保存当前注册表配置到 config/modules.yaml。
+
+    将内存中的配置持久化到配置文件，重启后仍然有效。
+    """
+    try:
+        success = _core_registry.save()
+        if success:
+            path = str(_core_registry.config_path) if _core_registry.config_path else "默认路径"
+            return ApiResponse.success(
+                data={"saved_to": path},
+                message="配置已保存",
+            )
+        else:
+            return ApiResponse.error(code=500, message="保存配置失败")
+    except Exception as exc:
+        logger.error(f"保存配置失败: {exc}")
+        return ApiResponse.error(code=500, message=f"保存配置失败: {exc}")
+
+
+@router.post("/registry/reload")
+async def registry_reload_config(
+    current_user: dict = Depends(get_current_user),
+):
+    """重新从配置文件加载模块配置"""
+    try:
+        count = _core_registry.reload()
+        return ApiResponse.success(
+            data={"module_count": count},
+            message=f"配置已重新加载，共 {count} 个模块",
+        )
+    except Exception as exc:
+        logger.error(f"重新加载配置失败: {exc}")
+        return ApiResponse.error(code=500, message=f"重新加载配置失败: {exc}")
+
+
+@router.get("/registry/status/summary")
+async def registry_status_summary(
+    current_user: dict = Depends(get_current_user),
+):
+    """获取模块状态汇总统计"""
+    summary = _core_registry.get_status_summary()
+    return ApiResponse.success(data=summary)
+
+
+@router.get("/registry/startup/order")
+async def registry_startup_order(
+    enabled_only: bool = Query(True, description="是否只包含启用的模块"),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取模块启动顺序（按优先级排序）"""
+    modules = _core_registry.get_startup_order(enabled_only=enabled_only)
+    data = [
+        {
+            "id": m.id,
+            "name": m.name,
+            "priority": m.priority,
+            "port": m.port,
+            "category": m.category.value,
+            "enabled": m.enabled,
+        }
+        for m in modules
+    ]
+    return ApiResponse.success(
+        data={"items": data, "total": len(data)},
+        message="获取启动顺序成功",
+    )
+
+
+# ---- 模块自注册 / 心跳接口（公开，供模块调用） ----
+
+@router.post("/registry/heartbeat")
+async def registry_module_heartbeat(
+    body: dict = Body(..., description="心跳数据"),
+):
+    """
+    模块心跳上报接口（模块自注册用）。
+
+    各模块启动后定期调用此接口上报心跳，
+    注册中心据此跟踪模块健康状态。
+
+    请求体：
+    {
+        "module_id": "m8",
+        "status": "running",   // 可选
+        "metrics": {...}       // 可选，附加指标
+    }
+    """
+    module_id = body.get("module_id", "")
+    if not module_id:
+        return ApiResponse.error(code=400, message="缺少 module_id 参数")
+
+    status = body.get("status", None)
+    success = _core_registry.heartbeat(module_id, status=status)
+
+    if success:
+        return ApiResponse.success(
+            data={"module_id": module_id, "received": True},
+            message="心跳已接收",
+        )
+    else:
+        # 模块未注册，返回提示
+        return ApiResponse(
+            code=0,
+            message="模块未注册，请先调用 /register 接口",
+            data={"module_id": module_id, "registered": False},
+        )
+
+
+@router.post("/registry/self-register")
+async def registry_self_register(
+    body: dict = Body(..., description="模块自注册信息"),
+):
+    """
+    模块自注册接口（公开，供各模块启动时调用）。
+
+    请求体示例：
+    {
+        "id": "m13",
+        "name": "新模块",
+        "port": 8013,
+        "category": "core",
+        "version": "v1.0.0"
+    }
+    """
+    try:
+        # 自注册的模块默认优先级较高（动态发现）
+        if "priority" not in body:
+            body["priority"] = 50
+        if "enabled" not in body:
+            body["enabled"] = True
+
+        module_info = ModuleInfo(**body)
+
+        # 如果已存在，更新状态为 running
+        existing = _core_registry.get_module(module_info.id)
+        if existing:
+            existing.status = ModuleStatus.RUNNING
+            existing.last_heartbeat = __import__("time").time()
+            logger.info(f"模块 {module_info.id} 自注册（已存在，更新状态）")
+            return ApiResponse.success(
+                data=existing.to_dict(),
+                message=f"模块 {module_info.id} 已注册，状态已更新",
+            )
+
+        result = _core_registry.register_module(module_info)
+        logger.info(f"模块 {module_info.id} 自注册成功")
+        return ApiResponse.success(
+            data=result.to_dict(),
+            message=f"模块 {module_info.id} 自注册成功",
+        )
+    except Exception as exc:
+        logger.error(f"模块自注册失败: {exc}")
+        return ApiResponse.error(code=400, message=f"自注册失败: {exc}")
