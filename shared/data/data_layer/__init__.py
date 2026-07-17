@@ -23,6 +23,14 @@ from .module_backup_registry import (
     get_module_backup_summary,
 )
 from .migration import MigrationEngine, get_migration_engine
+from .migration_enhanced import (
+    EnhancedMigrationEngine,
+    TableIntegrityInfo,
+    MigrationIntegrityReport,
+    OperationalError,
+    MigrationValidationError,
+)
+from .postgres_adapter import PostgreSQLMigrationAdapter
 from .migration_tools import (
     # 数据类
     MigrationStats,
@@ -72,6 +80,12 @@ __all__ = [
     # 迁移引擎
     "MigrationEngine",
     "get_migration_engine",
+    "EnhancedMigrationEngine",
+    "TableIntegrityInfo",
+    "MigrationIntegrityReport",
+    "OperationalError",
+    "MigrationValidationError",
+    "PostgreSQLMigrationAdapter",
     # 迁移工具 - 数据类
     "MigrationStats",
     "TableMigrationStats",
