@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 # 确保可以导入 shared 包
-_shared_parent = Path(__file__).resolve().parent.parent
+_shared_parent = Path(__file__).resolve().parent.parent.parent
 if str(_shared_parent) not in sys.path:
     sys.path.insert(0, str(_shared_parent))
 

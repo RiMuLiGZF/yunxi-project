@@ -83,6 +83,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 安全头中间件（X-Content-Type-Options, X-Frame-Options, CSP, HSTS 等）
+try:
+    _project_root_sec = Path(__file__).resolve().parent.parent.parent
+    if str(_project_root_sec) not in sys.path:
+        sys.path.insert(0, str(_project_root_sec))
+    from shared.core.middleware.security_headers import SecurityHeadersMiddleware
+    _security_headers_available = True
+except ImportError:
+    _security_headers_available = False
+
+if _security_headers_available:
+    _sec_env = settings.env.lower()
+    _sec_is_prod = _sec_env in ("production", "prod", "release")
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        env="production" if _sec_is_prod else "development",
+    )
+    logger.info("安全响应头中间件已注册")
+
 # CORS 中间件（统一安全策略：生产环境禁用通配符，开发环境默认localhost）
 def _resolve_cors_origins() -> list:
     """解析 CORS 来源列表，应用统一安全策略"""

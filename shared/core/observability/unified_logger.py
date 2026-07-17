@@ -541,32 +541,61 @@ class UnifiedLogger:
 
     # ---- 日志方法 ----
 
-    def debug(self, msg: str, **kwargs):
+    def debug(self, msg: str, *args, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.DEBUG, msg, kwargs)
 
-    def info(self, msg: str, **kwargs):
+    def info(self, msg: str, *args, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.INFO, msg, kwargs)
 
-    def warning(self, msg: str, **kwargs):
+    def warning(self, msg: str, *args, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.WARNING, msg, kwargs)
 
-    def warn(self, msg: str, **kwargs):
-        self.warning(msg, **kwargs)
+    def warn(self, msg: str, *args, **kwargs):
+        self.warning(msg, *args, **kwargs)
 
-    def error(self, msg: str, exc_info=False, **kwargs):
+    def error(self, msg: str, *args, exc_info=False, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.ERROR, msg, kwargs, exc_info=exc_info)
 
-    def critical(self, msg: str, exc_info=False, **kwargs):
+    def critical(self, msg: str, *args, exc_info=False, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.CRITICAL, msg, kwargs, exc_info=exc_info)
 
-    def exception(self, msg: str, **kwargs):
+    def exception(self, msg: str, *args, **kwargs):
+        if args:
+            msg = msg % args
         self._log(logging.ERROR, msg, kwargs, exc_info=True)
+
+    # LogRecord 保留属性名，不能出现在 extra 中
+    _RESERVED_LOGRECORD_ATTRS = {
+        "name", "msg", "args", "levelname", "levelno", "pathname",
+        "filename", "module", "exc_info", "exc_text", "stack_info",
+        "lineno", "funcName", "created", "msecs", "relativeCreated",
+        "thread", "threadName", "process", "processName",
+        "message", "asctime", "taskName",
+    }
 
     def _log(self, level: int, msg: str, extra: Dict[str, Any], exc_info: bool = False):
         """统一日志记录方法"""
         # 对 extra 进行敏感字段脱敏
         if extra:
             extra = mask_sensitive_data(extra)
+            # 过滤/重命名与 LogRecord 保留属性冲突的键
+            cleaned_extra = {}
+            for k, v in extra.items():
+                if k in self._RESERVED_LOGRECORD_ATTRS:
+                    cleaned_extra[f"_{k}"] = v
+                else:
+                    cleaned_extra[k] = v
+            extra = cleaned_extra
         self._logger.log(level, msg, extra=extra, exc_info=exc_info)
 
     def set_level(self, level: str):

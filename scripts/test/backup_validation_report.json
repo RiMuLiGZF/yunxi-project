@@ -1,0 +1,232 @@
+{
+  "timestamp": "2026-07-17T16:00:56.045320",
+  "total_tests": 17,
+  "passed": 17,
+  "failed": 0,
+  "pass_rate": "100.0%",
+  "tests": [
+    {
+      "name": "全量备份 - test_m1",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.015,
+      "details": {
+        "backup_dir": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\backups\\module_backups\\test_m1\\test_m1_full_20260717_160046",
+        "size_bytes": 12288,
+        "compressed": true,
+        "checksum": "4f2148d592d0c55e..."
+      }
+    },
+    {
+      "name": "全量备份 - test_m2",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.011,
+      "details": {
+        "backup_dir": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\backups\\module_backups\\test_m2\\test_m2_full_20260717_160046",
+        "size_bytes": 12288,
+        "compressed": true,
+        "checksum": "484dc3e7e1a70d7d..."
+      }
+    },
+    {
+      "name": "全量备份 - test_m3",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.012,
+      "details": {
+        "backup_dir": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\backups\\module_backups\\test_m3\\test_m3_full_20260717_160046",
+        "size_bytes": 12288,
+        "compressed": true,
+        "checksum": "d9d511effb4f4e2f..."
+      }
+    },
+    {
+      "name": "增量备份",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.029,
+      "details": {
+        "changes": 30,
+        "changed_tables": 1,
+        "incremental_path": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\data\\incr_test\\incremental_backups\\incr_20260717_160046_test.db",
+        "base_size": 12288,
+        "incr_size": 12288
+      }
+    },
+    {
+      "name": "备份压缩 (gzip)",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.012,
+      "details": {
+        "original_size": 24576,
+        "compressed_size": 3642,
+        "compression_ratio": "85.2%",
+        "gz_files": 1
+      }
+    },
+    {
+      "name": "备份加密 (AES-256-GCM)",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.013,
+      "details": {
+        "enc_files": 1,
+        "encryption_algo": "AES-256-GCM",
+        "key_generated": true
+      }
+    },
+    {
+      "name": "备份校验和 (SHA-256)",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 0.01,
+      "details": {
+        "manifest_checksum": "b683ee867a8370f5...",
+        "manual_checksum": "6fbb442aa0a38441...",
+        "meta_checksum_match": true,
+        "meta_file_exists": true
+      }
+    },
+    {
+      "name": "备份列表查询",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 3.398,
+      "details": {
+        "backup_count": 3,
+        "sorted_by_time": true
+      }
+    },
+    {
+      "name": "备份清理策略",
+      "category": "backup",
+      "passed": true,
+      "error": "",
+      "duration": 5.702,
+      "details": {
+        "expected": 3,
+        "actual": 3,
+        "cleanup_strategy": "count"
+      }
+    },
+    {
+      "name": "全量恢复",
+      "category": "restore",
+      "passed": true,
+      "error": "",
+      "duration": 0.024,
+      "details": {
+        "restored_path": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\data\\restore_test\\original.db",
+        "tables_expected": 2,
+        "records_expected": 100,
+        "compressed_restore": true
+      }
+    },
+    {
+      "name": "恢复安全网机制",
+      "category": "restore",
+      "passed": true,
+      "error": "",
+      "duration": 0.035,
+      "details": {
+        "safety_net_created": true,
+        "safety_net_path": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\data\\safety_test\\.safety_net_20260717_160055.db",
+        "safety_net_data_correct": true
+      }
+    },
+    {
+      "name": "恢复失败自动回滚",
+      "category": "restore",
+      "passed": true,
+      "error": "",
+      "duration": 0.019,
+      "details": {
+        "restore_failed": true,
+        "rolled_back": true,
+        "data_intact_after_rollback": true
+      }
+    },
+    {
+      "name": "恢复后数据完整性校验",
+      "category": "restore",
+      "passed": true,
+      "error": "",
+      "duration": 0.027,
+      "details": {
+        "integrity_check": "ok",
+        "quick_check": "ok",
+        "table_count": 2,
+        "record_count_match": true,
+        "sha256_verification": "4863ab7ad2301866..."
+      }
+    },
+    {
+      "name": "场景1: 单模块数据库损坏恢复 (M9)",
+      "category": "drill",
+      "passed": true,
+      "error": "",
+      "duration": 0.032,
+      "details": {
+        "damage_verified": true,
+        "restore_success": true,
+        "safety_net_created": true,
+        "data_integrity": true,
+        "table_count": 2
+      }
+    },
+    {
+      "name": "场景2: 多模块同时故障恢复 (M5+M9)",
+      "category": "drill",
+      "passed": true,
+      "error": "",
+      "duration": 0.067,
+      "details": {
+        "modules_recovered": 2,
+        "priority_order": [
+          "m5",
+          "m9"
+        ],
+        "all_restored_successfully": true,
+        "data_integrity_verified": true
+      }
+    },
+    {
+      "name": "场景3: 配置文件丢失恢复",
+      "category": "drill",
+      "passed": true,
+      "error": "",
+      "duration": 0.011,
+      "details": {
+        "config_backup": true,
+        "config_restore": true,
+        "config_integrity": true,
+        "keys_preserved": 4,
+        "restored_path": "C:\\Users\\XiZho\\AppData\\Local\\Temp\\yunxi_backup_test_jcyg3pcc\\restored\\configs\\app_config.json"
+      }
+    },
+    {
+      "name": "备份监控告警机制",
+      "category": "monitor",
+      "passed": true,
+      "error": "",
+      "duration": 0.225,
+      "details": {
+        "monitor_initialized": true,
+        "check_executed": true,
+        "status_summary_available": true,
+        "active_alerts_available": true,
+        "alert_persistence": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,851 @@
+# ============================================================
+# 云汐系统 - Docker Compose 生产环境配置
+# 用法: docker compose -f docker-compose.prod.yml up -d
+# 说明:
+#   - 生产环境专用，包含资源限制、日志配置、安全设置
+#   - 使用 yunxi.env.prod 作为环境变量文件
+#   - 各服务均配置健康检查和自动重启
+#   - 推荐与 nginx 反向代理配合使用
+# ============================================================
+
+x-common-logging: &common-logging
+  driver: "json-file"
+  options:
+    max-size: "100m"
+    max-file: "5"
+
+x-common-restart: &common-restart
+  restart: unless-stopped
+
+x-common-healthcheck: &common-healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+services:
+  # ----------------------------------------------------------
+  # 基础设施服务 - Redis
+  # ----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: yunxi-redis
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅绑定本地，不对外暴露
+    volumes:
+      - redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --requirepass ${REDIS_PASSWORD:-yunxi-redis-pass}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-yunxi-redis-pass}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-yunxi-redis-pass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - yunxi-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # 基础设施服务 - ChromaDB 向量数据库
+  # ----------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: yunxi-chromadb
+    ports:
+      - "127.0.0.1:8100:8000"  # 仅绑定本地
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_AUTH_TOKEN:-yunxi-chroma-token}
+      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - yunxi-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # API Gateway - 统一接入层
+  # ----------------------------------------------------------
+  yunxi-gateway:
+    build:
+      context: .
+      dockerfile: API-Gateway/Dockerfile
+    container_name: yunxi-gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - GATEWAY_PORT=8080
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_ENABLE_DEV_KEY=false
+      - M1_BASE_URL=http://yunxi-m1:8001
+      - M2_BASE_URL=http://yunxi-m2:8002
+      - M3_BASE_URL=http://yunxi-m3:8003
+      - M4_BASE_URL=http://yunxi-m4:8004
+      - M5_BASE_URL=http://yunxi-m5:8005
+      - M6_BASE_URL=http://yunxi-m6:8006
+      - M7_BASE_URL=http://yunxi-m7:8007
+      - M8_BASE_URL=http://yunxi-m8:8008
+      - M9_BASE_URL=http://yunxi-m9:8009
+      - M10_BASE_URL=http://yunxi-m10:8010
+      - M11_BASE_URL=http://yunxi-m11:8011
+      - M12_BASE_URL=http://yunxi-m12:8012
+    depends_on:
+      redis:
+        condition: service_healthy
+      yunxi-m1:
+        condition: service_healthy
+      yunxi-m2:
+        condition: service_healthy
+      yunxi-m3:
+        condition: service_healthy
+      yunxi-m4:
+        condition: service_healthy
+      yunxi-m5:
+        condition: service_healthy
+      yunxi-m6:
+        condition: service_healthy
+      yunxi-m7:
+        condition: service_healthy
+      yunxi-m8:
+        condition: service_healthy
+      yunxi-m9:
+        condition: service_healthy
+      yunxi-m10:
+        condition: service_healthy
+      yunxi-m11:
+        condition: service_healthy
+      yunxi-m12:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M0 主理人管控台
+  # ----------------------------------------------------------
+  yunxi-m0:
+    build:
+      context: .
+      dockerfile: M0-principal-console/Dockerfile
+    container_name: yunxi-m0
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M0_PORT=8000
+      - M0_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m0:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M1 多Agent调度中心
+  # ----------------------------------------------------------
+  yunxi-m1:
+    build:
+      context: .
+      dockerfile: M1-agent-hub/Dockerfile
+    container_name: yunxi-m1
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M1_PORT=8001
+      - M1_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m1:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M2 技能集群
+  # ----------------------------------------------------------
+  yunxi-m2:
+    build:
+      context: .
+      dockerfile: M2-skills-cluster/Dockerfile
+    container_name: yunxi-m2
+    ports:
+      - "127.0.0.1:8002:8002"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M2_PORT=8002
+      - M2_HOST=0.0.0.0
+      - M2_ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m2:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M3 端云协同内核
+  # ----------------------------------------------------------
+  yunxi-m3:
+    build:
+      context: .
+      dockerfile: M3-edge-cloud/Dockerfile
+    container_name: yunxi-m3
+    ports:
+      - "127.0.0.1:8003:8003"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M3_PORT=8003
+      - M3_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m3:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M4 场景引擎
+  # ----------------------------------------------------------
+  yunxi-m4:
+    build:
+      context: .
+      dockerfile: M4-scene-engine/Dockerfile
+    container_name: yunxi-m4
+    ports:
+      - "127.0.0.1:8004:8004"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M4_PORT=8004
+      - M4_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m4:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M5 潮汐记忆系统
+  # ----------------------------------------------------------
+  yunxi-m5:
+    build:
+      context: .
+      dockerfile: M5-tide-memory/Dockerfile
+    container_name: yunxi-m5
+    ports:
+      - "127.0.0.1:8005:8005"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M5_PORT=8005
+      - M5_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m5:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M6 硬件外设模拟服务
+  # ----------------------------------------------------------
+  yunxi-m6:
+    build:
+      context: .
+      dockerfile: M6-hardware-peripheral/Dockerfile
+    container_name: yunxi-m6
+    ports:
+      - "127.0.0.1:8006:8006"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M6_PORT=8006
+      - M6_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m6:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M7 积木平台（可视化工作流构建）
+  # ----------------------------------------------------------
+  yunxi-m7:
+    build:
+      context: .
+      dockerfile: M7-workflow-builder/Dockerfile
+    container_name: yunxi-m7
+    ports:
+      - "127.0.0.1:8007:8007"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M7_PORT=8007
+      - M7_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m7:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M8 管理工作台
+  # ----------------------------------------------------------
+  yunxi-m8:
+    build:
+      context: .
+      dockerfile: M8-control-tower/Dockerfile
+    container_name: yunxi-m8
+    ports:
+      - "127.0.0.1:8008:8008"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M8_PORT=8008
+      - M8_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m8:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M9 编程开发模块
+  # ----------------------------------------------------------
+  yunxi-m9:
+    build:
+      context: .
+      dockerfile: M9-dev-workshop/Dockerfile
+    container_name: yunxi-m9
+    ports:
+      - "127.0.0.1:8009:8009"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M9_PORT=8009
+      - M9_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m9:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M10 系统卫士
+  # ----------------------------------------------------------
+  yunxi-m10:
+    build:
+      context: .
+      dockerfile: M10-system-guard/Dockerfile
+    container_name: yunxi-m10
+    ports:
+      - "127.0.0.1:8010:8010"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M10_PORT=8010
+      - M10_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m10:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M11 MCP 总线
+  # ----------------------------------------------------------
+  yunxi-m11:
+    build:
+      context: .
+      dockerfile: M11-mcp-bus/Dockerfile
+    container_name: yunxi-m11
+    ports:
+      - "127.0.0.1:8011:8011"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M11_PORT=8011
+      - M11_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m11:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # M12 安全盾
+  # ----------------------------------------------------------
+  yunxi-m12:
+    build:
+      context: .
+      dockerfile: M12-security-shield/Dockerfile
+    container_name: yunxi-m12
+    ports:
+      - "127.0.0.1:8012:8012"
+    env_file:
+      - ./config/yunxi.env.prod
+    environment:
+      - YUNXI_ENV=production
+      - M12_PORT=8012
+      - M12_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    volumes:
+      - ./data:/app/data
+      - ./logs/m12:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Ollama (可选 - 需要 GPU 的用户自行启用)
+  # ----------------------------------------------------------
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: yunxi-ollama
+  #   ports:
+  #     - "127.0.0.1:11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #       limits:
+  #         cpus: '8.0'
+  #         memory: 16G
+  #   networks:
+  #     - yunxi-net
+  #   logging: *common-logging
+  #   restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Nginx 反向代理（生产环境推荐）
+  # ----------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: yunxi-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./data/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      yunxi-gateway:
+        condition: service_healthy
+      yunxi-m0:
+        condition: service_healthy
+    networks:
+      - yunxi-net
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+    logging: *common-logging
+    restart: unless-stopped
+    profiles:
+      - nginx
+
+  # ----------------------------------------------------------
+  # Prometheus 监控
+  # ----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: yunxi-prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./tools/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - yunxi-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging: *common-logging
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # ----------------------------------------------------------
+  # Grafana 可视化
+  # ----------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: yunxi-grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./tools/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - yunxi-net
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging: *common-logging
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  redis_data:
+    driver: local
+  chroma_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  # ollama_data:
+  #   driver: local
+
+networks:
+  yunxi-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

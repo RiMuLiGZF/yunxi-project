@@ -8,6 +8,8 @@
 4. 渐进式封禁（多次超限后延长封禁时间）
 5. 用户级限速（登录用户按用户ID限速）
 6. 滑动窗口精确计数（可选，用于关键接口）
+7. 登录失败限流（账号+IP 组合锁定，防止暴力破解）
+8. API Key 级限速
 """
 import time
 import asyncio
@@ -69,6 +71,26 @@ class BanEntry:
     until: float  # 解封时间戳
     reason: str
     count: int = 1  # 累计超限次数
+
+
+@dataclass
+class LoginFailureEntry:
+    """登录失败记录"""
+    username: str
+    ip: str
+    failures: int = 0
+    last_failure_time: float = 0.0
+    locked_until: float = 0.0  # 锁定到期时间戳
+    lock_count: int = 0  # 累计锁定次数
+
+
+@dataclass
+class APIKeyRateLimit:
+    """API Key 限速配置"""
+    api_key: str
+    requests_per_minute: int = 100
+    requests_per_hour: int = 1000
+    enabled: bool = True
 
 
 @dataclass
@@ -138,13 +160,27 @@ class RateLimiter:
         # 用户级限速（user_id -> 滑动窗口）
         self._user_counters: Dict[str, SlidingWindowCounter] = {}
         
+        # 登录失败限流（username:ip -> LoginFailureEntry）
+        self._login_failures: Dict[str, LoginFailureEntry] = {}
+        # 登录失败阈值和锁定时间
+        self._login_max_failures = 5  # 连续失败 5 次后锁定
+        self._login_lock_duration_base = 300  # 基础锁定时间 5 分钟
+        self._login_lock_max_duration = 86400  # 最大锁定时间 24 小时
+        
+        # API Key 限速
+        self._api_key_counters: Dict[str, SlidingWindowCounter] = {}
+        self._api_key_configs: Dict[str, APIKeyRateLimit] = {}
+        
         # 统计
         self._stats = {
             "total_requests": 0,
             "blocked_total": 0,
             "blocked_by_ip": 0,
             "blocked_by_tier": 0,
+            "blocked_by_login": 0,
+            "blocked_by_api_key": 0,
             "banned_ips": 0,
+            "locked_accounts": 0,
         }
         
         self._lock = asyncio.Lock()
@@ -403,11 +439,265 @@ class RateLimiter:
             return True, ""
     
     # ===================================================================
+    # 登录失败限流（防止暴力破解）
+    # ===================================================================
+    
+    def check_login_allowed(self, username: str, ip: str) -> Tuple[bool, Dict[str, Any]]:
+        """检查登录是否被允许（检查账号是否被锁定）.
+        
+        Args:
+            username: 用户名/账号
+            ip: 请求 IP
+        
+        Returns:
+            (是否允许, 附加信息)
+        """
+        key = f"{username.lower()}:{ip}"
+        entry = self._login_failures.get(key)
+        
+        ip_key = f"*:{ip}"  # IP 级别的全局锁定
+        entry_global = self._login_failures.get(ip_key)
+        
+        now = time.time()
+        
+        # 检查账号+IP 级锁定
+        if entry and entry.locked_until > now:
+            remaining = int(entry.locked_until - now)
+            return False, {
+                "reason": "account_locked",
+                "locked_until": entry.locked_until,
+                "remaining_seconds": remaining,
+                "failure_count": entry.failures,
+                "lock_count": entry.lock_count,
+                "message": f"账号已被临时锁定，请 {remaining} 秒后重试",
+            }
+        
+        # 检查 IP 级全局锁定
+        if entry_global and entry_global.locked_until > now:
+            remaining = int(entry_global.locked_until - now)
+            return False, {
+                "reason": "ip_login_locked",
+                "locked_until": entry_global.locked_until,
+                "remaining_seconds": remaining,
+                "failure_count": entry_global.failures,
+                "message": f"该 IP 登录失败过多，请 {remaining} 秒后重试",
+            }
+        
+        # 返回当前失败次数
+        failures = entry.failures if entry else 0
+        return True, {
+            "failures": failures,
+            "remaining_attempts": max(0, self._login_max_failures - failures),
+        }
+    
+    def record_login_failure(self, username: str, ip: str) -> Dict[str, Any]:
+        """记录一次登录失败，可能触发锁定.
+        
+        锁定策略（渐进式）：
+        - 第 1-4 次失败：仅计数，不锁定
+        - 第 5 次失败：锁定 5 分钟
+        - 第 6-9 次失败：锁定时间翻倍
+        - 最大锁定时间：24 小时
+        
+        Args:
+            username: 用户名
+            ip: 请求 IP
+        
+        Returns:
+            锁定状态信息
+        """
+        now = time.time()
+        
+        # 账号+IP 级
+        key = f"{username.lower()}:{ip}"
+        entry = self._login_failures.get(key)
+        if entry is None:
+            entry = LoginFailureEntry(username=username.lower(), ip=ip)
+            self._login_failures[key] = entry
+        
+        # 如果已锁定且未过期，更新最后失败时间
+        if entry.locked_until > now:
+            entry.last_failure_time = now
+            entry.failures += 1
+            return {
+                "already_locked": True,
+                "locked_until": entry.locked_until,
+                "remaining_seconds": int(entry.locked_until - now),
+                "failure_count": entry.failures,
+            }
+        
+        entry.failures += 1
+        entry.last_failure_time = now
+        
+        result = {
+            "failure_count": entry.failures,
+            "max_failures": self._login_max_failures,
+            "remaining_attempts": max(0, self._login_max_failures - entry.failures),
+            "locked": False,
+        }
+        
+        # 达到阈值，触发锁定
+        if entry.failures >= self._login_max_failures:
+            entry.lock_count += 1
+            # 渐进式锁定时间：基础时间 * 2^(lock_count-1)
+            lock_duration = min(
+                self._login_lock_duration_base * (2 ** (entry.lock_count - 1)),
+                self._login_lock_max_duration
+            )
+            entry.locked_until = now + lock_duration
+            result["locked"] = True
+            result["lock_duration"] = lock_duration
+            result["locked_until"] = entry.locked_until
+            result["lock_count"] = entry.lock_count
+        
+        # 同时记录 IP 级别的失败（用于检测针对多账号的暴力破解）
+        ip_key = f"*:{ip}"
+        ip_entry = self._login_failures.get(ip_key)
+        if ip_entry is None:
+            ip_entry = LoginFailureEntry(username="*", ip=ip)
+            self._login_failures[ip_key] = ip_entry
+        
+        ip_entry.failures += 1
+        ip_entry.last_failure_time = now
+        
+        # IP 级锁定阈值更高（20 次失败）
+        ip_max_failures = self._login_max_failures * 4
+        if ip_entry.failures >= ip_max_failures and ip_entry.locked_until <= now:
+            ip_entry.lock_count += 1
+            ip_lock_duration = min(
+                self._login_lock_duration_base * 2 * (2 ** (ip_entry.lock_count - 1)),
+                self._login_lock_max_duration
+            )
+            ip_entry.locked_until = now + ip_lock_duration
+        
+        # 更新统计
+        self._stats["blocked_by_login"] += 1
+        self._stats["locked_accounts"] = sum(
+            1 for e in self._login_failures.values() if e.locked_until > now
+        )
+        
+        return result
+    
+    def record_login_success(self, username: str, ip: str) -> None:
+        """记录登录成功，清除失败计数.
+        
+        Args:
+            username: 用户名
+            ip: 请求 IP
+        """
+        # 清除账号+IP 级失败记录
+        key = f"{username.lower()}:{ip}"
+        if key in self._login_failures:
+            del self._login_failures[key]
+        
+        # 减少 IP 级失败计数（成功一次减一个，不直接清零）
+        ip_key = f"*:{ip}"
+        ip_entry = self._login_failures.get(ip_key)
+        if ip_entry:
+            ip_entry.failures = max(0, ip_entry.failures - 1)
+            if ip_entry.failures == 0 and ip_entry.locked_until <= time.time():
+                del self._login_failures[ip_key]
+    
+    def get_login_lock_info(self, username: str, ip: str) -> Dict[str, Any]:
+        """获取登录锁定信息.
+        
+        Args:
+            username: 用户名
+            ip: 请求 IP
+        
+        Returns:
+            锁定状态信息
+        """
+        key = f"{username.lower()}:{ip}"
+        entry = self._login_failures.get(key)
+        now = time.time()
+        
+        if not entry:
+            return {
+                "failures": 0,
+                "locked": False,
+                "remaining_attempts": self._login_max_failures,
+            }
+        
+        return {
+            "failures": entry.failures,
+            "locked": entry.locked_until > now,
+            "locked_until": entry.locked_until if entry.locked_until > now else 0,
+            "remaining_seconds": int(entry.locked_until - now) if entry.locked_until > now else 0,
+            "lock_count": entry.lock_count,
+            "remaining_attempts": max(0, self._login_max_failures - entry.failures) if entry.locked_until <= now else 0,
+            "last_failure_time": entry.last_failure_time,
+        }
+    
+    # ===================================================================
+    # API Key 限速
+    # ===================================================================
+    
+    def check_api_key_rate_limit(self, api_key: str) -> Tuple[bool, Dict[str, Any]]:
+        """检查 API Key 速率限制.
+        
+        Args:
+            api_key: API Key
+        
+        Returns:
+            (是否允许, 限流信息)
+        """
+        config = self._api_key_configs.get(api_key)
+        
+        if config and not config.enabled:
+            return True, {}
+        
+        # 默认配置
+        rpm = config.requests_per_minute if config else 100
+        
+        counter = self._api_key_counters.get(api_key)
+        if counter is None or counter.max_requests != rpm:
+            counter = SlidingWindowCounter(
+                window_seconds=60,
+                max_requests=rpm,
+            )
+            self._api_key_counters[api_key] = counter
+        
+        allowed, remaining = counter.add_and_check()
+        
+        if not allowed:
+            self._stats["blocked_by_api_key"] += 1
+            return False, {
+                "reason": "api_key_rate_limit_exceeded",
+                "X-RateLimit-Limit": str(rpm),
+                "X-RateLimit-Remaining": "0",
+                "Retry-After": "60",
+            }
+        
+        return True, {
+            "X-RateLimit-Limit": str(rpm),
+            "X-RateLimit-Remaining": str(remaining),
+        }
+    
+    def set_api_key_limit(self, api_key: str, requests_per_minute: int, enabled: bool = True) -> None:
+        """设置 API Key 限速配置.
+        
+        Args:
+            api_key: API Key
+            requests_per_minute: 每分钟请求数
+            enabled: 是否启用限速
+        """
+        self._api_key_configs[api_key] = APIKeyRateLimit(
+            api_key=api_key,
+            requests_per_minute=requests_per_minute,
+            enabled=enabled,
+        )
+    
+    # ===================================================================
     # 统计与管理
     # ===================================================================
     
     def get_stats(self) -> dict:
         """获取限速统计"""
+        now = time.time()
+        locked_count = sum(
+            1 for e in self._login_failures.values() if e.locked_until > now
+        )
         return {
             "total_limit": self.total_limit,
             "total_remaining": int(self._total_tokens),
@@ -416,8 +706,12 @@ class RateLimiter:
             "blocked_total": self._stats["blocked_total"],
             "blocked_by_ip": self._stats["blocked_by_ip"],
             "blocked_by_tier": self._stats["blocked_by_tier"],
+            "blocked_by_login": self._stats["blocked_by_login"],
+            "blocked_by_api_key": self._stats["blocked_by_api_key"],
             "banned_ips": len(self._ban_entries),
+            "locked_accounts": locked_count,
             "active_ips": len(self._ip_tokens),
+            "active_api_keys": len(self._api_key_counters),
         }
     
     def get_ban_list(self) -> list:

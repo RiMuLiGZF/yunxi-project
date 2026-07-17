@@ -564,3 +564,521 @@ def mask_string(s: str, keep_start: int = 2, keep_end: int = 2, mask_char: str =
     
     return s[:keep_start] + mask_char * (length - keep_start - keep_end) + s[-keep_end:]
 
+
+# ===========================================================================
+# 文件上传安全验证
+# ===========================================================================
+
+# 允许的文件类型（MIME类型 -> 扩展名映射）
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+    "image/gif": [".gif"],
+    "image/webp": [".webp"],
+    "image/bmp": [".bmp"],
+    "image/svg+xml": [".svg"],
+}
+
+ALLOWED_DOCUMENT_TYPES = {
+    "application/pdf": [".pdf"],
+    "text/plain": [".txt"],
+    "text/csv": [".csv"],
+    "application/msword": [".doc"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    "application/vnd.ms-excel": [".xls"],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+    "application/vnd.ms-powerpoint": [".ppt"],
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+}
+
+ALLOWED_ARCHIVE_TYPES = {
+    "application/zip": [".zip"],
+    "application/x-rar-compressed": [".rar"],
+    "application/x-7z-compressed": [".7z"],
+    "application/gzip": [".gz"],
+    "application/x-tar": [".tar"],
+}
+
+# 危险的文件扩展名（即使 MIME 类型匹配也不允许）
+DANGEROUS_EXTENSIONS = {
+    ".exe", ".dll", ".bat", ".cmd", ".sh", ".ps1", ".vbs",
+    ".js", ".jse", ".wsf", ".wsh", ".msc", ".msi",
+    ".php", ".php3", ".php4", ".php5", ".phtml",
+    ".asp", ".aspx", ".jsp", ".jspx",
+    ".cgi", ".pl", ".py", ".rb",
+    ".htaccess", ".htpasswd",
+    ".sql", ".db", ".mdb",
+}
+
+# 魔数签名（用于检测真实文件类型）
+FILE_MAGIC_NUMBERS = {
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89PNG\r\n\x1a\n": "image/png",
+    b"GIF87a": "image/gif",
+    b"GIF89a": "image/gif",
+    b"RIFF": "image/webp",  # 需要进一步检查
+    b"%PDF-": "application/pdf",
+    b"PK\x03\x04": "application/zip",  # 也是 docx/xlsx/pptx
+    b"\x1f\x8b": "application/gzip",
+    b"BM": "image/bmp",
+}
+
+
+def validate_file_upload(
+    filename: str,
+    content_type: str,
+    file_content: bytes = b"",
+    max_size_bytes: int = 10 * 1024 * 1024,  # 10MB
+    allowed_types: Optional[Dict[str, List[str]]] = None,
+    allow_archive: bool = False,
+) -> Tuple[bool, str]:
+    """验证文件上传的安全性.
+    
+    检查项：
+    1. 文件名安全（路径遍历、控制字符）
+    2. 文件扩展名白名单
+    3. MIME 类型白名单
+    4. 文件大小限制
+    5. 扩展名与 MIME 类型匹配
+    6. 危险扩展名检测
+    7. 魔数检测（可选，需要文件内容）
+    
+    Args:
+        filename: 文件名
+        content_type: 上传的 Content-Type
+        file_content: 文件内容（用于魔数检测，可选）
+        max_size_bytes: 最大文件大小（字节）
+        allowed_types: 允许的 MIME 类型到扩展名的映射，None 则使用默认
+        allow_archive: 是否允许压缩包文件
+    
+    Returns:
+        (是否安全, 错误消息)
+    """
+    if not filename:
+        return False, "文件名为空"
+    
+    # 1. 文件名安全检查
+    safe_name = safe_filename(filename)
+    if not safe_name or safe_name == "unnamed":
+        return False, "文件名不安全"
+    
+    # 检查是否有路径遍历
+    if filename != os.path.basename(filename):
+        return False, "文件名包含路径分隔符"
+    
+    # 检查控制字符
+    if re.search(r'[\x00-\x1f\x7f]', filename):
+        return False, "文件名包含控制字符"
+    
+    # 2. 获取扩展名
+    _, ext = os.path.splitext(filename.lower())
+    
+    # 3. 危险扩展名检测
+    if ext in DANGEROUS_EXTENSIONS:
+        return False, f"不允许的文件类型: {ext}"
+    
+    # 4. 确定允许的类型
+    if allowed_types is None:
+        allowed_types = ALLOWED_IMAGE_TYPES.copy()
+        allowed_types.update(ALLOWED_DOCUMENT_TYPES)
+        if allow_archive:
+            allowed_types.update(ALLOWED_ARCHIVE_TYPES)
+    
+    # 5. MIME 类型白名单检查
+    content_type_lower = content_type.lower().split(";")[0].strip()
+    if content_type_lower not in allowed_types:
+        return False, f"不支持的文件类型: {content_type}"
+    
+    # 6. 扩展名与 MIME 类型匹配检查
+    allowed_exts = allowed_types.get(content_type_lower, [])
+    if ext not in allowed_exts:
+        # 宽松检查：扩展名是否在任何允许的类型中
+        all_allowed_exts = set()
+        for exts in allowed_types.values():
+            all_allowed_exts.update(exts)
+        if ext not in all_allowed_exts:
+            return False, f"文件扩展名与类型不匹配: {ext}"
+    
+    # 7. 文件大小检查（如果提供了内容）
+    if file_content and len(file_content) > max_size_bytes:
+        return False, f"文件大小超过限制: {len(file_content)} > {max_size_bytes} 字节"
+    
+    # 8. 魔数检测（如果提供了内容且是常见类型）
+    if file_content and content_type_lower in FILE_MAGIC_NUMBERS.values():
+        detected_type = detect_file_type_by_magic(file_content)
+        if detected_type and detected_type != content_type_lower:
+            # 特殊处理：zip 格式可能是 docx/xlsx/pptx
+            if detected_type == "application/zip" and content_type_lower in (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ):
+                pass  # OK，这些格式本质上是 zip
+            elif detected_type == "image/webp" and content_type_lower == "image/webp":
+                pass  # OK
+            else:
+                return False, f"文件真实类型与声明不符: 声明={content_type}, 检测={detected_type}"
+    
+    return True, ""
+
+
+def detect_file_type_by_magic(content: bytes) -> Optional[str]:
+    """通过魔数检测文件真实类型.
+    
+    Args:
+        content: 文件内容（至少需要前几个字节）
+    
+    Returns:
+        检测到的 MIME 类型，无法检测返回 None
+    """
+    if not content:
+        return None
+    
+    for magic, mime_type in FILE_MAGIC_NUMBERS.items():
+        if content.startswith(magic):
+            # 特殊处理 WebP (RIFF....WEBP)
+            if magic == b"RIFF" and len(content) >= 12:
+                if content[8:12] == b"WEBP":
+                    return "image/webp"
+                continue
+            return mime_type
+    
+    return None
+
+
+def generate_safe_filename(
+    original_filename: str,
+    prefix: str = "",
+    max_length: int = 200,
+) -> str:
+    """生成安全的存储文件名.
+    
+    保留原始扩展名，但文件名主体替换为随机字符串，
+    防止文件名冲突和路径遍历攻击。
+    
+    Args:
+        original_filename: 原始文件名
+        prefix: 文件名前缀
+        max_length: 最大长度
+    
+    Returns:
+        安全的文件名
+    """
+    import secrets
+    
+    _, ext = os.path.splitext(original_filename.lower())
+    ext = safe_filename(ext)
+    
+    # 生成随机主体
+    random_part = secrets.token_hex(16)
+    
+    safe_name = f"{prefix}{random_part}{ext}"
+    
+    # 长度限制
+    if len(safe_name) > max_length:
+        # 保留扩展名
+        allowed_base = max_length - len(ext)
+        safe_name = safe_name[:allowed_base] + ext
+    
+    return safe_name
+
+
+# ===========================================================================
+# 路径安全增强
+# ===========================================================================
+
+
+def is_path_safe(path: str, base_dir: str) -> bool:
+    """检查路径是否在指定基础目录内（安全检查）.
+    
+    Args:
+        path: 要检查的路径
+        base_dir: 基础目录
+    
+    Returns:
+        True 表示路径安全，在基础目录内
+    """
+    try:
+        base_real = os.path.realpath(base_dir)
+        path_real = os.path.realpath(os.path.join(base_real, path))
+        return path_real.startswith(base_real + os.sep) or path_real == base_real
+    except Exception:
+        return False
+
+
+def normalize_path(path: str) -> str:
+    """规范化路径，移除路径遍历组件.
+    
+    与 safe_join_path 不同，此函数只做规范化，
+    不检查是否在基础目录内。
+    
+    Args:
+        path: 原始路径
+    
+    Returns:
+        规范化后的路径
+    """
+    if not path:
+        return ""
+    
+    # 移除空字节
+    path = path.replace("\x00", "")
+    
+    # 规范化
+    path = os.path.normpath(path)
+    
+    # 移除开头的斜杠（防止绝对路径）
+    path = path.lstrip("/\\")
+    
+    # 移除 .. 组件
+    parts = []
+    for part in path.replace("\\", "/").split("/"):
+        if part == "..":
+            if parts:
+                parts.pop()
+        elif part and part != ".":
+            parts.append(part)
+    
+    return "/".join(parts)
+
+
+def validate_path_component(component: str) -> Tuple[bool, str]:
+    """验证单个路径组件的安全性.
+    
+    Args:
+        component: 路径组件（单个目录或文件名）
+    
+    Returns:
+        (是否安全, 错误消息)
+    """
+    if not component:
+        return False, "路径组件为空"
+    
+    # 检查长度
+    if len(component) > 255:
+        return False, "路径组件过长"
+    
+    # 检查空字节
+    if "\x00" in component:
+        return False, "路径包含空字节"
+    
+    # 检查路径分隔符
+    if "/" in component or "\\" in component:
+        return False, "路径组件包含分隔符"
+    
+    # 检查父目录引用
+    if component == ".." or component == ".":
+        return False, "不允许的路径组件"
+    
+    # 检查控制字符
+    if re.search(r'[\x00-\x1f\x7f]', component):
+        return False, "路径包含控制字符"
+    
+    return True, ""
+
+
+# ===========================================================================
+# XSS 防护增强
+# ===========================================================================
+
+
+def xss_filter(text: str, mode: str = "strict") -> str:
+    """XSS 过滤器（多模式）.
+    
+    Args:
+        text: 输入文本
+        mode: 过滤模式
+            - strict: 严格模式，转义所有 HTML 特殊字符
+            - basic: 基础模式，移除 script/style/iframe 等危险标签
+            - rich: 富文本模式，保留常用安全标签
+    
+    Returns:
+        过滤后的安全文本
+    """
+    if not text:
+        return ""
+    
+    if mode == "strict":
+        return escape_html(text)
+    elif mode == "basic":
+        return sanitize_html(text, allowed_tags=[])
+    elif mode == "rich":
+        return sanitize_html(text)
+    else:
+        return escape_html(text)
+
+
+def prevent_js_protocol(url: str) -> str:
+    """防止 javascript: 协议注入.
+    
+    Args:
+        url: URL 字符串
+    
+    Returns:
+        安全的 URL（如果是 javascript: 则返回 #）
+    """
+    if not url:
+        return "#"
+    
+    # 解码后检查
+    from urllib.parse import unquote
+    decoded = unquote(url).lower().strip()
+    
+    # 移除空白字符后检查
+    compact = re.sub(r'\s+', '', decoded)
+    if compact.startswith("javascript:"):
+        return "#"
+    if compact.startswith("vbscript:"):
+        return "#"
+    if compact.startswith("data:") and "base64" in compact:
+        return "#"
+    
+    return url
+
+
+def validate_url_safety(
+    url: str,
+    allowed_schemes: Optional[List[str]] = None,
+    allow_relative: bool = True,
+) -> Tuple[bool, str]:
+    """验证 URL 的安全性.
+    
+    Args:
+        url: 待验证的 URL
+        allowed_schemes: 允许的协议列表，默认 ["http", "https"]
+        allow_relative: 是否允许相对路径
+    
+    Returns:
+        (是否安全, 错误消息)
+    """
+    if not url:
+        return False, "URL 为空"
+    
+    if allowed_schemes is None:
+        allowed_schemes = ["http", "https"]
+    
+    # 检查空字节
+    if "\x00" in url:
+        return False, "URL 包含空字节"
+    
+    # 检查 javascript/data 等危险协议
+    from urllib.parse import unquote
+    decoded = unquote(url).lower()
+    compact = re.sub(r'\s+', '', decoded)
+    
+    dangerous_schemes = ["javascript:", "vbscript:", "data:", "file:"]
+    for scheme in dangerous_schemes:
+        if compact.startswith(scheme):
+            return False, f"不允许的 URL 协议: {scheme.rstrip(':')}"
+    
+    # 相对 URL
+    if url.startswith("/") or url.startswith("./") or url.startswith("../"):
+        if allow_relative:
+            # 相对路径也要检查路径遍历
+            if ".." in url.split("/"):
+                return False, "URL 包含路径遍历"
+            return True, ""
+        return False, "不允许相对路径"
+    
+    # 解析 URL
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        
+        if not parsed.scheme:
+            # 没有协议，视为相对路径
+            if allow_relative:
+                return True, ""
+            return False, "URL 缺少协议"
+        
+        if parsed.scheme not in allowed_schemes:
+            return False, f"不允许的协议: {parsed.scheme}"
+        
+        return True, ""
+    except Exception:
+        return False, "URL 格式无效"
+
+
+# ===========================================================================
+# 通用安全工具
+# ===========================================================================
+
+
+def secure_random_string(length: int = 32, url_safe: bool = True) -> str:
+    """生成安全的随机字符串.
+    
+    使用 secrets 模块生成密码学安全的随机字符串。
+    
+    Args:
+        length: 字符串长度
+        url_safe: 是否生成 URL 安全的字符串
+    
+    Returns:
+        随机字符串
+    """
+    import secrets
+    if url_safe:
+        return secrets.token_urlsafe(length)[:length]
+    return secrets.token_hex(length)[:length]
+
+
+def constant_time_equals(a: str, b: str) -> bool:
+    """恒定时间字符串比较（防止时序攻击）.
+    
+    Args:
+        a: 字符串 a
+        b: 字符串 b
+    
+    Returns:
+        True 表示相等
+    """
+    import hmac
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+def check_password_strength(password: str) -> Tuple[bool, str, Dict[str, bool]]:
+    """检查密码强度.
+    
+    Args:
+        password: 密码字符串
+    
+    Returns:
+        (是否通过, 描述消息, 各检查项结果)
+    """
+    checks = {
+        "min_length": len(password) >= 12,
+        "has_uppercase": bool(re.search(r'[A-Z]', password)),
+        "has_lowercase": bool(re.search(r'[a-z]', password)),
+        "has_digit": bool(re.search(r'\d', password)),
+        "has_special": bool(re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/]', password)),
+        "not_common": not _is_common_password(password),
+    }
+    
+    passed_count = sum(checks.values())
+    
+    if not checks["min_length"]:
+        return False, "密码长度不足，至少需要 12 位", checks
+    if not checks["has_uppercase"]:
+        return False, "密码需要包含大写字母", checks
+    if not checks["has_lowercase"]:
+        return False, "密码需要包含小写字母", checks
+    if not checks["has_digit"]:
+        return False, "密码需要包含数字", checks
+    if not checks["not_common"]:
+        return False, "密码过于常见，请使用更复杂的密码", checks
+    
+    return True, f"密码强度良好（{passed_count}/6 项通过）", checks
+
+
+def _is_common_password(password: str) -> bool:
+    """检查是否为常见弱密码."""
+    common_passwords = {
+        "password", "123456", "12345678", "qwerty", "abc123",
+        "monkey", "1234567", "letmein", "trustno1", "dragon",
+        "password1", "iloveyou", "sunshine", "princess", "admin",
+        "welcome", "login", "abcdef", "000000", "111111",
+        "admin123", "root", "toor", "pass", "test",
+        "changeme", "default", "master", "hello", "world",
+    }
+    return password.lower() in common_passwords
+

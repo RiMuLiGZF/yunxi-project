@@ -469,6 +469,21 @@ class MetricsCollector:
         """增加计数器（便捷方法）"""
         self.counter(name, labels=labels).inc(amount)
 
+    def inc(
+        self,
+        name: str,
+        amount: float = 1.0,
+        labels: Optional[Dict[str, str]] = None,
+    ):
+        """增加计数器（通用便捷方法，等价于 inc_counter）
+
+        Args:
+            name: 指标名称
+            amount: 增加量，默认 1.0
+            labels: 标签字典
+        """
+        self.counter(name, labels=labels).inc(amount)
+
     # -----------------------------------------------------------------------
     # Gauge 操作
     # -----------------------------------------------------------------------
@@ -548,6 +563,23 @@ class MetricsCollector:
     ):
         """记录直方图观测值（便捷方法）"""
         self.histogram(name, labels=labels).observe(value)
+
+    def observe(
+        self,
+        name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
+        buckets: Optional[List[float]] = None,
+    ):
+        """记录直方图观测值（通用便捷方法，等价于 observe_histogram）
+
+        Args:
+            name: 指标名称
+            value: 观测值
+            labels: 标签字典
+            buckets: 桶边界（仅首次创建时生效）
+        """
+        self.histogram(name, labels=labels, buckets=buckets).observe(value)
 
     # -----------------------------------------------------------------------
     # Summary 操作

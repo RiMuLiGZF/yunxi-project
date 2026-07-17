@@ -1250,27 +1250,71 @@ class BackupManager:
             # 验证备份完整性
             try:
                 verify_conn = sqlite3.connect(str(current_file))
-                verify_conn.execute("SELECT 1")
+                # 使用 PRAGMA quick_check 验证数据库完整性
+                # （SELECT 1 不足以验证，因为它不访问任何数据库页）
+                cursor = verify_conn.execute("PRAGMA quick_check")
+                check_result = cursor.fetchone()
                 verify_conn.close()
+                if check_result and check_result[0] != "ok":
+                    return {"success": False, "error": f"Backup verification failed: database integrity check failed ({check_result[0]})"}
             except Exception as e:
                 return {"success": False, "error": f"Backup verification failed: {e}"}
             
             target_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # 使用 SQLite backup API 恢复
-            src = sqlite3.connect(str(current_file))
-            dst = sqlite3.connect(str(target_path))
-            try:
-                src.backup(dst)
-            finally:
-                src.close()
-                dst.close()
+            # 优先使用直接文件复制恢复备份
+            # （备份文件已经验证为有效的 SQLite 数据库，直接复制更可靠，
+            #  且避免目标文件损坏/锁定时 SQLite backup API 失败的问题）
+            restore_success = False
+            restore_error = None
             
-            return {
-                "success": True,
-                "restored_to": str(target_path),
-                "timestamp": time.time(),
-            }
+            # 方法1：直接文件复制（最快、最可靠）
+            try:
+                if overwrite and target_path.exists():
+                    # 尝试删除目标文件
+                    try:
+                        target_path.unlink()
+                    except Exception:
+                        # 删除失败（可能是文件被锁定），尝试用覆盖方式复制
+                        pass
+                shutil.copy2(str(current_file), str(target_path))
+                restore_success = True
+            except Exception as e:
+                restore_error = f"File copy failed: {e}"
+            
+            # 方法2：SQLite backup API（作为后备方案）
+            if not restore_success:
+                try:
+                    # 如果目标存在且无法删除，先尝试重命名
+                    if target_path.exists():
+                        try:
+                            backup_name = target_path.name + ".bak"
+                            target_path.rename(target_path.parent / backup_name)
+                        except Exception:
+                            pass
+                    
+                    src = sqlite3.connect(str(current_file))
+                    dst = sqlite3.connect(str(target_path))
+                    try:
+                        src.backup(dst)
+                    finally:
+                        src.close()
+                        dst.close()
+                    restore_success = True
+                except Exception as e:
+                    if restore_error:
+                        restore_error += f"; SQLite backup also failed: {e}"
+                    else:
+                        restore_error = f"SQLite backup failed: {e}"
+            
+            if restore_success:
+                return {
+                    "success": True,
+                    "restored_to": str(target_path),
+                    "timestamp": time.time(),
+                }
+            else:
+                return {"success": False, "error": restore_error or "Unknown restore error"}
         except Exception as e:
             return {"success": False, "error": str(e)}
         finally:
@@ -1702,13 +1746,24 @@ class BackupManager:
                 
                 safety_result = self._backup_single_db(target_path, safety_net_path)
                 if not safety_result["success"]:
-                    return {
-                        "success": False,
-                        "error": f"Failed to create safety net backup: {safety_result.get('error')}",
-                        "safety_net_created": False,
-                    }
+                    # SQLite 备份失败（可能是数据库已损坏），回退到文件级复制
+                    try:
+                        shutil.copy2(str(target_path), str(safety_net_path))
+                        safety_net_created = True
+                        safety_fallback = True
+                    except Exception as copy_err:
+                        return {
+                            "success": False,
+                            "error": f"Failed to create safety net backup: {safety_result.get('error')} (file copy fallback also failed: {copy_err})",
+                            "safety_net_created": False,
+                        }
+                else:
+                    safety_net_created = True
+                    safety_fallback = False
             else:
                 safety_net_path = None
+                safety_net_created = False
+                safety_fallback = False
             
             # 2. 执行恢复
             restore_result = self.restore_backup(

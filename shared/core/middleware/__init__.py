@@ -5,9 +5,23 @@
 """
 
 from .tracing import TracingMiddleware, get_trace_id, get_request_id
+from .security_headers import (
+    SecurityHeadersConfig,
+    SecurityHeadersMiddleware,
+    register_security_headers,
+    get_security_headers_middleware,
+    CSPBuilder,
+)
 
 __all__ = [
+    # 链路追踪
     "TracingMiddleware",
     "get_trace_id",
     "get_request_id",
+    # 安全头
+    "SecurityHeadersConfig",
+    "SecurityHeadersMiddleware",
+    "register_security_headers",
+    "get_security_headers_middleware",
+    "CSPBuilder",
 ]

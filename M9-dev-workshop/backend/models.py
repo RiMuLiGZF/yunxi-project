@@ -9,6 +9,16 @@ import time
 import logging
 from datetime import datetime
 from typing import Optional, List
+from pathlib import Path
+
+# 确保当前目录（backend）在 sys.path 最前面，避免与 shared/config.py 等模块名冲突
+_backend_dir = Path(__file__).resolve().parent
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+else:
+    # 如果已存在，移到最前面以确保优先级
+    sys.path.remove(str(_backend_dir))
+    sys.path.insert(0, str(_backend_dir))
 
 # 兼容相对导入和直接运行
 try:
