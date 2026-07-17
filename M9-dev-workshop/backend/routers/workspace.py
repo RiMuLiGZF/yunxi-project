@@ -1,6 +1,16 @@
 """
 云汐 M9 开发者工坊 - 工作区管理 API
 提供项目 CRUD、最近项目、扫描、标签管理等接口
+
+响应格式（统一 6 位错误码体系）：
+  成功: { "code": 0, "message": "success", "data": {...}, "trace_id": "..." }
+  错误: { "code": 90xxx, "message": "...", "details": {...}, "trace_id": "..." }
+
+错误码范围（M9 模块，09 前缀）：
+  0901xx = 参数错误
+  0904xx = 资源不存在
+  0905xx = 业务错误
+  0909xx = 数据/安全错误
 """
 
 from fastapi import APIRouter, HTTPException, Query
@@ -15,6 +25,14 @@ except ImportError:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from workspace_manager import get_workspace_manager
+
+# 统一错误码体系
+try:
+    from ..core.unified_errors import M9ErrorCode
+    from shared.core.errors import NotFoundError, BusinessError, ValidationError
+    _unified_errors_available = True
+except ImportError:
+    _unified_errors_available = False
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["工作区管理"])
 
@@ -67,29 +85,56 @@ def list_projects(
     limit: int = Query(50, description="数量限制"),
     offset: int = Query(0, description="偏移量"),
 ):
-    """获取工作区项目列表，支持标签过滤和关键词搜索"""
+    """获取工作区项目列表，支持标签过滤和关键词搜索
+
+    试点接口：已接入统一响应格式和 6 位错误码体系。
+    """
     mgr = get_workspace_manager()
     projects = mgr.list_projects(tag=tag, keyword=keyword, limit=limit, offset=offset)
+    total = mgr.count_projects(tag=tag, keyword=keyword) if hasattr(mgr, 'count_projects') else len(projects)
     return {
-        "success": True,
-        "count": len(projects),
-        "projects": projects,
+        "code": 0,
+        "message": "success",
+        "data": {
+            "items": projects,
+            "total": total,
+            "page": (offset // limit) + 1 if limit > 0 else 1,
+            "page_size": limit,
+        },
     }
 
 
 @router.get("/projects/{project_id}", summary="获取项目详情")
 def get_project(project_id: int):
-    """根据 ID 获取项目详情"""
+    """根据 ID 获取项目详情
+
+    试点接口：已接入统一响应格式和 6 位错误码体系。
+    """
     mgr = get_workspace_manager()
     project = mgr.get_project(project_id)
     if not project:
+        if _unified_errors_available:
+            raise NotFoundError(
+                message="项目不存在",
+                code=M9ErrorCode.PROJECT_NOT_FOUND,
+                details={"project_id": project_id},
+            )
         raise HTTPException(status_code=404, detail="项目不存在")
-    return {"success": True, "project": project}
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "project": project,
+        },
+    }
 
 
 @router.post("/projects", summary="创建项目")
 def create_project(req: ProjectCreateRequest):
-    """创建新项目记录"""
+    """创建新项目记录
+
+    试点接口：已接入统一响应格式和 6 位错误码体系。
+    """
     mgr = get_workspace_manager()
     result = mgr.create_project(
         name=req.name,
@@ -99,8 +144,33 @@ def create_project(req: ProjectCreateRequest):
         tags=req.tags,
     )
     if not result["success"]:
+        if _unified_errors_available:
+            # 根据错误信息判断错误类型
+            msg = result.get("message", "创建失败")
+            if "已存在" in msg or "exist" in msg.lower():
+                raise BusinessError(
+                    message=msg,
+                    code=M9ErrorCode.PROJECT_ALREADY_EXISTS,
+                    details={"name": req.name, "path": req.path},
+                )
+            elif "路径" in msg and "安全" in msg:
+                raise ValidationError(
+                    message=msg,
+                    code=M9ErrorCode.PATH_UNSAFE,
+                    details={"path": req.path},
+                )
+            else:
+                raise BusinessError(
+                    message=msg,
+                    code=M9ErrorCode.SCAN_FAILED,
+                    details={"name": req.name},
+                )
         raise HTTPException(status_code=400, detail=result["message"])
-    return result
+    return {
+        "code": 0,
+        "message": "创建成功",
+        "data": result,
+    }
 
 
 @router.put("/projects/{project_id}", summary="更新项目")

@@ -167,6 +167,21 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ---------- 统一异常处理器（6 位错误码体系 + 标准化响应格式） ----------
+    try:
+        import sys as _sys_m11
+        from pathlib import Path as _Path_m11
+        _project_root = _Path_m11(__file__).parent.parent.parent.parent
+        if str(_project_root) not in _sys_m11.path:
+            _sys_m11.path.insert(0, str(_project_root))
+        from shared.core.responses import register_global_exception_handler
+        import structlog
+        _m11_logger = structlog.get_logger("m11.exception_handler")
+        register_global_exception_handler(app, logger=_m11_logger)
+        print("[M11] 统一异常处理器已注册（6 位错误码体系）")
+    except ImportError as _e:
+        print(f"[M11] 统一异常处理器不可用: {_e}，将使用 FastAPI 默认异常处理")
+
     # ---------- 路由注册 ----------
     # M8 标准接口（health, metrics, config）- 挂载到 /m8/*
     app.include_router(health_router.router)

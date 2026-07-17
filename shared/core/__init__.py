@@ -23,17 +23,49 @@
 from .config import YunxiConfig, get_config
 from .logger import get_logger
 from .errors import (
+    # 错误码枚举
+    ErrorCategory,
+    ModuleCode,
+    # 通用错误码
+    ErrorCode,
+    # 错误码工具
+    build_error_code,
+    parse_error_code,
+    module_error_range,
+    normalize_error_code,
+    get_default_message,
+    get_http_status,
+    ERROR_CODE_LEGACY_MAP,
+    ERROR_MESSAGES,
+    CATEGORY_HTTP_STATUS,
+    # 异常基类
     YunxiError,
-    ConfigError,
-    ModuleNotFoundError,
-    ModuleCallError,
+    # 异常子类
     ValidationError,
     AuthenticationError,
     AuthorizationError,
+    NotFoundError,
+    BusinessError,
+    SystemError,
+    ConfigError,
+    ModuleNotFoundError,
+    ModuleCallError,
+    RateLimitError,
+    ThirdPartyError,
+    DataError,
+    # 模块错误码基类
+    ModuleErrorCode,
+    # 工具函数
     error_to_dict,
+    from_exception,
+    raise_validation,
+    raise_not_found,
+    raise_auth,
+    raise_permission,
 )
 from .responses import (
     ApiResponse,
+    # 旧版错误码常量（向后兼容）
     SUCCESS,
     ERROR_INVALID_PARAMS,
     ERROR_UNAUTHORIZED,
@@ -41,6 +73,13 @@ from .responses import (
     ERROR_NOT_FOUND,
     ERROR_INTERNAL,
     ERROR_MODULE_UNAVAILABLE,
+    # 便捷响应函数
+    ok,
+    fail,
+    paginated,
+    # 全局异常处理器
+    GlobalExceptionHandler,
+    register_global_exception_handler,
 )
 from .auth import (
     DEFAULT_PUBLIC_PATHS,
@@ -127,12 +166,29 @@ __all__ = [
     "YunxiConfig", "get_config",
     # Logger
     "get_logger",
-    # Errors
-    "YunxiError", "ConfigError", "ModuleNotFoundError", "ModuleCallError",
-    "ValidationError", "AuthenticationError", "AuthorizationError", "error_to_dict",
+    # Errors - 枚举
+    "ErrorCategory", "ModuleCode",
+    # Errors - 通用错误码
+    "ErrorCode",
+    # Errors - 工具
+    "build_error_code", "parse_error_code", "module_error_range",
+    "normalize_error_code", "get_default_message", "get_http_status",
+    "ERROR_CODE_LEGACY_MAP", "ERROR_MESSAGES", "CATEGORY_HTTP_STATUS",
+    # Errors - 异常类
+    "YunxiError", "ValidationError", "AuthenticationError", "AuthorizationError",
+    "NotFoundError", "BusinessError", "SystemError", "ConfigError",
+    "ModuleNotFoundError", "ModuleCallError", "RateLimitError",
+    "ThirdPartyError", "DataError",
+    # Errors - 模块错误码基类
+    "ModuleErrorCode",
+    # Errors - 工具函数
+    "error_to_dict", "from_exception",
+    "raise_validation", "raise_not_found", "raise_auth", "raise_permission",
     # Responses
     "ApiResponse", "SUCCESS", "ERROR_INVALID_PARAMS", "ERROR_UNAUTHORIZED",
     "ERROR_FORBIDDEN", "ERROR_NOT_FOUND", "ERROR_INTERNAL", "ERROR_MODULE_UNAVAILABLE",
+    "ok", "fail", "paginated",
+    "GlobalExceptionHandler", "register_global_exception_handler",
     # Auth
     "DEFAULT_PUBLIC_PATHS", "hash_api_key", "verify_api_key", "is_public_path",
     "SimpleRateLimiter", "create_api_key_dependency", "generate_api_key", "mask_api_key",

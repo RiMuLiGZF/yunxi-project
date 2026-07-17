@@ -6,6 +6,14 @@ Phase 1 安全加固：
 - 所有管理接口接入 API Key 鉴权（Depends(get_current_api_key)）
 - 关键操作接入审计日志（服务注册/注销、API Key 创建/撤销）
 - 数据库会话统一使用 Depends(get_db) 依赖注入
+
+错误码规范（M11 模块，11 前缀）：
+- 110401 = MCP 服务不存在
+- 110402 = MCP 工具不存在
+- 110403 = API Key 不存在
+- 110501 = 服务已存在
+- 110701 = 上游服务超时
+- 110801 = 请求频率超限
 """
 
 from __future__ import annotations
@@ -45,6 +53,8 @@ from ..services.audit import audit_logger
 from ..services.monitor import mcp_monitor
 from ..services.registry import mcp_registry
 from ..config import get_settings
+from ..errors import M11ErrorCode
+from shared.core.errors import NotFoundError, BusinessError, ValidationError
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -101,32 +111,41 @@ async def list_servers(
     )
 
 
-@router.get("/servers/{server_id}", response_model=McpServerResponse, summary="获取服务器详情")
+@router.get("/servers/{server_id}", summary="获取服务器详情")
 async def get_server(
     server_id: int,
     api_key: ApiKey = Depends(require_authenticated),
-) -> McpServerResponse:
+) -> Dict[str, Any]:
     """获取指定服务器的详细信息.
 
+    使用统一 6 位错误码（110401 = 服务不存在）。
     需要鉴权。
     """
     server = mcp_registry.get_server(server_id)
     if not server:
-        raise HTTPException(status_code=404, detail=f"服务器不存在: {server_id}")
+        raise NotFoundError(
+            message=f"MCP 服务不存在: {server_id}",
+            code=M11ErrorCode.SERVER_NOT_FOUND,
+            details={"server_id": server_id},
+        )
 
     tool_count = mcp_registry.get_server_tool_count(server_id)
-    return McpServerResponse(
-        id=server.id,
-        name=server.name,
-        description=server.description or "",
-        transport_type=server.transport_type,
-        endpoint=server.endpoint or "",
-        status=server.status,
-        health_check_url=server.health_check_url or "",
-        last_heartbeat=server.last_heartbeat,
-        created_at=server.created_at,
-        tool_count=tool_count,
-    )
+    return {
+        "code": 0,
+        "message": "success",
+        "data": McpServerResponse(
+            id=server.id,
+            name=server.name,
+            description=server.description or "",
+            transport_type=server.transport_type,
+            endpoint=server.endpoint or "",
+            status=server.status,
+            health_check_url=server.health_check_url or "",
+            last_heartbeat=server.last_heartbeat,
+            created_at=server.created_at,
+            tool_count=tool_count,
+        ),
+    }
 
 
 @router.post("/servers/register", summary="注册新服务器")
@@ -151,7 +170,11 @@ async def register_server(
             health_check_url=body.health_check_url,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise ValidationError(
+            message=str(e),
+            code=M11ErrorCode.INVALID_SERVER_ID,
+            details={"field": "name" if "name" in str(e).lower() else "server"},
+        )
 
     # 审计日志：服务器注册成功
     actor = api_key.name

@@ -7,7 +7,14 @@
 - M2 技能集群管理代理（技能列表、分类、统计、调用）
 
 所有代理请求通过 ModuleClient 转发到对应模块，
-保持统一的 {code, message, data} 响应格式。
+保持统一的 {code, message, data, trace_id} 响应格式。
+
+错误码规范（M8 模块，08 前缀）：
+- 080401 = 模块不存在
+- 080501 = 模块启动失败
+- 080502 = 模块停止失败
+- 080701 = M4 代理错误
+- 080704 = 模块调用失败
 """
 
 import sys
@@ -22,9 +29,11 @@ sys.path.insert(0, str(project_root))
 
 from ..schemas import ApiResponse
 from ..auth import get_current_user
+from ..errors import M8ErrorCode
 from shared.module_client import get_module_registry, ModuleStatus, ModuleClient
 from shared.config import get_config
 from shared.logger import get_logger
+from shared.core.errors import ModuleCallError, NotFoundError
 
 logger = get_logger("m8.modules")
 
@@ -175,7 +184,12 @@ async def get_module_detail(
     """获取单个模块详情"""
     module = registry.get_module(module_key)
     if not module:
-        return ApiResponse.error(code=404, message=f"未找到模块: {module_key}")
+        # 使用统一 6 位错误码
+        raise NotFoundError(
+            message=f"未找到模块: {module_key}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_key": module_key},
+        )
 
     try:
         # 实时健康检查
@@ -196,7 +210,11 @@ async def module_health(
     """模块健康检查"""
     module = registry.get_module(module_key)
     if not module:
-        return ApiResponse.error(code=404, message=f"未找到模块: {module_key}")
+        raise NotFoundError(
+            message=f"未找到模块: {module_key}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_key": module_key},
+        )
 
     try:
         client = registry.get_client(module_key)
@@ -235,7 +253,11 @@ async def module_metrics(
     """获取模块指标（如果模块提供的话）"""
     module = registry.get_module(module_key)
     if not module:
-        return ApiResponse.error(code=404, message=f"未找到模块: {module_key}")
+        raise NotFoundError(
+            message=f"未找到模块: {module_key}",
+            code=M8ErrorCode.MODULE_NOT_FOUND,
+            details={"module_key": module_key},
+        )
 
     # 尝试从常见指标端点获取（按优先级）
     metric_paths = [
