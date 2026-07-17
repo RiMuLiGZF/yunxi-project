@@ -951,12 +951,17 @@ class ModuleEndpointConfig(BaseModel):
 
 
 class GlobalModuleConfig(BaseModel):
-    """全局模块配置（所有模块的端口、地址、令牌集中管理）"""
+    """全局模块配置（所有模块的端口、地址、令牌集中管理）
+
+    SEC-001 安全修复：所有模块的默认 token 均为空字符串。
+    - 生产环境：必须显式配置 token，否则启动失败
+    - 开发环境：自动生成随机 token 并在日志中显示一次
+    """
 
     gateway: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8080,
-            token="yunxi-gateway-admin-token-2026",
+            token="",
             base_url="http://localhost:8080",
         ),
         description="API 网关",
@@ -964,7 +969,7 @@ class GlobalModuleConfig(BaseModel):
     m0: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8000,
-            token="yunxi-m0-admin-token-2026",
+            token="",
             base_url="http://localhost:8000",
         ),
         description="M0 主控台",
@@ -972,7 +977,7 @@ class GlobalModuleConfig(BaseModel):
     m1: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8001,
-            token="yunxi-m1-admin-token-2026",
+            token="",
             base_url="http://localhost:8001",
         ),
         description="M1 多Agent集群",
@@ -980,7 +985,7 @@ class GlobalModuleConfig(BaseModel):
     m2: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8002,
-            token="yunxi-m2-admin-token-2026",
+            token="",
             base_url="http://localhost:8002",
         ),
         description="M2 技能集群",
@@ -988,7 +993,7 @@ class GlobalModuleConfig(BaseModel):
     m3: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8003,
-            token="yunxi-m3-admin-token-2026",
+            token="",
             base_url="http://localhost:8003",
         ),
         description="M3 端云协同",
@@ -996,7 +1001,7 @@ class GlobalModuleConfig(BaseModel):
     m4: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8004,
-            token="yunxi-m4-admin-token-2026",
+            token="",
             base_url="http://localhost:8004",
         ),
         description="M4 场景引擎",
@@ -1004,7 +1009,7 @@ class GlobalModuleConfig(BaseModel):
     m5: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8005,
-            token="yunxi-m5-admin-token-2026",
+            token="",
             base_url="http://localhost:8005",
         ),
         description="M5 潮汐记忆",
@@ -1012,7 +1017,7 @@ class GlobalModuleConfig(BaseModel):
     m6: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8006,
-            token="yunxi-m6-admin-token-2026",
+            token="",
             base_url="http://localhost:8006",
         ),
         description="M6 硬件外设",
@@ -1020,7 +1025,7 @@ class GlobalModuleConfig(BaseModel):
     m7: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8007,
-            token="yunxi-m7-admin-token-2026",
+            token="",
             base_url="http://localhost:8007",
         ),
         description="M7 工作流编排",
@@ -1028,7 +1033,7 @@ class GlobalModuleConfig(BaseModel):
     m8: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8008,
-            token="yunxi-m8-admin-token-2026",
+            token="",
             base_url="http://localhost:8008",
         ),
         description="M8 控制塔",
@@ -1036,7 +1041,7 @@ class GlobalModuleConfig(BaseModel):
     m9: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8009,
-            token="yunxi-m9-admin-token-2026",
+            token="",
             base_url="http://localhost:8009",
         ),
         description="M9 开发者工坊",
@@ -1044,7 +1049,7 @@ class GlobalModuleConfig(BaseModel):
     m10: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8010,
-            token="yunxi-m10-admin-token-2026",
+            token="",
             base_url="http://localhost:8010",
         ),
         description="M10 系统卫士",
@@ -1052,7 +1057,7 @@ class GlobalModuleConfig(BaseModel):
     m11: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8011,
-            token="yunxi-m11-admin-token-2026",
+            token="",
             base_url="http://localhost:8011",
         ),
         description="M11 MCP总线",
@@ -1060,7 +1065,7 @@ class GlobalModuleConfig(BaseModel):
     m12: ModuleEndpointConfig = Field(
         default_factory=lambda: ModuleEndpointConfig(
             host="0.0.0.0", port=8012,
-            token="yunxi-m12-admin-token-2026",
+            token="",
             base_url="http://localhost:8012",
         ),
         description="M12 安全盾",
@@ -1068,8 +1073,13 @@ class GlobalModuleConfig(BaseModel):
 
 
 class GlobalSecurityConfig(BaseModel):
-    """全局安全配置"""
-    jwt_secret: str = Field(default="yunxi-jwt-secret-key-2026", description="JWT 签名密钥（HS256 使用，RS256 可留空）")
+    """全局安全配置
+
+    SEC-002 安全修复：jwt_secret 默认值为空字符串。
+    - 生产环境：必须显式配置且长度 >= 32 字节，否则启动失败
+    - 开发环境：自动生成随机密钥并在日志中显示一次
+    """
+    jwt_secret: str = Field(default="", description="JWT 签名密钥（HS256 使用，RS256 可留空，生产环境必须配置且长度 >= 32）")
     jwt_algorithm: str = Field(default="RS256", description="JWT 签名算法：HS256 / RS256 / RS384 / RS512")
     access_token_expire_minutes: int = Field(default=1440, description="访问令牌有效期（分钟）")
     # RS256 密钥配置
@@ -1108,6 +1118,131 @@ class YunxiGlobalConfig(BaseConfig):
         validate_assignment=True,
         nested_model_default_partial_update=True,
     )
+
+    # ============================================================
+    # 生产环境配置校验 + 开发环境自动生成密钥
+    # ============================================================
+
+    @model_validator(mode="after")
+    def _validate_production_config(self) -> "YunxiGlobalConfig":
+        """
+        生产环境安全配置校验（SEC-001/SEC-002 安全修复）。
+
+        校验规则：
+        - 生产环境：所有模块 token 和 JWT secret 必须显式配置且符合安全要求
+        - 开发/测试环境：为空时自动生成随机值并在日志中显示（只显示一次）
+
+        覆盖了 BaseConfig 中的通用敏感字段校验，
+        针对全局配置的嵌套结构做专门处理。
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        # ---- SEC-001: 模块 Token 校验 ----
+        for module_key in self.modules.model_fields:
+            module_config = getattr(self.modules, module_key)
+            token = module_config.token
+
+            if not token or not token.strip():
+                if self.env == EnvType.PRODUCTION:
+                    errors.append(
+                        f"[SEC-001] 生产环境必须配置模块 '{module_key}' 的 admin_token。"
+                        f"请设置 YUNXI_MODULES_{module_key.upper()}_TOKEN 环境变量"
+                        f"或在配置文件中指定 modules.{module_key}.token。"
+                    )
+                else:
+                    # 开发环境：自动生成随机 token
+                    random_token = secrets.token_urlsafe(32)
+                    module_config.token = random_token
+                    warnings.append(
+                        f"模块 '{module_key}' 未配置 admin_token，"
+                        f"开发环境已自动生成随机令牌（仅本次启动有效）："
+                        f"{random_token[:8]}...{random_token[-4:]}"
+                    )
+            elif self.env == EnvType.PRODUCTION and is_default_or_weak_key(token):
+                # 生产环境额外检查弱密钥模式
+                errors.append(
+                    f"[SEC-001] 模块 '{module_key}' 的 admin_token 使用了默认/弱密钥值。"
+                    f"生产环境必须使用强随机密钥。"
+                    f"请使用 generate_secure_key() 生成新密钥。"
+                )
+
+        # ---- SEC-002: JWT Secret 校验 ----
+        jwt_secret = self.security.jwt_secret
+
+        if not jwt_secret or not jwt_secret.strip():
+            if self.env == EnvType.PRODUCTION:
+                errors.append(
+                    "[SEC-002] 生产环境必须配置 jwt_secret。"
+                    "请设置 YUNXI_SECURITY_JWT_SECRET 环境变量"
+                    "或在配置文件中指定 security.jwt_secret。"
+                    "密钥长度至少 32 字符。"
+                )
+            else:
+                # 开发环境：自动生成随机 JWT secret
+                random_secret = secrets.token_urlsafe(32)
+                self.security.jwt_secret = random_secret
+                warnings.append(
+                    "未配置 jwt_secret，"
+                    "开发环境已自动生成随机 JWT 密钥（仅本次启动有效）："
+                    f"{random_secret[:8]}...{random_secret[-4:]}"
+                )
+        else:
+            # 有值时检查长度（HS256 模式下至少 32 字节）
+            if self.security.jwt_algorithm and self.security.jwt_algorithm.startswith("HS"):
+                min_len = _get_min_key_length("jwt_secret")
+                if len(jwt_secret.strip()) < min_len:
+                    if self.env == EnvType.PRODUCTION:
+                        errors.append(
+                            f"[SEC-002] jwt_secret 长度不足：当前 {len(jwt_secret.strip())} 字符，"
+                            f"生产环境 HS256 算法要求至少 {min_len} 字符。"
+                        )
+                    else:
+                        warnings.append(
+                            f"jwt_secret 长度不足（{len(jwt_secret.strip())} 字符），"
+                            f"建议至少 {min_len} 字符。"
+                        )
+
+            # 生产环境检查弱密钥
+            if self.env == EnvType.PRODUCTION and is_default_or_weak_key(jwt_secret):
+                errors.append(
+                    "[SEC-002] jwt_secret 使用了默认/弱密钥值。"
+                    "生产环境必须使用强随机密钥。"
+                    "请使用 generate_secure_key(32) 或 openssl rand -hex 32 生成。"
+                )
+
+        # 开发环境输出警告日志（一次性）
+        if warnings and self.env != EnvType.PRODUCTION:
+            logger.warning(
+                "\n============================================================\n"
+                "安全配置提示（开发环境，不阻止启动）：\n"
+                "  - 共 %d 项敏感配置已自动生成随机值\n"
+                "  - 这些值仅在本次启动期间有效，重启后会重新生成\n"
+                "  - 生产环境必须显式配置所有敏感字段\n"
+                "============================================================\n"
+                "  %s",
+                len(warnings),
+                "\n  ".join(warnings),
+            )
+
+        # 生产环境校验失败则抛出错误
+        if errors:
+            raise ValueError(
+                "\n============================================================\n"
+                "生产环境安全配置校验失败（SEC-001/SEC-002）：\n"
+                f"共 {len(errors)} 项问题需要修复：\n"
+                "============================================================\n"
+                "  " + "\n  ".join(errors) + "\n"
+                "============================================================\n"
+                "请修复上述配置问题后重新启动服务。\n"
+                "生成安全密钥可使用：python -c \"import secrets; print(secrets.token_urlsafe(32))\"\n"
+                "============================================================"
+            )
+
+        return self
 
     def get_module_endpoint(self, module_key: str) -> Optional[ModuleEndpointConfig]:
         """获取指定模块的端点配置"""

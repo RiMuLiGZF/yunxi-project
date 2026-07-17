@@ -57,6 +57,7 @@ from .password import (
     verify_password,
     needs_update,
     is_bcrypt_available,
+    is_insecure_fallback_mode,
 )
 
 # ===========================================================================
@@ -352,6 +353,7 @@ __all__ = [
     "verify_password",
     "needs_update",
     "is_bcrypt_available",
+    "is_insecure_fallback_mode",
     # jwt
     "JWTHandler",
     "JWTConfig",

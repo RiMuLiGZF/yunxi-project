@@ -37,6 +37,11 @@ try:
     HAS_JOSE = True
 except ImportError:
     HAS_JOSE = False
+    # SEC-006: jose 库不可用时的安全处理
+    # 定义 JWTError 占位符，确保 except 子句语法正确
+    class JWTError(Exception):
+        """JWT 验证错误占位符（jose 不可用时使用）"""
+        pass
 
 
 def _find_route_by_path(path: str) -> Optional[ModuleRoute]:
@@ -81,6 +86,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self._jwt_algorithm = os.getenv("GATEWAY_JWT_ALGORITHM", os.getenv("JWT_ALGORITHM", "HS256"))
         self._jwt_issuer = os.getenv("GATEWAY_JWT_ISSUER", os.getenv("JWT_ISSUER", "yunxi"))
         self._dev_mode = os.getenv("ENV", "development") == "development"
+
+        # SEC-006: jose 库必须可用，禁止降级到不验证签名的模式
+        if not HAS_JOSE:
+            error_msg = (
+                "[SEC-006] python-jose 库未安装，JWT 认证无法进行签名验证。"
+                "为保证安全，网关禁止在没有 jose 库的情况下运行。"
+                "请安装: pip install python-jose[cryptography]"
+            )
+            logger.critical(error_msg)
+            raise RuntimeError(error_msg)
 
         # 安全检查：生产环境不允许空密钥
         if not self._jwt_secret:
@@ -214,6 +229,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """
         验证 JWT Token（完整验证）
 
+        SEC-006 安全修复：移除了无 jose 库时的降级模式。
+        jose 库不可用时中间件初始化直接失败，确保绝不会出现
+        "仅解码不验证签名" 的不安全情况。
+
         验证内容：
         1. 格式验证（三段式）
         2. 签名验证（使用 jose 库）
@@ -239,68 +258,38 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     return None
 
             # 2. 使用 jose 库进行完整验证
-            if HAS_JOSE:
-                payload = jose_jwt.decode(
-                    token,
-                    self._jwt_secret,
-                    algorithms=[self._jwt_algorithm],
-                    options={
-                        "verify_signature": True,
-                        "verify_exp": True,
-                        "verify_iat": True,
-                        "verify_iss": False,  # 宽松模式，issuer 可选验证
-                        "require": ["exp", "iat"],
-                    },
-                    issuer=self._jwt_issuer,
-                )
+            # SEC-006: HAS_JOSE 在 __init__ 中已检查，这里始终为 True
+            payload = jose_jwt.decode(
+                token,
+                self._jwt_secret,
+                algorithms=[self._jwt_algorithm],
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_iat": True,
+                    "verify_iss": False,  # 宽松模式，issuer 可选验证
+                    "require": ["exp", "iat"],
+                },
+                issuer=self._jwt_issuer,
+            )
 
-                # 3. 额外验证：Token 类型
-                token_type = payload.get("type", "access")
-                if token_type not in ("access", "api"):
-                    return None
+            # 3. 额外验证：Token 类型
+            token_type = payload.get("type", "access")
+            if token_type not in ("access", "api"):
+                return None
 
-                # 4. 标准化返回格式
-                return {
-                    "auth_type": "jwt",
-                    "user_id": payload.get("sub", ""),
-                    "username": payload.get("username", ""),
-                    "roles": payload.get("roles", []),
-                    "scopes": payload.get("scopes", []),
-                    "jti": payload.get("jti", ""),
-                    "exp": payload.get("exp"),
-                    "iat": payload.get("iat"),
-                    "type": token_type,
-                }
-
-            # 3. 无 jose 库时的降级验证（仅开发环境）
-            if self._dev_mode:
-                # 手动解码 payload 部分（不验证签名，仅做格式和过期检查）
-                # 仅用于开发环境！生产环境必须安装 jose 库
-                payload_b64 = parts[1]
-                padded = payload_b64 + "=" * (-len(payload_b64) % 4)
-                payload_json = base64.urlsafe_b64decode(padded).decode("utf-8")
-                payload = json.loads(payload_json)
-
-                # 检查过期
-                exp = payload.get("exp")
-                if exp and time.time() > exp:
-                    return None
-
-                return {
-                    "auth_type": "jwt_dev",
-                    "user_id": payload.get("sub", ""),
-                    "username": payload.get("username", ""),
-                    "roles": payload.get("roles", []),
-                    "scopes": payload.get("scopes", []),
-                    "jti": payload.get("jti", ""),
-                    "exp": exp,
-                    "iat": payload.get("iat"),
-                    "type": payload.get("type", "access"),
-                    "_warning": "JWT signature not verified - install python-jose for production",
-                }
-
-            # 生产环境无 jose 库，直接拒绝
-            return None
+            # 4. 标准化返回格式
+            return {
+                "auth_type": "jwt",
+                "user_id": payload.get("sub", ""),
+                "username": payload.get("username", ""),
+                "roles": payload.get("roles", []),
+                "scopes": payload.get("scopes", []),
+                "jti": payload.get("jti", ""),
+                "exp": payload.get("exp"),
+                "iat": payload.get("iat"),
+                "type": token_type,
+            }
 
         except JWTError:
             return None
