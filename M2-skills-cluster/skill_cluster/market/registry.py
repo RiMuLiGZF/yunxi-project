@@ -13,10 +13,11 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import re
 import sqlite3
 import tempfile
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -33,6 +34,82 @@ from skill_cluster.market.store import SkillPackageStore
 logger = structlog.get_logger()
 
 
+# ===========================================================================
+# SQL 安全校验（SEC-005 防 SQL 注入）
+# ===========================================================================
+
+# 安全的列名/表名正则
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+# skill_packages 表允许排序的列名白名单
+_PACKAGE_SORT_COLUMNS = {
+    "created_at",
+    "updated_at",
+    "download_count",
+    "rating_avg",
+    "rating_count",
+    "name",
+    "version",
+    "author",
+    "category",
+    "package_id",
+    "file_size",
+}
+
+# 允许的排序方式映射（sort 参数 -> ORDER BY 子句）
+_SORT_OPTIONS: Dict[str, str] = {
+    "newest": "created_at DESC",
+    "popular": "download_count DESC, created_at DESC",
+    "downloads": "download_count DESC, created_at DESC",
+    "rating": "rating_avg DESC, rating_count DESC",
+    "oldest": "created_at ASC",
+    "name": "name ASC",
+    "updated": "updated_at DESC",
+}
+
+
+def _validate_sort(sort: str) -> str:
+    """校验排序参数并返回安全的 ORDER BY 子句.
+
+    Args:
+        sort: 排序方式名称
+
+    Returns:
+        安全的 ORDER BY 子句
+
+    Raises:
+        ValueError: 不支持的排序方式
+    """
+    if sort not in _SORT_OPTIONS:
+        raise ValueError(
+            f"Invalid sort option: {repr(sort)}. "
+            f"Supported: {sorted(_SORT_OPTIONS.keys())}"
+        )
+    return _SORT_OPTIONS[sort]
+
+
+def _validate_identifier(name: str, kind: str = "identifier") -> str:
+    """校验 SQL 标识符是否安全.
+
+    Args:
+        name: 标识符名称
+        kind: 标识符类型
+
+    Returns:
+        原始名称（如果安全）
+
+    Raises:
+        ValueError: 标识符不安全
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError(f"Invalid {kind}: empty or non-string")
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {kind}: {repr(name)} - only alphanumeric and underscore allowed"
+        )
+    return name
+
+
 def _safe_json_loads(value: str, default: Any) -> Any:
     """安全反序列化 JSON 字符串，失败返回默认值."""
     if not value:
@@ -46,11 +123,11 @@ def _safe_json_loads(value: str, default: Any) -> Any:
 def _safe_parse_dt(value: str) -> datetime:
     """安全解析 ISO 时间字符串，失败返回当前时间."""
     if not value:
-        return datetime.utcnow()
+        return datetime.now(tz=timezone.utc)
     try:
         return datetime.fromisoformat(value)
     except (ValueError, TypeError):
-        return datetime.utcnow()
+        return datetime.now(tz=timezone.utc)
 
 
 class MarketRegistry:
@@ -371,7 +448,7 @@ class MarketRegistry:
         # 3. 打包
         checksum = ""
         file_size = 0
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         package_id = f"pkg_{os.urandom(6).hex()}"
 
         pkg = SkillPackage(
@@ -526,7 +603,7 @@ class MarketRegistry:
                 SET status = 'unpublished', updated_at = ?
                 WHERE package_id = ?
                 """,
-                (datetime.utcnow().isoformat(), package_id),
+                (datetime.now(tz=timezone.utc).isoformat(), package_id),
             )
 
         # 删除包文件
@@ -552,12 +629,16 @@ class MarketRegistry:
     ) -> Tuple[List[MarketListing], int]:
         """浏览市场列表，返回 (items, total).
 
+        安全特性（SEC-005）：
+        - sort 参数使用白名单映射，防止 SQL 注入
+        - 所有过滤条件使用参数化查询
+
         Args:
             category: 分类过滤.
             tag: 标签过滤.
             page: 页码（从 1 开始）.
             size: 每页数量.
-            sort: 排序方式 - newest / popular / downloads / rating.
+            sort: 排序方式 - newest / popular / downloads / rating / oldest / name / updated.
         """
         where_clauses = ["status = 'published'", "is_public = 1"]
         params: List[Any] = []
@@ -571,12 +652,11 @@ class MarketRegistry:
 
         where_sql = " AND ".join(where_clauses)
 
-        order_sql = "created_at DESC"
-        if sort in ("popular", "downloads"):
-            order_sql = "download_count DESC, created_at DESC"
-        elif sort == "rating":
-            order_sql = "rating_avg DESC, rating_count DESC"
+        # SEC-005: 使用白名单映射获取安全的 ORDER BY 子句
+        order_sql = _validate_sort(sort)
 
+        page = max(1, page)
+        size = max(1, min(size, 100))  # 限制每页最大 100 条
         offset = (page - 1) * size
 
         with self._get_conn() as conn:
@@ -742,7 +822,7 @@ class MarketRegistry:
                         package_id,
                         install_path,
                         status,
-                        datetime.utcnow().isoformat(),
+                        datetime.now(tz=timezone.utc).isoformat(),
                     ),
                 )
                 # 增加下载计数
@@ -753,7 +833,7 @@ class MarketRegistry:
                         updated_at = ?
                     WHERE package_id = ?
                     """,
-                    (datetime.utcnow().isoformat(), package_id),
+                    (datetime.now(tz=timezone.utc).isoformat(), package_id),
                 )
         except Exception as e:
             logger.warning("install_log_failed", error=str(e))
@@ -830,7 +910,7 @@ class MarketRegistry:
                     (
                         package_id,
                         str(installed_dir),
-                        datetime.utcnow().isoformat(),
+                        datetime.now(tz=timezone.utc).isoformat(),
                     ),
                 )
         except Exception as e:
@@ -878,7 +958,7 @@ class MarketRegistry:
                     user_id,
                     rating,
                     comment,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(tz=timezone.utc).isoformat(),
                 ),
             )
 
@@ -900,7 +980,7 @@ class MarketRegistry:
                 SET rating_avg = ?, rating_count = ?, updated_at = ?
                 WHERE package_id = ?
                 """,
-                (rating_avg, rating_count, datetime.utcnow().isoformat(), package_id),
+                (rating_avg, rating_count, datetime.now(tz=timezone.utc).isoformat(), package_id),
             )
 
         logger.info(

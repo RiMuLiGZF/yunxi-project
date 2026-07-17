@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from datetime import timedelta, datetime
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 project_root = Path(__file__).parent.parent.parent.parent
@@ -19,7 +20,14 @@ from ..config import (
     generate_strong_password,
     PASSWORD_MIN_LENGTH,
 )
-from ..auth import verify_password, create_access_token, get_password_hash, get_current_user
+from ..auth import (
+    verify_password,
+    create_access_token,
+    get_password_hash,
+    get_current_user,
+    blacklist_token,
+    security,
+)
 from ..schemas import ApiResponse
 
 router = APIRouter()
@@ -229,8 +237,13 @@ async def login(req: LoginRequest):
 
 
 @router.post("/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
-    """用户登出"""
+async def logout(
+    current_user: dict = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """用户登出（将 Token 加入黑名单）"""
+    if credentials is not None:
+        blacklist_token(credentials.credentials)
     return ApiResponse.success(message="登出成功")
 
 
