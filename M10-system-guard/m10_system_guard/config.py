@@ -1,6 +1,10 @@
 """
 M10 系统卫士 - 配置管理模块
 
+统一配置框架迁移版：
+- 新接口：M10ModuleConfig（继承 BaseConfig，基于 pydantic-settings）
+- 旧接口：M10Config + 子模型（保留，向后兼容）
+
 统一管理所有配置，支持环境变量覆盖。
 沙盒模式优先：默认使用模拟数据，不调用真实系统 API。
 """
@@ -8,6 +12,7 @@ M10 系统卫士 - 配置管理模块
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +20,26 @@ from pydantic import BaseModel, Field
 
 
 # ============================================================
-# 配置子模型
+# 尝试从统一配置基类导入
+# ============================================================
+
+try:
+    _current = Path(__file__).resolve()
+    for _ in range(10):
+        _current = _current.parent
+        if (_current / "shared" / "core" / "config.py").exists():
+            if str(_current) not in sys.path:
+                sys.path.insert(0, str(_current))
+            break
+    from shared.core.config import BaseConfig, EnvType
+    from pydantic_settings import SettingsConfigDict
+    _USE_UNIFIED_CONFIG = True
+except ImportError:
+    _USE_UNIFIED_CONFIG = False
+
+
+# ============================================================
+# 配置子模型（保持不变，作为子配置使用）
 # ============================================================
 
 class BasicConfig(BaseModel):
@@ -34,7 +58,7 @@ class SandboxConfig(BaseModel):
     沙盒模式下所有系统数据使用模拟生成，不调用真实系统 API，
     避免占用过多系统资源。
     """
-    enabled: bool = False  # P2-26: 默认关闭沙盒，调用真实系统API
+    enabled: bool = False
     mock_cpu_range: tuple = (10.0, 60.0)
     mock_memory_range: tuple = (30.0, 70.0)
     mock_disk_range: tuple = (40.0, 80.0)
@@ -45,13 +69,13 @@ class SandboxConfig(BaseModel):
     mock_process_count: int = 120
     sample_interval_seconds: float = 1.0
 
-
     # 真实 GPU 采集（非沙盒模式）
-    gpu_polling_interval_ms: int = 500  # GPU 轮询间隔（毫秒）
-    gpu_monitor_processes: bool = True  # 是否监控 GPU 进程
-    gpu_memory_warning_percent: float = 80.0  # 显存使用率告警阈值
-    gpu_temp_warning_celsius: float = 85.0  # GPU 温度告警阈值
-    gpu_power_warning_percent: float = 90.0  # 功耗告警阈值（占 power limit 比例）
+    gpu_polling_interval_ms: int = 500
+    gpu_monitor_processes: bool = True
+    gpu_memory_warning_percent: float = 80.0
+    gpu_temp_warning_celsius: float = 85.0
+    gpu_power_warning_percent: float = 90.0
+
 
 class GuardThresholdConfig(BaseModel):
     """防护阈值配置.
@@ -143,11 +167,86 @@ class DataAggregationConfig(BaseModel):
 
 
 # ============================================================
-# 主配置模型
+# M10 模块统一配置类（新接口）
+# ============================================================
+
+if _USE_UNIFIED_CONFIG:
+
+    class M10ModuleConfig(BaseConfig):
+        """
+        M10 系统卫士模块配置（统一配置框架版）
+
+        继承自 BaseConfig，自动获得：
+        - .env 文件加载
+        - 环境变量覆盖
+        - 生产环境敏感字段校验
+        - 敏感字段脱敏
+        - 配置热更新
+
+        环境变量前缀：M10_
+        """
+
+        module_name: str = Field(default="m10-system-guard", description="模块名称")
+        port: int = Field(default=8010, ge=1, le=65535, description="服务监听端口")
+
+        # 子配置
+        basic: BasicConfig = Field(default_factory=BasicConfig)
+        sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
+        guard_threshold: GuardThresholdConfig = Field(default_factory=GuardThresholdConfig)
+        process: ProcessConfig = Field(default_factory=ProcessConfig)
+        startup_check: StartupCheckConfig = Field(default_factory=StartupCheckConfig)
+        sandbox_scheduler: SandboxSchedulerConfig = Field(default_factory=SandboxSchedulerConfig)
+        audit: AuditConfig = Field(default_factory=AuditConfig)
+        report: ReportConfig = Field(default_factory=ReportConfig)
+        data_aggregation: DataAggregationConfig = Field(default_factory=DataAggregationConfig)
+
+        # CORS
+        cors_origins: str = Field(
+            default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+            description="CORS 允许的来源（逗号分隔）",
+        )
+
+        model_config = SettingsConfigDict(
+            env_prefix="M10_",
+            env_file=".env",
+            env_file_encoding="utf-8",
+            extra="allow",
+            validate_assignment=True,
+            nested_model_default_partial_update=True,
+        )
+
+        def reload_config(self) -> "M10ModuleConfig":
+            """重新加载配置（兼容旧接口名）"""
+            self.reload()
+            return self
+
+
+    # 全局配置单例（新接口）
+    _m10_config: M10ModuleConfig | None = None
+
+    def get_m10_config() -> M10ModuleConfig:
+        """获取 M10 模块配置实例（单例模式，统一配置框架）"""
+        global _m10_config
+        if _m10_config is None:
+            _m10_config = M10ModuleConfig()
+        return _m10_config
+
+else:
+    M10ModuleConfig = None  # type: ignore
+    get_m10_config = None  # type: ignore
+
+
+# ============================================================
+# 旧接口：M10Config（向后兼容）
 # ============================================================
 
 class M10Config(BaseModel):
-    """M10 系统卫士全局配置."""
+    """
+    M10 系统卫士全局配置（向后兼容层）
+
+    .. deprecated:: 2.0.0
+        请使用 M10ModuleConfig 替代。
+    """
     basic: BasicConfig = Field(default_factory=BasicConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     guard_threshold: GuardThresholdConfig = Field(default_factory=GuardThresholdConfig)
@@ -161,14 +260,14 @@ class M10Config(BaseModel):
 
 
 # ============================================================
-# 配置加载
+# 配置加载函数（向后兼容）
 # ============================================================
 
 _config_instance = None
 
 
 def _apply_env_overrides(config):
-    """应用环境变量覆盖配置."""
+    """应用环境变量覆盖配置（旧逻辑，保留以确保向后兼容）"""
     if os.getenv("M10_PORT"):
         config.basic.port = int(os.getenv("M10_PORT", "8010"))
     if os.getenv("M10_HOST"):
@@ -184,7 +283,6 @@ def _apply_env_overrides(config):
     elif sandbox_enabled in ("false", "0", "no"):
         config.sandbox.enabled = False
 
-    # CORS 来源覆盖
     if os.getenv("M10_CORS_ORIGINS"):
         config.cors_origins = os.getenv("M10_CORS_ORIGINS", "")
 
@@ -192,7 +290,7 @@ def _apply_env_overrides(config):
 
 
 def load_config(config_path=None):
-    """加载配置.
+    """加载配置（向后兼容旧接口）
 
     优先级：
     1. 指定的配置文件
@@ -222,7 +320,7 @@ def load_config(config_path=None):
 
 
 def get_config():
-    """获取全局配置单例."""
+    """获取全局配置单例（向后兼容旧接口）"""
     global _config_instance
     if _config_instance is None:
         _config_instance = load_config()
@@ -230,22 +328,22 @@ def get_config():
 
 
 def reload_config():
-    """重新加载配置."""
+    """重新加载配置（向后兼容旧接口）"""
     global _config_instance
     _config_instance = None
     return get_config()
 
 
+# ============================================================
 # 系统版本号（统一从 shared.version 导入）
+# ============================================================
+
 def _load_system_version() -> str:
     """从 shared.version 导入系统版本号，导入失败则回退到默认值"""
     try:
-        # 查找项目根目录并加入 sys.path
-        from pathlib import Path
         current = Path(__file__).resolve().parent
         for _ in range(10):
             if (current / "shared" / "version.py").exists():
-                import sys
                 if str(current) not in sys.path:
                     sys.path.insert(0, str(current))
                 break
