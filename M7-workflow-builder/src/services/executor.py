@@ -165,6 +165,42 @@ BUILTIN_BLOCKS: Dict[str, Dict[str, Any]] = {
         "actions": ["record"],
         "category": "voice",
     },
+    # 高级控制流节点
+    "logic.loop": {
+        "name": "循环节点",
+        "description": "for/while 循环，支持遍历列表和条件循环",
+        "actions": ["execute", "for", "while"],
+        "category": "logic",
+        "type": "control",
+    },
+    "control.delay": {
+        "name": "延时节点",
+        "description": "等待指定时间后继续执行，支持固定和随机延时",
+        "actions": ["wait"],
+        "category": "control",
+        "type": "control",
+    },
+    "skill.http_request": {
+        "name": "HTTP 请求",
+        "description": "调用外部 API，支持 GET/POST/PUT/DELETE 等方法",
+        "actions": ["request", "get", "post", "put", "delete"],
+        "category": "integration",
+        "type": "action",
+    },
+    "data.transform": {
+        "name": "数据转换",
+        "description": "JSON 数据转换、字段映射、过滤、排序、格式化",
+        "actions": ["transform", "map", "extract", "filter", "format", "sort"],
+        "category": "data",
+        "type": "transform",
+    },
+    "workflow.subflow": {
+        "name": "子工作流",
+        "description": "调用另一个工作流作为子流程",
+        "actions": ["invoke", "call"],
+        "category": "workflow",
+        "type": "subflow",
+    },
 }
 
 
@@ -1056,6 +1092,16 @@ async def execute_builtin_block(
                 "data": result_data,
                 "error": record_error or "录音失败",
             }
+
+    # 高级节点处理
+    if skill_id in {"logic.loop", "control.delay", "skill.http_request", "data.transform", "workflow.subflow"}:
+        try:
+            from .nodes import execute_advanced_node
+            advanced_result = await execute_advanced_node(skill_id, action, params)
+            return advanced_result
+        except ImportError:
+            result_data["note"] = "高级节点模块不可用，返回模拟结果"
+            return {"success": True, "data": result_data}
 
     return {
         "success": True,

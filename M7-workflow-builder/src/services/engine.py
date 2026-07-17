@@ -23,6 +23,15 @@ from .validator import (
     is_linear_workflow,
     topological_sort,
 )
+from .error_handling import (
+    CompensationManager,
+    ErrorAggregator,
+    ErrorPropagationStrategy,
+    ExecutionLogCollector,
+    ProgressTracker,
+    detect_dead_ends,
+    highlight_failed_nodes,
+)
 
 logger = logging.getLogger("m7.engine")
 
@@ -380,6 +389,7 @@ class WorkflowEngine:
         start_block: Optional[str] = None,
         runtime_variables: Optional[Dict[str, Any]] = None,
         triggered_by: str = "",
+        error_strategy: Optional[str] = None,
     ) -> Dict[str, Any]:
         """运行工作流.
 
@@ -413,6 +423,27 @@ class WorkflowEngine:
         run_start_time = time.time()
         input_data = input_data or {}
         runtime_variables = runtime_variables or {}
+
+        # 错误传播策略
+        if error_strategy and ErrorPropagationStrategy.is_valid(error_strategy):
+            self._error_strategy = error_strategy
+        else:
+            self._error_strategy = ErrorPropagationStrategy.default()
+
+        # 进度跟踪器
+        total_blocks = len(workflow.get("blocks", []))
+        progress_tracker = ProgressTracker(total_blocks)
+        progress_tracker.start()
+
+        # 执行日志收集器
+        log_collector = ExecutionLogCollector()
+        log_collector.info("", f"工作流开始执行: {workflow.get('name', '')}")
+
+        # 错误聚合器
+        error_aggregator = ErrorAggregator()
+
+        # 补偿管理器
+        compensation_mgr = CompensationManager()
 
         # P1-05: 并发限流
         if not await WorkflowEngine._acquire_slot():
@@ -571,6 +602,16 @@ class WorkflowEngine:
                 final_output = step.get("output")
                 break
 
+        # 标记执行结束
+        progress_tracker.finish(overall_status)
+        log_collector.info("", f"工作流执行结束: {overall_status}")
+
+        # 失败节点高亮
+        failed_highlight = highlight_failed_nodes(steps)
+
+        # 死路检测（仅在结构验证中，不影响执行结果）
+        dead_ends = detect_dead_ends(blocks)
+
         return {
             "run_id": run_id,
             "workflow_id": workflow.get("id", ""),
@@ -593,6 +634,14 @@ class WorkflowEngine:
             "workflow_timeout": self.workflow_timeout,
             "block_timeout": self.block_timeout,
             "max_parallel_nodes": self.max_parallel_nodes if not is_linear else 1,
+            # 增强信息
+            "progress": progress_tracker.get_progress_info(),
+            "execution_logs": log_collector.get_logs(),
+            "log_summary": log_collector.get_log_summary(),
+            "error_summary": error_aggregator.get_summary(),
+            "failed_highlight": failed_highlight,
+            "dead_ends": dead_ends,
+            "error_strategy": self._error_strategy,
         }
 
     def _handle_condition_branch(

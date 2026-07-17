@@ -37,6 +37,10 @@ from routers.mcp import router as mcp_router
 from routers.dashboard import router as dashboard_router
 from routers.code import router as code_router
 from routers.backup import router as backup_router
+from routers.templates import router as templates_router
+from routers.files import router as files_router
+from routers.quality import router as quality_router
+from routers.runs import router as runs_router
 
 # 导入中间件
 from core.auth_middleware import AuthMiddleware, RateLimitMiddleware
@@ -59,7 +63,8 @@ settings = get_settings()
 
 # ===== 版本号 =====
 # P2优化后版本 - 可观测性/数据库/沙箱/MCP/配置中心
-APP_VERSION = "1.3.0"
+# P4版本 - 项目模板/文件管理/代码质量/运行历史
+APP_VERSION = "1.4.0"
 
 # ===== M8 标准接口启动时间（用于 uptime 计算） =====
 _start_time_m8 = time.time()
@@ -304,6 +309,10 @@ app.include_router(mcp_router)
 app.include_router(dashboard_router)
 app.include_router(code_router)
 app.include_router(backup_router)
+app.include_router(templates_router)
+app.include_router(files_router)
+app.include_router(quality_router)
+app.include_router(runs_router)
 
 
 # ===== 静态文件服务（前端页面） =====
@@ -835,6 +844,10 @@ def api_info():
             {"name": "MCP 桥接", "prefix": "/api/v1/mcp", "status": "active"},
             {"name": "仪表盘", "prefix": "/api/v1/dashboard", "status": "active"},
             {"name": "代码执行", "prefix": "/api/v1/code", "status": "active"},
+            {"name": "项目模板", "prefix": "/api/v1/templates", "status": "active"},
+            {"name": "文件管理", "prefix": "/api/v1/files", "status": "active"},
+            {"name": "代码质量", "prefix": "/api/v1/quality", "status": "active"},
+            {"name": "运行历史", "prefix": "/api/v1/runs", "status": "active"},
         ],
         "deprecated_prefixes": [
             "/api/vscode",
