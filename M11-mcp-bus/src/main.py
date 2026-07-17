@@ -14,7 +14,9 @@ Phase 1 安全加固：
 
 from __future__ import annotations
 
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI
@@ -27,6 +29,38 @@ from .routers import console as console_router
 from .routers import health as health_router
 from .routers import mcp as mcp_router
 from .routers import monitor as monitor_router
+
+# ---------------------------------------------------------------------------
+# 统一可观测性接入（第二阶段：shared.core.observability）
+# 优先使用统一实现，失败则回退到 structlog
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path
+try:
+    _current_m11 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m11 = _current_m11.parent
+        if (_current_m11 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m11) not in sys.path:
+                sys.path.insert(0, str(_current_m11))
+            break
+except Exception:
+    pass
+
+# 统一可观测性
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m11 = True
+except ImportError:
+    _unified_observability_m11 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m11:
+    logger = init_module_logger("m11")
+else:
+    import structlog
+    logger = structlog.get_logger("m11")
 
 
 # ============================================================
@@ -167,18 +201,22 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ---------- 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警） ----------
+    if _unified_observability_m11 and ObservabilityMiddleware is not None:
+        app.add_middleware(
+            ObservabilityMiddleware,
+            service_name="m11",
+            log_level=getattr(settings, "log_level", "INFO"),
+            slow_request_threshold=3.0,
+            exclude_paths=["/health", "/m8/health"],
+        )
+        logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
+
     # ---------- 统一异常处理器（6 位错误码体系 + 标准化响应格式） ----------
     try:
-        import sys as _sys_m11
-        from pathlib import Path as _Path_m11
-        _project_root = _Path_m11(__file__).parent.parent.parent.parent
-        if str(_project_root) not in _sys_m11.path:
-            _sys_m11.path.insert(0, str(_project_root))
         from shared.core.responses import register_global_exception_handler
-        import structlog
-        _m11_logger = structlog.get_logger("m11.exception_handler")
-        register_global_exception_handler(app, logger=_m11_logger)
-        print("[M11] 统一异常处理器已注册（6 位错误码体系）")
+        register_global_exception_handler(app, logger=logger)
+        logger.info("统一异常处理器已注册（6 位错误码体系）")
     except ImportError as _e:
         print(f"[M11] 统一异常处理器不可用: {_e}，将使用 FastAPI 默认异常处理")
 

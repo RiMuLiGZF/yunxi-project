@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 import uuid
 import asyncio
@@ -34,6 +35,56 @@ from .routers.custom_blocks import router as custom_blocks_router
 from .routers.market import market_router
 from .routers.backup import router as backup_router
 from .services.storage import get_storage
+
+# ---------------------------------------------------------------------------
+# 统一基础设施接入（第二阶段：shared.core）
+# 优先使用统一实现，失败则回退到模块原有实现
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path
+try:
+    _current_m7 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m7 = _current_m7.parent
+        if (_current_m7 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m7) not in sys.path:
+                sys.path.insert(0, str(_current_m7))
+            break
+except Exception:
+    pass
+
+# 统一可观测性
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m7 = True
+except ImportError:
+    _unified_observability_m7 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一异常处理器
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_m7 = True
+except ImportError:
+    _unified_exception_handler_m7 = False
+
+# 统一配置基类
+try:
+    from shared.core.config import BaseConfig
+    _unified_config_m7 = True
+except ImportError:
+    _unified_config_m7 = False
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m7:
+    logger = init_module_logger("m7")
+else:
+    logger = logging.getLogger("m7")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
 
 
 # 加载全局配置（在中间件初始化之前）
@@ -212,6 +263,17 @@ def create_app() -> FastAPI:
     # Token 鉴权中间件
     app.add_middleware(M8AuthMiddleware)
 
+    # 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+    if _unified_observability_m7 and ObservabilityMiddleware is not None:
+        app.add_middleware(
+            ObservabilityMiddleware,
+            service_name="m7",
+            log_level="INFO",
+            slow_request_threshold=3.0,
+            exclude_paths=["/health", "/api/v1/health"],
+        )
+        logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
+
     # 请求计时中间件（记录指标）
     @app.middleware("http")
     async def add_request_metrics(request: Request, call_next):
@@ -337,6 +399,11 @@ def create_app() -> FastAPI:
     app.include_router(custom_blocks_router)
     app.include_router(market_router)
     app.include_router(backup_router)
+
+    # 统一异常处理器（优先使用，覆盖原有装饰器注册的处理器）
+    if _unified_exception_handler_m7:
+        register_global_exception_handler(app, logger=logger)
+        logger.info("统一异常处理器已注册（6 位错误码体系）")
 
     # 根路径
     @app.get("/", tags=["系统"])

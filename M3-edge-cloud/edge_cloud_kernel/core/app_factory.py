@@ -11,8 +11,10 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -34,7 +36,50 @@ from edge_cloud_kernel.m8_api.error_codes import (
     ErrorCode,
 )
 
-logger = structlog.get_logger(__name__)
+# ---------------------------------------------------------------------------
+# 统一基础设施接入（第二阶段：shared.core）
+# 优先使用统一实现，失败则回退到模块原有实现
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path（shared 模块所在位置）
+try:
+    _current_m3 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m3 = _current_m3.parent
+        if (_current_m3 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m3) not in sys.path:
+                sys.path.insert(0, str(_current_m3))
+            break
+except Exception:
+    pass
+
+# 统一可观测性：日志 + 链路追踪 + 慢请求告警
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m3 = True
+except ImportError:
+    _unified_observability_m3 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一异常处理器：6 位错误码 + 标准化响应
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_m3 = True
+except ImportError:
+    _unified_exception_handler_m3 = False
+
+# 统一配置基类
+try:
+    from shared.core.config import BaseConfig
+    _unified_config_m3 = True
+except ImportError:
+    _unified_config_m3 = False
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m3:
+    logger = init_module_logger("m3")
+else:
+    logger = structlog.get_logger(__name__)
 
 # 全局 KernelManager 实例（单例）
 _kernel_manager: KernelManager | None = None
@@ -484,8 +529,23 @@ def create_app(
     # 注册中间件
     _register_middleware(app)
 
-    # 注册全局异常处理器
-    _register_exception_handlers(app)
+    # 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+    if _unified_observability_m3 and ObservabilityMiddleware is not None:
+        app.add_middleware(
+            ObservabilityMiddleware,
+            service_name="m3",
+            log_level="INFO",
+            slow_request_threshold=3.0,
+            exclude_paths=["/health", "/api/v3/health", "/m8/health"],
+        )
+        logger.info("observability_middleware_registered", service="m3")
+
+    # 注册全局异常处理器（优先使用统一处理器，回退到模块原有实现）
+    if _unified_exception_handler_m3:
+        register_global_exception_handler(app, logger=logger)
+        logger.info("global_exception_handler_registered", service="m3")
+    else:
+        _register_exception_handlers(app)
 
     # 注册路由
     _register_routers(app)

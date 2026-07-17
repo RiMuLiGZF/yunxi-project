@@ -12,7 +12,43 @@ from pathlib import Path
 from typing import Optional, Callable
 from contextlib import asynccontextmanager
 
-logger = logging.getLogger(__name__)
+# ---------------------------------------------------------------------------
+# 统一基础设施接入（第二阶段：shared.core）
+# 优先使用统一实现，失败则回退到模块原有实现
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path
+try:
+    _current_m12 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m12 = _current_m12.parent
+        if (_current_m12 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m12) not in sys.path:
+                sys.path.insert(0, str(_current_m12))
+            break
+except Exception:
+    pass
+
+# 统一可观测性
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m12 = True
+except ImportError:
+    _unified_observability_m12 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一异常处理器
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_m12 = True
+except ImportError:
+    _unified_exception_handler_m12 = False
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m12:
+    logger = init_module_logger("m12")
+else:
+    logger = logging.getLogger(__name__)
 
 # 加载环境变量（优先从项目根目录加载）
 _env_path = Path(__file__).resolve().parent.parent.parent / "config" / "yunxi.env"
@@ -60,11 +96,26 @@ def create_app(lifespan: Optional[Callable] = None) -> FastAPI:
         lifespan=lifespan if lifespan else _default_lifespan,
     )
 
+    # 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+    if _unified_observability_m12 and ObservabilityMiddleware is not None:
+        app.add_middleware(
+            ObservabilityMiddleware,
+            service_name="m12",
+            log_level=settings.log_level.upper() if hasattr(settings, 'log_level') else "INFO",
+            slow_request_threshold=3.0,
+            exclude_paths=["/health", "/api/v1/status/health", "/status/health"],
+        )
+        logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
+
     # 注册路由
     _register_routers(app)
 
-    # 注册异常处理器
-    _register_exception_handlers(app)
+    # 注册异常处理器（优先使用统一处理器，回退到模块原有实现）
+    if _unified_exception_handler_m12:
+        register_global_exception_handler(app, logger=logger)
+        logger.info("统一异常处理器已注册（6 位错误码体系）")
+    else:
+        _register_exception_handlers(app)
 
     return app
 

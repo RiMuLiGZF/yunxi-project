@@ -175,3 +175,69 @@ def reload_settings() -> Settings:
     """
     get_settings.cache_clear()
     return get_settings()
+
+
+# ---------------------------------------------------------------------------
+# 统一配置框架接入（第二阶段基础设施）
+# ---------------------------------------------------------------------------
+# 新增 M11ModuleConfig 继承 BaseConfig，获得：
+# - 全局 .env 文件自动加载
+# - 生产环境敏感字段校验
+# - 配置热更新
+# - 敏感字段自动脱敏
+# 原有 Settings 类保持不变，确保向后兼容。
+# ---------------------------------------------------------------------------
+
+try:
+    from shared.core.config import BaseConfig
+    _USE_UNIFIED_CONFIG_M11 = True
+except ImportError:
+    _USE_UNIFIED_CONFIG_M11 = False
+    BaseConfig = None  # type: ignore
+
+
+if _USE_UNIFIED_CONFIG_M11:
+
+    class M11ModuleConfig(BaseConfig):
+        """
+        M11 MCP 总线配置（统一配置框架版）
+
+        继承自 BaseConfig，自动获得：
+        - .env 文件加载（config/yunxi.env）
+        - 环境变量覆盖（优先级最高）
+        - 生产环境敏感字段校验
+        - 敏感字段脱敏输出
+        - 配置热更新
+
+        环境变量前缀：M11_
+        """
+
+        module_name: str = Field(default="m11-mcp-bus", description="模块名称")
+        port: int = Field(default=8011, ge=1, le=65535, description="服务监听端口")
+        host: str = Field(default="0.0.0.0", description="监听地址")
+        env: str = Field(default="development", description="运行环境")
+        log_level: str = Field(default="info", description="日志级别")
+        use_redis: bool = Field(default=False, description="是否启用 Redis")
+        redis_url: str = Field(default="redis://localhost:6379/0", description="Redis 地址")
+
+        model_config = SettingsConfigDict(
+            env_prefix="M11_",
+            env_file="config/yunxi.env",
+            env_file_encoding="utf-8",
+            extra="allow",
+            validate_assignment=True,
+        )
+
+    # 全局配置单例（新接口）
+    _m11_unified_config: Optional[M11ModuleConfig] = None
+
+    def get_m11_unified_config() -> M11ModuleConfig:
+        """获取 M11 模块统一配置实例（单例模式）"""
+        global _m11_unified_config
+        if _m11_unified_config is None:
+            _m11_unified_config = M11ModuleConfig()
+        return _m11_unified_config
+
+else:
+    M11ModuleConfig = None  # type: ignore
+    get_m11_unified_config = None  # type: ignore

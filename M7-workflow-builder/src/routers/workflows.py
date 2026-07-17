@@ -7,11 +7,18 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import sys
 import time
 import uuid
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+
+# 添加项目根路径，导入 shared 模块
+_m7_root = Path(__file__).parent.parent.parent.parent
+if str(_m7_root) not in sys.path:
+    sys.path.insert(0, str(_m7_root))
 
 from ..models import (
     ApiResponse,
@@ -22,12 +29,14 @@ from ..models import (
 from ..services.storage import get_storage
 from ..services.engine import WorkflowEngine
 from ..m8_api.m8_auth_middleware import get_current_user
+from shared.data.cache import get_cache
 
 
 router = APIRouter(prefix="/api/v1/workflows", tags=["工作流管理"])
 
 _storage = get_storage()
 _engine = WorkflowEngine()
+_cache = get_cache()
 
 
 def _now_iso() -> str:
@@ -49,7 +58,15 @@ async def list_workflows(
     page_size: int = Query(default=50, ge=1, le=200, description="每页数量"),
     current_user: dict = Depends(get_current_user),
 ):
-    """获取工作流列表（支持分类筛选、搜索、状态筛选、分页）."""
+    """获取工作流列表（支持分类筛选、搜索、状态筛选、分页）.
+    结果缓存 15 秒，写操作后自动失效。
+    """
+    # 构建缓存键（包含所有查询参数）
+    cache_key = f"m7:workflows:list:{category}:{search}:{status}:{page}:{page_size}"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     workflows = _storage.load_workflows()
     items = list(workflows.values())
 
@@ -80,7 +97,7 @@ async def list_workflows(
     end = start + page_size
     paged_items = items[start:end]
 
-    return ApiResponse.success(
+    result = ApiResponse.success(
         data={
             "total": total,
             "items": paged_items,
@@ -89,6 +106,11 @@ async def list_workflows(
         },
         request_id=request.headers.get("X-Request-ID", ""),
     )
+
+    # 缓存结果 15 秒
+    _cache.set(cache_key, result, ttl=15.0, tags=["m7:workflows"])
+
+    return result
 
 
 @router.post("")
@@ -118,6 +140,9 @@ async def create_workflow(
     }
 
     _storage.upsert_workflow(workflow_id, workflow)
+
+    # 失效工作流列表缓存
+    _cache.invalidate_tag("m7:workflows")
 
     return ApiResponse.success(
         message="工作流创建成功",
@@ -184,6 +209,9 @@ async def update_workflow(
     workflow["updated_at"] = _now_iso()
     _storage.upsert_workflow(workflow_id, workflow)
 
+    # 失效工作流列表缓存
+    _cache.invalidate_tag("m7:workflows")
+
     return ApiResponse.success(
         message="工作流更新成功",
         data=workflow,
@@ -209,6 +237,9 @@ async def delete_workflow(
     _storage.delete_workflow(workflow_id)
     # 同时删除运行历史
     _storage.delete_workflow_runs(workflow_id)
+
+    # 失效工作流列表缓存
+    _cache.invalidate_tag("m7:workflows")
 
     return ApiResponse.success(
         message="工作流已删除",
@@ -243,6 +274,9 @@ async def duplicate_workflow(
     new_workflow["created_by"] = current_user.get("username", "")
 
     _storage.upsert_workflow(new_id, new_workflow)
+
+    # 失效工作流列表缓存
+    _cache.invalidate_tag("m7:workflows")
 
     return ApiResponse.success(
         message="工作流复制成功",

@@ -17,12 +17,56 @@ import hmac
 import sys
 import time
 import uuid
+import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+# ---------------------------------------------------------------------------
+# 统一基础设施接入（第二阶段：shared.core）
+# 优先使用统一实现，失败则回退到模块原有实现
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path
+try:
+    _current_m6 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m6 = _current_m6.parent
+        if (_current_m6 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m6) not in sys.path:
+                sys.path.insert(0, str(_current_m6))
+            break
+except Exception:
+    pass
+
+# 统一可观测性
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m6 = True
+except ImportError:
+    _unified_observability_m6 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一异常处理器
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_m6 = True
+except ImportError:
+    _unified_exception_handler_m6 = False
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m6:
+    logger = init_module_logger("m6")
+else:
+    logger = logging.getLogger("m6")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
 
 # ---------------------------------------------------------------------------
 # 路径配置
@@ -178,6 +222,17 @@ app.add_middleware(
 
 # M8 统一鉴权中间件
 app.add_middleware(M8AuthMiddleware)
+
+# 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+if _unified_observability_m6 and ObservabilityMiddleware is not None:
+    app.add_middleware(
+        ObservabilityMiddleware,
+        service_name="m6",
+        log_level="INFO",
+        slow_request_threshold=3.0,
+        exclude_paths=["/api/v1/health", "/health"],
+    )
+    logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
 
 
 # ---------------------------------------------------------------------------
@@ -390,6 +445,15 @@ async def m8_std_config(x_m8_token: str = Header(default="")):
 # 挂载 API 路由
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# 统一异常处理器（优先使用，覆盖原有装饰器注册的 M6Exception 处理器）
+# ---------------------------------------------------------------------------
+
+if _unified_exception_handler_m6:
+    register_global_exception_handler(app, logger=logger)
+    logger.info("统一异常处理器已注册（6 位错误码体系）")
 
 
 # ---------------------------------------------------------------------------

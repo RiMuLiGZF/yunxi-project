@@ -13,9 +13,14 @@
 from .cache import (
     SimpleCache,
     CacheStats,
+    get_cache,
     get_cache_from_env,
     get_path_ttl,
     DEFAULT_PATH_TTL_MAP,
+    cached,
+    cached_async,
+    NULL_VALUE,
+    reset_global_cache,
 )
 
 from .data_layer import (
@@ -73,8 +78,9 @@ __version__ = "1.0.0"
 __all__ = [
     "__version__",
     # Cache
-    "SimpleCache", "CacheStats", "get_cache_from_env", "get_path_ttl",
-    "DEFAULT_PATH_TTL_MAP",
+    "SimpleCache", "CacheStats", "get_cache", "get_cache_from_env",
+    "get_path_ttl", "DEFAULT_PATH_TTL_MAP",
+    "cached", "cached_async", "NULL_VALUE", "reset_global_cache",
     # Data Layer - Database
     "DatabaseManager", "get_db_manager",
     # Data Layer - Backup

@@ -207,3 +207,67 @@ def _load_system_version() -> str:
 
 
 SYSTEM_VERSION = _load_system_version()
+
+
+# ---------------------------------------------------------------------------
+# 统一配置框架接入（第二阶段基础设施）
+# ---------------------------------------------------------------------------
+# 新增 M4ModuleConfig 继承 BaseConfig，获得：
+# - 全局 .env 文件自动加载
+# - 生产环境敏感字段校验
+# - 配置热更新
+# - 敏感字段自动脱敏
+# 原有 Settings 类保持不变，确保向后兼容。
+# ---------------------------------------------------------------------------
+
+try:
+    from shared.core.config import BaseConfig
+    _USE_UNIFIED_CONFIG_M4 = True
+except ImportError:
+    _USE_UNIFIED_CONFIG_M4 = False
+    BaseConfig = None  # type: ignore
+
+
+if _USE_UNIFIED_CONFIG_M4:
+
+    class M4ModuleConfig(BaseConfig):
+        """
+        M4 场景引擎配置（统一配置框架版）
+
+        继承自 BaseConfig，自动获得：
+        - .env 文件加载（config/yunxi.env）
+        - 环境变量覆盖（优先级最高）
+        - 生产环境敏感字段校验
+        - 敏感字段脱敏输出
+        - 配置热更新
+
+        环境变量前缀：M4_
+        """
+
+        module_name: str = Field(default="m4-scene-engine", description="模块名称")
+        port: int = Field(default=8004, ge=1, le=65535, description="服务监听端口")
+        default_scene: str = Field(default="home", description="默认场景")
+        auto_switch: bool = Field(default=True, description="是否自动切换场景")
+        env: str = Field(default="development", description="运行环境")
+
+        model_config = SettingsConfigDict(
+            env_prefix="M4_",
+            env_file="config/yunxi.env",
+            env_file_encoding="utf-8",
+            extra="allow",
+            validate_assignment=True,
+        )
+
+    # 全局配置单例（新接口）
+    _m4_unified_config: M4ModuleConfig | None = None
+
+    def get_m4_unified_config() -> M4ModuleConfig:
+        """获取 M4 模块统一配置实例（单例模式）"""
+        global _m4_unified_config
+        if _m4_unified_config is None:
+            _m4_unified_config = M4ModuleConfig()
+        return _m4_unified_config
+
+else:
+    M4ModuleConfig = None  # type: ignore
+    get_m4_unified_config = None  # type: ignore

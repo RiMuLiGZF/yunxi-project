@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import hmac
 import time
 import uuid
@@ -25,7 +26,50 @@ from fastapi.responses import JSONResponse
 
 from src.errors import ErrorCode, M4Error, error_response
 
-logger = structlog.get_logger(__name__)
+# ---------------------------------------------------------------------------
+# 统一基础设施接入（第二阶段：shared.core）
+# 优先使用统一实现，失败则回退到模块原有实现
+# ---------------------------------------------------------------------------
+
+# 尝试将项目根目录加入 path
+try:
+    _current_m4 = Path(__file__).resolve()
+    for _ in range(10):
+        _current_m4 = _current_m4.parent
+        if (_current_m4 / "shared" / "core" / "observability" / "__init__.py").exists():
+            if str(_current_m4) not in sys.path:
+                sys.path.insert(0, str(_current_m4))
+            break
+except Exception:
+    pass
+
+# 统一可观测性
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m4 = True
+except ImportError:
+    _unified_observability_m4 = False
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一异常处理器
+try:
+    from shared.core.responses import register_global_exception_handler
+    _unified_exception_handler_m4 = True
+except ImportError:
+    _unified_exception_handler_m4 = False
+
+# 统一配置基类
+try:
+    from shared.core.config import BaseConfig
+    _unified_config_m4 = True
+except ImportError:
+    _unified_config_m4 = False
+
+# 统一日志 logger（优先使用）
+if _unified_observability_m4:
+    logger = init_module_logger("m4")
+else:
+    logger = structlog.get_logger(__name__)
 from src.common.logging_setup import clear_context, set_trace_id, setup_logging
 from src.common.middleware import (
     CircuitBreakerMiddleware,
@@ -88,6 +132,17 @@ if _circuit_breaker_enabled:
     app.add_middleware(CircuitBreakerMiddleware)
 if _idempotency_enabled:
     app.add_middleware(IdempotencyMiddleware)
+
+# 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
+if _unified_observability_m4 and ObservabilityMiddleware is not None:
+    app.add_middleware(
+        ObservabilityMiddleware,
+        service_name="m4",
+        log_level=os.environ.get("M4_LOG_LEVEL", "INFO").upper(),
+        slow_request_threshold=3.0,
+        exclude_paths=["/health", "/m8/health"],
+    )
+    logger.info("observability_middleware_registered", service="m4")
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +593,15 @@ app.include_router(work_dev_router)
 app.include_router(chat_router)
 app.include_router(voice_router)
 app.include_router(watch_router)
+
+
+# ---------------------------------------------------------------------------
+# 统一异常处理器（优先使用，覆盖原有装饰器注册的处理器）
+# ---------------------------------------------------------------------------
+
+if _unified_exception_handler_m4:
+    register_global_exception_handler(app, logger=logger)
+    logger.info("global_exception_handler_registered", service="m4")
 
 
 # ---------------------------------------------------------------------------

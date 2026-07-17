@@ -34,12 +34,14 @@ from shared.module_client import get_module_registry, ModuleStatus, ModuleClient
 from shared.config import get_config
 from shared.logger import get_logger
 from shared.core.errors import ModuleCallError, NotFoundError
+from shared.data.cache import get_cache, get_path_ttl
 
 logger = get_logger("m8.modules")
 
 router = APIRouter()
 registry = get_module_registry()
 config = get_config()
+_cache = get_cache()
 
 
 # ═══════════════════════════════════════════════════════
@@ -125,9 +127,15 @@ def _module_unavailable(module_key: str, detail: str = "") -> ApiResponse:
 async def modules_status():
     """获取所有模块运行状态（公开接口，供入口页使用）
     使用 TCP 端口快速检测，避免 HTTP 健康检查的超时问题
+    结果缓存 5 秒，避免频繁检测
     """
     import asyncio
-    
+
+    cache_key = "m8:modules:status"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     modules_status = {}
     
     async def check_port(key: str, port: int):
@@ -150,7 +158,7 @@ async def modules_status():
     
     running_count = sum(1 for m in modules_status.values() if m["running"])
     
-    return {
+    result = {
         "code": 0,
         "message": "ok",
         "data": {
@@ -160,17 +168,32 @@ async def modules_status():
         },
     }
 
+    # 缓存结果 5 秒
+    _cache.set(cache_key, result, ttl=5.0, tags=["m8:modules"])
+
+    return result
+
 
 @router.get("")
 async def list_modules(
     current_user: dict = Depends(get_current_user),
 ):
-    """获取所有模块列表（带实时状态）"""
+    """获取所有模块列表（带实时状态）
+    结果缓存 10 秒，避免频繁健康检查
+    """
+    cache_key = "m8:modules:list"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         # 先做一次健康检查，更新状态
         await registry.check_all_health()
         summary = registry.get_status_summary()
-        return ApiResponse.success(data=summary)
+        result = ApiResponse.success(data=summary)
+        # 缓存结果 10 秒
+        _cache.set(cache_key, result, ttl=10.0, tags=["m8:modules"])
+        return result
     except Exception as exc:
         logger.error(f"获取模块列表失败: {exc}")
         return ApiResponse.error(code=500, message=f"获取模块列表失败: {exc}")

@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import List, Optional
 
 import structlog
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = structlog.get_logger(__name__)
 
@@ -262,6 +263,72 @@ def get_settings() -> Settings:
                 # 验证密钥安全性
                 _settings.validate_secret_security()
     return _settings
+
+
+# ---------------------------------------------------------------------------
+# 统一配置框架接入（第二阶段基础设施）
+# ---------------------------------------------------------------------------
+# 新增 M12ModuleConfig 继承 BaseConfig，获得：
+# - 全局 .env 文件自动加载
+# - 生产环境敏感字段校验
+# - 配置热更新
+# - 敏感字段自动脱敏
+# 原有 Settings 类保持不变，确保向后兼容。
+# ---------------------------------------------------------------------------
+
+try:
+    from shared.core.config import BaseConfig
+    _USE_UNIFIED_CONFIG_M12 = True
+except ImportError:
+    _USE_UNIFIED_CONFIG_M12 = False
+    BaseConfig = None  # type: ignore
+
+
+if _USE_UNIFIED_CONFIG_M12:
+
+    class M12ModuleConfig(BaseConfig):
+        """
+        M12 安全盾配置（统一配置框架版）
+
+        继承自 BaseConfig，自动获得：
+        - .env 文件加载（config/yunxi.env）
+        - 环境变量覆盖（优先级最高）
+        - 生产环境敏感字段校验
+        - 敏感字段脱敏输出
+        - 配置热更新
+
+        环境变量前缀：M12_
+        """
+
+        module_name: str = Field(default="m12-security-shield", description="模块名称")
+        port: int = Field(default=8012, ge=1, le=65535, description="服务监听端口")
+        host: str = Field(default="0.0.0.0", description="监听地址")
+        env: str = Field(default="development", description="运行环境")
+        log_level: str = Field(default="info", description="日志级别")
+        waf_enabled: bool = Field(default=True, description="是否启用 WAF")
+        rate_limit_enabled: bool = Field(default=True, description="是否启用速率限制")
+
+        model_config = SettingsConfigDict(
+            env_prefix="M12_",
+            env_file="config/yunxi.env",
+            env_file_encoding="utf-8",
+            extra="allow",
+            validate_assignment=True,
+        )
+
+    # 全局配置单例（新接口）
+    _m12_unified_config: Optional["M12ModuleConfig"] = None
+
+    def get_m12_unified_config() -> "M12ModuleConfig":
+        """获取 M12 模块统一配置实例（单例模式）"""
+        global _m12_unified_config
+        if _m12_unified_config is None:
+            _m12_unified_config = M12ModuleConfig()
+        return _m12_unified_config
+
+else:
+    M12ModuleConfig = None  # type: ignore
+    get_m12_unified_config = None  # type: ignore
 
 
 # 兼容直接运行测试
