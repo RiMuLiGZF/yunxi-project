@@ -18,8 +18,8 @@ from typing import List, Optional
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.module_client import get_module_registry, ModuleStatus
-from shared.process_manager import get_process_manager, ProcessStatus
+from shared.business.module_client import get_module_registry, ModuleStatus
+from shared.business.process_manager import get_process_manager, ProcessStatus
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 

@@ -35,7 +35,7 @@ sys.path.insert(0, str(project_root))
 
 from sqlalchemy.orm import Session
 
-from shared.logger import get_logger
+from shared.core.observability import get_logger
 from ..models import BackupModule, BackupHistory, SessionLocal, get_db
 
 # 导入增强版备份管理器
@@ -54,7 +54,7 @@ except ImportError:
     _HAS_ENHANCED_BACKUP = False
     # 回退导入
     try:
-        from shared.data_layer.backup_manager import BackupManager, ModuleBackupConfig
+        from shared.data.data_layer.backup_manager import BackupManager, ModuleBackupConfig
         _HAS_OLD_BACKUP = True
     except ImportError:
         _HAS_OLD_BACKUP = False
@@ -721,7 +721,7 @@ class BackupOrchestratorService:
                 }
             else:
                 # 使用旧版备份管理器
-                from shared.data_layer.backup_manager import (
+                from shared.data.data_layer.backup_manager import (
                     BackupManager, ModuleBackupConfig,
                 )
                 module_config = ModuleBackupConfig(

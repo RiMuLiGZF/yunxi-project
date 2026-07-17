@@ -173,7 +173,49 @@ cd ..\..
 | **M12** | 安全盾 | `M12-security-shield` | 8012 | 安全防护层 | WAF防护、密钥管理、速率限制、威胁检测 |
 | **GW** | API 网关 | `API-Gateway` | 8080 | 接入层 | 统一接入、路由转发、认证鉴权、熔断降级 |
 
-> 🔒 **M5 为核心私有模块**，仅保留在本地设备，不包含于公开仓库。
+---
+
+## 私有模块说明
+
+云汐系统采用"开源 + 私有"混合模式，以下模块/文件不包含于公开仓库，需单独获取。
+
+### 完整私有模块
+
+| 模块 | 目录 | 保密原因 | 获取方式 |
+|------|------|---------|---------|
+| **M5 潮汐记忆** | `M5-tide-memory/` | 四层潮汐记忆架构是核心创新壁垒，仅本地维护 | 需核心团队授权 |
+| **M0 主理人管控台** | `M0-principal-console/` | 内部管理模块，包含运维审计、权限控制等敏感功能 | 需管理员授权 |
+
+> 🔒 **M5 为核心创新壁垒模块**，采用四层潮汐记忆模型（沙滩/浅水/深水/深海），
+> 模拟人类记忆巩固机制，是云汐系统差异化竞争力的核心来源。
+
+### M8 控制塔：部分文件暂缺
+
+**重要**：M8 控制塔的以下 10 个核心文件因云同步（坚果云/OneDrive）导致的
+重解析点问题，暂未纳入公开仓库。这些文件**不属于保密内容**，仅是技术原因暂缺。
+
+| 文件路径 | 功能说明 |
+|---------|---------|
+| `M8-control-tower/backend/audit_logger.py` | 审计日志模块 |
+| `M8-control-tower/backend/inspection_runner.py` | 巡检执行器 |
+| `M8-control-tower/backend/inspection_tools.py` | 巡检工具集 |
+| `M8-control-tower/backend/key_manager.py` | 密钥管理 |
+| `M8-control-tower/backend/openai_proxy.py` | OpenAI 代理 |
+| `M8-control-tower/backend/protocol_adapter.py` | 协议适配器 |
+| `M8-control-tower/backend/routers/api_keys.py` | API Key 管理路由 |
+| `M8-control-tower/backend/routers/dashboard.py` | 仪表盘路由 |
+| `M8-control-tower/backend/routers/inspection.py` | 巡检路由 |
+| `M8-control-tower/backend/test_e2e.py` | 端到端测试 |
+
+**解决方案**：
+- 联系项目维护者获取完整文件
+- 或根据接口文档自行实现同等功能
+- 不使用这些功能时，M8 其他模块仍可正常运行
+
+### 相关 .gitignore 条目
+
+以上私有模块和暂缺文件均在 `.gitignore` 中有明确标注，
+详见 `.gitignore` 中 "核心保密模块" 和 "M8 控制塔" 两节。
 
 ---
 

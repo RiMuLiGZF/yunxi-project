@@ -21,7 +21,7 @@ from typing import List, Optional
 
 # 从 shared 读取全局配置作为默认值基准
 try:
-    from shared.config import get_config
+    from shared.core.config import get_config
     _global_config = get_config()
 except Exception:
     # shared 不可用时使用回退默认值，保持 M8 独立可运行
@@ -323,7 +323,7 @@ def _load_system_version() -> str:
                     sys.path.insert(0, str(current))
                 break
             current = current.parent
-        from shared.version import SYSTEM_VERSION
+        from shared.core.version import SYSTEM_VERSION
         return SYSTEM_VERSION
     except Exception:
         return "v1.0.0"

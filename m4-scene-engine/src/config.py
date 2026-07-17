@@ -199,7 +199,7 @@ def _load_system_version() -> str:
                     sys.path.insert(0, str(current))
                 break
             current = current.parent
-        from shared.version import SYSTEM_VERSION
+        from shared.core.version import SYSTEM_VERSION
         return SYSTEM_VERSION
     except Exception as e:
         logger.warning("config.load_system_version_failed", error_type=type(e).__name__, error=str(e))

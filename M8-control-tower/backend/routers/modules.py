@@ -30,9 +30,9 @@ sys.path.insert(0, str(project_root))
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..errors import M8ErrorCode
-from shared.module_client import get_module_registry, ModuleStatus, ModuleClient
-from shared.config import get_config
-from shared.logger import get_logger
+from shared.business.module_client import get_module_registry, ModuleStatus, ModuleClient
+from shared.core.config import get_config
+from shared.core.observability import get_logger
 from shared.core.errors import ModuleCallError, NotFoundError
 from shared.data.cache import get_cache, get_path_ttl
 

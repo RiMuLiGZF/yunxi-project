@@ -26,7 +26,7 @@ if str(m1_path) not in sys.path:
 
 from ..schemas import ApiResponse
 from ..auth import get_current_user
-from shared.module_client import get_module_registry
+from shared.business.module_client import get_module_registry
 
 router = APIRouter()
 registry = get_module_registry()

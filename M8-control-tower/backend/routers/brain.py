@@ -13,13 +13,13 @@ from typing import Optional, List, Dict, Any
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.rag_knowledge import get_rag_knowledge_base
-from shared.long_term_memory import get_long_term_memory
-from shared.autonomous_learning import get_autonomous_learning_engine
-from shared.personality_engine import get_personality_engine
-from shared.skill_evolution import get_skill_evolution_engine
-from shared.tool_system import get_tool_registry
-from shared.agent_engine import get_agent_engine
+from shared.business.rag_knowledge import get_rag_knowledge_base
+from shared.business.long_term_memory import get_long_term_memory
+from shared.business.autonomous_learning import get_autonomous_learning_engine
+from shared.business.personality_engine import get_personality_engine
+from shared.business.skill_evolution import get_skill_evolution_engine
+from shared.business.tool_system import get_tool_registry
+from shared.business.agent_engine import get_agent_engine
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 
@@ -570,7 +570,7 @@ def _get_tool_registry_api():
     if _tool_registry_cache is None:
         try:
             # 确保内置工具已注册
-            from shared.builtin_tools import _ensure_registered
+            from shared.business.builtin_tools import _ensure_registered
             _ensure_registered()
             _tool_registry_cache = get_tool_registry()
         except Exception:
@@ -689,9 +689,9 @@ def _get_agent_team_api():
     global _agent_team_cache
     if _agent_team_cache is None:
         try:
-            from shared.agent_team import _ensure_team_registered
+            from shared.business.agent_team import _ensure_team_registered
             _ensure_team_registered()
-            from shared.multi_agent import get_agent_team
+            from shared.business.multi_agent import get_agent_team
             _agent_team_cache = get_agent_team()
         except Exception:
             _agent_team_cache = False

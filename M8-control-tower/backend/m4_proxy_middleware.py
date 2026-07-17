@@ -32,7 +32,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 
-from shared.logger import get_logger
+from shared.core.observability import get_logger
 
 logger = get_logger("m8.m4_proxy_middleware")
 

@@ -18,9 +18,9 @@ from ..config import settings
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..crypto import encrypt as crypto_encrypt, decrypt as crypto_decrypt, mask_api_key
-from shared.module_client import get_module_registry, ModuleStatus
-from shared.process_manager import get_process_manager, ProcessStatus
-from shared.startup_orchestrator import get_startup_orchestrator
+from shared.business.module_client import get_module_registry, ModuleStatus
+from shared.business.process_manager import get_process_manager, ProcessStatus
+from shared.business.startup_orchestrator import get_startup_orchestrator
 from .users import router as users_router
 
 router = APIRouter()
@@ -966,7 +966,7 @@ def _format_startup_progress_for_frontend(progress: dict) -> dict:
     
     # 从 TIER_MODULES 获取层级信息（从 startup_orchestrator 导入）
     try:
-        from shared.startup_orchestrator import TIER_MODULES
+        from shared.business.startup_orchestrator import TIER_MODULES
     except ImportError:
         TIER_MODULES = {
             0: ["m8", "m10", "m12"],

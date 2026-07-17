@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.module_client import get_module_registry, ModuleStatus
+from shared.business.module_client import get_module_registry, ModuleStatus
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..models import get_db

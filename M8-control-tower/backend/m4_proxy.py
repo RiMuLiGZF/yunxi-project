@@ -21,8 +21,8 @@ from typing import Any, Callable, Dict, Optional, Awaitable
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.module_client import get_module_registry
-from shared.logger import get_logger
+from shared.business.module_client import get_module_registry
+from shared.core.observability import get_logger
 
 logger = get_logger("m8.m4_proxy")
 

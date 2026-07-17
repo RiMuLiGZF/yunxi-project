@@ -70,7 +70,7 @@ class RemoteAgentDiscovery:
             cluster_bus 对象，若模块不可用则返回 None
         """
         try:
-            from shared.distributed.cluster_bus import get_cluster_bus
+            from shared.business.distributed.cluster_bus import get_cluster_bus
             return get_cluster_bus()
         except (ImportError, AttributeError):
             self._logger.warning(
@@ -86,7 +86,7 @@ class RemoteAgentDiscovery:
             NodeRegistry 对象，若模块不可用则返回 None
         """
         try:
-            from shared.distributed.node_registry import NodeRegistry
+            from shared.business.distributed.node_registry import NodeRegistry
             return NodeRegistry()
         except (ImportError, AttributeError):
             self._logger.warning(

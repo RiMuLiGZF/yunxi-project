@@ -23,7 +23,7 @@ sys.path.insert(0, str(project_root))
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..services.backup_scheduler import get_backup_orchestrator_service
-from shared.logger import get_logger
+from shared.core.observability import get_logger
 
 logger = get_logger("m8.backup_scheduler.router")
 
@@ -401,7 +401,7 @@ async def restore_module_backup(
         try:
             from shared.data.data_layer.backup_manager import BackupManager, ModuleBackupConfig
         except ImportError:
-            from shared.data_layer.backup_manager import BackupManager, ModuleBackupConfig
+            from shared.data.data_layer.backup_manager import BackupManager, ModuleBackupConfig
 
         bm = BackupManager()
         result = bm.restore_backup(

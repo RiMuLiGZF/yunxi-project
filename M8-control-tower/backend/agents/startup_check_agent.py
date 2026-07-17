@@ -276,7 +276,7 @@ class StartupCheckAgent:
         running_count = 0
 
         try:
-            from shared.config import get_config
+            from shared.core.config import get_config
             config = get_config()
         except Exception:
             config = None

@@ -522,7 +522,7 @@ class InferenceRouter:
         """获取三层路由调度器（惰性异步初始化）"""
         if self._three_tier_router is None:
             try:
-                from shared.model_router import get_model_router_async
+                from shared.business.model_router import get_model_router_async
                 self._three_tier_router = await get_model_router_async()
                 self._logger.info("three_tier_router_initialized")
             except ImportError as exc:
