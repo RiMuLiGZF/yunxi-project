@@ -1,0 +1,70 @@
+{
+  "required": "此字段为必填项",
+  "email": "请输入有效的邮箱地址",
+  "phone": "请输入有效的手机号码",
+  "url": "请输入有效的URL地址",
+  "number": "请输入有效的数字",
+  "integer": "请输入整数",
+  "positive": "请输入正数",
+  "negative": "请输入负数",
+  "min_length": "最少需要 {min} 个字符",
+  "max_length": "最多允许 {max} 个字符",
+  "exact_length": "长度必须为 {length} 个字符",
+  "between_length": "长度必须在 {min} 到 {max} 个字符之间",
+  "min_value": "值不能小于 {min}",
+  "max_value": "值不能大于 {max}",
+  "between_value": "值必须在 {min} 和 {max} 之间",
+  "pattern": "格式不正确，请检查输入",
+  "alpha": "只能包含字母",
+  "alphanumeric": "只能包含字母和数字",
+  "numeric": "只能包含数字",
+  "lowercase": "必须全部为小写字母",
+  "uppercase": "必须全部为大写字母",
+  "starts_with": "必须以 {prefix} 开头",
+  "ends_with": "必须以 {suffix} 结尾",
+  "contains": "必须包含 {value}",
+  "not_contains": "不能包含 {value}",
+  "in": "必须是以下值之一：{values}",
+  "not_in": "不能是以下值之一：{values}",
+  "unique": "该值已存在，请使用其他值",
+  "match": "两次输入不一致",
+  "password_strength": {
+    "weak": "密码强度太弱",
+    "fair": "密码强度一般",
+    "good": "密码强度良好",
+    "strong": "密码强度很强",
+    "require_uppercase": "需要包含大写字母",
+    "require_lowercase": "需要包含小写字母",
+    "require_number": "需要包含数字",
+    "require_special": "需要包含特殊字符",
+    "min_length": "密码长度至少 {min} 位"
+  },
+  "username": {
+    "invalid": "用户名格式不正确",
+    "too_short": "用户名太短，至少 {min} 个字符",
+    "too_long": "用户名太长，最多 {max} 个字符",
+    "already_taken": "用户名已被占用",
+    "reserved": "该用户名是保留字"
+  },
+  "file": {
+    "too_large": "文件太大，最大 {max_size}",
+    "too_small": "文件太小，最小 {min_size}",
+    "invalid_type": "不支持的文件类型",
+    "invalid_extension": "不支持的文件扩展名",
+    "corrupted": "文件已损坏",
+    "not_found": "文件不存在"
+  },
+  "date": {
+    "invalid": "无效的日期格式",
+    "past": "日期必须是过去的",
+    "future": "日期必须是将来的",
+    "before": "日期必须早于 {date}",
+    "after": "日期必须晚于 {date}",
+    "between": "日期必须在 {start} 和 {end} 之间"
+  },
+  "time": {
+    "invalid": "无效的时间格式",
+    "before": "时间必须早于 {time}",
+    "after": "时间必须晚于 {time}"
+  }
+}

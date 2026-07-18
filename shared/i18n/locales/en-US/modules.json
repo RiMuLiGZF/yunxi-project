@@ -1,0 +1,77 @@
+{
+  "m0": {
+    "name": "Principal Console",
+    "full_name": "M0 Principal Console",
+    "description": "System control and management center"
+  },
+  "m1": {
+    "name": "Agent Cluster",
+    "full_name": "M1 Multi-Agent Cluster",
+    "description": "Manage and coordinate multiple AI agents"
+  },
+  "m2": {
+    "name": "Skills Cluster",
+    "full_name": "M2 Skills Cluster",
+    "description": "Skill management and execution engine"
+  },
+  "m3": {
+    "name": "Edge-Cloud",
+    "full_name": "M3 Edge-Cloud Collaboration",
+    "description": "Edge-cloud data sync and collaboration"
+  },
+  "m4": {
+    "name": "Scene Engine",
+    "full_name": "M4 Scene Engine",
+    "description": "Scene recognition and context management"
+  },
+  "m5": {
+    "name": "Tide Memory",
+    "full_name": "M5 Tide Memory",
+    "description": "Long-term memory and knowledge management"
+  },
+  "m6": {
+    "name": "Hardware Peripherals",
+    "full_name": "M6 Hardware Peripherals",
+    "description": "Smart wearables and hardware integration"
+  },
+  "m7": {
+    "name": "Workflow Engine",
+    "full_name": "M7 Workflow Engine",
+    "description": "Visual workflow orchestration and execution"
+  },
+  "m8": {
+    "name": "Control Tower",
+    "full_name": "M8 Control Tower",
+    "description": "System management and monitoring center"
+  },
+  "m9": {
+    "name": "Dev Workshop",
+    "full_name": "M9 Developer Workshop",
+    "description": "Development tools and IDE integration"
+  },
+  "m10": {
+    "name": "System Guard",
+    "full_name": "M10 System Guard",
+    "description": "System security and resource protection"
+  },
+  "m11": {
+    "name": "MCP Bus",
+    "full_name": "M11 MCP Message Bus",
+    "description": "MCP protocol message bus service"
+  },
+  "m12": {
+    "name": "Security Shield",
+    "full_name": "M12 Security Shield",
+    "description": "Comprehensive security protection system"
+  },
+  "api_gateway": {
+    "name": "API Gateway",
+    "full_name": "API Gateway",
+    "description": "Unified API access and traffic management"
+  },
+  "shared": {
+    "name": "Shared Core Library",
+    "full_name": "Shared Core Library",
+    "description": "System shared infrastructure and utilities"
+  }
+}

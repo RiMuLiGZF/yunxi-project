@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="云汐 API 网关",
     description="Yunxi API Gateway - 统一接入层，负责路由转发、认证鉴权、限流熔断、链路追踪",
-    version="2.0.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
@@ -505,7 +505,7 @@ async def gateway_status():
         "data": {
             "gateway": {
                 "status": overall_status,
-                "version": "2.0.0",
+                "version": "1.2.0",
                 "uptime": int(time.time() - proxy.get_metrics().get("uptime_seconds", 0)),
                 "timestamp": int(time.time()),
             },

@@ -26,7 +26,7 @@ from . import data
 from . import business
 
 # 版本号
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 # 从各层 re-export 常用符号，保持 `from shared import Xxx` 可用
 # core 层

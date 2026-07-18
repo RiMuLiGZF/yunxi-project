@@ -64,7 +64,7 @@ settings = get_settings()
 # ===== 版本号 =====
 # P2优化后版本 - 可观测性/数据库/沙箱/MCP/配置中心
 # P4版本 - 项目模板/文件管理/代码质量/运行历史
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.2.0"
 
 # ===== M8 标准接口启动时间（用于 uptime 计算） =====
 _start_time_m8 = time.time()

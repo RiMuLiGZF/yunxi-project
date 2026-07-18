@@ -4,7 +4,7 @@
 提供产物索引、搜索、清单生成等功能。
 """
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 __all__ = [
     "artifact_indexer",
     "artifact_search",

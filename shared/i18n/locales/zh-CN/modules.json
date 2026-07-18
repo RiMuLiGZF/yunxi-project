@@ -1,0 +1,77 @@
+{
+  "m0": {
+    "name": "主理人管控台",
+    "full_name": "M0 主理人管控台",
+    "description": "系统总控与管理中心"
+  },
+  "m1": {
+    "name": "多Agent集群调度",
+    "full_name": "M1 多Agent集群调度",
+    "description": "管理和调度多个AI Agent协同工作"
+  },
+  "m2": {
+    "name": "技能集群",
+    "full_name": "M2 技能集群",
+    "description": "技能管理与执行引擎"
+  },
+  "m3": {
+    "name": "端云协同",
+    "full_name": "M3 端云协同",
+    "description": "端云数据同步与协同调度"
+  },
+  "m4": {
+    "name": "场景引擎",
+    "full_name": "M4 场景引擎",
+    "description": "场景识别与上下文管理"
+  },
+  "m5": {
+    "name": "潮汐记忆",
+    "full_name": "M5 潮汐记忆",
+    "description": "长期记忆与知识管理系统"
+  },
+  "m6": {
+    "name": "硬件外设",
+    "full_name": "M6 硬件外设",
+    "description": "智能穿戴与硬件外设集成"
+  },
+  "m7": {
+    "name": "工作流引擎",
+    "full_name": "M7 工作流引擎",
+    "description": "可视化工作流编排与执行"
+  },
+  "m8": {
+    "name": "控制塔",
+    "full_name": "M8 控制塔",
+    "description": "系统管理与监控中心"
+  },
+  "m9": {
+    "name": "开发者工坊",
+    "full_name": "M9 开发者工坊",
+    "description": "开发工具与IDE集成"
+  },
+  "m10": {
+    "name": "系统卫士",
+    "full_name": "M10 系统卫士",
+    "description": "系统安全与资源防护"
+  },
+  "m11": {
+    "name": "MCP总线",
+    "full_name": "M11 MCP消息总线",
+    "description": "MCP协议消息总线服务"
+  },
+  "m12": {
+    "name": "安全盾",
+    "full_name": "M12 安全盾",
+    "description": "全方位安全防护体系"
+  },
+  "api_gateway": {
+    "name": "API网关",
+    "full_name": "API Gateway",
+    "description": "统一API接入与流量管理"
+  },
+  "shared": {
+    "name": "共享核心库",
+    "full_name": "Shared Core Library",
+    "description": "系统共享基础设施与工具库"
+  }
+}

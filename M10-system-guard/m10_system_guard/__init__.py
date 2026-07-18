@@ -9,7 +9,7 @@ M10 系统卫士模块 - 系统防卫 System Guard
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 __module_name__ = "m10-system-guard"
 __description__ = "云汐系统卫士 - 系统防卫模块"
 

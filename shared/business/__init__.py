@@ -62,7 +62,7 @@ from .process_manager import (
 # A2A 客户端
 from .a2a_client import A2AClient, A2AError, A2AConnectionError, A2AResponseError
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 """shared.business 版本号"""
 
 __all__ = [

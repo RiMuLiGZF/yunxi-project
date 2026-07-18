@@ -1,0 +1,70 @@
+{
+  "required": "This field is required",
+  "email": "Please enter a valid email address",
+  "phone": "Please enter a valid phone number",
+  "url": "Please enter a valid URL",
+  "number": "Please enter a valid number",
+  "integer": "Please enter an integer",
+  "positive": "Please enter a positive number",
+  "negative": "Please enter a negative number",
+  "min_length": "Minimum {min} characters required",
+  "max_length": "Maximum {max} characters allowed",
+  "exact_length": "Must be exactly {length} characters",
+  "between_length": "Must be between {min} and {max} characters",
+  "min_value": "Value cannot be less than {min}",
+  "max_value": "Value cannot be greater than {max}",
+  "between_value": "Value must be between {min} and {max}",
+  "pattern": "Invalid format, please check your input",
+  "alpha": "Can only contain letters",
+  "alphanumeric": "Can only contain letters and numbers",
+  "numeric": "Can only contain numbers",
+  "lowercase": "Must be all lowercase letters",
+  "uppercase": "Must be all uppercase letters",
+  "starts_with": "Must start with {prefix}",
+  "ends_with": "Must end with {suffix}",
+  "contains": "Must contain {value}",
+  "not_contains": "Cannot contain {value}",
+  "in": "Must be one of: {values}",
+  "not_in": "Cannot be one of: {values}",
+  "unique": "This value already exists, please use another",
+  "match": "The two inputs do not match",
+  "password_strength": {
+    "weak": "Password strength is too weak",
+    "fair": "Password strength is fair",
+    "good": "Password strength is good",
+    "strong": "Password strength is very strong",
+    "require_uppercase": "Must contain uppercase letters",
+    "require_lowercase": "Must contain lowercase letters",
+    "require_number": "Must contain numbers",
+    "require_special": "Must contain special characters",
+    "min_length": "Password must be at least {min} characters"
+  },
+  "username": {
+    "invalid": "Invalid username format",
+    "too_short": "Username too short, at least {min} characters",
+    "too_long": "Username too long, maximum {max} characters",
+    "already_taken": "Username already taken",
+    "reserved": "This username is reserved"
+  },
+  "file": {
+    "too_large": "File too large, maximum {max_size}",
+    "too_small": "File too small, minimum {min_size}",
+    "invalid_type": "Unsupported file type",
+    "invalid_extension": "Unsupported file extension",
+    "corrupted": "File is corrupted",
+    "not_found": "File not found"
+  },
+  "date": {
+    "invalid": "Invalid date format",
+    "past": "Date must be in the past",
+    "future": "Date must be in the future",
+    "before": "Date must be before {date}",
+    "after": "Date must be after {date}",
+    "between": "Date must be between {start} and {end}"
+  },
+  "time": {
+    "invalid": "Invalid time format",
+    "before": "Time must be before {time}",
+    "after": "Time must be after {time}"
+  }
+}

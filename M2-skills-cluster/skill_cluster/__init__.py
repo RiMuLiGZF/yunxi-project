@@ -5,7 +5,7 @@ from __future__ import annotations
 统一管理系统内所有技能能力，提供技能的注册、发现、挂载、调用、权限管控。
 """
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 
 def _load_system_version() -> str:

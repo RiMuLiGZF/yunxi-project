@@ -7,7 +7,7 @@
 # Major: 架构重大变更
 # Minor: 新增功能/模块
 # Patch: Bug修复/小优化
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 
 def _load_system_version() -> str:

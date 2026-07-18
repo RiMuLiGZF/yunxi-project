@@ -1,0 +1,84 @@
+{
+  "internal": {
+    "title": "内部错误",
+    "message": "服务器内部错误，请稍后重试",
+    "detail": "错误详情：{detail}"
+  },
+  "not_found": {
+    "title": "未找到",
+    "message": "请求的资源不存在",
+    "resource": "{resource} 不存在"
+  },
+  "unauthorized": {
+    "title": "未授权",
+    "message": "请先登录后再访问",
+    "expired": "登录已过期，请重新登录",
+    "invalid_token": "无效的访问令牌"
+  },
+  "forbidden": {
+    "title": "禁止访问",
+    "message": "您没有权限执行此操作",
+    "insufficient_permissions": "权限不足，需要 {required} 权限"
+  },
+  "bad_request": {
+    "title": "请求错误",
+    "message": "请求参数有误",
+    "missing_param": "缺少必需参数：{param}",
+    "invalid_param": "参数 {param} 无效"
+  },
+  "conflict": {
+    "title": "冲突",
+    "message": "资源冲突",
+    "already_exists": "{resource} 已存在"
+  },
+  "too_many_requests": {
+    "title": "请求过于频繁",
+    "message": "请求过于频繁，请稍后再试",
+    "retry_after": "请在 {seconds} 秒后重试"
+  },
+  "service_unavailable": {
+    "title": "服务不可用",
+    "message": "服务暂时不可用，请稍后重试",
+    "maintenance": "系统维护中，请稍后再试"
+  },
+  "timeout": {
+    "title": "请求超时",
+    "message": "请求超时，请检查网络连接"
+  },
+  "network": {
+    "title": "网络错误",
+    "message": "网络连接失败，请检查网络设置"
+  },
+  "database": {
+    "title": "数据库错误",
+    "message": "数据库操作失败",
+    "connection_failed": "数据库连接失败",
+    "query_failed": "数据库查询失败"
+  },
+  "file": {
+    "title": "文件错误",
+    "message": "文件操作失败",
+    "not_found": "文件不存在",
+    "too_large": "文件过大，最大支持 {max_size}",
+    "invalid_format": "不支持的文件格式",
+    "upload_failed": "文件上传失败"
+  },
+  "auth": {
+    "invalid_credentials": "用户名或密码错误",
+    "account_locked": "账户已被锁定",
+    "password_expired": "密码已过期",
+    "session_expired": "会话已过期",
+    "permission_denied": "权限被拒绝"
+  },
+  "validation": {
+    "required": "此字段为必填项",
+    "email": "请输入有效的邮箱地址",
+    "phone": "请输入有效的手机号码",
+    "url": "请输入有效的URL",
+    "min_length": "最少需要 {min} 个字符",
+    "max_length": "最多允许 {max} 个字符",
+    "min_value": "值不能小于 {min}",
+    "max_value": "值不能大于 {max}",
+    "pattern": "格式不正确"
+  }
+}

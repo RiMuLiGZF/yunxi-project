@@ -40,7 +40,7 @@ import connectors
 import pipelines
 
 # 版本号
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.2.0"
 MODULE_NAME = "m9-data-crystal"
 
 # 请求统计

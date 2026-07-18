@@ -7,5 +7,5 @@ M3 职责边界：sync（数据同步）+ gateway（通信网关）+ resource（
 
 from __future__ import annotations
 
-__version__: str = "2.1.0"
+__version__: str = "1.2.0"
 __author__: str = "Yunxi Team"

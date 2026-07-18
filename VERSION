@@ -1,14 +1,14 @@
 # Yunxi System Version
 # 云汐系统统一版本号
 
-VERSION=0.5.0
-VERSION_TAG=V0.5.0
-RELEASE_DATE=2026-07-14
-CODENAME=FullFeature
-MODULES=M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12
+VERSION=1.2.0
+VERSION_TAG=v1.2.0
+RELEASE_DATE=2026-07-19
+CODENAME=大二轮完成版
+MODULES=M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12
 
-# V0.5.0 - 功能补全版
-# - P0-P2 全部完成
-# - M11: MCP 消息总线集成
-# - M12: 安全盾模块
-# - 全局功能补全与优化
+# v1.2.0 - 大二轮完成版
+# - i18n 国际化框架
+# - 日期时间本地化
+# - M8 控制塔 i18n API
+# - 全局版本统一
