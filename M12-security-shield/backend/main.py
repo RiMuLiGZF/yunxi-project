@@ -252,6 +252,7 @@ def _register_routers(app: FastAPI) -> None:
         from .routers.dashboard import router as dashboard_router
         from .routers.auto_response import router as auto_response_router
         from .routers.masking import router as masking_router
+        from .routers.scan import router as scan_router
     except ImportError:
         from routers.status import router as status_router
         from routers.waf import router as waf_router
@@ -261,6 +262,7 @@ def _register_routers(app: FastAPI) -> None:
         from routers.dashboard import router as dashboard_router
         from routers.auto_response import router as auto_response_router
         from routers.masking import router as masking_router
+        from routers.scan import router as scan_router
 
     # 注册各模块路由
     app.include_router(status_router)
@@ -271,6 +273,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(dashboard_router)
     app.include_router(auto_response_router)
     app.include_router(masking_router)
+    app.include_router(scan_router)
 
 
 # ===========================================================================

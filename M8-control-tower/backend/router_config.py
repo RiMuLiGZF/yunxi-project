@@ -57,6 +57,7 @@ from .routers import (
     backup_scheduler_router,
     config_center_router,
     registry_router,
+    data_access_router,
 )
 
 #: 路由配置列表：(router 实例, URL 前缀, 标签列表)
@@ -127,6 +128,7 @@ ROUTER_CONFIGS = [
     (backup_scheduler_router, "/api/v1/backup-scheduler", ["备份调度中心"]),
     (config_center_router, "/api/config", ["配置中心"]),
     (registry_router, "/registry", ["服务注册中心"]),
+    (data_access_router, "/api/data", ["数据访问层"]),
 ]
 
 

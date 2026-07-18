@@ -245,3 +245,174 @@ async def get_masking_stats(
     }
 
     return make_response(data=stats)
+
+
+# ===========================================================================
+# 增强版脱敏规则
+# ===========================================================================
+
+@router.get("/rules/enhanced", summary="增强版脱敏规则列表")
+async def list_enhanced_masking_rules(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取增强版脱敏规则列表，包含身份证、银行卡、姓名、地址等更多类型
+    """
+    rules = [
+        {
+            "id": "phone",
+            "name": "手机号脱敏",
+            "description": "中间 4 位替换为 ****",
+            "example": "138****5678",
+            "category": "个人信息",
+            "reversible": False,
+        },
+        {
+            "id": "email",
+            "name": "邮箱脱敏",
+            "description": "用户名部分只显示首尾字符，域名保留",
+            "example": "u***r@example.com",
+            "category": "个人信息",
+            "reversible": False,
+        },
+        {
+            "id": "id_card",
+            "name": "身份证号脱敏",
+            "description": "只显示前 3 位和后 4 位，中间用 * 代替",
+            "example": "110***********1234",
+            "category": "个人信息",
+            "reversible": False,
+        },
+        {
+            "id": "bank_card",
+            "name": "银行卡号脱敏",
+            "description": "只显示前 4 位和后 4 位，中间用 **** 分组",
+            "example": "6222 **** **** 1234",
+            "category": "金融信息",
+            "reversible": False,
+        },
+        {
+            "id": "name",
+            "name": "姓名脱敏",
+            "description": "只显示姓氏，名字用 * 代替",
+            "example": "张*",
+            "category": "个人信息",
+            "reversible": False,
+        },
+        {
+            "id": "address",
+            "name": "地址脱敏",
+            "description": "保留前 6 个字符，后面用 *** 代替",
+            "example": "北京市海淀区***",
+            "category": "个人信息",
+            "reversible": False,
+        },
+        {
+            "id": "ip_address",
+            "name": "IP 地址脱敏",
+            "description": "IPv4 后两段替换为 ***",
+            "example": "192.168.***.***",
+            "category": "网络标识",
+            "reversible": False,
+        },
+        {
+            "id": "position",
+            "name": "位置脱敏",
+            "description": "按位置脱敏（前 N 位保留，后 M 位保留）",
+            "example": "前****后",
+            "category": "自定义",
+            "reversible": False,
+        },
+        {
+            "id": "regex",
+            "name": "正则脱敏",
+            "description": "按正则表达式匹配并脱敏",
+            "example": "自定义",
+            "category": "自定义",
+            "reversible": False,
+        },
+        {
+            "id": "hash",
+            "name": "哈希脱敏",
+            "description": "使用哈希算法不可逆脱敏",
+            "example": "SHA256 哈希值",
+            "category": "加密",
+            "reversible": False,
+        },
+        {
+            "id": "encryption",
+            "name": "加密脱敏",
+            "description": "使用对称加密可逆脱敏",
+            "example": "AES 加密值",
+            "category": "加密",
+            "reversible": True,
+        },
+    ]
+
+    categories = ["个人信息", "金融信息", "网络标识", "加密", "自定义"]
+
+    return make_response(data={
+        "items": rules,
+        "total": len(rules),
+        "categories": categories,
+    })
+
+
+@router.post("/test/enhanced", summary="增强版脱敏测试")
+async def test_enhanced_masking(
+    request: MaskTestRequest,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    测试增强版脱敏功能（身份证、银行卡、姓名、地址等）
+    """
+    try:
+        from ..core.data_masking import (
+            mask_phone, mask_email, mask_id_card, mask_bank_card,
+            mask_name, mask_address, mask_ip_address,
+            mask_by_position, mask_by_regex, mask_with_hash,
+        )
+
+        value = request.value
+        result = ""
+        rule_name = ""
+
+        type_map = {
+            "phone": (mask_phone, "手机号脱敏"),
+            "email": (mask_email, "邮箱脱敏"),
+            "id_card": (mask_id_card, "身份证号脱敏"),
+            "bank_card": (mask_bank_card, "银行卡号脱敏"),
+            "name": (mask_name, "姓名脱敏"),
+            "address": (mask_address, "地址脱敏"),
+            "ip_address": (mask_ip_address, "IP 地址脱敏"),
+        }
+
+        if request.data_type in type_map:
+            func, rule_name = type_map[request.data_type]
+            result = func(value)
+        elif request.data_type == "position":
+            prefix_len = request.prefix_length or 3
+            suffix_len = request.suffix_length or 2
+            result = mask_by_position(value, keep_prefix=prefix_len, keep_suffix=suffix_len)
+            rule_name = "位置脱敏"
+        elif request.data_type == "regex":
+            result = mask_by_regex(value, pattern=r"\d", replacement="*")
+            rule_name = "正则脱敏"
+        elif request.data_type == "hash":
+            result = mask_with_hash(value)
+            rule_name = "哈希脱敏"
+        else:
+            return make_error_response(f"不支持的数据类型: {request.data_type}", code=400)
+
+        return make_response(data={
+            "original": value,
+            "masked": result,
+            "data_type": request.data_type,
+            "rule_name": rule_name,
+            "original_length": len(value),
+            "masked_length": len(result),
+        })
+    except ImportError:
+        return make_error_response("增强脱敏模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"增强脱敏测试失败: {str(e)}")

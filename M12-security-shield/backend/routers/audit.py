@@ -289,3 +289,144 @@ def stats_top_ips(
         })
     except Exception as e:
         return make_error_response(f"获取 IP 排行失败: {str(e)}")
+
+
+# ===========================================================================
+# 安全告警（增强版）
+# ===========================================================================
+
+@router.get("/alerts", summary="安全告警列表")
+def list_alerts(
+    alert_type: Optional[str] = Query(None, description="告警类型筛选"),
+    severity: Optional[str] = Query(None, description="严重级别筛选"),
+    status: Optional[str] = Query(None, description="状态筛选：active/acknowledged/resolved"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取安全告警列表，支持按类型、级别、状态筛选
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        result = audit_enhanced.get_alerts(
+            alert_type=alert_type,
+            severity=severity,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+        return make_response(data=result)
+    except ImportError:
+        return make_error_response("安全告警模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取告警列表失败: {str(e)}")
+
+
+@router.get("/alerts/{alert_id}", summary="告警详情")
+def get_alert_detail(
+    alert_id: str,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取单个安全告警的详细信息
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        alert = audit_enhanced.get_alert_by_id(alert_id)
+        if alert is None:
+            return make_error_response(f"告警不存在: {alert_id}", code=404)
+        return make_response(data=alert)
+    except ImportError:
+        return make_error_response("安全告警模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取告警详情失败: {str(e)}")
+
+
+@router.post("/alerts/{alert_id}/ack", summary="确认告警")
+def acknowledge_alert(
+    alert_id: str,
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
+    """
+    确认安全告警（标记为已确认）
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        result = audit_enhanced.acknowledge_alert(
+            alert_id=alert_id,
+            acknowledged_by=current_user.get("username", "admin"),
+        )
+        if result is None:
+            return make_error_response(f"告警不存在: {alert_id}", code=404)
+        return make_response(data=result, message="告警已确认")
+    except ImportError:
+        return make_error_response("安全告警模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"确认告警失败: {str(e)}")
+
+
+@router.post("/alerts/{alert_id}/resolve", summary="解决告警")
+def resolve_alert(
+    alert_id: str,
+    resolution_note: str = Query("", description="解决说明"),
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
+    """
+    解决安全告警（标记为已解决）
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        result = audit_enhanced.resolve_alert(
+            alert_id=alert_id,
+            resolved_by=current_user.get("username", "admin"),
+            resolution_note=resolution_note,
+        )
+        if result is None:
+            return make_error_response(f"告警不存在: {alert_id}", code=404)
+        return make_response(data=result, message="告警已解决")
+    except ImportError:
+        return make_error_response("安全告警模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"解决告警失败: {str(e)}")
+
+
+@router.get("/stats/enhanced", summary="增强版审计统计")
+def audit_stats_enhanced(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取增强版审计统计信息（含告警统计和异常检测统计）
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        stats = audit_enhanced.get_stats()
+        return make_response(data=stats)
+    except ImportError:
+        return make_error_response("增强审计模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取增强统计失败: {str(e)}")
+
+
+@router.get("/daily-report", summary="每日安全报告")
+def daily_security_report(
+    date: Optional[str] = Query(None, description="日期，格式 YYYY-MM-DD，默认为今天"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取每日安全报告
+    """
+    try:
+        from ..services.security_audit import get_security_audit_enhanced
+        audit_enhanced = get_security_audit_enhanced()
+        report = audit_enhanced.get_daily_report(date=date)
+        return make_response(data=report)
+    except ImportError:
+        return make_error_response("增强审计模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取每日报告失败: {str(e)}")

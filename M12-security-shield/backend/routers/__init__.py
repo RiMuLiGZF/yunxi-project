@@ -9,6 +9,9 @@ from .auth_api import router as auth_router
 from .ip_control import router as ip_router
 from .audit import router as audit_router
 from .dashboard import router as dashboard_router
+from .auto_response import router as auto_response_router
+from .masking import router as masking_router
+from .scan import router as scan_router
 
 __all__ = [
     "status_router",
@@ -17,4 +20,7 @@ __all__ = [
     "ip_router",
     "audit_router",
     "dashboard_router",
+    "auto_response_router",
+    "masking_router",
+    "scan_router",
 ]

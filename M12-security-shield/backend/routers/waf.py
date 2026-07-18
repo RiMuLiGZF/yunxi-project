@@ -357,3 +357,78 @@ def waf_stats():
         })
     except Exception as e:
         return make_error_response(f"获取WAF统计失败: {str(e)}")
+
+
+# ===========================================================================
+# WAF 拦截日志（增强版）
+# ===========================================================================
+
+@router.get("/logs", summary="WAF 拦截日志")
+def waf_block_logs(
+    rule_type: Optional[str] = Query(None, description="规则类型筛选"),
+    severity: Optional[str] = Query(None, description="严重级别筛选"),
+    client_ip: Optional[str] = Query(None, description="来源 IP 筛选"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取 WAF 拦截日志列表（增强版）
+    """
+    try:
+        from ..core.waf import get_waf_core
+        waf_core = get_waf_core()
+        logs = waf_core.get_block_logs(
+            rule_type=rule_type,
+            severity=severity,
+            client_ip=client_ip,
+            page=page,
+            page_size=page_size,
+        )
+        return make_response(data=logs)
+    except ImportError:
+        return make_error_response("增强版 WAF 模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取拦截日志失败: {str(e)}")
+
+
+@router.get("/stats/enhanced", summary="增强版 WAF 统计")
+def waf_stats_enhanced(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
+    """
+    获取增强版 WAF 统计信息（含 7 层防护分类统计）
+    """
+    try:
+        from ..core.waf import get_waf_core
+        waf_core = get_waf_core()
+        stats = waf_core.get_stats()
+        return make_response(data=stats)
+    except ImportError:
+        return make_error_response("增强版 WAF 模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"获取增强统计失败: {str(e)}")
+
+
+@router.put("/low-confidence-mode", summary="设置低误报模式")
+def set_low_confidence_mode(
+    enabled: bool = Query(..., description="是否启用低误报模式"),
+    current_user: dict = Depends(require_role(ROLE_ADMIN)),
+):
+    """
+    设置 WAF 低误报模式：
+    - 启用：仅拦截 high/critical 级别攻击
+    - 禁用：拦截所有级别攻击
+    """
+    try:
+        from ..core.waf import get_waf_core
+        waf_core = get_waf_core()
+        waf_core.set_low_confidence_mode(enabled)
+        return make_response(data={
+            "low_confidence_mode": enabled,
+            "message": f"低误报模式已{'启用' if enabled else '禁用'}",
+        })
+    except ImportError:
+        return make_error_response("增强版 WAF 模块未启用", code=501)
+    except Exception as e:
+        return make_error_response(f"设置低误报模式失败: {str(e)}")
