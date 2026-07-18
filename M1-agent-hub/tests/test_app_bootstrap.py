@@ -4,7 +4,7 @@
 
 import pytest
 import sys
-from app_bootstrap import YunxiApplication
+from src.core.bootstrap import YunxiApplication
 
 
 @pytest.mark.asyncio

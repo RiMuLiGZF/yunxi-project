@@ -2,7 +2,7 @@
 import sys
 import pytest
 
-from agent_cluster.guardrails import (
+from src.security.guardrail_pipeline import (
     ContentLengthGuardrail,
     SensitiveInfoGuardrail,
     KeywordBlockGuardrail,

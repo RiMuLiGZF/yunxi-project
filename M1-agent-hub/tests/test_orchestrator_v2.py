@@ -8,7 +8,7 @@ from agent_cluster.orchestration.orchestrator_v2 import OrchestratorV2
 from agent_cluster.agents.agent_registry import AgentRegistry
 from agent_cluster.core.task_dispatcher import TaskDispatcher
 from agent_cluster.core.intent_classifier_v2 import SemanticIntentClassifier
-from agent_cluster.guardrails import GuardrailPipeline, KeywordBlockGuardrail
+from agent_cluster.security.guardrail_pipeline import GuardrailPipeline, KeywordBlockGuardrail
 from agent_cluster.observability.tracing import Tracer
 from agent_cluster.agents.agent_card import AgentCardRegistry
 from agent_cluster.tools.interfaces import AgentTask, AgentResult, IAgentPlugin

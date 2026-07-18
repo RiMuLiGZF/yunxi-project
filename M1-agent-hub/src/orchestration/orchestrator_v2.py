@@ -24,7 +24,7 @@ from src.orchestration.workflow_engine import (
     AgentNode,
     WorkflowPatterns,
 )
-from guardrails import GuardrailPipeline, create_default_pipeline
+from src.security.guardrail_pipeline import GuardrailPipeline, create_default_pipeline
 from src.observability.tracing import Tracer, SpanKind, SpanStatus
 from src.agents.agent_card import AgentCardRegistry, build_agent_card
 

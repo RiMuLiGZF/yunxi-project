@@ -29,7 +29,7 @@ if str(_current_dir) not in sys.path:
 
 import structlog
 
-from app_bootstrap import YunxiApplication
+from src.core.bootstrap import YunxiApplication
 
 logger = structlog.get_logger(__name__)
 

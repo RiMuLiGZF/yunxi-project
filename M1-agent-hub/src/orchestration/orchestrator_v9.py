@@ -24,7 +24,7 @@ from src.orchestration.group_chat import (
     ConvergenceTermination,
 )
 from src.observability.otlp_exporter import OTLPExporter, OTLPSpan
-from guardrails_v2 import GuardrailsV2
+from src.security.guardrails import GuardrailsV2
 from src.core.ledger_engine import LedgerEngine, LedgerStatus
 from src.resilience.budget_manager import BudgetManager
 

@@ -5,7 +5,7 @@
 提供输入安检、内容分级、权限预检、审计留痕等安全能力。
 
 依赖：
-- guardrails_v2.GuardrailsV2：Prompt注入检测 + PII脱敏
+- src.security.guardrails.GuardrailsV2：Prompt注入检测 + PII脱敏
 - security.classifier.SecurityClassifier：涉密内容分级
 - security.audit_log.AuditLog：操作日志留痕
 - interfaces.IAgentPlugin / AgentTask / AgentResult：插件接口
@@ -25,7 +25,7 @@ from src.tools.interfaces import (
     IAgentPlugin,
 )
 from shared_models import SecurityClassification
-from guardrails_v2 import GuardrailsV2
+from src.security.guardrails import GuardrailsV2
 from src.security.classifier import SecurityClassifier
 from src.security.audit_log import AuditLog
 
