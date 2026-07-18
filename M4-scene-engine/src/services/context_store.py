@@ -11,11 +11,12 @@ import os
 import time
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
 from src.models import SCENE_DEFINITIONS, SceneContext
+from src.common.user_context import get_current_user_id
 
 logger = structlog.get_logger(__name__)
 
@@ -66,17 +67,18 @@ class ContextStore:
     def get_context(
         self,
         scene_id: str,
-        user_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """获取场景上下文.
 
         Args:
             scene_id: 场景ID
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
 
         Returns:
             上下文数据字典
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             user_contexts = self._contexts.get(user_id, {})
             ctx = user_contexts.get(scene_id)
@@ -102,7 +104,7 @@ class ContextStore:
         self,
         scene_id: str,
         context_data: dict[str, Any],
-        user_id: str = "default",
+        user_id: Optional[str] = None,
         merge: bool = True,
     ) -> dict[str, Any]:
         """保存场景上下文.
@@ -110,12 +112,13 @@ class ContextStore:
         Args:
             scene_id: 场景ID
             context_data: 上下文数据
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             merge: 是否合并（True:合并, False:覆盖）
 
         Returns:
             保存结果
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             if user_id not in self._contexts:
                 self._contexts[user_id] = {}
@@ -153,17 +156,18 @@ class ContextStore:
     def clear_context(
         self,
         scene_id: str,
-        user_id: str = "default",
+        user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """清空场景上下文.
 
         Args:
             scene_id: 场景ID
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
 
         Returns:
             清空结果
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             user_contexts = self._contexts.get(user_id, {})
             existed = scene_id in user_contexts
@@ -179,15 +183,16 @@ class ContextStore:
             "success": True,
         }
 
-    def get_status(self, user_id: str = "default") -> dict[str, Any]:
+    def get_status(self, user_id: Optional[str] = None) -> dict[str, Any]:
         """获取上下文状态概览.
 
         Args:
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
 
         Returns:
             状态概览字典
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             user_contexts = self._contexts.get(user_id, {})
             total_contexts = len(user_contexts)

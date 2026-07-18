@@ -10,12 +10,13 @@ import time
 import uuid
 from collections import deque
 from threading import Lock
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import httpx
 import structlog
 
 from src.models import SCENE_DEFINITIONS, DEFAULT_SCENE, SceneSwitchRecord
+from src.common.user_context import get_current_user_id
 
 logger = structlog.get_logger(__name__)
 
@@ -873,15 +874,16 @@ class SceneSwitchManager:
     # 场景切换
     # -----------------------------------------------------------------------
 
-    def get_current_scene(self, user_id: str = "default") -> str:
+    def get_current_scene(self, user_id: Optional[str] = None) -> str:
         """获取当前场景.
 
         Args:
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
 
         Returns:
             当前场景ID
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             return self._current_scenes.get(user_id, self._default_scene)
 
@@ -1120,7 +1122,7 @@ class SceneSwitchManager:
         to_scene: str,
         from_scene: str = "",
         trigger_type: str = "manual",
-        user_id: str = "default",
+        user_id: Optional[str] = None,
         reason: str = "",
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -1130,13 +1132,14 @@ class SceneSwitchManager:
             to_scene: 目标场景ID
             from_scene: 源场景ID，为空则使用当前场景
             trigger_type: 触发类型 manual/auto/recognize
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             reason: 切换原因
             context: 切换上下文（传递给钩子函数）
 
         Returns:
             切换结果字典
         """
+        user_id = user_id or get_current_user_id()
         # 1. 参数校验
         ok, error_msg = self._validate_switch(to_scene, from_scene, user_id)
         if not ok:
@@ -1255,20 +1258,21 @@ class SceneSwitchManager:
 
     def get_history(
         self,
-        user_id: str = "default",
+        user_id: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
     ) -> dict[str, Any]:
         """获取切换历史.
 
         Args:
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             limit: 返回条数
             offset: 偏移量
 
         Returns:
             历史记录字典
         """
+        user_id = user_id or get_current_user_id()
         with self._lock:
             history = self._history.get(user_id, deque())
             records = list(history)
@@ -1301,8 +1305,9 @@ class SceneSwitchManager:
                 "records": result_records,
             }
 
-    def get_switch_count(self, user_id: str = "default") -> int:
+    def get_switch_count(self, user_id: Optional[str] = None) -> int:
         """获取切换次数."""
+        user_id = user_id or get_current_user_id()
         with self._lock:
             return self._switch_count.get(user_id, 0)
 
@@ -1324,8 +1329,9 @@ class SceneSwitchManager:
                 }
             return result
 
-    def reset_user(self, user_id: str = "default") -> None:
+    def reset_user(self, user_id: Optional[str] = None) -> None:
         """重置用户场景状态."""
+        user_id = user_id or get_current_user_id()
         with self._lock:
             self._current_scenes[user_id] = self._default_scene
             if user_id in self._history:

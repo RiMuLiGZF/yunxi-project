@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel
 
 from src.models import make_response
+from src.common.user_context import get_current_user_id
 
 router = APIRouter(prefix="/api/v1", tags=["场景智能化"])
 
@@ -316,7 +317,7 @@ async def apply_scene_template(
     if not template_service:
         raise HTTPException(status_code=503, detail="模板服务未初始化")
 
-    user_id = "default"  # TODO: 从认证中获取用户ID
+    user_id = get_current_user_id()  # 从请求上下文获取用户ID
 
     result = template_service.apply_template(
         template_id,
@@ -342,8 +343,7 @@ async def create_custom_template(
     if not template_service:
         raise HTTPException(status_code=503, detail="模板服务未初始化")
 
-    user_id = "default"
-
+    user_id = get_current_user_id()
     template = template_service.create_custom_template(
         name=body.name,
         description=body.description,
@@ -367,7 +367,7 @@ async def list_my_templates(request: Request):
     if not template_service:
         raise HTTPException(status_code=503, detail="模板服务未初始化")
 
-    user_id = "default"
+    user_id = get_current_user_id()
     templates = template_service.list_my_templates(user_id)
 
     return make_response(data={
@@ -404,7 +404,7 @@ async def import_scene_template(
     if not template_service:
         raise HTTPException(status_code=503, detail="模板服务未初始化")
 
-    user_id = "default"
+    user_id = get_current_user_id()
     result = template_service.import_template(body.template_data, user_id)
 
     if not result.get("success"):
@@ -422,7 +422,7 @@ async def combine_scenes(request: Request, body: SceneCombineRequest):
     if not template_service:
         raise HTTPException(status_code=503, detail="模板服务未初始化")
 
-    user_id = "default"
+    user_id = get_current_user_id()
     result = template_service.combine_scenes(
         primary_scene=body.primary_scene,
         secondary_scenes=body.secondary_scenes,

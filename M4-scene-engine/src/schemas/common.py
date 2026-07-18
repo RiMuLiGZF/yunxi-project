@@ -84,20 +84,48 @@ class ModeInfo(BaseModel):
 
 class ModeEnterRequest(BaseModel):
     """进入模式请求体."""
-    user_id: str = Field("default", description="用户ID")
+    user_id: Optional[str] = Field(None, description="用户ID，不传则从请求上下文获取")
     context: dict[str, Any] = Field(
         default_factory=dict,
         description="进入模式时的上下文",
     )
 
+    def get_effective_user_id(self) -> str:
+        """获取有效的用户 ID.
+
+        如果 user_id 为 None，则从请求上下文中获取。
+        保证向后兼容：没有上下文时返回 "default"。
+
+        Returns:
+            有效的用户 ID 字符串
+        """
+        if self.user_id:
+            return self.user_id
+        from src.common.user_context import get_current_user_id
+        return get_current_user_id()
+
 
 class ModeLeaveRequest(BaseModel):
     """离开模式请求体."""
-    user_id: str = Field("default", description="用户ID")
+    user_id: Optional[str] = Field(None, description="用户ID，不传则从请求上下文获取")
     context: dict[str, Any] = Field(
         default_factory=dict,
         description="离开模式时的上下文",
     )
+
+    def get_effective_user_id(self) -> str:
+        """获取有效的用户 ID.
+
+        如果 user_id 为 None，则从请求上下文中获取。
+        保证向后兼容：没有上下文时返回 "default"。
+
+        Returns:
+            有效的用户 ID 字符串
+        """
+        if self.user_id:
+            return self.user_id
+        from src.common.user_context import get_current_user_id
+        return get_current_user_id()
 
 
 class ModeEnterResponse(BaseModel):

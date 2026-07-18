@@ -15,6 +15,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.models.db import ChatConversationDB, ChatMessageDB
+from src.common.user_context import get_current_user_id
 
 logger = structlog.get_logger(__name__)
 
@@ -74,31 +75,35 @@ class M5MemoryClient:
         self._available = False
         return self._available
 
-    async def recall(self, query: str, user_id: str = "default", top_k: int = 5) -> str:
+    async def recall(self, query: str, user_id: Optional[str] = None, top_k: int = 5) -> str:
         """从 M5 检索相关记忆（mock 版本返回空）.
 
         Args:
             query: 查询文本
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             top_k: 返回结果数量
 
         Returns:
             记忆文本（空字符串表示无相关记忆）
         """
+        from src.common.user_context import get_current_user_id
+        user_id = user_id or get_current_user_id()
         available = await self.check_available()
         if not available:
             return ""
         return ""
 
-    async def archive(self, content: str, user_id: str = "default",
+    async def archive(self, content: str, user_id: Optional[str] = None,
                       tags: Optional[list[str]] = None) -> None:
         """归档记忆到 M5（mock 版本空实现）.
 
         Args:
             content: 记忆内容
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             tags: 标签列表
         """
+        from src.common.user_context import get_current_user_id
+        user_id = user_id or get_current_user_id()
         available = await self.check_available()
         if not available:
             return
@@ -520,7 +525,7 @@ class ChatService:
     def __init__(
         self,
         db: Session,
-        user_id: str = "default",
+        user_id: Optional[str] = None,
         llm_client: Optional[LLMClient] = None,
         memory_client: Optional[M5MemoryClient] = None,
     ) -> None:
@@ -528,12 +533,12 @@ class ChatService:
 
         Args:
             db: 数据库会话
-            user_id: 用户ID
+            user_id: 用户ID，不传则从请求上下文获取
             llm_client: LLM 客户端（可选，默认创建 mock 客户端）
             memory_client: M5 记忆客户端（可选，默认创建 mock 客户端）
         """
         self.db = db
-        self.user_id = user_id
+        self.user_id = user_id or get_current_user_id()
         self.llm = llm_client or LLMClient()
         self.memory = memory_client or M5MemoryClient()
 

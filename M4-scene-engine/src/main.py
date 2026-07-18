@@ -76,6 +76,7 @@ from src.common.middleware import (
     IdempotencyMiddleware,
     RateLimitMiddleware,
 )
+from src.middleware.user_context import UserContextMiddleware
 
 # ---------------------------------------------------------------------------
 # 应用创建
@@ -120,6 +121,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 用户上下文中间件（从请求头提取用户 ID，设置到 contextvars）
+app.add_middleware(UserContextMiddleware)
 
 # 弹性中间件：限流 + 熔断 + 幂等（环境变量控制开关）
 _rate_limit_enabled = os.environ.get("M4_RATE_LIMIT_ENABLED", "true").lower() == "true"

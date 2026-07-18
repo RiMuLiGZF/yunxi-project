@@ -13,3 +13,4 @@
 from .rate_limit import RateLimitMiddleware, TokenBucketRateLimiter  # noqa: F401
 from .circuit_breaker import CircuitBreakerMiddleware, CircuitBreaker, CircuitState  # noqa: F401
 from .idempotency import IdempotencyMiddleware  # noqa: F401
+from .user_context import UserContextMiddleware  # noqa: F401
