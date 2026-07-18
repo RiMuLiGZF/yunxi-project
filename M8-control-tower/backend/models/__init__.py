@@ -118,6 +118,14 @@ from .inspection import StartupCheckRecord, PrincipalChatSession, PrincipalChatM
 # 备份调度中心
 from .backup_scheduler import BackupModule, BackupHistory  # noqa: F401
 
+# 配置中心（M8 Config Center）
+from .config_center import (  # noqa: F401
+    ConfigItem,
+    ConfigVersion,
+    ConfigAuditLog,
+    ConfigSchema,
+)
+
 __all__ = [
     # 基类与工具
     "Base", "engine", "SessionLocal", "SQLALCHEMY_DATABASE_URL", "init_db", "get_db",
@@ -159,4 +167,6 @@ __all__ = [
     "StartupCheckRecord", "PrincipalChatSession", "PrincipalChatMessage",
     # 备份调度中心
     "BackupModule", "BackupHistory",
+    # 配置中心
+    "ConfigItem", "ConfigVersion", "ConfigAuditLog", "ConfigSchema",
 ]

@@ -1218,6 +1218,106 @@ class GlobalModuleConfig(BaseModel):
     )
 
 
+class SdkConfig(BaseModel):
+    """SDK 配置（模块间通信）
+
+    配置项可通过环境变量覆盖，前缀为 YUNXI_SDK_：
+    - YUNXI_SERVICE_REGISTRY_URL
+    - YUNXI_SERVICE_DISCOVERY_ENABLED
+    - YUNXI_MODULE_CLIENT_TIMEOUT
+    - YUNXI_MODULE_CLIENT_RETRIES
+    - YUNXI_MODULE_CLIENT_RETRY_BACKOFF
+    - YUNXI_EVENT_BUS_BACKEND
+    """
+
+    # 服务注册中心地址（远程模式下使用）
+    service_registry_url: str = Field(
+        default="",
+        description="服务注册中心地址（如 http://127.0.0.1:8008），空表示使用内存模式",
+    )
+
+    # 是否启用服务发现
+    service_discovery_enabled: bool = Field(
+        default=True,
+        description="是否启用服务发现，禁用后使用配置中的固定地址",
+    )
+
+    # 默认超时时间（秒）
+    module_client_timeout: float = Field(
+        default=10.0,
+        description="模块客户端默认超时时间（秒）",
+    )
+
+    # 默认重试次数
+    module_client_retries: int = Field(
+        default=2,
+        description="模块客户端默认重试次数",
+    )
+
+    # 重试退避基础时间（秒）
+    module_client_retry_backoff: float = Field(
+        default=0.5,
+        description="模块客户端重试退避基础时间（秒）",
+    )
+
+    # 重试退避倍数
+    module_client_retry_backoff_multiplier: float = Field(
+        default=2.0,
+        description="重试退避倍数（指数退避）",
+    )
+
+    # 负载均衡策略
+    load_balance_strategy: str = Field(
+        default="round_robin",
+        description="负载均衡策略：round_robin / random / weighted_round_robin / consistent_hash",
+    )
+
+    # 熔断器配置
+    circuit_breaker_enabled: bool = Field(
+        default=True,
+        description="是否启用熔断器",
+    )
+
+    circuit_failure_threshold: int = Field(
+        default=5,
+        description="熔断器失败次数阈值",
+    )
+
+    circuit_recovery_timeout: float = Field(
+        default=30.0,
+        description="熔断器恢复超时时间（秒）",
+    )
+
+    # 心跳间隔
+    heartbeat_interval: float = Field(
+        default=10.0,
+        description="服务心跳间隔（秒）",
+    )
+
+    heartbeat_timeout: float = Field(
+        default=30.0,
+        description="心跳超时时间（秒）",
+    )
+
+    # 事件总线后端
+    event_bus_backend: str = Field(
+        default="memory",
+        description="事件总线后端：memory / redis",
+    )
+
+    # 事件历史最大记录数
+    event_bus_max_history: int = Field(
+        default=10000,
+        description="事件总线最大历史记录数",
+    )
+
+    # 服务间认证 token
+    service_auth_token: str = Field(
+        default="",
+        description="服务间认证 token（模块间调用时自动携带）",
+    )
+
+
 class GlobalSecurityConfig(BaseModel):
     """全局安全配置
 
@@ -1265,6 +1365,9 @@ class YunxiGlobalConfig(BaseConfig):
 
     # 所有模块的端点配置
     modules: GlobalModuleConfig = Field(default_factory=GlobalModuleConfig)
+
+    # SDK 配置（模块间通信）
+    sdk: SdkConfig = Field(default_factory=lambda: SdkConfig())
 
     model_config = SettingsConfigDict(
         env_prefix="YUNXI_",
@@ -1528,6 +1631,43 @@ class YunxiConfig:
     def env(self) -> str:
         """运行环境（字符串形式，向后兼容）"""
         return self._inner.env.value
+
+    # ---------- SDK 配置 ----------
+
+    @property
+    def service_registry_url(self) -> str:
+        """服务注册中心地址"""
+        return self._inner.sdk.service_registry_url
+
+    @property
+    def service_discovery_enabled(self) -> bool:
+        """是否启用服务发现"""
+        return self._inner.sdk.service_discovery_enabled
+
+    @property
+    def module_client_timeout(self) -> float:
+        """模块客户端默认超时"""
+        return self._inner.sdk.module_client_timeout
+
+    @property
+    def module_client_retries(self) -> int:
+        """模块客户端默认重试次数"""
+        return self._inner.sdk.module_client_retries
+
+    @property
+    def module_client_retry_backoff(self) -> float:
+        """模块客户端重试退避时间"""
+        return self._inner.sdk.module_client_retry_backoff
+
+    @property
+    def event_bus_backend(self) -> str:
+        """事件总线后端"""
+        return self._inner.sdk.event_bus_backend
+
+    @property
+    def sdk_config(self) -> Any:
+        """SDK 完整配置对象"""
+        return self._inner.sdk
 
     @property
     def cors_origins(self) -> str:

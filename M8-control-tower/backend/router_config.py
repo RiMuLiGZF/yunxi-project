@@ -55,6 +55,8 @@ from .routers import (
     reminders_router,
     brain_router,
     backup_scheduler_router,
+    config_center_router,
+    registry_router,
 )
 
 #: 路由配置列表：(router 实例, URL 前缀, 标签列表)
@@ -123,6 +125,8 @@ ROUTER_CONFIGS = [
     (git_status_router, "/api/git", ["Git状态看板"]),
     (m4_gateway_router, "/api/m4-gateway", ["M4代理网关"]),
     (backup_scheduler_router, "/api/v1/backup-scheduler", ["备份调度中心"]),
+    (config_center_router, "/api/config", ["配置中心"]),
+    (registry_router, "/registry", ["服务注册中心"]),
 ]
 
 
