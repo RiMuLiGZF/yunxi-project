@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock
 # 确保可以导入 backend 模块
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

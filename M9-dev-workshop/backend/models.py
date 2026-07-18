@@ -381,6 +381,81 @@ class WorkDevCodeUsage(Base):
         }
 
 
+# ===== P1: 开发者工坊项目模型 =====
+
+class Project(Base):
+    """开发者工坊项目模型
+
+    M9 开发者工坊核心项目模型，支持多种项目类型：
+    web_app / python_module / skill / workflow / plugin
+    """
+    __tablename__ = "dev_projects"
+
+    id = Column(Integer, primary_key=True, index=True, comment="项目ID")
+    name = Column(String(255), nullable=False, comment="项目名称")
+    description = Column(Text, default="", comment="项目描述")
+    owner_id = Column(String(128), nullable=False, index=True, comment="所属用户ID")
+
+    # 项目类型
+    project_type = Column(
+        String(50),
+        default="web_app",
+        comment="项目类型：web_app/python_module/skill/workflow/plugin",
+    )
+    template_id = Column(String(100), default="", comment="使用的模板ID")
+
+    # 技术栈
+    language = Column(String(50), default="python", comment="主要编程语言")
+    framework = Column(String(100), default="", comment="使用的框架")
+
+    # 状态管理
+    status = Column(
+        String(20),
+        default="active",
+        comment="状态：active/archived/deleted",
+    )
+
+    # 项目设置（JSON 格式，灵活扩展）
+    settings = Column(JSON, default=dict, comment="项目设置")
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(
+        DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间"
+    )
+    last_opened_at = Column(DateTime, nullable=True, comment="最后打开时间")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_dev_projects_owner", "owner_id"),
+        Index("idx_dev_projects_status", "status"),
+        Index("idx_dev_projects_type", "project_type"),
+        Index("idx_dev_projects_owner_status", "owner_id", "status"),
+        Index("idx_dev_projects_updated", "updated_at"),
+        Index("idx_dev_projects_last_opened", "last_opened_at"),
+    )
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "owner_id": self.owner_id,
+            "project_type": self.project_type,
+            "template_id": self.template_id,
+            "language": self.language,
+            "framework": self.framework,
+            "status": self.status,
+            "settings": self.settings or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_opened_at": (
+                self.last_opened_at.isoformat() if self.last_opened_at else None
+            ),
+        }
+
+
 # ===== Pydantic 响应模型（如果可用） =====
 try:
     from pydantic import BaseModel, Field
@@ -389,10 +464,15 @@ try:
     class ProjectCreate(BaseModel):
         """项目创建请求"""
         name: str
-        path: str
+        path: str = ""
         description: str = ""
         icon: str = "folder"
         tags: PydanticList[str] = Field(default_factory=list)
+        project_type: str = "web_app"
+        template_id: str = ""
+        language: str = "python"
+        framework: str = ""
+        settings: dict = Field(default_factory=dict)
 
     class ProjectUpdate(BaseModel):
         """项目更新请求"""
@@ -400,6 +480,10 @@ try:
         description: Optional[str] = None
         icon: Optional[str] = None
         tags: Optional[PydanticList[str]] = None
+        project_type: Optional[str] = None
+        language: Optional[str] = None
+        framework: Optional[str] = None
+        settings: Optional[dict] = None
 
     class MCPToolCall(BaseModel):
         """MCP 工具调用请求"""
@@ -411,6 +495,76 @@ try:
         path: Optional[str] = None
         file: Optional[str] = None
         new_window: bool = False
+
+    # ===== P1: 开发者工坊 Pydantic 模型 =====
+
+    class DevProjectCreate(BaseModel):
+        """开发者工坊项目创建请求"""
+        name: str
+        project_type: str = "web_app"
+        template_id: str = ""
+        description: str = ""
+        language: str = "python"
+        framework: str = ""
+        settings: dict = Field(default_factory=dict)
+
+    class DevProjectUpdate(BaseModel):
+        """开发者工坊项目更新请求"""
+        name: Optional[str] = None
+        description: Optional[str] = None
+        project_type: Optional[str] = None
+        language: Optional[str] = None
+        framework: Optional[str] = None
+        settings: Optional[dict] = None
+
+    class FileSaveRequest(BaseModel):
+        """文件保存请求"""
+        content: str
+        encoding: str = "utf-8"
+
+    class FileCreateRequest(BaseModel):
+        """文件/目录创建请求"""
+        content: str = ""
+        is_directory: bool = False
+
+    class FileRenameRequest(BaseModel):
+        """文件重命名请求"""
+        new_path: str
+
+    class SearchRequest(BaseModel):
+        """搜索请求"""
+        query: str
+        path: str = ""
+        case_sensitive: bool = False
+        file_pattern: str = ""
+
+    class ReplaceRequest(BaseModel):
+        """替换请求"""
+        query: str
+        replacement: str
+        path: str = ""
+        case_sensitive: bool = False
+        file_pattern: str = ""
+
+    class CodeRunRequest(BaseModel):
+        """代码运行请求"""
+        code: str
+        language: str = "python"
+        timeout: int = 30
+        file_path: str = ""
+        env: dict = Field(default_factory=dict)
+
+    class GitOperationRequest(BaseModel):
+        """Git 操作请求"""
+        message: str = ""
+        files: PydanticList[str] = Field(default_factory=list)
+        branch: str = ""
+        remote: str = "origin"
+
+    class PluginPackageRequest(BaseModel):
+        """插件打包请求"""
+        version: str = "0.1.0"
+        include_tests: bool = False
 
 except ImportError:
     # 如果没有 pydantic，跳过响应模型定义

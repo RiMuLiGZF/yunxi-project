@@ -28,7 +28,8 @@ def history_manager(temp_workspace):
 
     mgr = RunHistoryManager()
     # 覆盖历史目录
-    mgr._history_dir = temp_workspace + "/.run_history"
+    from pathlib import Path
+    mgr._history_dir = Path(temp_workspace) / ".run_history"
     os.makedirs(mgr._history_dir, exist_ok=True)
 
     yield mgr
@@ -294,7 +295,8 @@ class TestRunHistoryManager:
     def test_max_records_limit(self, temp_workspace, sample_config, sample_result):
         """最大记录数限制"""
         mgr = RunHistoryManager()
-        mgr._history_dir = temp_workspace + "/.run_history2"
+        from pathlib import Path
+        mgr._history_dir = Path(temp_workspace) / ".run_history2"
         mgr._max_records = 5
         os.makedirs(mgr._history_dir, exist_ok=True)
 
