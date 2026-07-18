@@ -1232,21 +1232,101 @@ def _register_routes(
 
     @app.get("/.well-known/agent-card.json")
     async def agent_discovery() -> JSONResponse:
-        """A2A Protocol v1.0 Agent Discovery"""
+        """[V12.1] A2A Protocol v1.0 Agent Discovery 端点
+
+        标准 .well-known 发现端点，返回 Hub 及其所有 Agent 的能力卡片。
+        遵循 Google A2A AgentCard 规范，支持异构 Agent 之间的动态发现。
+
+        返回字段：
+        - hub: Hub 自身信息（名称、版本、协议版本）
+        - agent_cards: 所有已注册 Agent 的能力卡片列表
+        - endpoints: Hub 级别的接入端点信息
+        """
         try:
             agents = registry.list_all()
-            cards = []
+
+            # 从 AgentRegistry 构建标准 AgentCard 列表
+            agent_cards = []
             for a in agents:
-                cards.append({
-                    "agent_id": getattr(a, "agent_id", str(a)),
-                    "capabilities": getattr(a, "capabilities", []),
-                    "version": getattr(a, "version", ""),
-                })
-            return JSONResponse(content={
-                "agent_cards": cards,
+                agent_id = getattr(a, "agent_id", str(a))
+                version = getattr(a, "version", "1.0.0")
+                capabilities = getattr(a, "capabilities", [])
+                name = getattr(a, "name", "") or getattr(a, "display_name", "") or agent_id
+                description = getattr(a, "description", "")
+                skills = getattr(a, "skills", [])
+                tags = getattr(a, "tags", [])
+
+                # 构建能力对象列表（兼容字符串能力和对象能力两种格式）
+                cap_objects = []
+                for cap in capabilities:
+                    if isinstance(cap, dict):
+                        cap_objects.append(cap)
+                    elif isinstance(cap, str):
+                        cap_objects.append({
+                            "id": cap,
+                            "name": cap.replace(".", " ").title(),
+                            "description": f"Capability: {cap}",
+                        })
+                    else:
+                        cap_objects.append({"id": str(cap), "name": str(cap)})
+
+                card = {
+                    "agent_id": agent_id,
+                    "agent_name": name,
+                    "version": version,
+                    "description": description,
+                    "capabilities": cap_objects,
+                    "endpoints": [
+                        {
+                            "protocol": "internal",
+                            "url": f"memory://{agent_id}",
+                            "auth_type": "none",
+                        }
+                    ],
+                    "skills": list(skills) if skills else [],
+                    "tags": list(tags) if tags else [],
+                }
+                agent_cards.append(card)
+
+            # Hub 自身信息
+            hub_info = {
+                "name": "yunxi-m1-agent-hub",
+                "version": "12.1.0",
                 "protocol_version": "1.0",
+                "description": "云汐内核 M1 - 多Agent集群调度中枢",
+            }
+
+            # Hub 级别端点
+            hub_endpoints = [
+                {
+                    "protocol": "http",
+                    "url": "/api/v1/tasks/submit",
+                    "auth_type": "none",
+                    "description": "任务提交入口",
+                },
+                {
+                    "protocol": "http",
+                    "url": "/api/v1/chat",
+                    "auth_type": "none",
+                    "description": "同步对话入口",
+                },
+                {
+                    "protocol": "http",
+                    "url": "/api/v1/chat/stream",
+                    "auth_type": "none",
+                    "description": "流式对话入口",
+                },
+            ]
+
+            return JSONResponse(content={
+                "hub": hub_info,
+                "agent_cards": agent_cards,
+                "endpoints": hub_endpoints,
+                "protocol_version": "1.0",
+                "total_agents": len(agent_cards),
             })
         except Exception as exc:
+            logger.error("agent_discovery_failed", error=str(exc))
             return JSONResponse(
                 content={"error": str(exc)},
                 status_code=500,

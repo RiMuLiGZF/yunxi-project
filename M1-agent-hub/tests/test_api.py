@@ -285,6 +285,170 @@ class TestM8StandardInterface:
 
 
 # ============================================================================
+# 3. Agent Card 发现端点测试（GAP-002 补全）
+# ============================================================================
+
+class TestAgentCardDiscovery:
+    """[GAP-002] Agent Card .well-known 发现端点测试"""
+
+    @pytest.fixture
+    def mock_deps(self):
+        orch = MagicMock()
+        registry = MagicMock()
+        ledger = MagicMock()
+        bus = MagicMock()
+        health = MagicMock()
+
+        orch.process = AsyncMock(return_value={"status": "success"})
+        orch.process_stream = AsyncMock()
+        orch.diagnose.return_value = {"status": "ok"}
+
+        # 模拟几个 Agent
+        class MockAgent:
+            def __init__(self, agent_id, name, version, capabilities, description=""):
+                self.agent_id = agent_id
+                self.name = name
+                self.version = version
+                self.capabilities = capabilities
+                self.description = description
+                self.skills = ["general"]
+                self.tags = ["test"]
+
+        registry.list_all.return_value = [
+            MockAgent("agent.note", "笔记助手", "1.2.0",
+                      ["note.create", "note.search"], "管理学习笔记"),
+            MockAgent("agent.dev", "开发助手", "2.0.0",
+                      ["dev.code", "dev.qa", "dev.debug"], "代码开发辅助"),
+        ]
+        registry.unregister = AsyncMock()
+        registry.get_status = AsyncMock(return_value=None)
+
+        ledger.query_task.return_value = None
+        bus.publish = AsyncMock()
+
+        async def mock_liveness():
+            class H:
+                status = "up"
+            return H()
+        health.liveness = mock_liveness
+        health.overall_status = AsyncMock(return_value={"status": "up"})
+        health.to_prometheus = AsyncMock(return_value="# metrics\n")
+
+        return {"orchestrator": orch, "registry": registry, "ledger": ledger,
+                "message_bus": bus, "health_monitor": health}
+
+    @pytest.fixture
+    def client(self, mock_deps):
+        from api.server import create_server
+        from fastapi.testclient import TestClient
+        app = create_server(**mock_deps)
+        return TestClient(app)
+
+    def test_well_known_agent_card_endpoint_exists(self, client):
+        """测试 .well-known/agent-card.json 端点可访问"""
+        resp = client.get("/.well-known/agent-card.json")
+        assert resp.status_code == 200
+
+    def test_well_known_response_structure(self, client):
+        """测试响应包含标准字段"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        # 顶层字段
+        assert "hub" in data
+        assert "agent_cards" in data
+        assert "endpoints" in data
+        assert "protocol_version" in data
+        assert "total_agents" in data
+        assert data["protocol_version"] == "1.0"
+
+    def test_hub_info_complete(self, client):
+        """测试 Hub 信息完整"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        hub = data["hub"]
+        assert "name" in hub
+        assert "version" in hub
+        assert "protocol_version" in hub
+        assert "description" in hub
+        assert hub["name"] == "yunxi-m1-agent-hub"
+
+    def test_agent_cards_have_complete_fields(self, client):
+        """测试每个 AgentCard 包含完整字段"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        cards = data["agent_cards"]
+        assert len(cards) == 2
+
+        for card in cards:
+            assert "agent_id" in card
+            assert "agent_name" in card
+            assert "version" in card
+            assert "description" in card
+            assert "capabilities" in card
+            assert "endpoints" in card
+            assert "skills" in card
+            assert "tags" in card
+
+    def test_capabilities_are_objects(self, client):
+        """测试能力字段为对象格式（而非纯字符串）"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        cards = data["agent_cards"]
+
+        note_card = next(c for c in cards if c["agent_id"] == "agent.note")
+        for cap in note_card["capabilities"]:
+            assert isinstance(cap, dict)
+            assert "id" in cap
+            assert "name" in cap
+            assert "description" in cap
+
+    def test_endpoints_have_protocol_and_url(self, client):
+        """测试端点包含协议和 URL"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        cards = data["agent_cards"]
+
+        for card in cards:
+            for ep in card["endpoints"]:
+                assert "protocol" in ep
+                assert "url" in ep
+                assert "auth_type" in ep
+
+    def test_hub_endpoints_listed(self, client):
+        """测试 Hub 级别端点正确列出"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        endpoints = data["endpoints"]
+        assert len(endpoints) >= 3
+
+        urls = [ep["url"] for ep in endpoints]
+        assert "/api/v1/tasks/submit" in urls
+        assert "/api/v1/chat" in urls
+        assert "/api/v1/chat/stream" in urls
+
+    def test_total_agents_matches(self, client):
+        """测试 total_agents 计数正确"""
+        resp = client.get("/.well-known/agent-card.json")
+        data = resp.json()
+        assert data["total_agents"] == len(data["agent_cards"])
+
+    def test_empty_agents_still_returns_valid(self, mock_deps):
+        """测试无 Agent 时仍返回有效响应"""
+        mock_deps["registry"].list_all.return_value = []
+        from api.server import create_server
+        from fastapi.testclient import TestClient
+        app = create_server(**mock_deps)
+        client = TestClient(app)
+
+        resp = client.get("/.well-known/agent-card.json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_agents"] == 0
+        assert data["agent_cards"] == []
+        assert "hub" in data
+
+
+# ============================================================================
 # 测试入口
 # ============================================================================
 
