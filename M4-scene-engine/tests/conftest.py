@@ -7,6 +7,9 @@ pytest 配置 - 测试路径统一注入 (ARC-006 修复)
 """
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
 
 # 项目根目录（用于导入 shared 等公共包）
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -17,3 +20,23 @@ _MODULE_SRC = Path(__file__).resolve().parents[1] / "src"
 for _p in (str(_MODULE_SRC), str(_PROJECT_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+
+@pytest.fixture(autouse=True)
+def _mock_httpx_post(monkeypatch):
+    """全局 mock httpx.post，避免测试时调用外部服务（M2/M5 等）.
+
+    所有测试默认 mock 掉跨模块 HTTP 调用，确保测试快速且不依赖外部服务。
+    """
+    try:
+        import httpx
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"code": 0, "data": {"success": True}}
+
+        mock_post = MagicMock(return_value=mock_response)
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_post)
+    except (ImportError, AttributeError):
+        pass

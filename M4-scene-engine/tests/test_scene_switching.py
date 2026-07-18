@@ -362,3 +362,201 @@ class TestSwitchValidation:
         result = manager.switch_scene("work_dev")
         assert result["success"] is True
         assert manager.get_current_scene() == "work_dev"
+
+
+# ============================================================================
+# 补充：暖切换数据迁移测试
+# ============================================================================
+
+class TestWarmSwitchDataMigration:
+    """暖切换数据迁移测试 (P1 质量债务补强)"""
+
+    def test_switch_preserves_user_context(self, manager):
+        """场景切换时用户上下文应保留."""
+        context = {"theme": "dark", "language": "zh"}
+        manager.switch_scene("work_dev", user_id="user1", context=context)
+        manager.switch_scene("learning", user_id="user1")
+
+        # 用户的场景状态应该被保留
+        assert manager.get_current_scene("user1") == "learning"
+
+    def test_switch_with_data_in_context(self, manager):
+        """切换时传递的数据应能通过钩子访问."""
+        received_contexts = []
+
+        def capture_hook(scene_id, user_id, context):
+            received_contexts.append(context.copy())
+            return {"success": True}
+
+        manager.register_on_enter("work_dev", capture_hook)
+        test_data = {"project": "myapp", "files": 10}
+        manager.switch_scene("work_dev", user_id="user1", context=test_data)
+
+        assert len(received_contexts) > 0
+        assert received_contexts[0].get("project") == "myapp"
+
+    def test_round_trip_switch_preserves_state(self, manager):
+        """往返切换后状态应一致."""
+        manager.switch_scene("work_dev", user_id="user1")
+        manager.switch_scene("learning", user_id="user1")
+        manager.switch_scene("work_dev", user_id="user1")
+
+        # 最终回到 work_dev
+        assert manager.get_current_scene("user1") == "work_dev"
+
+
+# ============================================================================
+# 补充：快速连续切换测试
+# ============================================================================
+
+class TestRapidContinuousSwitching:
+    """快速连续切换测试 (P1 质量债务补强)"""
+
+    def test_many_rapid_switches(self, manager):
+        """大量快速切换不应出错."""
+        scenes = list(SCENE_DEFINITIONS.keys())[:8]
+        for i in range(20):
+            scene = scenes[i % len(scenes)]
+            result = manager.switch_scene(scene, user_id="rapid_user")
+            assert result["success"] is True
+
+        # 最后一次切换的场景应该是第 20 % 8 = 第 4 个场景
+        expected_last = scenes[(20 - 1) % len(scenes)]
+        assert manager.get_current_scene("rapid_user") == expected_last
+        # 20次切换，但注意相同场景不会增加计数
+        assert manager.get_switch_count("rapid_user") <= 20
+
+    def test_rapid_switch_history_limit(self, manager):
+        """历史记录应受 max_history 限制."""
+        small_manager = SceneSwitchManager(default_scene=DEFAULT_SCENE, max_history=5)
+        scenes = ["work_dev", "learning", "life", "creative", "review",
+                  "growth", "study_plan", "social_relation"]
+
+        for scene in scenes:
+            small_manager.switch_scene(scene, user_id="user1")
+
+        history = small_manager.get_history("user1")
+        # 历史记录不应超过 max_history + 初始状态
+        assert history["total"] <= 8
+        assert len(history["records"]) <= 5
+
+    def test_rapid_switch_consistency(self, manager):
+        """快速切换后当前场景应等于最后一次切换的目标."""
+        target_scenes = ["work_dev", "learning", "life", "creative", "growth"]
+        for scene in target_scenes:
+            manager.switch_scene(scene, user_id="consistency_user")
+
+        assert manager.get_current_scene("consistency_user") == target_scenes[-1]
+
+    def test_multiple_users_rapid_switch(self, manager):
+        """多用户快速交错切换应互不干扰."""
+        for i in range(10):
+            manager.switch_scene("work_dev" if i % 2 == 0 else "learning",
+                                 user_id="user_a")
+            manager.switch_scene("life" if i % 2 == 0 else "creative",
+                                 user_id="user_b")
+
+        assert manager.get_current_scene("user_a") in ["work_dev", "learning"]
+        assert manager.get_current_scene("user_b") in ["life", "creative"]
+
+
+# ============================================================================
+# 补充：切换失败回退测试
+# ============================================================================
+
+class TestSwitchFailureFallback:
+    """切换失败回退测试 (P1 质量债务补强)"""
+
+    def test_switch_invalid_scene_fails(self, manager):
+        """切换到无效场景应失败."""
+        manager.switch_scene("work_dev", user_id="user1")
+        result = manager.switch_scene("nonexistent_scene", user_id="user1")
+
+        assert result["success"] is False
+        # 当前场景应保持不变
+        assert manager.get_current_scene("user1") == "work_dev"
+
+    def test_switch_failure_no_history_increment(self, manager):
+        """切换失败不应增加历史记录."""
+        manager.switch_scene("work_dev", user_id="user1")
+        count_before = manager.get_switch_count("user1")
+
+        manager.switch_scene("invalid_scene", user_id="user1")
+        count_after = manager.get_switch_count("user1")
+
+        assert count_after == count_before
+
+    def test_switch_unknown_scene_no_change(self, manager):
+        """切换到 unknown 场景不应改变当前场景."""
+        manager.switch_scene("work_dev", user_id="user1")
+        before = manager.get_current_scene("user1")
+
+        result = manager.switch_scene("unknown", user_id="user1")
+        after = manager.get_current_scene("user1")
+
+        assert before == after
+
+
+# ============================================================================
+# 补充：切换历史记录测试
+# ============================================================================
+
+class TestSwitchHistoryRecords:
+    """切换历史记录测试 (P1 质量债务补强)"""
+
+    def test_history_record_has_from_and_to(self, manager):
+        """历史记录应包含 from 和 to 场景."""
+        manager.switch_scene("work_dev", user_id="user1")
+        history = manager.get_history("user1")
+
+        assert len(history["records"]) > 0
+        record = history["records"][0]
+        assert "from_scene" in record
+        assert "to_scene" in record
+
+    def test_history_pagination(self, manager):
+        """历史记录应支持分页."""
+        scenes = ["work_dev", "learning", "life", "creative", "review"]
+        for scene in scenes:
+            manager.switch_scene(scene, user_id="user1")
+
+        page1 = manager.get_history("user1", limit=2, offset=0)
+        page2 = manager.get_history("user1", limit=2, offset=2)
+
+        assert len(page1["records"]) == 2
+        assert len(page2["records"]) == 2
+        assert page1["total"] == page2["total"]
+        # 第一页和第二页的记录不应相同
+        assert page1["records"][0]["to_scene"] != page2["records"][0]["to_scene"]
+
+    def test_history_order_newest_first(self, manager):
+        """历史记录应按时间倒序排列（最新在前）."""
+        manager.switch_scene("work_dev", user_id="user1")
+        manager.switch_scene("learning", user_id="user1")
+        manager.switch_scene("life", user_id="user1")
+
+        history = manager.get_history("user1")
+        records = history["records"]
+        assert len(records) >= 3
+        # 最新的记录应该是最后一次切换
+        assert records[0]["to_scene"] == "life"
+
+    def test_history_user_isolation(self, manager):
+        """不同用户的历史记录应隔离."""
+        manager.switch_scene("work_dev", user_id="user_a")
+        manager.switch_scene("learning", user_id="user_a")
+        manager.switch_scene("life", user_id="user_b")
+
+        history_a = manager.get_history("user_a")
+        history_b = manager.get_history("user_b")
+
+        assert history_a["total"] == 2
+        assert history_b["total"] == 1
+
+    def test_history_contains_reason(self, manager):
+        """历史记录应包含切换原因."""
+        manager.switch_scene("work_dev", user_id="user1", reason="测试切换")
+        history = manager.get_history("user1")
+        record = history["records"][0]
+        assert "reason" in record
+        assert "测试切换" in record["reason"]

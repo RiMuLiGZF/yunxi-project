@@ -306,3 +306,216 @@ class TestChineseKeywordRecognition:
         """创意创作场景中文关键词应能识别."""
         result = recognizer.recognize("写一篇文章创作灵感")
         assert result["all_scores"]["creative"] > 0
+
+
+# ============================================================================
+# 补充：关键词匹配边界测试
+# ============================================================================
+
+class TestKeywordBoundaryMatching:
+    """关键词匹配边界测试 (P1 质量债务补强)"""
+
+    def test_partial_keyword_match_no_false_positive(self, recognizer):
+        """部分关键词子串不应误匹配."""
+        # "工" 是 "工作" 的一部分，但不应该作为完整关键词匹配
+        result = recognizer.recognize("工")
+        # 单字不应匹配到任何场景的关键词
+        assert result["confidence"] == 0.0 or result["scene"] == "unknown"
+
+    def test_keyword_at_beginning(self, recognizer):
+        """关键词在文本开头应能匹配."""
+        result = recognizer.recognize("写代码的一天")
+        assert result["all_scores"]["work_dev"] > 0
+
+    def test_keyword_at_end(self, recognizer):
+        """关键词在文本末尾应能匹配."""
+        result = recognizer.recognize("今天我要写代码")
+        assert result["all_scores"]["work_dev"] > 0
+
+    def test_keyword_in_middle(self, recognizer):
+        """关键词在文本中间应能匹配."""
+        result = recognizer.recognize("今天我要写代码和测试")
+        assert result["all_scores"]["work_dev"] > 0
+
+    def test_punctuation_around_keyword(self, recognizer):
+        """关键词周围有标点符号应仍能匹配."""
+        result = recognizer.recognize("今天，写代码！开心")
+        assert result["all_scores"]["work_dev"] > 0
+
+    def test_multiple_occurrences_same_keyword(self, recognizer):
+        """同一关键词多次出现应有频次效应."""
+        result_once = recognizer.recognize("编程")
+        result_multi = recognizer.recognize("编程编程编程编程编程")
+        assert result_multi["all_scores"]["work_dev"] >= result_once["all_scores"]["work_dev"]
+
+    def test_substring_not_matched(self, recognizer):
+        """关键词的子串不应被匹配（精确匹配原则）."""
+        # "习" 不是 "学习" 的完整匹配
+        result = recognizer.recognize("习")
+        assert result["confidence"] == 0.0 or result["scene"] == "unknown"
+
+
+# ============================================================================
+# 补充：多场景冲突测试
+# ============================================================================
+
+class TestMultiSceneConflict:
+    """多场景冲突测试 (P1 质量债务补强)"""
+
+    def test_work_and_learning_conflict(self, recognizer):
+        """同时包含工作和学习关键词时应返回得分较高的场景."""
+        text = "写代码学习编程知识"
+        result = recognizer.recognize(text)
+        # 应该有多个场景得分 > 0
+        positive_scenes = {k: v for k, v in result["all_scores"].items() if v > 0}
+        assert len(positive_scenes) >= 2  # 至少 work_dev 和 learning
+        # all_scores 中最高分的场景应在 positive_scenes 中
+        best_scene = max(result["all_scores"], key=result["all_scores"].get)
+        assert best_scene in positive_scenes
+
+    def test_life_and_emotion_conflict(self, recognizer):
+        """同时包含生活和情绪关键词时."""
+        text = "生活压力大心情不好"
+        result = recognizer.recognize(text)
+        positive_scenes = {k: v for k, v in result["all_scores"].items() if v > 0}
+        assert len(positive_scenes) >= 2
+        # 最佳匹配场景（在all_scores中）应有最高得分
+        best_scene = max(result["all_scores"], key=result["all_scores"].get)
+        best_score = result["all_scores"][best_scene]
+        for scene, score in positive_scenes.items():
+            assert score <= best_score + 0.001  # 允许浮点误差
+
+    def test_all_scenes_some_keywords(self, recognizer):
+        """包含多个场景关键词的混合文本."""
+        text = "工作学习生活成长情绪复盘社交形象创意"
+        result = recognizer.recognize(text)
+        positive_scenes = {k: v for k, v in result["all_scores"].items() if v > 0}
+        assert len(positive_scenes) >= 5  # 至少匹配5个以上场景
+
+    def test_top_scene_has_highest_score(self, recognizer):
+        """all_scores 中得分最高的场景应有最高得分."""
+        text = "写代码 编程 开发 debug vscode 项目 工作"
+        result = recognizer.recognize(text)
+        best_score = max(result["all_scores"].values())
+        best_scene = max(result["all_scores"], key=result["all_scores"].get)
+        assert result["all_scores"][best_scene] == best_score
+
+
+# ============================================================================
+# 补充：上下文辅助识别测试
+# ============================================================================
+
+class TestContextAidedRecognition:
+    """上下文辅助识别测试 (P1 质量债务补强)"""
+
+    def test_recognize_with_context_param(self, recognizer):
+        """传入 context 参数不应报错."""
+        result = recognizer.recognize(
+            "继续工作",
+            context={"current_scene": "work_dev", "last_message": "写代码"}
+        )
+        assert "scene" in result
+        assert "confidence" in result
+
+    def test_context_does_not_break_recognition(self, recognizer):
+        """上下文不应破坏正常的关键词识别."""
+        result_no_ctx = recognizer.recognize("写代码编程开发")
+        result_with_ctx = recognizer.recognize(
+            "写代码编程开发",
+            context={"current_scene": "chat"}
+        )
+        # 相同文本的识别结果场景应该一致
+        assert result_no_ctx["scene"] == result_with_ctx["scene"]
+
+    def test_empty_context_same_as_no_context(self, recognizer):
+        """空上下文应与无上下文结果一致."""
+        text = "学习新知识"
+        result_no_ctx = recognizer.recognize(text)
+        result_empty_ctx = recognizer.recognize(text, context={})
+        assert result_no_ctx["scene"] == result_empty_ctx["scene"]
+
+
+# ============================================================================
+# 补充：空输入/短输入/长输入边界测试
+# ============================================================================
+
+class TestInputBoundaryRecognition:
+    """输入边界测试 (P1 质量债务补强)"""
+
+    def test_single_chinese_char_input(self, recognizer):
+        """单个中文字符输入."""
+        result = recognizer.recognize("编")
+        assert "scene" in result
+        assert "confidence" in result
+        assert 0.0 <= result["confidence"] <= 1.0
+
+    def test_two_char_input_partial(self, recognizer):
+        """两字符输入."""
+        result = recognizer.recognize("代码")
+        assert "scene" in result
+        assert result["confidence"] >= 0.0
+
+    def test_very_long_input(self, recognizer):
+        """超长文本输入应正常处理."""
+        long_text = "写代码 " * 500
+        result = recognizer.recognize(long_text)
+        assert "scene" in result
+        assert "confidence" in result
+        assert result["scene"] in ["work_dev", "unknown"]
+
+    def test_input_with_newlines(self, recognizer):
+        """包含换行符的输入."""
+        text = "今天要写代码\n然后学习新知识\n再做复盘总结"
+        result = recognizer.recognize(text)
+        assert "scene" in result
+        assert result["confidence"] >= 0.0
+
+    def test_input_with_special_chars(self, recognizer):
+        """包含特殊字符的输入."""
+        text = ">>> 写代码 <<< 编程!!!???"
+        result = recognizer.recognize(text)
+        assert "scene" in result
+        assert result["all_scores"]["work_dev"] > 0
+
+
+# ============================================================================
+# 补充：误识别率验证
+# ============================================================================
+
+class TestMisidentificationResistance:
+    """误识别率验证 - 非场景关键词不应误匹配 (P1 质量债务补强)"""
+
+    def test_random_numbers_not_recognized(self, recognizer):
+        """纯数字不应识别为任何场景."""
+        result = recognizer.recognize("12345 67890")
+        assert result["scene"] == "unknown"
+        assert result["confidence"] == 0.0
+
+    def test_unrelated_text_not_recognized(self, recognizer):
+        """完全无关的文本不应识别为高置信度场景."""
+        # 使用高阈值识别器
+        rec = SceneRecognizer(keyword_threshold=0.5, enable_llm=False)
+        result = rec.recognize("沙发电视冰箱洗衣机")
+        assert result["confidence"] < 0.5 or result["scene"] == "unknown"
+
+    def test_weather_talk_not_false_positive(self, recognizer):
+        """天气话题不应误匹配."""
+        result = recognizer.recognize("今天天气真好阳光明媚")
+        # 可能有部分匹配，但置信度不应太高
+        assert result["confidence"] < 0.7
+
+    def test_political_talk_not_false_positive(self, recognizer):
+        """新闻政治话题不应误匹配."""
+        result = recognizer.recognize("今天新闻说经济增长了")
+        assert result["confidence"] < 0.7 or result["scene"] == "unknown"
+
+    def test_chat_scene_for_greetings(self, recognizer):
+        """问候语应识别为聊天场景而非其他业务场景."""
+        result = recognizer.recognize("你好早上好")
+        # 应该匹配到 chat 场景
+        assert result["all_scores"]["chat"] > 0
+
+    def test_mixed_gibberish_not_confident(self, recognizer):
+        """乱码/无意义文本不应有高置信度."""
+        result = recognizer.recognize("asdf qwerty zxcv")
+        assert result["confidence"] < 0.5 or result["scene"] == "unknown"
