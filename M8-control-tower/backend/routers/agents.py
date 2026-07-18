@@ -27,6 +27,9 @@ if str(m1_path) not in sys.path:
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from shared.business.module_client import get_module_registry
+from shared.core.observability import get_logger
+
+logger = get_logger("agents_router")
 
 router = APIRouter()
 registry = get_module_registry()
@@ -79,7 +82,9 @@ def _get_key_manager():
     try:
         from federation.auth.key_manager import get_key_manager
         return get_key_manager()
-    except Exception as exc:
+    except (ImportError, RuntimeError) as exc:
+        # 预期内异常：M1 模块未安装或初始化失败
+        logger.warning("密钥管理器初始化失败: %s", exc)
         raise HTTPException(status_code=500, detail=f"密钥管理器初始化失败: {exc}")
 
 
@@ -91,7 +96,9 @@ def _get_external_registry():
         if not hasattr(_get_external_registry, "_instance"):
             _get_external_registry._instance = ExternalAgentRegistry()
         return _get_external_registry._instance
-    except Exception as exc:
+    except (ImportError, RuntimeError) as exc:
+        # 预期内异常：M1 模块未安装或注册表初始化失败
+        logger.warning("Agent 注册表初始化失败: %s", exc)
         raise HTTPException(status_code=500, detail=f"Agent 注册表初始化失败: {exc}")
 
 
@@ -155,7 +162,8 @@ async def list_agents(
             try:
                 from shared_models import ExternalAgentType
                 type_filter = ExternalAgentType(agent_type)
-            except Exception:
+            except ValueError:
+                # 预期内异常：无效的 agent_type 值
                 type_filter = None
 
         agents = ext_registry.list_agents(
@@ -172,6 +180,8 @@ async def list_agents(
             }
         )
     except Exception as exc:
+        # B 类：容错兜底 - 捕获所有异常，统一返回 500 错误响应
+        logger.exception("获取 Agent 列表失败")
         return ApiResponse.error(code=500, message=f"获取 Agent 列表失败: {exc}")
 
 
@@ -198,25 +208,29 @@ async def register_agent(
         # Agent 类型
         try:
             agent_type_enum = ExternalAgentType(req.agent_type)
-        except Exception:
+        except ValueError:
+            # 预期内异常：无效的 agent_type 值，使用默认值
             agent_type_enum = ExternalAgentType.LLM
 
         # 隐私等级
         try:
             privacy_enum = AgentPrivacyLevel(req.privacy_level)
-        except Exception:
+        except ValueError:
+            # 预期内异常：无效的隐私等级，使用默认值
             privacy_enum = AgentPrivacyLevel.STANDARD
 
         # 连接类型
         try:
             connection_enum = ConnectionType(req.connection_type)
-        except Exception:
+        except ValueError:
+            # 预期内异常：无效的连接类型，使用默认值
             connection_enum = ConnectionType.API_KEY
 
         # 许可证
         try:
             license_enum = LicenseType(req.license)
-        except Exception:
+        except ValueError:
+            # 预期内异常：无效的许可证类型，使用默认值
             license_enum = LicenseType.MIT
 
         # 构建 config
@@ -260,6 +274,8 @@ async def register_agent(
     except ValueError as exc:
         return ApiResponse.error(code=400, message=str(exc))
     except Exception as exc:
+        # B 类：容错兜底 - 捕获所有异常，统一返回 500 错误响应
+        logger.exception("注册 Agent 失败")
         return ApiResponse.error(code=500, message=f"注册 Agent 失败: {exc}")
 
 

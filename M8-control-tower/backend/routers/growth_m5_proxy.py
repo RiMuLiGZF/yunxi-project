@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+import json
 import httpx
 
 project_root = Path(__file__).parent.parent.parent.parent
@@ -108,7 +109,7 @@ async def get_achievements(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取成就列表失败: {str(e)}", code=502)
 
 
@@ -120,7 +121,7 @@ async def get_achievement_stats(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取成就统计失败: {str(e)}", code=502)
 
 
@@ -135,7 +136,7 @@ async def unlock_achievement(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"解锁成就失败: {str(e)}", code=502)
 
 
@@ -155,7 +156,7 @@ async def get_talent_tree(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取天赋树失败: {str(e)}", code=502)
 
 
@@ -167,7 +168,7 @@ async def get_talent_points(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取天赋点失败: {str(e)}", code=502)
 
 
@@ -182,7 +183,7 @@ async def upgrade_talent(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"升级天赋失败: {str(e)}", code=502)
 
 
@@ -194,7 +195,7 @@ async def reset_talents(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"重置天赋失败: {str(e)}", code=502)
 
 
@@ -214,7 +215,7 @@ async def get_month_calendar(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取日历数据失败: {str(e)}", code=502)
 
 
@@ -226,7 +227,7 @@ async def get_calendar_stats(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取日历统计失败: {str(e)}", code=502)
 
 
@@ -242,7 +243,7 @@ async def calendar_checkin(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"打卡失败: {str(e)}", code=502)
 
 
@@ -269,7 +270,7 @@ async def get_chronicle_list(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取纪事列表失败: {str(e)}", code=502)
 
 
@@ -284,7 +285,7 @@ async def get_chronicle_detail(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取纪事详情失败: {str(e)}", code=502)
 
 
@@ -300,7 +301,7 @@ async def create_chronicle(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"创建纪事失败: {str(e)}", code=502)
 
 
@@ -317,7 +318,7 @@ async def update_chronicle(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"更新纪事失败: {str(e)}", code=502)
 
 
@@ -332,7 +333,7 @@ async def delete_chronicle(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"删除纪事失败: {str(e)}", code=502)
 
 
@@ -359,7 +360,7 @@ async def get_memory_echoes(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取记忆回响失败: {str(e)}", code=502)
 
 
@@ -374,7 +375,7 @@ async def get_memory_echo_detail(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取记忆回响详情失败: {str(e)}", code=502)
 
 
@@ -390,7 +391,7 @@ async def generate_memory_echo(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"生成记忆回响失败: {str(e)}", code=502)
 
 
@@ -405,7 +406,7 @@ async def delete_memory_echo(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"删除记忆回响失败: {str(e)}", code=502)
 
 
@@ -421,7 +422,7 @@ async def get_current_season(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取当前赛季失败: {str(e)}", code=502)
 
 
@@ -433,7 +434,7 @@ async def get_season_history(current_user: dict = Depends(get_current_user)):
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取历史赛季失败: {str(e)}", code=502)
 
 
@@ -454,7 +455,7 @@ async def get_season_tasks(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"获取赛季任务失败: {str(e)}", code=502)
 
 
@@ -469,7 +470,7 @@ async def complete_season_task(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"完成任务失败: {str(e)}", code=502)
 
 
@@ -484,5 +485,5 @@ async def claim_season_reward(
         return ApiResponse.success(data=result)
     except HTTPException:
         raise
-    except Exception as e:
+    except json.JSONDecodeError as e:
         return ApiResponse.error(message=f"领取奖励失败: {str(e)}", code=502)

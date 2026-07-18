@@ -18,10 +18,12 @@
 """
 
 import sys
+import asyncio
 from pathlib import Path
 from typing import Any, Optional, Dict
 
 from fastapi import APIRouter, Depends, Query, Body
+import httpx
 
 # 将项目根目录加入 path，以便导入 shared 模块
 project_root = Path(__file__).parent.parent.parent.parent
@@ -33,7 +35,7 @@ from ..errors import M8ErrorCode
 from shared.business.module_client import get_module_registry, ModuleStatus, ModuleClient
 from shared.core.config import get_config
 from shared.core.observability import get_logger
-from shared.core.errors import ModuleCallError, NotFoundError
+from shared.core.errors import ModuleCallError, NotFoundError, ValidationError
 from shared.data.cache import get_cache, get_path_ttl
 
 logger = get_logger("m8.modules")
@@ -59,8 +61,13 @@ async def _proxy_get(module_key: str, path: str, params: Optional[Dict] = None) 
         client = registry.get_client(module_key)
         result = await client.get(path, params=params)
         return result
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+        # 预期内异常：模块不存在、HTTP 协议错误、模块调用失败
         logger.warning(f"Proxy GET {module_key}{path} failed: {exc}")
+        raise
+    except Exception as exc:
+        # 兜底：未预期的异常，记录完整堆栈便于排查
+        logger.exception(f"Proxy GET {module_key}{path} unexpected error")
         raise
 
 
@@ -72,8 +79,13 @@ async def _proxy_post(module_key: str, path: str, json_data: Optional[Dict] = No
         client = registry.get_client(module_key)
         result = await client.post(path, json_data=json_data)
         return result
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+        # 预期内异常：模块不存在、HTTP 协议错误、模块调用失败
         logger.warning(f"Proxy POST {module_key}{path} failed: {exc}")
+        raise
+    except Exception as exc:
+        # 兜底：未预期的异常，记录完整堆栈便于排查
+        logger.exception(f"Proxy POST {module_key}{path} unexpected error")
         raise
 
 
@@ -85,8 +97,13 @@ async def _proxy_put(module_key: str, path: str, json_data: Optional[Dict] = Non
         client = registry.get_client(module_key)
         result = await client.put(path, json_data=json_data)
         return result
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+        # 预期内异常：模块不存在、HTTP 协议错误、模块调用失败
         logger.warning(f"Proxy PUT {module_key}{path} failed: {exc}")
+        raise
+    except Exception as exc:
+        # 兜底：未预期的异常，记录完整堆栈便于排查
+        logger.exception(f"Proxy PUT {module_key}{path} unexpected error")
         raise
 
 
@@ -98,8 +115,13 @@ async def _proxy_delete(module_key: str, path: str) -> Dict[str, Any]:
         client = registry.get_client(module_key)
         result = await client.delete(path)
         return result
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+        # 预期内异常：模块不存在、HTTP 协议错误、模块调用失败
         logger.warning(f"Proxy DELETE {module_key}{path} failed: {exc}")
+        raise
+    except Exception as exc:
+        # 兜底：未预期的异常，记录完整堆栈便于排查
+        logger.exception(f"Proxy DELETE {module_key}{path} unexpected error")
         raise
 
 
@@ -147,7 +169,12 @@ async def modules_status():
             writer.close()
             await writer.wait_closed()
             modules_status[key] = {"running": True, "port": port}
+        except (OSError, ConnectionError, asyncio.TimeoutError):
+            # 预期内异常：端口不可达、连接被拒、超时均表示模块未运行
+            modules_status[key] = {"running": False, "port": port}
         except Exception:
+            # 兜底：其他未预期异常
+            logger.debug(f"端口检测异常 {key}:{port}", exc_info=True)
             modules_status[key] = {"running": False, "port": port}
     
     tasks = []
@@ -194,8 +221,13 @@ async def list_modules(
         # 缓存结果 10 秒
         _cache.set(cache_key, result, ttl=10.0, tags=["m8:modules"])
         return result
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+        # 预期内异常：模块注册或 HTTP 调用失败
+        logger.warning(f"获取模块列表失败: {exc}")
+        return ApiResponse.error(code=500, message=f"获取模块列表失败: {exc}")
     except Exception as exc:
-        logger.error(f"获取模块列表失败: {exc}")
+        # 兜底：未预期异常，记录完整堆栈
+        logger.exception("获取模块列表未预期错误")
         return ApiResponse.error(code=500, message=f"获取模块列表失败: {exc}")
 
 
@@ -219,7 +251,12 @@ async def get_module_detail(
         client = registry.get_client(module_key)
         is_healthy = await client.health_check()
         module.status = ModuleStatus.RUNNING if is_healthy else ModuleStatus.STOPPED
+    except (ValueError, httpx.HTTPError):
+        # 预期内异常：模块未注册或 HTTP 调用失败，标记为停止即可
+        module.status = ModuleStatus.STOPPED
     except Exception:
+        # 兜底：未预期异常，记录日志便于排查
+        logger.debug(f"模块健康检查异常 {module_key}", exc_info=True)
         module.status = ModuleStatus.STOPPED
 
     return ApiResponse.success(data=module.to_dict())
@@ -253,7 +290,23 @@ async def module_health(
             },
             message="健康检查完成",
         )
+    except (ValueError, httpx.HTTPError) as exc:
+        # 预期内异常：模块未注册或 HTTP 调用失败
+        module.status = ModuleStatus.STOPPED
+        return ApiResponse(
+            code=0,
+            message="健康检查完成",
+            data={
+                "key": module_key,
+                "name": module.name,
+                "status": "stopped",
+                "healthy": False,
+                "detail": str(exc),
+            },
+        )
     except Exception as exc:
+        # 兜底：未预期异常，记录完整堆栈
+        logger.exception(f"模块健康检查未预期错误 {module_key}")
         module.status = ModuleStatus.STOPPED
         return ApiResponse(
             code=0,
@@ -295,7 +348,13 @@ async def module_metrics(
         try:
             result = await _proxy_get(module_key, path)
             return ApiResponse.success(data=result.get("data", result))
+        except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
+            # 预期内异常：该路径不可用，尝试下一个
+            last_error = str(exc)
+            continue
         except Exception as exc:
+            # 兜底：未预期异常，记录日志后继续
+            logger.warning(f"获取指标异常 {module_key}{path}: {exc}")
             last_error = str(exc)
             continue
 
@@ -326,7 +385,7 @@ async def m1_list_agents(
         # 透传 data 字段，保持统一格式
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m1", str(exc))
 
 
@@ -340,7 +399,7 @@ async def m1_get_agent(
         result = await _proxy_get("m1", f"/v1/federation/agents/{agent_id}")
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m1", str(exc))
 
 
@@ -363,8 +422,9 @@ async def m1_list_tasks(
             result = await _proxy_get("m1", "/api/v1/tasks", params=params)
             data = result.get("data", result)
             return ApiResponse.success(data=data)
-        except Exception:
-            # 回退：返回空列表和模块信息
+        except (ValueError, httpx.HTTPError, ModuleCallError):
+            # 预期内异常：任务列表接口不可用，回退返回空列表
+            logger.debug("M1 任务列表接口不可用，回退返回空列表")
             pass
 
         # 如果标准接口不可用，尝试获取健康信息作为替代
@@ -380,7 +440,7 @@ async def m1_list_tasks(
                 "note": "任务列表接口暂不可用",
             },
         )
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m1", str(exc))
 
 
@@ -394,7 +454,7 @@ async def m1_get_task(
         result = await _proxy_get("m1", f"/api/v1/tasks/{task_id}/status")
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m1", str(exc))
 
 
@@ -408,7 +468,7 @@ async def m1_submit_task(
         result = await _proxy_post("m1", "/api/v1/tasks/submit", json_data=body)
         data = result.get("data", result)
         return ApiResponse.success(data=data, message="任务提交成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m1", str(exc))
 
 
@@ -436,7 +496,7 @@ async def m2_list_skills(
         result = await _proxy_get("m2", "/api/v2/skills", params=params)
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m2", str(exc))
 
 
@@ -450,7 +510,7 @@ async def m2_get_skill(
         result = await _proxy_get("m2", f"/api/v2/skills/{skill_id}")
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m2", str(exc))
 
 
@@ -463,7 +523,7 @@ async def m2_list_categories(
         result = await _proxy_get("m2", "/api/v2/categories")
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m2", str(exc))
 
 
@@ -480,11 +540,17 @@ async def m2_stats(
             try:
                 result = await _proxy_get("m2", f"/api/v2/stats/{stat_type}")
                 stats[stat_type] = result.get("data", result)
+            except (ValueError, httpx.HTTPError, ModuleCallError):
+                # 预期内异常：该统计项接口不可用，置为 None
+                logger.debug(f"M2 统计项 {stat_type} 不可用")
+                stats[stat_type] = None
             except Exception:
+                # 兜底：未预期异常
+                logger.warning(f"M2 统计项 {stat_type} 获取异常", exc_info=True)
                 stats[stat_type] = None
 
         return ApiResponse.success(data=stats)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m2", str(exc))
 
 
@@ -503,7 +569,7 @@ async def m2_invoke_skill(
         result = await _proxy_post("m2", "/api/v2/skills/invoke", json_data=body)
         data = result.get("data", result)
         return ApiResponse.success(data=data, message="技能调用完成")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m2", str(exc))
 
 
@@ -523,7 +589,7 @@ async def m3_sync_status(
         result = await _proxy_get("m3", "/api/v3/sync/status")
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -537,7 +603,7 @@ async def m3_sync_trigger(
         result = await _proxy_post("m3", "/api/v3/sync/trigger", json_data=body)
         data = result.get("data", result)
         return ApiResponse.success(data=data, message="同步触发成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -553,7 +619,7 @@ async def m3_sync_conflicts(
         result = await _proxy_get("m3", "/api/v3/sync/conflicts", params=params)
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -568,7 +634,7 @@ async def m3_resolve_conflict(
         result = await _proxy_post("m3", f"/api/v3/sync/conflicts/{conflict_id}/resolve", json_data=body)
         data = result.get("data", result)
         return ApiResponse.success(data=data, message="冲突已解决")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -590,7 +656,7 @@ async def m3_list_devices(
         result = await _proxy_get("m3", "/api/v3/devices", params=params)
         data = result.get("data", result)
         return ApiResponse.success(data=data)
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -604,7 +670,7 @@ async def m3_remove_device(
         result = await _proxy_post("m3", f"/api/v3/devices/{device_id}/remove")
         data = result.get("data", result)
         return ApiResponse.success(data=data, message="设备已移除")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m3", str(exc))
 
 
@@ -623,7 +689,7 @@ async def m4_list_scenes(
     try:
         result = await _proxy_get("m4", "/api/v1/scenes")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -635,7 +701,7 @@ async def m4_current_scene(
     try:
         result = await _proxy_get("m4", "/api/v1/scene/current")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -648,7 +714,7 @@ async def m4_switch_scene(
     try:
         result = await _proxy_post("m4", "/api/v1/scene/switch", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="场景切换成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -661,7 +727,7 @@ async def m4_recognize_scene(
     try:
         result = await _proxy_post("m4", "/api/v1/scene/recognize", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="场景识别完成")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -673,7 +739,7 @@ async def m4_scene_history(
     try:
         result = await _proxy_get("m4", "/api/v1/scene/history")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -686,7 +752,7 @@ async def m4_get_scene_config(
     try:
         result = await _proxy_get("m4", f"/api/v1/scene/{scene_id}/config")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -700,7 +766,7 @@ async def m4_update_scene_config(
     try:
         result = await _proxy_post("m4", f"/api/v1/scene/{scene_id}/config", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="配置更新成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -714,7 +780,7 @@ async def m4_context_status(
     try:
         result = await _proxy_get("m4", "/api/v1/context/status")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -727,7 +793,7 @@ async def m4_get_context(
     try:
         result = await _proxy_get("m4", f"/api/v1/context/{scene_id}")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -741,7 +807,7 @@ async def m4_save_context(
     try:
         result = await _proxy_post("m4", f"/api/v1/context/{scene_id}", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="上下文保存成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -754,7 +820,7 @@ async def m4_clear_context(
     try:
         result = await _proxy_delete("m4", f"/api/v1/context/{scene_id}")
         return ApiResponse.success(data=result.get("data", result), message="上下文已清空")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -768,7 +834,7 @@ async def m4_admin_config(
     try:
         result = await _proxy_get("m4", "/api/v1/admin/config")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -781,7 +847,7 @@ async def m4_update_admin_config(
     try:
         result = await _proxy_put("m4", "/api/v1/admin/config", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="配置更新成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -793,7 +859,7 @@ async def m4_admin_metrics(
     try:
         result = await _proxy_get("m4", "/api/v1/admin/metrics")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m4", str(exc))
 
 
@@ -812,7 +878,7 @@ async def m7_list_workflows(
     try:
         result = await _proxy_get("m7", "/api/v1/workflows")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -825,7 +891,7 @@ async def m7_create_workflow(
     try:
         result = await _proxy_post("m7", "/api/v1/workflows", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="工作流创建成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -838,7 +904,7 @@ async def m7_get_workflow(
     try:
         result = await _proxy_get("m7", f"/api/v1/workflows/{id}")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -852,7 +918,7 @@ async def m7_update_workflow(
     try:
         result = await _proxy_put("m7", f"/api/v1/workflows/{id}", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="工作流更新成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -865,7 +931,7 @@ async def m7_delete_workflow(
     try:
         result = await _proxy_delete("m7", f"/api/v1/workflows/{id}")
         return ApiResponse.success(data=result.get("data", result), message="工作流已删除")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -878,7 +944,7 @@ async def m7_duplicate_workflow(
     try:
         result = await _proxy_post("m7", f"/api/v1/workflows/{id}/duplicate")
         return ApiResponse.success(data=result.get("data", result), message="工作流复制成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -892,7 +958,7 @@ async def m7_run_workflow(
     try:
         result = await _proxy_post("m7", f"/api/v1/workflows/{id}/run", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="工作流运行中")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -907,7 +973,7 @@ async def m7_workflow_runs(
     try:
         result = await _proxy_get("m7", f"/api/v1/workflows/{id}/runs")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -920,7 +986,7 @@ async def m7_get_run(
     try:
         result = await _proxy_get("m7", f"/api/v1/runs/{run_id}")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -934,7 +1000,7 @@ async def m7_list_blocks(
     try:
         result = await _proxy_get("m7", "/api/v1/blocks")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -946,7 +1012,7 @@ async def m7_block_categories(
     try:
         result = await _proxy_get("m7", "/api/v1/blocks/categories")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -959,7 +1025,7 @@ async def m7_get_block(
     try:
         result = await _proxy_get("m7", f"/api/v1/blocks/{block_id}")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -973,7 +1039,7 @@ async def m7_list_templates(
     try:
         result = await _proxy_get("m7", "/api/v1/templates")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -986,7 +1052,7 @@ async def m7_get_template(
     try:
         result = await _proxy_get("m7", f"/api/v1/templates/{id}")
         return ApiResponse.success(data=result.get("data", result))
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -1000,7 +1066,7 @@ async def m7_apply_template(
     try:
         result = await _proxy_post("m7", f"/api/v1/templates/{id}/apply", json_data=body)
         return ApiResponse.success(data=result.get("data", result), message="模板应用成功")
-    except Exception as exc:
+    except (ValueError, httpx.HTTPError, ModuleCallError) as exc:
         return _module_unavailable("m7", str(exc))
 
 
@@ -1057,8 +1123,13 @@ async def registry_list_modules(
             },
             message="获取模块列表成功",
         )
+    except (ValueError, TypeError) as exc:
+        # 预期内异常：参数错误
+        logger.warning(f"获取注册表模块列表参数错误: {exc}")
+        return ApiResponse.error(code=400, message=f"获取模块列表失败: {exc}")
     except Exception as exc:
-        logger.error(f"获取注册表模块列表失败: {exc}")
+        # 兜底：未预期异常，记录完整堆栈
+        logger.exception("获取注册表模块列表未预期错误")
         return ApiResponse.error(code=500, message=f"获取模块列表失败: {exc}")
 
 
@@ -1107,9 +1178,14 @@ async def registry_register_module(
             data=result.to_dict(),
             message=f"模块 {module_info.id} 注册成功",
         )
-    except Exception as exc:
-        logger.error(f"注册模块失败: {exc}")
+    except (TypeError, ValueError, ValidationError) as exc:
+        # 预期内异常：参数校验失败
+        logger.warning(f"注册模块参数错误: {exc}")
         return ApiResponse.error(code=400, message=f"注册模块失败: {exc}")
+    except Exception as exc:
+        # 兜底：未预期异常
+        logger.exception(f"注册模块未预期错误")
+        return ApiResponse.error(code=500, message=f"注册模块失败: {exc}")
 
 
 @router.delete("/registry/{module_id}")
@@ -1163,9 +1239,14 @@ async def registry_update_module(
             )
         else:
             return ApiResponse.error(code=500, message=f"模块 {module_id} 更新失败")
-    except Exception as exc:
-        logger.error(f"更新模块 {module_id} 失败: {exc}")
+    except (TypeError, ValueError, ValidationError) as exc:
+        # 预期内异常：参数校验失败
+        logger.warning(f"更新模块 {module_id} 参数错误: {exc}")
         return ApiResponse.error(code=400, message=f"更新模块失败: {exc}")
+    except Exception as exc:
+        # 兜底：未预期异常
+        logger.exception(f"更新模块 {module_id} 未预期错误")
+        return ApiResponse.error(code=500, message=f"更新模块失败: {exc}")
 
 
 @router.post("/registry/{module_id}/enable")
@@ -1221,8 +1302,13 @@ async def registry_save_config(
             )
         else:
             return ApiResponse.error(code=500, message="保存配置失败")
+    except (OSError, IOError) as exc:
+        # 预期内异常：文件 IO 错误
+        logger.error(f"保存配置 IO 错误: {exc}")
+        return ApiResponse.error(code=500, message=f"保存配置失败: {exc}")
     except Exception as exc:
-        logger.error(f"保存配置失败: {exc}")
+        # 兜底：未预期异常
+        logger.exception("保存配置未预期错误")
         return ApiResponse.error(code=500, message=f"保存配置失败: {exc}")
 
 
@@ -1237,8 +1323,13 @@ async def registry_reload_config(
             data={"module_count": count},
             message=f"配置已重新加载，共 {count} 个模块",
         )
-    except Exception as exc:
+    except (OSError, IOError, ValueError) as exc:
+        # 预期内异常：文件 IO 错误或配置格式错误
         logger.error(f"重新加载配置失败: {exc}")
+        return ApiResponse.error(code=500, message=f"重新加载配置失败: {exc}")
+    except Exception as exc:
+        # 兜底：未预期异常
+        logger.exception("重新加载配置未预期错误")
         return ApiResponse.error(code=500, message=f"重新加载配置失败: {exc}")
 
 
@@ -1357,6 +1448,11 @@ async def registry_self_register(
             data=result.to_dict(),
             message=f"模块 {module_info.id} 自注册成功",
         )
-    except Exception as exc:
-        logger.error(f"模块自注册失败: {exc}")
+    except (TypeError, ValueError, ValidationError) as exc:
+        # 预期内异常：参数校验失败
+        logger.warning(f"模块自注册参数错误: {exc}")
         return ApiResponse.error(code=400, message=f"自注册失败: {exc}")
+    except Exception as exc:
+        # 兜底：未预期异常
+        logger.exception("模块自注册未预期错误")
+        return ApiResponse.error(code=500, message=f"自注册失败: {exc}")

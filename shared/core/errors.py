@@ -246,6 +246,10 @@ class ErrorCode:
     DATABASE_ERROR = build_error_code(ModuleCode.SYSTEM, ErrorCategory.DATA, 4)
     """数据库错误"""
 
+    # ---------- 依赖错误 (0006xx 系统错误段，补充序号) ----------
+    DEPENDENCY_ERROR = build_error_code(ModuleCode.SYSTEM, ErrorCategory.SYSTEM, 5)
+    """依赖服务不可用"""
+
 
 # ============================================================
 # 模块级错误码范围定义
@@ -333,6 +337,7 @@ ERROR_MESSAGES: Dict[int, str] = {
     ErrorCode.DATA_CONFLICT: "数据冲突",
     ErrorCode.DATA_INTEGRITY_ERROR: "数据完整性错误",
     ErrorCode.DATABASE_ERROR: "数据库操作失败",
+    ErrorCode.DEPENDENCY_ERROR: "依赖服务不可用",
 }
 
 
@@ -590,6 +595,75 @@ class DataError(YunxiError):
         details: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(message=message, code=code, details=details, http_status=409)
+
+
+class ServiceUnavailableError(YunxiError):
+    """服务不可用错误.
+
+    当目标服务暂时不可用、过载、或正在维护时抛出。
+    通常对应 HTTP 503 状态码，调用方可以稍后重试。
+    """
+
+    def __init__(
+        self,
+        message: str | None = None,
+        code: int = ErrorCode.SERVICE_UNAVAILABLE,
+        details: Optional[Dict[str, Any]] = None,
+        retry_after: int | None = None,
+    ):
+        super().__init__(message=message, code=code, details=details, http_status=503)
+        if retry_after is not None:
+            self.details["retry_after"] = retry_after
+
+
+class TimeoutError(YunxiError):
+    """超时错误（自定义，区别于内置 TimeoutError）.
+
+    当操作超过预设时间限制时抛出，包括网络请求超时、
+    数据库查询超时、任务执行超时等。
+
+    注意：为避免与 Python 内置 TimeoutError 混淆，
+    建议通过 `from shared.core.errors import TimeoutError as YunxiTimeoutError` 导入，
+    或使用别名 `YunxiTimeoutError`。
+    """
+
+    def __init__(
+        self,
+        message: str | None = None,
+        code: int = ErrorCode.TIMEOUT,
+        details: Optional[Dict[str, Any]] = None,
+        timeout_seconds: float | None = None,
+    ):
+        super().__init__(message=message, code=code, details=details, http_status=504)
+        if timeout_seconds is not None:
+            self.details["timeout_seconds"] = timeout_seconds
+
+
+# 兼容别名（避免与内置 TimeoutError 混淆时使用）
+YunxiTimeoutError = TimeoutError
+
+
+class DependencyError(YunxiError):
+    """依赖服务错误.
+
+    当外部依赖服务（数据库、缓存、消息队列、第三方 API 等）
+    出现故障、不可达、或返回异常结果时抛出。
+
+    与 ThirdPartyError 的区别：
+    - DependencyError 侧重内部基础设施依赖（DB、Redis、MQ 等）
+    - ThirdPartyError 侧重外部业务服务（上游模块、第三方 API 等）
+    """
+
+    def __init__(
+        self,
+        message: str | None = None,
+        code: int = ErrorCode.DEPENDENCY_ERROR,
+        details: Optional[Dict[str, Any]] = None,
+        dependency: str | None = None,
+    ):
+        super().__init__(message=message, code=code, details=details, http_status=502)
+        if dependency is not None:
+            self.details["dependency"] = dependency
 
 
 # ============================================================

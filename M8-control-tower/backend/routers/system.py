@@ -94,7 +94,8 @@ def _load_settings() -> dict:
             # 合并默认值，确保新增字段存在
             merged = {**DEFAULT_SETTINGS, **saved}
             return merged
-        except Exception:
+        except (json.JSONDecodeError, OSError, IOError):
+            # 预期内异常：文件损坏或 IO 错误，使用默认值
             pass
     return DEFAULT_SETTINGS.copy()
 
@@ -208,7 +209,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
         minutes = (uptime.seconds % 3600) // 60
         stats["uptime_text"] = f"{days}天{hours}小时{minutes}分钟"
         stats["uptime_seconds"] = int(uptime.total_seconds())
-    except Exception:
+    except (ImportError, AttributeError, OSError):
+        # 预期内异常：psutil 不可用或系统调用失败，降级使用进程启动时间
         try:
             import psutil
             current_proc = psutil.Process(os.getpid())
@@ -219,7 +221,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
             minutes = (uptime.seconds % 3600) // 60
             stats["uptime_text"] = f"{days}天{hours}小时{minutes}分钟"
             stats["uptime_seconds"] = int(uptime.total_seconds())
-        except Exception:
+        except (ImportError, AttributeError, OSError):
+            # 预期内异常：完全无法获取，使用默认值
             stats["uptime_text"] = "未知"
             stats["uptime_seconds"] = 0
     
@@ -242,7 +245,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
                     func.date(TaskRecord.created_at) == today
                 ).scalar() or 0
                 stats["tasks_today"] = today_tasks
-            except Exception:
+            except (OSError, IOError):
+                # 预期内异常：数据库查询失败
                 pass
             
             # 告警统计
@@ -254,7 +258,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
                     AlertRecord.status != "resolved"
                 ).scalar() or 0
                 stats["alerts_active"] = active_alerts
-            except Exception:
+            except (OSError, IOError):
+                # 预期内异常：数据库查询失败
                 stats["alerts_total"] = 0
                 stats["alerts_active"] = 0
             
@@ -268,14 +273,15 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
             try:
                 from ..compute_router import compute_manager
                 stats["compute_calls"] = compute_manager.get_total_calls() if hasattr(compute_manager, 'get_total_calls') else 0
-            except Exception:
+            except (ImportError, AttributeError):
+                # 预期内异常：算力模块不可用
                 stats["compute_calls"] = 0
                 stats["compute_success_rate"] = 0
 
         finally:
             db.close()
-    except Exception as e:
-        # 数据库不可用时的降级数据
+    except (ImportError, AttributeError, OSError) as e:
+        # 预期内异常：数据库不可用，返回降级数据
         stats["tasks_total"] = 0
         stats["tasks_today"] = 0
         stats["tasks_completed"] = 0
@@ -365,7 +371,8 @@ async def list_modules(
                 client = registry.get_client(mod.key)
                 is_healthy = await client.health_check()
                 mod.status = ModuleStatus.RUNNING if is_healthy else ModuleStatus.STOPPED
-            except Exception:
+            except (ValueError, AttributeError):
+                # 预期内异常：模块未注册或客户端不可用
                 mod.status = ModuleStatus.UNKNOWN
     
     items = [m.to_dict() for m in modules]
@@ -603,7 +610,8 @@ async def get_modules_realtime_status(
             writer.close()
             await writer.wait_closed()
             info["port_open"] = True
-        except Exception:
+        except (OSError, ConnectionError, asyncio.TimeoutError):
+            # 预期内异常：端口不可达
             info["port_open"] = False
         
         # 3. HTTP 健康检查（端口开了才检查，减少超时等待）
@@ -613,7 +621,8 @@ async def get_modules_realtime_status(
                     r = await client.get(f"http://127.0.0.1:{mod.port}/health")
                     info["http_healthy"] = r.status_code == 200
                     info["health_status"] = "online" if r.status_code == 200 else "degraded"
-            except Exception:
+            except (httpx.HTTPError, asyncio.TimeoutError):
+                # 预期内异常：HTTP 请求失败
                 info["http_healthy"] = False
                 info["health_status"] = "starting" if info["process_running"] else "offline"
         else:
@@ -731,7 +740,8 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
             plain_key = crypto_decrypt(enc_key)
             settings_data["llm_api_key"] = mask_api_key(plain_key)
             settings_data["has_llm_api_key"] = True
-        except Exception:
+        except (ValueError, TypeError):
+            # 预期内异常：解密失败（密钥损坏），清除密钥
             settings_data["llm_api_key"] = ""
             settings_data["has_llm_api_key"] = False
     else:
@@ -778,7 +788,8 @@ async def update_settings(
             plain_key = crypto_decrypt(enc_key)
             result["llm_api_key"] = mask_api_key(plain_key)
             result["has_llm_api_key"] = True
-        except Exception:
+        except (ValueError, TypeError):
+            # 预期内异常：解密失败（密钥损坏），清除密钥
             result["llm_api_key"] = ""
             result["has_llm_api_key"] = False
     else:
@@ -796,8 +807,8 @@ async def get_module_tokens(current_user: dict = Depends(get_current_user)):
     try:
         from shared.core.config import get_module_tokens
         tokens_config = get_module_tokens()
-    except Exception:
-        # 降级：从环境变量读取
+    except (ImportError, AttributeError):
+        # 预期内异常：配置模块不可用，降级从环境变量读取
         import os
         tokens_config = {}
         for i in range(1, 11):

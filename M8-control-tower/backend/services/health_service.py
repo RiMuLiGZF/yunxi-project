@@ -22,6 +22,7 @@ M8 健康检查服务（ARC-005 重构）
 import os
 import time
 import hmac
+import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
@@ -83,8 +84,12 @@ def register_m8_std_endpoints(app: FastAPI, settings, logger) -> None:
                 from shared.core.observability import get_alert_engine
                 alert_engine = get_alert_engine()
                 alerts_active = len(alert_engine.get_active_alerts())
+            except (ImportError, AttributeError, TypeError):
+                # 预期内异常：告警引擎不可用或接口变更，使用默认值 0
+                logger.debug("告警引擎不可用，使用默认告警数 0")
             except Exception:
-                pass
+                # 兜底：未预期异常，记录日志后继续
+                logger.warning("获取告警数异常", exc_info=True)
 
             return {
                 "code": 0,
@@ -98,7 +103,23 @@ def register_m8_std_endpoints(app: FastAPI, settings, logger) -> None:
                     "alerts_active": alerts_active,
                 }
             }
-        except Exception:
+        except (ImportError, AttributeError):
+            # 预期内异常：监控模块不可用，返回默认指标
+            logger.debug("系统指标模块不可用，返回默认值")
+            return {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "cpu_usage": 0.0,
+                    "memory_mb": 0,
+                    "active_modules": 7,
+                    "requests_total": 0,
+                    "alerts_active": 0,
+                }
+            }
+        except Exception as e:
+            # 兜底：未预期异常，记录完整堆栈后返回默认值
+            logger.exception("获取 M8 标准指标未预期错误")
             return {
                 "code": 0,
                 "message": "ok",
@@ -178,7 +199,6 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
     端点：
     - GET /api/system/check  全局系统状态检测
     """
-    import asyncio
     
     @app.get("/api/system/check", tags=["系统"])
     async def system_check():
@@ -205,7 +225,12 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
                 writer.close()
                 await writer.wait_closed()
                 result["ollama"] = {"status": "running", "message": "Ollama服务运行中"}
+            except (OSError, ConnectionError, asyncio.TimeoutError):
+                # 预期内异常：Ollama 未启动或连接失败
+                result["ollama"] = {"status": "stopped", "message": "Ollama服务未启动"}
             except Exception:
+                # 兜底：未预期异常
+                logger.debug("Ollama 检测异常", exc_info=True)
                 result["ollama"] = {"status": "stopped", "message": "Ollama服务未启动"}
 
         async def check_git():
@@ -233,7 +258,12 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
                         result["git"] = {"status": "available", "message": "Git已安装，尚未初始化仓库"}
                 else:
                     result["git"] = {"status": "unavailable", "message": "Git不可用"}
+            except (OSError, subprocess.TimeoutExpired, asyncio.TimeoutError):
+                # 预期内异常：Git 未安装、执行超时
+                result["git"] = {"status": "unavailable", "message": "Git未安装或不可用"}
             except Exception:
+                # 兜底：未预期异常
+                logger.debug("Git 检测异常", exc_info=True)
                 result["git"] = {"status": "unavailable", "message": "Git未安装或不可用"}
 
         async def check_bluetooth():
@@ -258,7 +288,12 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
                     result["bluetooth"] = {"status": "ready", "message": "蓝牙服务运行中"}
                 else:
                     result["bluetooth"] = {"status": "unavailable", "message": "蓝牙服务未运行"}
+            except (OSError, subprocess.TimeoutExpired, asyncio.TimeoutError):
+                # 预期内异常：蓝牙检测命令执行失败或超时
+                result["bluetooth"] = {"status": "unknown", "message": "蓝牙状态未知"}
             except Exception:
+                # 兜底：未预期异常
+                logger.debug("蓝牙检测异常", exc_info=True)
                 result["bluetooth"] = {"status": "unknown", "message": "蓝牙状态未知"}
 
         async def check_modules():
@@ -278,7 +313,12 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
                     writer.close()
                     await writer.wait_closed()
                     return True
+                except (OSError, ConnectionError, asyncio.TimeoutError):
+                    # 预期内异常：端口不可达
+                    return False
                 except Exception:
+                    # 兜底：未预期异常
+                    logger.debug(f"端口检测异常 {port}", exc_info=True)
                     return False
 
             tasks = []
@@ -311,9 +351,12 @@ def register_system_check_endpoint(app: FastAPI, logger, project_root: Path) -> 
                 ),
                 timeout=3.0
             )
-        except Exception as e:
-            # 健康检查超时或异常，返回已获取的部分结果，不影响可用性
+        except asyncio.TimeoutError as e:
+            # 预期内异常：健康检查总超时，返回已获取的部分结果
             logger.debug("系统健康检查部分项超时: %s", e)
+        except Exception as e:
+            # 兜底：未预期异常，返回已获取的部分结果
+            logger.warning("系统健康检查异常: %s", e)
 
         # 总体状态
         all_ok = all(
@@ -380,7 +423,8 @@ def register_observability_routes(app: FastAPI, settings, logger,
                         type="postgresql",
                         response_time_ms=resp_ms,
                     )
-                except Exception as e:
+                except (OSError, IOError) as e:
+                    # 预期内异常：数据库连接失败
                     resp_ms = (time.time() - start_t) * 1000
                     return CheckResult.unhealthy(
                         error=str(e),
@@ -389,7 +433,16 @@ def register_observability_routes(app: FastAPI, settings, logger,
                     )
                 finally:
                     db.close()
+            except (ImportError, AttributeError) as e:
+                # 预期内异常：数据库模块不可用
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.unhealthy(
+                    error=str(e),
+                    type="postgresql",
+                    response_time_ms=resp_ms,
+                )
             except Exception as e:
+                # 兜底：未预期异常
                 resp_ms = (time.time() - start_t) * 1000
                 return CheckResult.unhealthy(
                     error=str(e),
@@ -417,7 +470,8 @@ def register_observability_routes(app: FastAPI, settings, logger,
                     type="redis",
                     response_time_ms=resp_ms,
                 )
-            except Exception:
+            except (ImportError, AttributeError):
+                # 预期内异常：Redis 模块不可用，尝试直接连接
                 try:
                     import redis as _redis
                     redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -434,13 +488,22 @@ def register_observability_routes(app: FastAPI, settings, logger,
                         type="redis",
                         response_time_ms=resp_ms,
                     )
-                except Exception as e:
+                except (ImportError, OSError, ConnectionError) as e:
+                    # 预期内异常：Redis 库不可用或连接失败
                     resp_ms = (time.time() - start_t) * 1000
                     return CheckResult.degraded(
                         error=str(e),
                         type="redis",
                         response_time_ms=resp_ms,
                     )
+            except Exception as e:
+                # 兜底：未预期异常
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    type="redis",
+                    response_time_ms=resp_ms,
+                )
 
         m8_checker.register_check("redis", _check_m8_redis, critical=False, lightweight=False)
 
@@ -468,7 +531,15 @@ def register_observability_routes(app: FastAPI, settings, logger,
                     },
                 )
                 return result
+            except (ImportError, AttributeError, ValueError) as e:
+                # 预期内异常：模块注册中心不可用
+                resp_ms = (time.time() - start_t) * 1000
+                return CheckResult.degraded(
+                    error=str(e),
+                    response_time_ms=resp_ms,
+                )
             except Exception as e:
+                # 兜底：未预期异常
                 resp_ms = (time.time() - start_t) * 1000
                 return CheckResult.degraded(
                     error=str(e),
@@ -534,7 +605,15 @@ def register_observability_routes(app: FastAPI, settings, logger,
                             warning_alerts=impact["warning_alerts_count"],
                             response_time_ms=resp_ms,
                         )
+                except (AttributeError, KeyError, TypeError) as e:
+                    # 预期内异常：告警引擎接口变更
+                    resp_ms = (time.time() - start_t) * 1000
+                    return CheckResult.degraded(
+                        error=f"Alert check error: {e}",
+                        response_time_ms=resp_ms,
+                    )
                 except Exception as e:
+                    # 兜底：未预期异常
                     resp_ms = (time.time() - start_t) * 1000
                     return CheckResult.degraded(
                         error=f"Alert check error: {e}",
@@ -548,10 +627,18 @@ def register_observability_routes(app: FastAPI, settings, logger,
                 lightweight=True,
             )
             logger.info("告警状态已集成到健康检查")
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
+            # 预期内异常：告警引擎不可用
             logger.warning(f"内置告警引擎初始化失败: {e}，告警功能暂不可用")
-    except Exception as e:
+        except Exception as e:
+            # 兜底：未预期异常
+            logger.exception("内置告警引擎初始化未预期错误")
+    except (ImportError, AttributeError) as e:
+        # 预期内异常：可观测性模块不可用
         logger.warning(f"标准化可观测性路由注册失败: {e}，使用旧版健康检查")
+    except Exception as e:
+        # 兜底：未预期异常
+        logger.exception("标准化可观测性路由注册未预期错误")
 
 
 def register_public_health_endpoint(app: FastAPI, settings, logger,
@@ -583,8 +670,12 @@ def register_public_health_endpoint(app: FastAPI, settings, logger,
                         "critical_alerts": impact["critical_alerts_count"],
                         "warning_alerts": impact["warning_alerts_count"],
                     }
-                except Exception:
+                except (ImportError, AttributeError, KeyError):
+                    # 预期内异常：告警引擎不可用，跳过告警信息
                     pass
+                except Exception:
+                    # 兜底：未预期异常
+                    logger.debug("获取告警信息异常", exc_info=True)
 
                 # 包装为旧格式保持兼容
                 return {
@@ -600,8 +691,11 @@ def register_public_health_endpoint(app: FastAPI, settings, logger,
                         **alert_info,
                     },
                 }
+            except (ImportError, AttributeError) as e:
+                # 预期内异常：标准化健康检查不可用，回退到旧版
+                logger.warning("标准化健康检查不可用，回退到旧版: %s", e)
             except Exception as e:
-                # 标准化健康检查失败，回退到旧版检查
+                # 兜底：标准化健康检查失败，回退到旧版检查
                 logger.warning("标准化健康检查失败，回退到旧版: %s", e)
 
         # 回退：旧版健康检查
@@ -612,11 +706,17 @@ def register_public_health_endpoint(app: FastAPI, settings, logger,
             try:
                 db.execute("SELECT 1")
                 db_status = "connected"
-            except Exception:
+            except (OSError, IOError):
+                # 预期内异常：数据库连接失败
                 db_status = "disconnected"
             finally:
                 db.close()
+        except (ImportError, AttributeError):
+            # 预期内异常：数据库模块不可用
+            db_status = "unavailable"
         except Exception:
+            # 兜底：未预期异常
+            logger.debug("旧版健康检查数据库检测异常", exc_info=True)
             db_status = "unavailable"
 
         return {
