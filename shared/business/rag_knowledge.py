@@ -2,13 +2,22 @@
 RAG知识库系统 - 云汐大脑知识层
 文档管理 + 文本分块 + 向量检索 + 知识增强回复
 
-支持功能：
+支持功能（P3 RAG 检索增强）：
 - 文档入库（txt/md/pdf/docx 等）
-- 智能分块（语义分块 + 重叠窗口）
-- 向量检索（Ollama embeddings，降级关键词检索）
+- 多种分块策略（固定/语义/结构化/递归）
+- 混合检索（向量 + BM25 关键词 + RRF 融合）
+- 重排序（Cross-Encoder 风格评分）
+- 查询改写（扩展/分解/多轮/HyDE）
+- MMR 多样性排序
+- 上下文窗口扩展
 - 知识库分类管理
-- 检索结果重排序
 - 上下文组装（RAG prompt构建）
+- 动态配置更新
+
+向后兼容说明：
+- 所有原有 API 保持不变
+- 默认配置下行为与原版本一致
+- 高级功能需显式开启
 """
 
 import os
@@ -22,9 +31,26 @@ import logging
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 logger = logging.getLogger(__name__)
+
+# 尝试导入 rag_services（P3 增强模块）
+try:
+    from .rag_services.config import RAGConfig, get_rag_config, reset_rag_config
+    from .rag_services.chunker import create_chunker, ChunkMetadata, ChunkResult
+    from .rag_services.hybrid_search import (
+        HybridSearcher, RetrievalResultItem, rrf_fusion, weighted_fusion,
+    )
+    from .rag_services.query_rewriter import QueryRewriter, RewriteStrategy
+    from .rag_services.post_processor import (
+        PostProcessor, deduplicate_results, mmr_rerank,
+        expand_context_window, build_citations,
+    )
+    _RAG_SERVICES_AVAILABLE = True
+except ImportError as e:
+    logger.warning("RAG 增强服务不可用，将使用基础模式: %s", e)
+    _RAG_SERVICES_AVAILABLE = False
 
 
 class KnowledgeStatus(str, Enum):
@@ -141,9 +167,20 @@ class RAGKnowledgeBase:
         self._ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
         self._embedding_model = os.environ.get("EMBEDDING_MODEL", "nomic-embed-text")
         self._embedding_available = None  # 延迟检测
-        
+
+        # P3 增强：RAG 配置和服务（懒加载）
+        self._rag_config: Optional["RAGConfig"] = None
+        self._hybrid_searcher: Optional["HybridSearcher"] = None
+        self._query_rewriter: Optional["QueryRewriter"] = None
+        self._post_processor: Optional["PostProcessor"] = None
+        self._bm25_index_built = False
+
         # 加载已有数据
         self._load_documents()
+
+        # 初始化 BM25 索引（如果增强服务可用）
+        if _RAG_SERVICES_AVAILABLE:
+            self._init_rag_services()
     
     # ==================== 存储 ====================
     
@@ -305,6 +342,17 @@ class RAGKnowledgeBase:
             
             self._save_chunks(doc_id, chunks)
             self._save_documents()
+
+            # P3 增强：添加到 BM25 索引
+            if _RAG_SERVICES_AVAILABLE and self._hybrid_searcher:
+                for chunk in chunks:
+                    self._hybrid_searcher.add_document(
+                        chunk_id=chunk.chunk_id,
+                        text=chunk.text,
+                        doc_id=doc_id,
+                        embedding=chunk.embedding,
+                    )
+                self._bm25_index_built = True
             
         except Exception as e:
             with self._lock:
@@ -719,6 +767,10 @@ class RAGKnowledgeBase:
             doc_file = self._docs_dir / f"{doc_id}.txt"
             if doc_file.exists():
                 doc_file.unlink()
+
+        # P3 增强：从 BM25 索引中移除
+        if _RAG_SERVICES_AVAILABLE and self._hybrid_searcher:
+            self._remove_doc_from_index(doc_id)
         
         self._save_documents()
         return True
@@ -745,6 +797,717 @@ class RAGKnowledgeBase:
             "total_tokens_est": total_tokens,
             "categories": categories,
             "vector_search_available": self._check_embedding_available(),
+        }
+
+    # ==================== P3 增强：RAG 服务初始化 ====================
+
+    def _init_rag_services(self):
+        """初始化 RAG 增强服务（内部方法）"""
+        if not _RAG_SERVICES_AVAILABLE:
+            return
+
+        try:
+            self._rag_config = get_rag_config()
+
+            # 初始化混合检索器
+            self._hybrid_searcher = HybridSearcher(
+                embedding_fn=self._get_embedding if self._check_embedding_available() else None,
+                dense_top_k=self._rag_config.dense_top_k,
+                sparse_top_k=self._rag_config.sparse_top_k,
+                final_top_k=self._rag_config.retrieval_top_k,
+                enable_hybrid=self._rag_config.enable_hybrid_search,
+                hybrid_weight=self._rag_config.hybrid_search_weight,
+                fusion_method=self._rag_config.fusion_method,
+                rrf_k=self._rag_config.rrf_k,
+                enable_rerank=self._rag_config.enable_rerank,
+                rerank_top_n=self._rag_config.rerank_top_n,
+                rerank_method=self._rag_config.rerank_method,
+                min_score=self._rag_config.min_similarity_score,
+            )
+
+            # 初始化查询改写器
+            self._query_rewriter = QueryRewriter(
+                strategy=self._rag_config.rewrite_strategy,
+                max_queries=self._rag_config.max_rewrite_queries,
+            )
+
+            # 初始化后处理器
+            self._post_processor = PostProcessor(
+                enable_dedup=self._rag_config.enable_dedup,
+                dedup_threshold=self._rag_config.dedup_threshold,
+                enable_mmr=self._rag_config.enable_mmr,
+                mmr_lambda=self._rag_config.mmr_lambda,
+                enable_context_expansion=self._rag_config.context_window_expansion,
+                context_chars_before=self._rag_config.expansion_chars_before,
+                context_chars_after=self._rag_config.expansion_chars_after,
+            )
+
+            # 构建 BM25 索引
+            self._rebuild_bm25_index()
+
+        except Exception as e:
+            logger.warning("RAG 增强服务初始化失败: %s", e)
+            self._hybrid_searcher = None
+            self._query_rewriter = None
+            self._post_processor = None
+
+    def _rebuild_bm25_index(self):
+        """重建 BM25 索引（内部方法）"""
+        if not self._hybrid_searcher:
+            return
+
+        self._hybrid_searcher.sparse.clear()
+
+        with self._lock:
+            for doc_id, chunks in self._chunks.items():
+                doc = self._documents.get(doc_id)
+                if not doc or doc.status != KnowledgeStatus.READY.value:
+                    continue
+                for chunk in chunks:
+                    self._hybrid_searcher.sparse.add_document(
+                        chunk_id=chunk.chunk_id,
+                        text=chunk.text,
+                        doc_id=doc_id,
+                    )
+
+        self._bm25_index_built = True
+
+    def _add_chunk_to_index(self, chunk: "Chunk", doc_id: str):
+        """将单个 chunk 添加到索引（内部方法）"""
+        if self._hybrid_searcher:
+            self._hybrid_searcher.add_document(
+                chunk_id=chunk.chunk_id,
+                text=chunk.text,
+                doc_id=doc_id,
+                embedding=chunk.embedding,
+            )
+
+    def _remove_doc_from_index(self, doc_id: str):
+        """从索引中移除文档的所有 chunk（内部方法）"""
+        if not self._hybrid_searcher:
+            return
+        with self._lock:
+            chunks = self._chunks.get(doc_id, [])
+            for chunk in chunks:
+                self._hybrid_searcher.remove(chunk.chunk_id)
+
+    # ==================== P3 增强：增强型检索 ====================
+
+    def hybrid_search(self, query: str,
+                      category: Optional[str] = None,
+                      top_k: Optional[int] = None,
+                      enable_hybrid: Optional[bool] = None,
+                      enable_rerank: Optional[bool] = None,
+                      min_score: Optional[float] = None) -> List["RetrievalResult"]:
+        """
+        混合检索（P3 增强）
+
+        使用向量检索 + BM25 关键词检索 + RRF 融合 + 重排序。
+        如果增强服务不可用，自动降级为原有 search 方法。
+
+        Args:
+            query: 查询文本
+            category: 按分类过滤
+            top_k: 返回结果数（覆盖配置）
+            enable_hybrid: 是否启用混合（覆盖配置）
+            enable_rerank: 是否启用重排序（覆盖配置）
+            min_score: 最低分数阈值（覆盖配置）
+
+        Returns:
+            检索结果列表
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._hybrid_searcher:
+            # 降级为原有检索
+            return self.search(query, category=category,
+                               limit=top_k or 5,
+                               min_score=min_score or 0.3)
+
+        # 确保 BM25 索引已构建
+        if not self._bm25_index_built:
+            self._rebuild_bm25_index()
+
+        # 更新配置
+        k = top_k or self._rag_config.retrieval_top_k
+        use_hybrid = enable_hybrid if enable_hybrid is not None else self._rag_config.enable_hybrid_search
+        use_rerank = enable_rerank if enable_rerank is not None else self._rag_config.enable_rerank
+
+        # 如果有分类过滤，需要先过滤
+        if category:
+            # 分类过滤模式：先获取过滤后的 chunks，再检索
+            filtered_chunks = []
+            with self._lock:
+                for doc_id, doc in self._documents.items():
+                    if doc.status != KnowledgeStatus.READY.value:
+                        continue
+                    if doc.category != category:
+                        continue
+                    if doc_id not in self._chunks:
+                        self._chunks[doc_id] = self._load_chunks(doc_id)
+                    filtered_chunks.extend(self._chunks[doc_id])
+
+            if not filtered_chunks:
+                return []
+
+            # 临时创建一个搜索器用于过滤后的检索
+            from .rag_services.hybrid_search import HybridSearcher as _HS
+            temp_searcher = _HS(
+                embedding_fn=self._get_embedding if self._check_embedding_available() else None,
+                dense_top_k=self._rag_config.dense_top_k,
+                sparse_top_k=self._rag_config.sparse_top_k,
+                final_top_k=k,
+                enable_hybrid=use_hybrid,
+                hybrid_weight=self._rag_config.hybrid_search_weight,
+                fusion_method=self._rag_config.fusion_method,
+                rrf_k=self._rag_config.rrf_k,
+                enable_rerank=use_rerank,
+                rerank_top_n=self._rag_config.rerank_top_n,
+                rerank_method=self._rag_config.rerank_method,
+                min_score=min_score or self._rag_config.min_similarity_score,
+            )
+            for chunk in filtered_chunks:
+                temp_searcher.add_document(
+                    chunk_id=chunk.chunk_id,
+                    text=chunk.text,
+                    doc_id=chunk.doc_id,
+                    embedding=chunk.embedding,
+                )
+            hybrid_results = temp_searcher.search(query, top_k=k)
+        else:
+            # 全量检索
+            self._hybrid_searcher.min_score = min_score or self._rag_config.min_similarity_score
+            hybrid_results = self._hybrid_searcher.search(
+                query, top_k=k,
+                enable_hybrid=use_hybrid,
+                enable_rerank=use_rerank,
+            )
+
+        # 转换为原有格式（保持向后兼容）
+        results = []
+        for hr in hybrid_results:
+            # 找到对应的 Chunk 对象
+            chunk = self._find_chunk(hr.chunk_id)
+            if chunk:
+                results.append(RetrievalResult(
+                    chunk=chunk,
+                    score=hr.score,
+                    rank=hr.rank,
+                ))
+
+        return results
+
+    def _find_chunk(self, chunk_id: str) -> Optional["Chunk"]:
+        """根据 chunk_id 查找 Chunk 对象（内部方法）"""
+        with self._lock:
+            for doc_id, chunks in self._chunks.items():
+                for chunk in chunks:
+                    if chunk.chunk_id == chunk_id:
+                        return chunk
+        return None
+
+    def search_with_debug(self, query: str,
+                          category: Optional[str] = None) -> Dict[str, Any]:
+        """
+        调试模式检索（P3 增强）
+
+        返回各阶段的详细检索信息，用于调试和调优。
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._hybrid_searcher:
+            results = self.search(query, category=category)
+            return {
+                "query": query,
+                "enhanced": False,
+                "results": [
+                    {"chunk_id": r.chunk.chunk_id, "score": r.score, "rank": r.rank}
+                    for r in results
+                ],
+            }
+
+        if not self._bm25_index_built:
+            self._rebuild_bm25_index()
+
+        debug_info = self._hybrid_searcher.search_debug(query)
+        debug_info["enhanced"] = True
+        return debug_info
+
+    # ==================== P3 增强：分块策略 ====================
+
+    def chunk_with_strategy(self, text: str,
+                            strategy: str = "fixed",
+                            doc_id: str = "",
+                            doc_title: str = "",
+                            chunk_size: Optional[int] = None,
+                            chunk_overlap: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        使用指定策略分块（P3 增强）
+
+        Args:
+            text: 待分块文本
+            strategy: 分块策略（fixed/semantic/structured/recursive）
+            doc_id: 文档 ID
+            doc_title: 文档标题
+            chunk_size: 分块大小（覆盖配置）
+            chunk_overlap: 重叠大小（覆盖配置）
+
+        Returns:
+            分块结果列表（包含增强元数据）
+        """
+        if not _RAG_SERVICES_AVAILABLE:
+            # 降级：使用原有分块方法
+            chunks = self._chunk_text(text, doc_id or "temp")
+            return [
+                {
+                    "chunk_id": c.chunk_id,
+                    "text": c.text,
+                    "metadata": {
+                        "chunk_index": c.chunk_index,
+                        "token_count": c.token_count,
+                        "keywords": c.keywords,
+                        "section": c.section,
+                    },
+                }
+                for c in chunks
+            ]
+
+        cs = chunk_size or self._rag_config.default_chunk_size
+        co = chunk_overlap or self._rag_config.default_chunk_overlap
+
+        chunker = create_chunker(
+            strategy=strategy,
+            chunk_size=cs,
+            chunk_overlap=co,
+            min_chunk_size=self._rag_config.min_chunk_size,
+            by_tokens=self._rag_config.chunk_by_tokens,
+        )
+
+        results = chunker.chunk(text, doc_id=doc_id, doc_title=doc_title)
+        return [r.to_dict() for r in results]
+
+    def set_chunking_strategy(self, strategy: str):
+        """
+        设置分块策略（动态生效）
+
+        新添加的文档将使用新策略。
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._rag_config:
+            raise RuntimeError("RAG 增强服务不可用")
+        self._rag_config.update({"chunking_strategy": strategy})
+
+    # ==================== P3 增强：查询改写 ====================
+
+    def rewrite_query(self, query: str,
+                      strategy: Optional[str] = None,
+                      history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+        """
+        查询改写（P3 增强）
+
+        Args:
+            query: 原始查询
+            strategy: 改写策略（expansion/decomposition/conversational/hyde）
+            history: 对话历史（多轮改写用）
+
+        Returns:
+            改写结果字典
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._query_rewriter:
+            return {
+                "original_query": query,
+                "rewritten_queries": [query],
+                "strategy": strategy or "none",
+                "enhanced": False,
+            }
+
+        result = self._query_rewriter.rewrite(
+            query,
+            strategy=strategy or self._rag_config.rewrite_strategy,
+            history=history,
+        )
+        result_dict = result.to_dict()
+        result_dict["enhanced"] = True
+        return result_dict
+
+    def search_with_rewrite(self, query: str,
+                            strategy: str = "expansion",
+                            category: Optional[str] = None,
+                            top_k: int = 5) -> List["RetrievalResult"]:
+        """
+        改写后检索（P3 增强）
+
+        先改写查询，再用改写后的查询检索，合并去重结果。
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._query_rewriter:
+            return self.search(query, category=category, limit=top_k)
+
+        rewrite_result = self._query_rewriter.rewrite(query, strategy=strategy)
+        all_queries = [query] + rewrite_result.rewritten_queries
+
+        # 对每个查询检索，合并结果
+        all_results: Dict[str, RetrievalResult] = {}
+
+        for q in all_queries:
+            results = self.hybrid_search(q, category=category, top_k=top_k)
+            for r in results:
+                cid = r.chunk.chunk_id
+                if cid not in all_results or r.score > all_results[cid].score:
+                    all_results[cid] = r
+
+        # 排序
+        sorted_results = sorted(all_results.values(), key=lambda r: r.score, reverse=True)
+        for i, r in enumerate(sorted_results):
+            r.rank = i + 1
+
+        return sorted_results[:top_k]
+
+    # ==================== P3 增强：检索后处理 ====================
+
+    def get_chunk_detail(self, chunk_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取单个 chunk 详情（P3 增强）
+
+        Args:
+            chunk_id: chunk ID
+
+        Returns:
+            chunk 详细信息（含元数据、所属文档等）
+        """
+        chunk = self._find_chunk(chunk_id)
+        if not chunk:
+            return None
+
+        doc = self._documents.get(chunk.doc_id)
+
+        return {
+            "chunk_id": chunk.chunk_id,
+            "doc_id": chunk.doc_id,
+            "text": chunk.text,
+            "chunk_index": chunk.chunk_index,
+            "token_count": chunk.token_count,
+            "section": chunk.section,
+            "keywords": chunk.keywords,
+            "has_embedding": chunk.embedding is not None,
+            "document": {
+                "title": doc.title if doc else "未知",
+                "source": doc.source if doc else "",
+                "category": doc.category if doc else "",
+                "status": doc.status if doc else "",
+                "total_chunks": doc.total_chunks if doc else 0,
+            },
+        }
+
+    def get_context_expanded(self, chunk_id: str,
+                             chars_before: int = 100,
+                             chars_after: int = 100) -> Optional[Dict[str, Any]]:
+        """
+        获取带上下文扩展的 chunk（P3 增强）
+
+        Args:
+            chunk_id: chunk ID
+            chars_before: 向前扩展字符数
+            chars_after: 向后扩展字符数
+
+        Returns:
+            带上下文的 chunk 信息
+        """
+        chunk = self._find_chunk(chunk_id)
+        if not chunk:
+            return None
+
+        doc_id = chunk.doc_id
+        with self._lock:
+            if doc_id not in self._chunks:
+                self._chunks[doc_id] = self._load_chunks(doc_id)
+            doc_chunks = self._chunks.get(doc_id, [])
+
+        # 构建 all_chunks 格式
+        all_chunks = {
+            doc_id: [
+                {"chunk_id": c.chunk_id, "text": c.text, "chunk_index": c.chunk_index}
+                for c in doc_chunks
+            ]
+        }
+
+        # 使用混合检索结果格式
+        if not _RAG_SERVICES_AVAILABLE:
+            return {"chunk_id": chunk_id, "text": chunk.text, "expanded_text": chunk.text}
+
+        from .rag_services.hybrid_search import RetrievalResultItem as _RRI
+        result_item = _RRI(
+            chunk_id=chunk.chunk_id,
+            doc_id=doc_id,
+            text=chunk.text,
+            score=0.0,
+        )
+
+        expanded_list = expand_context_window(
+            [result_item], all_chunks,
+            chars_before=chars_before,
+            chars_after=chars_after,
+        )
+
+        if expanded_list:
+            return expanded_list[0].to_dict()
+
+        return {"chunk_id": chunk_id, "text": chunk.text, "expanded_text": chunk.text}
+
+    # ==================== P3 增强：索引管理 ====================
+
+    def reindex(self, doc_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        重建索引（P3 增强）
+
+        Args:
+            doc_id: 指定文档 ID，None 则重建全部
+
+        Returns:
+            重建结果统计
+        """
+        stats = {"reindexed_docs": 0, "reindexed_chunks": 0, "total_docs": 0, "total_chunks": 0}
+
+        if doc_id:
+            # 重建单个文档
+            with self._lock:
+                if doc_id not in self._documents:
+                    return {"error": "文档不存在"}
+
+                doc = self._documents[doc_id]
+                # 读取原始文本
+                doc_file = self._docs_dir / f"{doc_id}.txt"
+                if doc_file.exists():
+                    content = doc_file.read_text(encoding="utf-8")
+                    # 重新处理
+                    self._process_document(doc_id, content)
+                    stats["reindexed_docs"] = 1
+                    stats["reindexed_chunks"] = doc.total_chunks
+        else:
+            # 重建所有文档
+            with self._lock:
+                doc_ids = list(self._documents.keys())
+
+            for did in doc_ids:
+                doc_file = self._docs_dir / f"{did}.txt"
+                if doc_file.exists():
+                    content = doc_file.read_text(encoding="utf-8")
+                    self._process_document(did, content)
+                    stats["reindexed_docs"] += 1
+                    with self._lock:
+                        doc = self._documents.get(did)
+                        if doc:
+                            stats["reindexed_chunks"] += doc.total_chunks
+
+        # 重建 BM25 索引
+        if _RAG_SERVICES_AVAILABLE and self._hybrid_searcher:
+            self._rebuild_bm25_index()
+
+        # 更新统计
+        s = self.get_stats()
+        stats["total_docs"] = s["total_documents"]
+        stats["total_chunks"] = s["total_chunks"]
+
+        return stats
+
+    def get_detailed_stats(self) -> Dict[str, Any]:
+        """
+        获取详细的知识库统计（P3 增强）
+
+        比 get_stats 更详细，包含向量数、BM25 索引状态等。
+        """
+        basic = self.get_stats()
+
+        # 统计带向量的 chunk 数
+        vector_count = 0
+        with self._lock:
+            for doc_id, chunks in self._chunks.items():
+                for c in chunks:
+                    if c.embedding is not None:
+                        vector_count += 1
+
+        enhanced = {
+            **basic,
+            "vector_count": vector_count,
+            "vector_coverage": vector_count / basic["total_chunks"] if basic["total_chunks"] > 0 else 0,
+            "bm25_index_built": self._bm25_index_built if _RAG_SERVICES_AVAILABLE else False,
+            "enhanced_services": _RAG_SERVICES_AVAILABLE,
+            "chunking_strategy": self._rag_config.chunking_strategy if self._rag_config else "legacy",
+            "hybrid_search_enabled": self._rag_config.enable_hybrid_search if self._rag_config else False,
+            "rerank_enabled": self._rag_config.enable_rerank if self._rag_config else False,
+        }
+
+        return enhanced
+
+    # ==================== P3 增强：配置管理 ====================
+
+    def get_retrieval_config(self) -> Dict[str, Any]:
+        """
+        获取检索配置（P3 增强）
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._rag_config:
+            # 返回基础配置
+            return {
+                "chunk_size": self._chunk_size,
+                "chunk_overlap": self._chunk_overlap,
+                "enhanced": False,
+            }
+
+        return {
+            **self._rag_config.to_dict(),
+            "enhanced": True,
+        }
+
+    def update_retrieval_config(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        更新检索配置（动态生效，P3 增强）
+
+        Args:
+            updates: 配置更新字典
+
+        Returns:
+            实际更新的配置项
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._rag_config:
+            # 基础模式：只支持 chunk_size 和 chunk_overlap
+            changed = {}
+            if "default_chunk_size" in updates or "chunk_size" in updates:
+                new_val = int(updates.get("default_chunk_size", updates.get("chunk_size")))
+                old_val = self._chunk_size
+                if new_val > 0 and new_val != old_val:
+                    self._chunk_size = new_val
+                    changed["chunk_size"] = {"old": old_val, "new": new_val}
+            if "default_chunk_overlap" in updates or "chunk_overlap" in updates:
+                new_val = int(updates.get("default_chunk_overlap", updates.get("chunk_overlap")))
+                old_val = self._chunk_overlap
+                if new_val >= 0 and new_val != old_val:
+                    self._chunk_overlap = new_val
+                    changed["chunk_overlap"] = {"old": old_val, "new": new_val}
+            return changed
+
+        changed = self._rag_config.update(updates)
+
+        # 如果关键配置变更，重新初始化相关服务
+        if any(k in changed for k in [
+            "enable_hybrid_search", "hybrid_search_weight", "fusion_method",
+            "rrf_k", "dense_top_k", "sparse_top_k", "enable_rerank",
+            "rerank_top_n", "rerank_method", "min_similarity_score",
+        ]):
+            # 重新初始化混合检索器
+            self._hybrid_searcher = HybridSearcher(
+                embedding_fn=self._get_embedding if self._check_embedding_available() else None,
+                dense_top_k=self._rag_config.dense_top_k,
+                sparse_top_k=self._rag_config.sparse_top_k,
+                final_top_k=self._rag_config.retrieval_top_k,
+                enable_hybrid=self._rag_config.enable_hybrid_search,
+                hybrid_weight=self._rag_config.hybrid_search_weight,
+                fusion_method=self._rag_config.fusion_method,
+                rrf_k=self._rag_config.rrf_k,
+                enable_rerank=self._rag_config.enable_rerank,
+                rerank_top_n=self._rag_config.rerank_top_n,
+                rerank_method=self._rag_config.rerank_method,
+                min_score=self._rag_config.min_similarity_score,
+            )
+            self._rebuild_bm25_index()
+
+        if any(k in changed for k in ["rewrite_strategy", "max_rewrite_queries"]):
+            self._query_rewriter = QueryRewriter(
+                strategy=self._rag_config.rewrite_strategy,
+                max_queries=self._rag_config.max_rewrite_queries,
+            )
+
+        if any(k in changed for k in [
+            "enable_dedup", "dedup_threshold", "enable_mmr", "mmr_lambda",
+            "context_window_expansion", "expansion_chars_before", "expansion_chars_after",
+        ]):
+            self._post_processor = PostProcessor(
+                enable_dedup=self._rag_config.enable_dedup,
+                dedup_threshold=self._rag_config.dedup_threshold,
+                enable_mmr=self._rag_config.enable_mmr,
+                mmr_lambda=self._rag_config.mmr_lambda,
+                enable_context_expansion=self._rag_config.context_window_expansion,
+                context_chars_before=self._rag_config.expansion_chars_before,
+                context_chars_after=self._rag_config.expansion_chars_after,
+            )
+
+        return changed
+
+    def process_with_post(self, query: str,
+                          category: Optional[str] = None,
+                          top_k: int = 5) -> Dict[str, Any]:
+        """
+        完整检索流程（P3 增强）：检索 + 后处理
+
+        包含：混合检索 -> 去重 -> MMR -> 上下文扩展 -> 引用追溯
+
+        Returns:
+            完整处理结果字典
+        """
+        if not _RAG_SERVICES_AVAILABLE or not self._post_processor:
+            results = self.search(query, category=category, limit=top_k)
+            return {
+                "results": [
+                    {"chunk_id": r.chunk.chunk_id, "text": r.chunk.text,
+                     "score": r.score, "rank": r.rank}
+                    for r in results
+                ],
+                "enhanced": False,
+            }
+
+        # 混合检索
+        hybrid_results = self.hybrid_search(
+            query, category=category, top_k=top_k * 2
+        )
+
+        # 转换为 RetrievalResultItem 格式
+        from .rag_services.hybrid_search import RetrievalResultItem as _RRI
+        items = []
+        for r in hybrid_results:
+            items.append(_RRI(
+                chunk_id=r.chunk.chunk_id,
+                doc_id=r.chunk.doc_id,
+                text=r.chunk.text,
+                score=r.score,
+                rank=r.rank,
+            ))
+
+        # 构建 all_chunks 和 documents
+        all_chunks: Dict[str, List[Dict[str, Any]]] = {}
+        documents: Dict[str, Any] = {}
+
+        with self._lock:
+            for doc_id, doc in self._documents.items():
+                if category and doc.category != category:
+                    continue
+                if doc.status != KnowledgeStatus.READY.value:
+                    continue
+                documents[doc_id] = {"title": doc.title, "source": doc.source}
+                if doc_id not in self._chunks:
+                    self._chunks[doc_id] = self._load_chunks(doc_id)
+                all_chunks[doc_id] = [
+                    {"chunk_id": c.chunk_id, "text": c.text, "chunk_index": c.chunk_index}
+                    for c in self._chunks[doc_id]
+                ]
+
+        # 后处理
+        processed = self._post_processor.process(
+            items,
+            all_chunks=all_chunks,
+            documents=documents,
+            top_k=top_k,
+        )
+
+        # 转换回 RetrievalResult 格式
+        final_results = []
+        for item in processed["results"]:
+            chunk = self._find_chunk(item.chunk_id)
+            if chunk:
+                final_results.append(RetrievalResult(
+                    chunk=chunk,
+                    score=item.score,
+                    rank=item.rank,
+                ))
+
+        return {
+            "results": final_results,
+            "expanded_results": [e.to_dict() for e in processed["expanded_results"]],
+            "citations": [c.to_dict() for c in processed["citations"]],
+            "stats": processed["stats"],
+            "enhanced": True,
         }
 
 

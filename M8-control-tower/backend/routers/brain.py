@@ -251,6 +251,301 @@ async def search_knowledge(
     })
 
 
+# ==================== P3 增强：知识库高级 API ====================
+
+class HybridSearchRequest(BaseModel):
+    query: str
+    category: Optional[str] = None
+    top_k: int = 10
+    enable_hybrid: Optional[bool] = None
+    enable_rerank: Optional[bool] = None
+
+
+class ChunkSearchRequest(BaseModel):
+    query: str
+    category: Optional[str] = None
+    top_k: int = 10
+    strategy: Optional[str] = None  # 混合检索策略
+
+
+class QueryRewriteRequest(BaseModel):
+    query: str
+    strategy: str = "expansion"
+    history: Optional[List[Dict[str, str]]] = None
+
+
+class ChunkingTestRequest(BaseModel):
+    text: str
+    strategy: str = "fixed"
+    chunk_size: Optional[int] = None
+    chunk_overlap: Optional[int] = None
+
+
+class RetrievalConfigUpdate(BaseModel):
+    config: Dict[str, Any]
+
+
+@router.post("/knowledge/{doc_id}/reindex")
+async def reindex_document(
+    doc_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """重建指定文档的索引"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    result = rag.reindex(doc_id=doc_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    return ApiResponse(code=0, message="重建索引完成", data=result)
+
+
+@router.post("/knowledge/reindex")
+async def reindex_all(
+    current_user: dict = Depends(get_current_user),
+):
+    """重建全部知识库索引"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    result = rag.reindex(doc_id=None)
+    return ApiResponse(code=0, message="重建索引完成", data=result)
+
+
+@router.get("/knowledge/stats/detailed")
+async def knowledge_detailed_stats(
+    current_user: dict = Depends(get_current_user),
+):
+    """获取知识库详细统计（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'get_detailed_stats'):
+        stats = rag.get_detailed_stats()
+    else:
+        stats = rag.get_stats()
+
+    return ApiResponse(code=0, message="ok", data=stats)
+
+
+@router.post("/knowledge/chunks/search")
+async def search_chunks_hybrid(
+    req: ChunkSearchRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """混合检索测试接口（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    # 使用混合检索
+    if hasattr(rag, 'hybrid_search'):
+        results = rag.hybrid_search(
+            query=req.query,
+            category=req.category,
+            top_k=req.top_k,
+        )
+    else:
+        results = rag.search(
+            query=req.query,
+            category=req.category,
+            limit=req.top_k,
+        )
+
+    result_list = []
+    for r in results:
+        result_list.append({
+            "chunk_id": r.chunk.chunk_id,
+            "doc_id": r.chunk.doc_id,
+            "text": r.chunk.text,
+            "score": round(r.score, 4),
+            "rank": r.rank,
+            "keywords": r.chunk.keywords,
+            "section": r.chunk.section,
+        })
+
+    return ApiResponse(code=0, message="ok", data={
+        "results": result_list,
+        "total": len(result_list),
+        "query": req.query,
+        "search_type": "hybrid" if hasattr(rag, 'hybrid_search') else "basic",
+    })
+
+
+@router.get("/knowledge/chunks/{chunk_id}")
+async def get_chunk_detail(
+    chunk_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """查看单个 chunk 详情（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'get_chunk_detail'):
+        detail = rag.get_chunk_detail(chunk_id)
+    else:
+        # 降级模式：通过检索结果查找
+        detail = None
+
+    if not detail:
+        raise HTTPException(status_code=404, detail="Chunk 不存在")
+
+    return ApiResponse(code=0, message="ok", data=detail)
+
+
+@router.get("/knowledge/chunks/{chunk_id}/context")
+async def get_chunk_context(
+    chunk_id: str,
+    chars_before: int = 100,
+    chars_after: int = 100,
+    current_user: dict = Depends(get_current_user),
+):
+    """获取 chunk 的上下文扩展（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'get_context_expanded'):
+        result = rag.get_context_expanded(chunk_id, chars_before, chars_after)
+    else:
+        result = None
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Chunk 不存在")
+
+    return ApiResponse(code=0, message="ok", data=result)
+
+
+@router.post("/knowledge/chunk/test")
+async def test_chunking(
+    req: ChunkingTestRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """分块策略测试接口（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'chunk_with_strategy'):
+        chunks = rag.chunk_with_strategy(
+            text=req.text,
+            strategy=req.strategy,
+            chunk_size=req.chunk_size,
+            chunk_overlap=req.chunk_overlap,
+        )
+    else:
+        # 降级：使用内部分块方法
+        chunks = [{"text": req.text, "chunk_id": "test_0000"}]
+
+    return ApiResponse(code=0, message="ok", data={
+        "strategy": req.strategy,
+        "chunks": chunks,
+        "total_chunks": len(chunks),
+    })
+
+
+@router.post("/query/rewrite")
+async def rewrite_query(
+    req: QueryRewriteRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """查询改写测试接口（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'rewrite_query'):
+        result = rag.rewrite_query(
+            query=req.query,
+            strategy=req.strategy,
+            history=req.history,
+        )
+    else:
+        result = {
+            "original_query": req.query,
+            "rewritten_queries": [req.query],
+            "strategy": req.strategy,
+            "enhanced": False,
+        }
+
+    return ApiResponse(code=0, message="ok", data=result)
+
+
+@router.get("/retrieval/config")
+async def get_retrieval_config(
+    current_user: dict = Depends(get_current_user),
+):
+    """获取检索配置（P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'get_retrieval_config'):
+        config = rag.get_retrieval_config()
+    else:
+        config = {"enhanced": False}
+
+    return ApiResponse(code=0, message="ok", data=config)
+
+
+@router.put("/retrieval/config")
+async def update_retrieval_config(
+    req: RetrievalConfigUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """更新检索配置（动态生效，P3 增强）"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'update_retrieval_config'):
+        try:
+            changed = rag.update_retrieval_config(req.config)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        changed = {}
+
+    return ApiResponse(code=0, message="配置已更新", data={
+        "changed": changed,
+        "count": len(changed),
+    })
+
+
+@router.post("/knowledge/search/debug")
+async def search_debug(
+    req: SearchRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """检索调试接口（P3 增强）- 返回各阶段详细信息"""
+    rag = _get_rag()
+    if not rag:
+        raise HTTPException(status_code=500, detail="知识库服务不可用")
+
+    if hasattr(rag, 'search_with_debug'):
+        debug_info = rag.search_with_debug(
+            query=req.query,
+            category=req.category,
+        )
+    else:
+        results = rag.search(query=req.query, category=req.category, limit=req.limit)
+        debug_info = {
+            "query": req.query,
+            "enhanced": False,
+            "results": [
+                {"chunk_id": r.chunk.chunk_id, "score": r.score, "rank": r.rank}
+                for r in results
+            ],
+        }
+
+    return ApiResponse(code=0, message="ok", data=debug_info)
+
+
 # ==================== 长期记忆管理 ====================
 
 @router.get("/memory/stats")
