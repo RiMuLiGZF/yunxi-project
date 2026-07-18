@@ -185,6 +185,26 @@ async def lifespan(app: FastAPI):
     print("-" * 60)
     print(f"  沙盒模式: {'开启 (模拟数据)' if config.sandbox.enabled else '关闭 (真实数据)'}")
     print(f"  服务端口: {config.basic.port}")
+
+    # Token 配置安全检查
+    _admin_token = os.environ.get("M10_ADMIN_TOKEN", "")
+    _dev_mode = _is_dev_mode()
+    if not _admin_token:
+        if _dev_mode:
+            logger.info(
+                "m10.auth.dev_mode_enabled",
+                message="开发模式已启用（M10_DEV_MODE=true），M8 接口允许空 token 访问",
+            )
+            print("  开发模式: 已启用（M8 接口允许空 token）")
+        else:
+            logger.warning(
+                "m10.auth.token_not_configured_startup",
+                message="安全告警：M10_ADMIN_TOKEN 未配置，M8 标准接口将默认拒绝所有访问",
+            )
+            print("  [警告] M10_ADMIN_TOKEN 未配置，M8 接口默认拒绝访问")
+    else:
+        print(f"  Admin Token: 已配置")
+
     print("=" * 60 + "\n")
 
     yield
@@ -500,8 +520,19 @@ async def health():
 _start_time_m8 = time.time()
 
 
+def _is_dev_mode() -> bool:
+    """检查是否处于开发模式.
+
+    仅当 M10_DEV_MODE 环境变量显式设置为 true 时返回 True.
+    """
+    return os.environ.get("M10_DEV_MODE", "").lower() == "true"
+
+
 def _verify_m8_token(x_m8_token: str = "") -> bool:
     """验证 M8 token（使用 hmac.compare_digest 防止时序攻击）.
+
+    安全默认：token 未配置时拒绝访问，与业务接口鉴权逻辑保持一致。
+    开发模式（M10_DEV_MODE=true）下，未配置 token 时允许访问，便于本地调试。
 
     Args:
         x_m8_token: 请求头中携带的令牌.
@@ -511,11 +542,17 @@ def _verify_m8_token(x_m8_token: str = "") -> bool:
     """
     expected = os.environ.get("M10_ADMIN_TOKEN", "")
     if not expected:
+        if _is_dev_mode():
+            logger.warning(
+                "m10.auth.dev_mode_no_token",
+                message="开发模式：M10_ADMIN_TOKEN 未配置，M8 标准接口允许空 token 访问（仅开发环境）",
+            )
+            return True
         logger.warning(
-            "m10.auth.token_not_configured",
-            message="M10_ADMIN_TOKEN 未配置，M8 标准接口暂不鉴权",
+            "m10.auth.token_not_configured_rejected",
+            message="M10_ADMIN_TOKEN 未配置，M8 标准接口默认拒绝所有访问",
         )
-        return True
+        return False
     # 拒绝空 Token，防止空值绕过
     if not x_m8_token:
         return False
