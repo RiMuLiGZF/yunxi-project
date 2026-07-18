@@ -103,6 +103,11 @@ from m10_system_guard.prometheus_exporter import (
     generate_prometheus_metrics,
     generate_metrics_json,
     is_prometheus_available,
+    get_prometheus_exporter,
+    get_m8_reporter,
+    start_prometheus_exporter,
+    stop_prometheus_exporter,
+    exporter_health_check,
 )
 
 # ---------------------------------------------------------------------------
@@ -164,6 +169,19 @@ async def lifespan(app: FastAPI):
     ss.start()
     print(f"  沙箱调度: 已启动")
 
+    # 初始化 Prometheus Exporter
+    pe = get_prometheus_exporter()
+    pe.start()
+    print(f"  Prometheus: {'已启动 (' + str(len(pe.registry.list_metrics())) + ' 个指标)' if pe.enabled else '已禁用'}")
+
+    # 初始化 M8 指标上报器
+    m8_reporter = get_m8_reporter()
+    if m8_reporter and m8_reporter.enabled:
+        m8_reporter.start()
+        print(f"  M8 上报: 已启动 (间隔 {m8_reporter.report_interval}s)")
+    else:
+        print(f"  M8 上报: 已禁用")
+
     print("-" * 60)
     print(f"  沙盒模式: {'开启 (模拟数据)' if config.sandbox.enabled else '关闭 (真实数据)'}")
     print(f"  服务端口: {config.basic.port}")
@@ -175,7 +193,17 @@ async def lifespan(app: FastAPI):
     print("\n正在关闭 M10 系统卫士服务...")
 
     import signal
-    # 1. 停止接受新任务
+    # 0. 停止 M8 指标上报
+    m8_reporter = get_m8_reporter()
+    if m8_reporter:
+        m8_reporter.stop()
+        print("  M8 上报: 已停止")
+
+    # 1. 停止 Prometheus 采集
+    stop_prometheus_exporter()
+    print("  Prometheus: 已停止")
+
+    # 2. 停止接受新任务
     ss = get_sandbox_scheduler()
     ss.stop()
     print("  沙箱调度: 已停止")
@@ -557,7 +585,7 @@ async def m8_std_config(x_m8_token: str = Header(default="")):
 
 
 # ---------------------------------------------------------------------------
-# Prometheus /metrics 端点
+# Prometheus /metrics 端点（增强版）
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/metrics", tags=["Observability"], summary="Prometheus 指标")
 async def metrics_endpoint():
@@ -571,6 +599,70 @@ async def metrics_endpoint():
         return generate_metrics_json()
     from fastapi import Response
     return Response(content=body, media_type=content_type)
+
+
+@app.get("/api/v1/metrics/health", tags=["Observability"], summary="Exporter 健康状态")
+async def exporter_health_endpoint():
+    """Prometheus Exporter 健康检查端点."""
+    health = exporter_health_check()
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": health,
+    }
+
+
+@app.get("/api/v1/metrics/json", tags=["Observability"], summary="JSON 格式指标")
+async def metrics_json_endpoint():
+    """JSON 格式的所有指标数据（便于调试）."""
+    return generate_metrics_json()
+
+
+@app.get("/api/v1/metrics/list", tags=["Observability"], summary="指标列表")
+async def metrics_list_endpoint(category: str = ""):
+    """列出所有已注册的指标元信息.
+
+    - **category**: 可选类别过滤 (system/gpu/tide/guard/process)
+    """
+    pe = get_prometheus_exporter()
+    metrics_info = pe.registry.list_metrics(category if category else None)
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "total": len(metrics_info),
+            "metrics": [
+                {
+                    "name": m.name,
+                    "type": m.metric_type,
+                    "help": m.help_text,
+                    "labels": m.labels,
+                    "category": m.category,
+                }
+                for m in metrics_info
+            ],
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# M8 上报状态端点
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/m8-report/status", tags=["M8-上报"], summary="M8上报状态")
+async def m8_report_status():
+    """获取 M8 指标上报的状态信息."""
+    m8_reporter = get_m8_reporter()
+    if not m8_reporter:
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": {"enabled": False, "running": False},
+        }
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": m8_reporter.get_stats(),
+    }
 
 
 # ---------------------------------------------------------------------------
