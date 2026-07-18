@@ -1,8 +1,5 @@
 """语义意图分类器 V2 单元测试"""
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-sys.path.insert(0, "/workspace")
-
 import pytest
 
 from agent_cluster.core.intent_classifier_v2 import SemanticIntentClassifier

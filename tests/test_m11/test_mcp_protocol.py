@@ -16,10 +16,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
-
-
 class TestMCPProtocol:
     """MCP 协议测试"""
 
@@ -240,7 +236,6 @@ class TestAPIKeyAuthentication:
     def test_api_key_extract_function(self):
         """API Key 提取函数"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from routers.mcp import _extract_api_key
 
             # 模拟 FastAPI Request 对象
@@ -274,7 +269,6 @@ class TestAPIKeyAuthentication:
     def test_api_key_hash_function(self):
         """API Key 哈希函数"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from routers.mcp import _hash_key
 
             key = "test-api-key-12345"

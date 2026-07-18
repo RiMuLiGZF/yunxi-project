@@ -16,9 +16,6 @@ from typing import Dict, Any
 # 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestNewUserOnboarding:
     """新用户首次使用旅程 E2E 测试"""
 

@@ -8,8 +8,6 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 class MockDeviceMgr:
     def __init__(self):
         self._devs = {}

@@ -5,9 +5,6 @@
 import pytest
 import sys
 import asyncio
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from a2a_protocol import (
     A2AClient, AgentCard, Artifact, MemoryTransport, Task, TaskStatus, TaskUpdate
 )

@@ -8,10 +8,6 @@ M7 单元测试 - 工作流节点类型测试 (TS-002, P2级)
 import os
 import sys
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
 from services.executor import BUILTIN_BLOCKS, execute_builtin_block, _evaluate_condition
 
 

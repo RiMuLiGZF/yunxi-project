@@ -5,9 +5,6 @@
 import pytest
 import sys
 import asyncio
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from event_store import EventStore, DomainEvent, EventType
 
 

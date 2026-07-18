@@ -11,8 +11,6 @@ import tempfile
 import time
 
 # 将项目根目录加入路径，支持直接运行测试
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
-
 from services.auto_response import (
     AutoResponseEngine,
     SecurityEvent,

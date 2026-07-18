@@ -165,7 +165,8 @@ async def lifespan(app: FastAPI):
         if _mcp_registry:
             _mcp_registry.close()
     except Exception:
-        pass
+        # 关闭流程异常不影响整体服务关闭
+        logger.debug("Resource cleanup failed during shutdown", exc_info=True)
     logger.info("服务已关闭")
 
 
@@ -491,7 +492,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
             # Windows 使用 num_handles()
             open_fds = proc.num_handles()
     except Exception:
-        pass
+        # 句柄数获取失败时跳过，不影响健康检查
+        logger.debug("Failed to get file descriptor count", exc_info=True)
 
     # API 请求统计
     with _request_lock:
@@ -504,7 +506,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
     try:
         endpoints_count = len(app.openapi()["paths"].keys())
     except Exception:
-        pass
+        # 句柄数获取失败时跳过，不影响健康检查
+        logger.debug("Failed to get file descriptor count", exc_info=True)
 
     # VSCode 实例数
     vscode_instances = 0
@@ -513,7 +516,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
         vscode_mgr = get_vscode_manager()
         vscode_instances = len(vscode_mgr.get_running_processes())
     except Exception:
-        pass
+        # API 端点统计失败时跳过，不影响健康检查
+        logger.debug("Failed to count API endpoints", exc_info=True)
 
     # 项目数
     total_projects = 0
@@ -523,7 +527,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
         stats = ws_mgr.get_statistics()
         total_projects = stats.get("total_projects", 0)
     except Exception:
-        pass
+        # API 端点统计失败时跳过，不影响健康检查
+        logger.debug("Failed to count API endpoints", exc_info=True)
 
     # MCP 工具数
     mcp_tool_count = 0
@@ -532,7 +537,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
         mcp_registry = get_mcp_registry()
         mcp_tool_count = len(mcp_registry.list_tools())
     except Exception:
-        pass
+        # API 端点统计失败时跳过，不影响健康检查
+        logger.debug("Failed to count API endpoints", exc_info=True)
 
     # 代码执行统计（P2-1 扩展）
     code_exec_count = 0
@@ -546,7 +552,8 @@ async def m8_metrics(x_m8_token: str = Header(None)):
         code_exec_failed = code_executor.exec_failed_count
         code_avg_time = code_executor.avg_exec_time
     except Exception:
-        pass
+        # API 端点统计失败时跳过，不影响健康检查
+        logger.debug("Failed to count API endpoints", exc_info=True)
 
     # 运行时长
     uptime_seconds = int(time.time() - _start_time_m8)
@@ -806,7 +813,8 @@ def health_check():
                 "checks": health_data["checks"],
             }
         except Exception:
-            pass
+            # 健康检查子项失败时跳过，不影响整体健康状态
+            logger.debug("Health check sub-item failed", exc_info=True)
 
     # 回退到旧版
     try:

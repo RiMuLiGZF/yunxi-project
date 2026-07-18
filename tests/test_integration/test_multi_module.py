@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class MockMultiModuleSystem:
     """模拟多模块协作系统"""
 

@@ -16,10 +16,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
-
-
 class TestToolRegistry:
     """工具注册测试"""
 
@@ -245,7 +241,6 @@ class TestMCPDatabase:
     def test_database_module_exists(self):
         """数据库模块存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from database import get_session, Base, engine
             assert callable(get_session)
             assert engine is not None
@@ -258,7 +253,6 @@ class TestMCPDatabase:
     def test_mcp_server_model(self):
         """MCP 服务器模型存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from models import McpServer
             assert McpServer is not None
             # 检查关键字段
@@ -274,7 +268,6 @@ class TestMCPDatabase:
     def test_mcp_tool_model(self):
         """MCP 工具模型存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from models import McpTool
             assert McpTool is not None
             # 检查关键字段
@@ -290,7 +283,6 @@ class TestMCPDatabase:
     def test_registry_service_exists(self):
         """注册表服务存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from services.registry import McpRegistryService
             assert McpRegistryService is not None
             # 检查关键方法

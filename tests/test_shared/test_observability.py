@@ -5,9 +5,6 @@ import pytest
 import sys
 import os
 import time
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 from shared.observability import (
     UnifiedLogger,
     get_logger,

@@ -21,9 +21,6 @@ import sqlite3
 _m2_root = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
-sys.path.insert(0, _m2_root)
-
-
 class TestSQLInjectionProtection:
     """SQL 注入防护测试"""
 

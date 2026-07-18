@@ -11,8 +11,6 @@ from datetime import datetime
 from pydantic import ValidationError
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 from backend.schemas.auth import (
     ApiKeyCreate,
     ApiKeyUpdate,

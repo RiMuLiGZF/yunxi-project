@@ -25,9 +25,6 @@ backend_dir = Path(__file__).parent
 project_root = backend_dir.parent.parent
 
 # 确保以包的形式导入
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(backend_dir.parent))
-
 # 设置 __package__ 以支持相对导入
 __package__ = "backend"
 

@@ -14,6 +14,7 @@ import time
 import json
 import re
 import uuid
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -22,85 +23,26 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+# 项目根路径（ARC-006: 入口文件保留 sys.path.insert，用于导入 shared 等公共包）
+# 注意：新代码应优先使用包内相对导入，仅入口文件可使用此方式
 project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from shared.business.module_client import get_module_registry, ModuleStatus
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..models import get_db, AlertRecord, User, TaskRecord
+from ..services.monitor_service import get_monitor_service, MonitorService
 
 router = APIRouter()
 registry = get_module_registry()
 
+# 监控服务单例（线程安全，内部通过 Lock 保护所有可变状态）
+monitor_service: MonitorService = get_monitor_service()
 
-# ============================================================
-# psutil 检测与降级
-# ============================================================
-try:
-    import psutil
-    PSUTIL_AVAILABLE = True
-except ImportError:
-    PSUTIL_AVAILABLE = False
-
-
-# ============================================================
-# 网络速率计算（全局状态）
-# ============================================================
-_network_stats = {
-    "last_bytes_sent": 0,
-    "last_bytes_recv": 0,
-    "last_time": 0.0,
-}
-
-
-def _get_network_speed() -> Dict[str, float]:
-    """计算网络上传/下载速率（MB/s）"""
-    global _network_stats
-
-    if not PSUTIL_AVAILABLE:
-        return {"upload_mbps": 0.0, "download_mbps": 0.0}
-
-    try:
-        net_io = psutil.net_io_counters()
-        current_time = time.time()
-        current_sent = net_io.bytes_sent
-        current_recv = net_io.bytes_recv
-
-        # 首次调用，初始化
-        if _network_stats["last_time"] == 0:
-            _network_stats["last_bytes_sent"] = current_sent
-            _network_stats["last_bytes_recv"] = current_recv
-            _network_stats["last_time"] = current_time
-            return {"upload_mbps": 0.0, "download_mbps": 0.0}
-
-        time_diff = current_time - _network_stats["last_time"]
-        if time_diff <= 0:
-            time_diff = 1.0
-
-        upload_diff = current_sent - _network_stats["last_bytes_sent"]
-        download_diff = current_recv - _network_stats["last_bytes_recv"]
-
-        # 防止溢出（重启网卡等情况）
-        if upload_diff < 0:
-            upload_diff = 0
-        if download_diff < 0:
-            download_diff = 0
-
-        upload_mbps = (upload_diff / (1024 * 1024)) / time_diff
-        download_mbps = (download_diff / (1024 * 1024)) / time_diff
-
-        # 更新状态
-        _network_stats["last_bytes_sent"] = current_sent
-        _network_stats["last_bytes_recv"] = current_recv
-        _network_stats["last_time"] = current_time
-
-        return {
-            "upload_mbps": round(upload_mbps, 2),
-            "download_mbps": round(download_mbps, 2),
-        }
-    except Exception:
-        return {"upload_mbps": 0.0, "download_mbps": 0.0}
+# 日志记录器
+logger = logging.getLogger("monitor.router")
 
 
 # ============================================================
@@ -339,6 +281,7 @@ def _parse_log_line(line: str, log_id: int) -> Optional[Dict[str, Any]]:
             "message": data.get("message", ""),
         }
     except (json.JSONDecodeError, ValueError):
+        # JSON 解析失败，继续尝试标准日志格式（多格式兼容）
         pass
 
     # 尝试标准格式: [2026-07-06 10:30:15] [INFO] [module] message
@@ -487,145 +430,12 @@ def _get_mock_logs(limit: int = 50) -> List[Dict[str, Any]]:
 # 系统指标采集
 # ============================================================
 def _get_system_metrics() -> Dict[str, Any]:
-    """获取真实系统指标，psutil 不可用时降级为模拟数据"""
-    if PSUTIL_AVAILABLE:
-        try:
-            # CPU
-            cpu_percent = psutil.cpu_percent(interval=0.1)
-            cpu_per_core = psutil.cpu_percent(interval=0, percpu=True)
-            cpu_count = psutil.cpu_count(logical=True)
-            cpu_count_physical = psutil.cpu_count(logical=False)
+    """获取真实系统指标，psutil 不可用时降级为模拟数据
 
-            # 内存
-            mem = psutil.virtual_memory()
-            memory = {
-                "total_gb": round(mem.total / (1024 ** 3), 2),
-                "used_gb": round(mem.used / (1024 ** 3), 2),
-                "available_gb": round(mem.available / (1024 ** 3), 2),
-                "percent": round(mem.percent, 1),
-                "cached_gb": round(getattr(mem, "cached", 0) / (1024 ** 3), 2),
-            }
-
-            # 磁盘（C 盘）
-            try:
-                disk = psutil.disk_usage("C:\\")
-                disk_info = {
-                    "total_gb": round(disk.total / (1024 ** 3), 2),
-                    "used_gb": round(disk.used / (1024 ** 3), 2),
-                    "free_gb": round(disk.free / (1024 ** 3), 2),
-                    "percent": round(disk.percent, 1),
-                    "mount": "C:",
-                }
-            except Exception:
-                # Linux / macOS 根目录
-                try:
-                    disk = psutil.disk_usage("/")
-                    disk_info = {
-                        "total_gb": round(disk.total / (1024 ** 3), 2),
-                        "used_gb": round(disk.used / (1024 ** 3), 2),
-                        "free_gb": round(disk.free / (1024 ** 3), 2),
-                        "percent": round(disk.percent, 1),
-                        "mount": "/",
-                    }
-                except Exception:
-                    disk_info = {
-                        "total_gb": 0,
-                        "used_gb": 0,
-                        "free_gb": 0,
-                        "percent": 0,
-                        "mount": "unknown",
-                    }
-
-            # 网络
-            net_speed = _get_network_speed()
-
-            # 进程数 / 线程数
-            process_count = len(psutil.pids())
-            try:
-                thread_count = sum(p.num_threads() for p in psutil.process_iter(["num_threads"]))
-            except Exception:
-                thread_count = process_count * 2
-
-            # 系统运行时间
-            boot_time = psutil.boot_time()
-            uptime_seconds = time.time() - boot_time
-            uptime_days = int(uptime_seconds // 86400)
-            uptime_hours = int((uptime_seconds % 86400) // 3600)
-            uptime_minutes = int((uptime_seconds % 3600) // 60)
-            uptime_str = f"{uptime_days}天 {uptime_hours}小时 {uptime_minutes}分钟"
-
-            return {
-                "timestamp": time.time(),
-                "source": "psutil",
-                "cpu": {
-                    "usage_percent": round(cpu_percent, 1),
-                    "per_core": [round(c, 1) for c in cpu_per_core],
-                    "core_count_logical": cpu_count,
-                    "core_count_physical": cpu_count_physical,
-                },
-                "memory": memory,
-                "disk": disk_info,
-                "network": {
-                    "upload_mbps": net_speed["upload_mbps"],
-                    "download_mbps": net_speed["download_mbps"],
-                },
-                "process": {
-                    "process_count": process_count,
-                    "thread_count": thread_count,
-                },
-                "uptime": {
-                    "seconds": int(uptime_seconds),
-                    "days": uptime_days,
-                    "hours": uptime_hours,
-                    "minutes": uptime_minutes,
-                    "formatted": uptime_str,
-                    "boot_time": boot_time,
-                },
-            }
-        except Exception:
-            pass
-
-    # 降级：模拟数据
-    return {
-        "timestamp": time.time(),
-        "source": "mock",
-        "cpu": {
-            "usage_percent": 23.5,
-            "per_core": [15.2, 28.3, 19.8, 30.7],
-            "core_count_logical": 4,
-            "core_count_physical": 2,
-        },
-        "memory": {
-            "total_gb": 16.0,
-            "used_gb": 7.2,
-            "available_gb": 8.8,
-            "percent": 45.0,
-            "cached_gb": 2.1,
-        },
-        "disk": {
-            "total_gb": 512.0,
-            "used_gb": 198.0,
-            "free_gb": 314.0,
-            "percent": 38.7,
-            "mount": "C:",
-        },
-        "network": {
-            "upload_mbps": 0.8,
-            "download_mbps": 1.2,
-        },
-        "process": {
-            "process_count": 156,
-            "thread_count": 1248,
-        },
-        "uptime": {
-            "seconds": 86400 * 5 + 3600 * 3,
-            "days": 5,
-            "hours": 3,
-            "minutes": 12,
-            "formatted": "5天 3小时 12分钟",
-            "boot_time": time.time() - 86400 * 5 - 3600 * 3,
-        },
-    }
+    注意：已迁移到 MonitorService 类，此处为向后兼容的薄封装。
+    新代码请直接使用 monitor_service.get_system_metrics()。
+    """
+    return monitor_service.get_system_metrics()
 
 
 # ============================================================
@@ -645,8 +455,9 @@ def _get_active_users_count(db: Session) -> int:
         )
         if count > 0:
             return count
-    except Exception:
-        pass
+    except Exception as e:
+        # 数据库查询失败，降级到文件统计
+        logger.debug(f"Failed to query active users from DB: {e}")
 
     # 降级：从 users.json 文件统计
     try:
@@ -660,8 +471,9 @@ def _get_active_users_count(db: Session) -> int:
                 return active
             # 至少有 1 个用户（admin）
             return max(1, len(users))
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError) as e:
+        # 文件读取失败，返回默认值
+        logger.debug(f"Failed to read users file: {e}")
 
     return 1  # 默认至少 1 个活跃用户（admin）
 
@@ -680,16 +492,18 @@ def _get_today_tasks_count(db: Session) -> int:
         )
         if count > 0:
             return count
-    except Exception:
-        pass
+    except Exception as e:
+        # 数据库查询失败，继续尝试降级方案
+        logger.debug(f"Failed to query today's tasks from DB: {e}")
 
     # 降级：尝试从任务路由获取
     try:
         from ..routers.task import get_task_stats_safe
         stats = get_task_stats_safe()
         return stats.get("today_count", 0)
-    except Exception:
-        pass
+    except (ImportError, AttributeError) as e:
+        # 任务模块不可用，返回默认值
+        logger.debug(f"Failed to get task stats from task router: {e}")
 
     return 0
 
@@ -820,8 +634,10 @@ async def get_realtime_metrics(
                 for key, value in m10_data.items():
                     if key not in metrics:
                         metrics[key] = value
-    except Exception:
-        pass  # M10 不可用时静默跳过，不影响原有数据
+    except (httpx.HTTPError, ConnectionError, TimeoutError) as e:
+        # M10 不可用时静默跳过，不影响原有数据
+        # 记录 debug 日志便于排查 M10 连接问题
+        logger.debug(f"M10 metrics fetch failed: {e}")
 
     return ApiResponse.success(data=metrics)
 
@@ -902,6 +718,7 @@ async def get_alerts(
             start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
             query = query.filter(AlertRecord.created_at >= start_dt)
         except ValueError:
+            # 时间格式无效时忽略该筛选条件（用户输入容错）
             pass
 
     if end_time:
@@ -909,6 +726,7 @@ async def get_alerts(
             end_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
             query = query.filter(AlertRecord.created_at <= end_dt)
         except ValueError:
+            # 时间格式无效时忽略该筛选条件（用户输入容错）
             pass
 
     # 按创建时间倒序
@@ -1064,147 +882,61 @@ async def get_alert_stats(
 
 
 # ============================================================
-# 历史数据采集（内存环形缓冲区）
+# 历史数据采集（已迁移到 MonitorService）
 # ============================================================
-import threading
-import time as _time
-from collections import deque
-
-# 历史数据环形缓冲区：最多保留 7 天数据（按 1 分钟粒度 = 10080 个点）
-MAX_HISTORY_POINTS = 10080  # 7 * 24 * 60
-_history_buffer = deque(maxlen=MAX_HISTORY_POINTS)
-_history_lock = threading.Lock()
-_history_collector_started = False
-
+# 注意：历史数据采集已由 MonitorService 类统一管理（线程安全）
+# monitor_service 在模块加载时自动启动后台采集线程
+# 以下为向后兼容的薄封装函数
 
 def _collect_history_point():
-    """采集一个历史数据点（后台线程调用）"""
-    try:
-        metrics = _get_system_metrics()
-        point = {
-            "timestamp": _time.time(),
-            "cpu": metrics["cpu"]["usage_percent"],
-            "memory": metrics["memory"]["percent"],
-            "disk": metrics["disk"]["percent"],
-            "network_in": metrics["network"]["download_mbps"],
-            "network_out": metrics["network"]["upload_mbps"],
-        }
-        with _history_lock:
-            _history_buffer.append(point)
-    except Exception:
-        pass
+    """采集一个历史数据点（向后兼容）
+
+    新代码请使用 monitor_service.collect_history_point()
+    """
+    monitor_service.collect_history_point()
 
 
 def _start_history_collector():
-    """启动后台历史数据采集线程（每分钟采集一次）"""
-    global _history_collector_started
-    if _history_collector_started:
-        return
-    _history_collector_started = True
+    """启动后台历史数据采集线程（向后兼容）
 
-    def _collector_loop():
-        # 启动时先采集一个点
-        _collect_history_point()
-        while True:
-            _time.sleep(60)  # 每分钟采集一次
-            _collect_history_point()
-
-    t = threading.Thread(target=_collector_loop, daemon=True)
-    t.start()
-
-
-# 模块加载时启动采集器
-_start_history_collector()
+    新代码请使用 monitor_service.start_collector()
+    """
+    monitor_service.start_collector()
 
 
 def _get_history_data(period: str) -> dict:
     """
-    根据时间段获取历史数据
+    根据时间段获取历史数据（向后兼容的薄封装）
+
     period: 1h, 6h, 24h, 7d, 30d
+
+    新代码请使用 monitor_service.get_history_data()
     """
-    period_seconds = {
-        "1h": 3600,
-        "6h": 21600,
-        "24h": 86400,
-        "7d": 604800,
-        "30d": 2592000,
-    }
-    seconds = period_seconds.get(period, 3600)
-    now = _time.time()
-    cutoff = now - seconds
+    raw_data = monitor_service.get_history_data(period)
 
-    with _history_lock:
-        points = [p for p in _history_buffer if p["timestamp"] >= cutoff]
-
-    # 如果数据点太少，用实时数据生成补充点（保证图表有东西可看）
-    if len(points) < 5:
-        current = _get_system_metrics()
-        base_cpu = current["cpu"]["usage_percent"]
-        base_mem = current["memory"]["percent"]
-        base_disk = current["disk"]["percent"]
-        base_net_in = current["network"]["download_mbps"]
-        base_net_out = current["network"]["upload_mbps"]
-
-        # 根据 period 决定生成多少个点
-        counts = {"1h": 60, "6h": 72, "24h": 96, "7d": 168, "30d": 360}
-        count = counts.get(period, 60)
-        step = seconds / count
-
-        import math
-        generated = []
-        for i in range(count):
-            t = now - (count - i) * step
-            # 用正弦曲线模拟波动，基于真实基准值
-            phase = i * 0.1
-            cpu = max(1, min(99, base_cpu + math.sin(phase) * (base_cpu * 0.3)))
-            mem = max(10, min(95, base_mem + math.cos(phase * 0.8) * (base_mem * 0.15)))
-            disk = max(5, min(95, base_disk + math.sin(phase * 0.5) * 2))
-            net_in = max(0, base_net_in + math.cos(phase * 1.2) * (base_net_in * 0.5 + 1))
-            net_out = max(0, base_net_out + math.sin(phase * 0.9) * (base_net_out * 0.5 + 0.5))
-            generated.append({
-                "timestamp": t,
-                "cpu": round(cpu, 1),
-                "memory": round(mem, 1),
-                "disk": round(disk, 1),
-                "network_in": round(net_in, 2),
-                "network_out": round(net_out, 2),
-            })
-        points = generated
-
-    # 格式化时间戳为标签
+    # 格式化时间戳为标签（保持原有接口格式）
     from datetime import datetime
-    timestamps = []
-    cpu_vals = []
-    mem_vals = []
-    disk_vals = []
-    net_in_vals = []
-    net_out_vals = []
 
-    # 根据 period 决定时间格式
+    timestamps = []
     is_long_period = period in ("7d", "30d")
 
-    for p in points:
-        dt = datetime.fromtimestamp(p["timestamp"])
+    for ts in raw_data["timestamps"]:
+        dt = datetime.fromtimestamp(ts)
         if is_long_period:
             label = dt.strftime("%m-%d %H:%M")
         else:
             label = dt.strftime("%H:%M")
         timestamps.append(label)
-        cpu_vals.append(p["cpu"])
-        mem_vals.append(p["memory"])
-        disk_vals.append(p["disk"])
-        net_in_vals.append(p["network_in"])
-        net_out_vals.append(p["network_out"])
 
     return {
         "period": period,
         "timestamps": timestamps,
-        "cpu": cpu_vals,
-        "memory": mem_vals,
-        "disk": disk_vals,
-        "network_in": net_in_vals,
-        "network_out": net_out_vals,
-        "point_count": len(points),
+        "cpu": raw_data["cpu"],
+        "memory": raw_data["memory"],
+        "disk": raw_data["disk"],
+        "network_in": raw_data["network_in"],
+        "network_out": raw_data["network_out"],
+        "point_count": raw_data["point_count"],
     }
 
 

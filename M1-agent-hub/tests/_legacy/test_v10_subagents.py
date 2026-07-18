@@ -10,8 +10,6 @@
 """
 
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-
 import asyncio
 import time
 import pytest

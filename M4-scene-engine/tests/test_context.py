@@ -16,8 +16,6 @@ import time
 import pytest
 
 # 添加 src 到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from src.services.context_store import ContextStore
 
 

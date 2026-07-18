@@ -8,8 +8,6 @@ import os
 import asyncio
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from bulkhead import (
     SemaphoreBulkhead,
     BulkheadRegistry,

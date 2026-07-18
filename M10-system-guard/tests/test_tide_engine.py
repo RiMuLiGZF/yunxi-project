@@ -6,10 +6,6 @@ import os
 import time
 import pytest
 import tempfile
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-
 class TestTideModels:
     """潮汐数据模型测试"""
 

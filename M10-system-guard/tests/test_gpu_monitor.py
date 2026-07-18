@@ -3,10 +3,6 @@
 import sys
 import os
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-
 class TestGPUModels:
     """GPU 数据模型测试"""
 

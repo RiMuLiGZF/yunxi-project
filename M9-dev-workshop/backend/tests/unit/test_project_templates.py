@@ -10,10 +10,6 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
-
 from project_templates import ProjectTemplateManager
 
 

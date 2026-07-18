@@ -7,9 +7,6 @@ M4 场景引擎 - 路由层集成测试
 
 import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import pytest
 from fastapi.testclient import TestClient
 

@@ -19,8 +19,6 @@ import sys
 import os
 
 # 添加项目根目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from shared.core.security import (
     escape_html,
     sanitize_html,
@@ -760,7 +758,6 @@ class TestRateLimit:
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
             "API-Gateway", "src"
         )
-        sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import SlidingWindowCounter
 
         counter = SlidingWindowCounter(window_seconds=60, max_requests=5)
@@ -781,7 +778,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RATE_LIMIT_TIERS
 
         assert "public" in RATE_LIMIT_TIERS
@@ -797,7 +793,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RATE_LIMIT_TIERS
 
         public_limit = RATE_LIMIT_TIERS["public"].requests_per_minute
@@ -812,7 +807,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RateLimiter
 
         limiter = RateLimiter()
@@ -839,7 +833,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RateLimiter
 
         limiter = RateLimiter()
@@ -866,7 +859,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RateLimiter
 
         limiter = RateLimiter()
@@ -892,7 +884,6 @@ class TestRateLimit:
             "API-Gateway", "src"
         )
         if api_gateway_path not in sys.path:
-            sys.path.insert(0, api_gateway_path)
         from services.rate_limiter import RateLimiter
 
         limiter = RateLimiter()

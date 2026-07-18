@@ -23,14 +23,9 @@ from pathlib import Path
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
-
 class TestSlidingWindowCounter(unittest.TestCase):
     """滑动窗口计数器测试"""
 

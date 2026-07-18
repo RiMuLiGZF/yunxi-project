@@ -5,10 +5,6 @@ import sys
 import os
 import pytest
 import asyncio
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-
 class TestGPUComputeModels:
     """GPU 数据模型测试"""
 

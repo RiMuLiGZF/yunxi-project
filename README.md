@@ -257,6 +257,8 @@ cd ..\..
 | **部署手册** | 生产环境部署与运维 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | **安全文档** | 安全架构、防护措施、漏洞响应 | [docs/SECURITY.md](docs/SECURITY.md) |
 | **灾难恢复** | 备份策略、恢复流程、RPO/RTO | [docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) |
+| **配置参考手册** | 全模块配置项参考、快速配置指南、生产检查清单 | [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) |
+| **测试规范** | 测试目录结构、命名规范、编写指南、覆盖率目标 | [docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md) |
 | **发展路线图** | 系统演进规划与里程碑 | [docs/云汐系统发展路线图v2.0.md](docs/云汐系统发展路线图v2.0.md) |
 
 ### 模块文档

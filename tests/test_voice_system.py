@@ -20,9 +20,6 @@ import os
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 _shared_dir = os.path.join(_current_dir, '..', 'shared')
 if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
-
-
 def test_tts_engine():
     """测试 TTS 引擎"""
     print("\n" + "=" * 60)

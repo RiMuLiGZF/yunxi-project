@@ -5,9 +5,6 @@
 import pytest
 import sys
 import json
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from mcp_server import MCPServer
 from agent_registry import AgentRegistry
 from interfaces import AgentTask, AgentResult, IAgentPlugin

@@ -1,12 +1,7 @@
 """工作流引擎单元测试"""
 import sys
-sys.path.insert(0, "/workspace")
-
 import asyncio
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-sys.path.insert(0, "/workspace")
-
 from typing import Any
 
 import pytest

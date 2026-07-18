@@ -17,9 +17,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestComputeApi:
     """算力调度 API 测试类"""
 

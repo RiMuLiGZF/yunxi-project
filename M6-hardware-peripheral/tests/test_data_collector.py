@@ -2,8 +2,6 @@
 import sys
 import os
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from m6_hardware.services.data_collector import DataCollector, get_data_collector
 

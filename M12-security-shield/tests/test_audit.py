@@ -10,8 +10,6 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 from backend.services.audit_service import AuditService, get_audit_service
 
 

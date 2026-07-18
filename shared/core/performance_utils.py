@@ -32,6 +32,8 @@ from functools import lru_cache, wraps
 from dataclasses import dataclass
 from contextlib import contextmanager
 
+logger = logging.getLogger(__name__)
+
 T = TypeVar('T')
 
 
@@ -224,7 +226,8 @@ class AsyncLogHandler(logging.Handler):
             try:
                 self.handler.emit(record)
             except Exception:
-                pass
+                # 日志输出失败不应影响主程序，记录到备用 logger
+                logger.warning("Log handler emit failed", exc_info=True)
         self._total_logged += len(batch)
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -240,7 +243,8 @@ class AsyncLogHandler(logging.Handler):
         try:
             self._queue.put(None)  # 哨兵值
         except Exception:
-            pass
+            # 队列操作失败时静默处理，避免关闭流程阻塞
+            logger.debug("Queue operation failed during flush/close", exc_info=True)
 
     def close(self) -> None:
         """关闭处理器"""
@@ -602,7 +606,8 @@ class BatchProcessor:
                     self._total_processed += len(batch)
                     self._total_batches += 1
                 except Exception:
-                    pass
+                    # 批量处理失败时跳过当前批次，避免影响后续处理
+                    logger.warning("Batch processing failed, skipping batch", exc_info=True)
                 last_flush = now
 
         # 退出前刷新剩余
@@ -616,7 +621,8 @@ class BatchProcessor:
                 self._total_processed += len(remaining)
                 self._total_batches += 1
             except Exception:
-                pass
+                # 批量处理失败时跳过当前批次，避免影响后续处理
+                logger.warning("Batch processing failed, skipping batch", exc_info=True)
 
     def add(self, item: Any) -> bool:
         """添加项目
@@ -659,7 +665,8 @@ class BatchProcessor:
                 self._total_processed += len(batch)
                 self._total_batches += 1
             except Exception:
-                pass
+                # 批量处理失败时跳过当前批次，避免影响后续处理
+                logger.warning("Batch processing failed, skipping batch", exc_info=True)
 
     def close(self) -> None:
         """关闭批处理器"""

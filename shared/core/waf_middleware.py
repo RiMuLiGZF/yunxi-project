@@ -25,7 +25,9 @@
 
 配置项（环境变量）：
 - WAF_ENABLED：是否启用 WAF（默认 true）
-- WAF_MODE：monitor / block（默认 monitor）
+- YUNXI_WAF_MODE / WAF_MODE：monitor / block / disabled（默认根据环境自动选择）
+  - 开发环境：monitor
+  - 生产/预发布环境：block
 - WAF_RULE_TYPES：启用的规则类型，逗号分隔，如 "sql_injection,xss"（默认全部启用）
 - WAF_EXCLUDE_PATHS：排除的路径，逗号分隔
 - WAF_BODY_LIMIT_KB：检测的请求体大小限制 KB（默认 10）
@@ -360,36 +362,57 @@ def _get_env_list(name: str, default: Optional[List[str]] = None) -> List[str]:
 
 
 # ===========================================================================
-# 默认配置
+# 默认配置（SEC-010 P2级安全修复：环境感知的 WAF 默认模式）
 # ===========================================================================
 
 WAF_ENABLED = _get_env_bool("WAF_ENABLED", True)
-WAF_MODE = os.environ.get("WAF_MODE", "block").lower()
 
-# 验证模式
-if WAF_MODE not in ("monitor", "block"):
-    logger.warning("Invalid WAF_MODE: %s, using default 'block'", WAF_MODE)
-    WAF_MODE = "block"
-
-# 运行环境
+# 运行环境（优先使用 YUNXI_ENV，兼容 ENV）
 _WAF_ENV = os.environ.get("YUNXI_ENV", os.environ.get("ENV", "development")).lower()
 _WAF_IS_PRODUCTION = _WAF_ENV in ("production", "prod", "release")
+_WAF_IS_STAGING = _WAF_ENV in ("staging", "pre", "pre-release")
 
-# 生产环境 WAF 安全校验（SC-003 P1级）
+# 根据环境确定默认模式（SEC-010）：
+# - 开发环境：monitor（只检测不拦截，方便调试）
+# - 生产/预发布环境：block（真正拦截攻击）
+_DEFAULT_WAF_MODE = "block" if (_WAF_IS_PRODUCTION or _WAF_IS_STAGING) else "monitor"
+
+# 环境变量优先（YUNXI_WAF_MODE 优先级高于 WAF_MODE）
+_WAF_MODE_ENV = os.environ.get("YUNXI_WAF_MODE", os.environ.get("WAF_MODE", "")).lower()
+WAF_MODE = _WAF_MODE_ENV if _WAF_MODE_ENV else _DEFAULT_WAF_MODE
+
+# 验证模式（支持 monitor / block / disabled）
+if WAF_MODE not in ("monitor", "block", "disabled"):
+    logger.warning("Invalid WAF_MODE: %s, using default '%s'", WAF_MODE, _DEFAULT_WAF_MODE)
+    WAF_MODE = _DEFAULT_WAF_MODE
+
+# disabled 模式下自动关闭 WAF
+if WAF_MODE == "disabled":
+    WAF_ENABLED = False
+
+# 生产环境 WAF 安全校验（SEC-010 P2级）
 if _WAF_IS_PRODUCTION:
-    if not WAF_ENABLED:
+    if not WAF_ENABLED or WAF_MODE == "disabled":
         logger.critical(
-            "[SC-003 P1] 生产环境安全告警：WAF 未启用（WAF_ENABLED=false）！\n"
+            "[SEC-010 P2] 生产环境安全告警：WAF 已禁用（WAF_MODE=disabled 或 WAF_ENABLED=false）！\n"
             "生产环境必须启用 WAF 以提供 Web 应用防火墙防护。\n"
-            "请设置 WAF_ENABLED=true。"
+            "请设置 YUNXI_WAF_MODE=block 或 WAF_ENABLED=true。"
         )
-    if WAF_MODE != "block":
+    elif WAF_MODE != "block":
         logger.critical(
-            "[SC-003 P1] 生产环境安全告警：WAF 模式为 '%s'，攻击不会被拦截！\n"
+            "[SEC-010 P2] 生产环境安全告警：WAF 模式为 '%s'，攻击不会被拦截！\n"
             "生产环境 WAF 必须设为 block 模式才能真正拦截攻击。\n"
-            "请设置 WAF_MODE=block。",
+            "请设置 YUNXI_WAF_MODE=block。",
             WAF_MODE,
         )
+
+# 预发布环境也建议使用 block 模式
+if _WAF_IS_STAGING and WAF_MODE != "block":
+    logger.warning(
+        "[SEC-010 P2] 预发布环境 WAF 模式为 '%s'，建议使用 block 模式以接近生产环境行为。\n"
+        "请设置 YUNXI_WAF_MODE=block。",
+        WAF_MODE,
+    )
 
 # 启用的规则类型
 WAF_RULE_TYPES = set(_get_env_list("WAF_RULE_TYPES")) or ALL_RULE_TYPES
@@ -434,8 +457,9 @@ class WafMiddleware(BaseHTTPMiddleware):
     零外部依赖，启动即可用，故障时自动降级。
 
     工作模式：
-    - monitor：只检测不拦截，记录日志，不阻塞请求
-    - block：同步检测，发现攻击立即返回 403
+    - monitor：只检测不拦截，记录日志，不阻塞请求（开发环境默认）
+    - block：同步检测，发现攻击立即返回 403（生产/预发布环境默认）
+    - disabled：完全禁用 WAF，不进行任何检测（不推荐用于生产环境）
 
     降级策略：
     - WAF 引擎异常时自动降级，放行请求并记录告警

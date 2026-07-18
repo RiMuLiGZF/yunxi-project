@@ -28,9 +28,6 @@ import pytest
 SHARED_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = SHARED_DIR.parent
 if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
-
-
 # ===========================================================================
 # 测试辅助函数
 # ===========================================================================

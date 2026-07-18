@@ -2,8 +2,6 @@
 测试：RetryCoordinator 统一重试协调器（P2-011）
 """
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from unittest.mock import MagicMock
 from retry_coordinator import RetryCoordinator, RetryStrategy
 

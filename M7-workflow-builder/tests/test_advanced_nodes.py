@@ -9,10 +9,6 @@ import sys
 import pytest
 import asyncio
 from unittest.mock import patch, MagicMock
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
 from services.nodes import (
     execute_condition_node_sync as execute_condition_node,
     execute_loop_node_sync as execute_loop_node,

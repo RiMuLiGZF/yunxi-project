@@ -15,9 +15,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, List
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 # ============================================================
 # 模拟检查结果数据类
 # ============================================================

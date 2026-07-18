@@ -9,8 +9,6 @@ import os
 from typing import Any
 
 # ── 确保能找到相邻模块（interfaces, intent_classifier 等）──
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 

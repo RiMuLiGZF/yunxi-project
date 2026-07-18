@@ -20,14 +20,9 @@ from unittest.mock import MagicMock, AsyncMock, patch
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
-
 class TestRateLimitMiddlewareTierMatching(unittest.TestCase):
     """限流中间件 - 路径匹配限速级别测试"""
 

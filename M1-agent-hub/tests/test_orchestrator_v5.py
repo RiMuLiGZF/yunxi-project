@@ -5,9 +5,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from interfaces import AgentTask, AgentResult, IAgentPlugin
 from agent_registry import AgentRegistry
 from task_dispatcher import TaskDispatcher

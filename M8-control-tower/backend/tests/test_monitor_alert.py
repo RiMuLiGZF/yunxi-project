@@ -23,8 +23,6 @@ from datetime import datetime, timedelta
 # 添加项目路径（backend 目录加入 sys.path）
 backend_dir = Path(__file__).parent.resolve()
 if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
-
 from sqlalchemy.orm import Session
 from models import init_db, get_db, AlertRecord, User, TaskRecord, SessionLocal  # type: ignore
 

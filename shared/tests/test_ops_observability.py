@@ -18,8 +18,6 @@ import pytest
 from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime, timedelta
 from pathlib import Path
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import importlib.util
 spec = importlib.util.spec_from_file_location(
     "yunxi_shared",

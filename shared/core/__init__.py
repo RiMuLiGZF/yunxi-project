@@ -194,7 +194,7 @@ from .bounded_collections import (
     EvictionReason,
 )
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 """shared.core 版本号"""
 
 __all__ = [

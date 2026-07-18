@@ -17,9 +17,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestAuthApi:
     """M8 认证 API 测试类"""
 

@@ -1,8 +1,5 @@
 """OrchestratorV2 整合编排器单元测试"""
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-sys.path.insert(0, "/workspace")
-
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock

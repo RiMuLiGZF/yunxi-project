@@ -6,9 +6,6 @@ import json
 import os
 import sys
 from pathlib import Path
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 import pytest
 
 from config_manager import ConfigManager

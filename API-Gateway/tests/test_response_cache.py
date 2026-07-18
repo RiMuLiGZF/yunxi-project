@@ -20,9 +20,6 @@ from pathlib import Path
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
-
 class TestResponseCache(unittest.TestCase):
     """响应缓存测试"""
 

@@ -11,10 +11,6 @@ import tempfile
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
 from services.version_manager import WorkflowVersionManager
 
 

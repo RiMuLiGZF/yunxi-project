@@ -14,10 +14,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
-
-
 class TestAuthMiddleware:
     """M9 认证中间件测试"""
 
@@ -67,7 +63,6 @@ class TestAuthMiddleware:
     def test_auth_middleware_module_exists(self):
         """认证中间件模块存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.auth_middleware import PUBLIC_PATHS
             assert isinstance(PUBLIC_PATHS, (set, list, tuple))
             assert len(PUBLIC_PATHS) > 0
@@ -81,7 +76,6 @@ class TestAuthMiddleware:
     def test_public_paths_includes_health(self):
         """公开路径包含 /health"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.auth_middleware import PUBLIC_PATHS
             assert "/health" in PUBLIC_PATHS
         except (ImportError, Exception) as e:
@@ -94,7 +88,6 @@ class TestAuthMiddleware:
     def test_public_paths_includes_docs(self):
         """公开路径包含文档路径"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.auth_middleware import PUBLIC_PATHS
             assert "/docs" in PUBLIC_PATHS
             assert "/openapi.json" in PUBLIC_PATHS
@@ -108,7 +101,6 @@ class TestAuthMiddleware:
     def test_get_admin_token_function(self):
         """获取管理员 Token 函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.auth_middleware import get_admin_token
             token = get_admin_token()
             assert isinstance(token, str)
@@ -244,7 +236,6 @@ class TestUnifiedErrors:
     def test_m9_error_codes_exist(self):
         """M9 错误码定义存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.unified_errors import M9ErrorCode
             assert M9ErrorCode is not None
         except (ImportError, Exception) as e:
@@ -256,7 +247,6 @@ class TestUnifiedErrors:
     def test_m9_error_module_prefix(self):
         """M9 错误码模块前缀正确"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.unified_errors import M9ErrorCode
             from shared.core.errors import ModuleCode, parse_error_code
 

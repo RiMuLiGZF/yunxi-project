@@ -2,10 +2,6 @@
 import os
 import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-
 class TestConfig:
     def test_config_singleton(self):
         from config import get_settings

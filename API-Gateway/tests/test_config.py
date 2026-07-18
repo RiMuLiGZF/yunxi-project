@@ -19,14 +19,9 @@ from pathlib import Path
 # 将项目根目录加入 path，以便导入 shared 模块
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path，以便导入 src.config
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
-
 class TestConfigBasics(unittest.TestCase):
     """配置系统基础测试"""
 

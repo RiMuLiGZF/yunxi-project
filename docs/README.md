@@ -22,6 +22,8 @@
 | [部署手册](DEPLOYMENT.md) | 生产环境部署指南（裸机 / Docker） | 运维工程师 |
 | [安全文档](SECURITY.md) | 安全架构、防护措施、漏洞响应流程 | 安全工程师 |
 | [灾难恢复](DISASTER_RECOVERY.md) | 备份策略、灾难恢复、RPO/RTO 目标 | 运维工程师 |
+| [配置参考手册](CONFIG_REFERENCE.md) | 全模块配置项参考、快速配置指南、生产检查清单 | 运维工程师、开发者 |
+| [测试规范](TESTING_GUIDELINES.md) | 测试目录结构、命名规范、编写指南、覆盖率目标 | 开发者、QA |
 | [发展路线图](云汐系统发展路线图v2.0.md) | 系统演进规划与里程碑 | 产品、管理层 |
 | [API 总览](API_OVERVIEW.md) | API 总览（旧版，已整合到 API.md） | 参考 |
 | [架构总览](ARCHITECTURE_OVERVIEW.md) | 架构总览（旧版，已整合到 ARCHITECTURE.md） | 参考 |
@@ -37,6 +39,8 @@
 | 日常运维 | [OPS.md](OPS.md) |
 | 故障排查 | [OPS.md - 常见故障排查](OPS.md#7-常见故障排查) |
 | 备份恢复 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) |
+| 配置参考 | [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) |
+| 测试规范 | [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md) |
 | 开发规范 | [DEVELOPMENT.md](DEVELOPMENT.md) |
 | 安全问题 | [SECURITY.md](SECURITY.md) |
 | 错误码查询 | [shared/core/ERROR_CODES.md](../shared/core/ERROR_CODES.md) |

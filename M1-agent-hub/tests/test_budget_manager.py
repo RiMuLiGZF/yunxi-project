@@ -5,9 +5,6 @@
 import pytest
 import sys
 import time
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from budget_manager import BudgetManager, BudgetLevel, ModelPricing, UsageRecord
 
 

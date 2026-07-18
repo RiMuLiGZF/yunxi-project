@@ -1,0 +1,117 @@
+# ============================================================
+# Git 属性配置 (Git Attributes)
+# 云汐项目 - 统一跨平台 Git 行为
+# ============================================================
+
+# ============================================================
+# 行尾结束符 (Line Endings)
+# ============================================================
+# 统一使用 LF 行尾，避免 Windows CRLF 导致的 git diff 噪音
+# 参考: https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings
+* text=auto eol=lf
+
+# ============================================================
+# Windows 大小写敏感性
+# ============================================================
+# 重要：Windows/macOS 文件系统默认大小写不敏感，
+# 但 Git 默认大小写敏感（core.ignorecase=false），
+# 可能导致同目录出现大小写两套文件。
+#
+# 解决方案：
+# 1. 仓库统一使用大写前缀命名目录（M0-/M1-/M2-...）
+# 2. 新模块创建时保持一致的大小写规范
+# 3. 开发者本地建议: git config core.ignorecase true
+#
+# 注：gitattributes 不直接控制 core.ignorecase，
+# 此注释用于团队规范说明
+
+# ============================================================
+# 文本文件类型
+# ============================================================
+*.py    text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.sql   text eol=lf
+*.sh    text eol=lf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.txt   text eol=lf
+*.toml  text eol=lf
+*.ini   text eol=lf
+*.cfg   text eol=lf
+*.conf  text eol=lf
+*.env   text eol=lf
+*.xml   text eol=lf
+*.svg   text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# ============================================================
+# 二进制文件（不做行尾转换）
+# ============================================================
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.bmp   binary
+*.pdf   binary
+*.zip   binary
+*.tar   binary
+*.gz    binary
+*.tgz   binary
+*.7z    binary
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.dylib binary
+*.db    binary
+*.sqlite binary
+*.sqlite3 binary
+*.pyc   binary
+*.pyo   binary
+*.pyd   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.mp3   binary
+*.mp4   binary
+*.wav   binary
+*.ogg   binary
+*.onnx  binary
+*.bin   binary
+*.pt    binary
+*.pth   binary
+
+# ============================================================
+# Linguist (GitHub 语言统计)
+# ============================================================
+*.html linguist-detectable=false
+frontend/* linguist-vendored
+node_modules/* linguist-vendored
+_archive/* linguist-vendored
+archive/* linguist-vendored
+backups/* linguist-vendored
+inspection-reports/* linguist-vendored
+
+# ============================================================
+# 导出忽略（git archive）
+# ============================================================
+.gitignore      export-ignore
+.gitattributes  export-ignore
+.github/        export-ignore
+.pytest_cache/  export-ignore
+.ruff_cache/    export-ignore
+.mypy_cache/    export-ignore
+__pycache__/    export-ignore
+*.pyc           export-ignore

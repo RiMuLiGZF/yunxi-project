@@ -13,8 +13,6 @@ import json
 
 # 添加 M8-control-tower 目录到路径（backend 作为包导入）
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, PROJECT_DIR)
-
 # 在导入 models 之前，先设置环境变量使用测试数据库
 TEST_DB_PATH = os.path.join(PROJECT_DIR, "data", "test_m8.db")
 # 确保测试目录存在

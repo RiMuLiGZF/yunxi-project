@@ -15,8 +15,6 @@ from pathlib import Path
 
 # 确保项目根目录在 path 中
 project_root = Path(__file__).parent.parent.parent.resolve()
-sys.path.insert(0, str(project_root))
-
 from fastapi.testclient import TestClient
 from backend.main import app
 

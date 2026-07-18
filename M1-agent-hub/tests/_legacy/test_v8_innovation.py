@@ -5,9 +5,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from swarm_and_innovation import (
     SwarmManager, TraceToMemory, RetrospectiveEngine,
     ModelRotationManager, ModelInfo, FailureType,

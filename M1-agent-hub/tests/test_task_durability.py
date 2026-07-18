@@ -5,9 +5,6 @@
 import pytest
 import sys
 import os
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from task_durability import (
     TaskDurabilityManager,
     DurableTask,

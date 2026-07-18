@@ -5,8 +5,6 @@ P2-1 适配：_clients 从 Set[Queue] 改为 Dict[Queue, _ConnectionMeta]，
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import asyncio
 import json
 import time

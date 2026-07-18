@@ -544,13 +544,15 @@ class GrowthService:
                         await self.unlock_achievement("first_talent_upgrade")
                         unlocked.append("first_talent_upgrade")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
                 if total_upgrades >= 10:
                     try:
                         await self.unlock_achievement("talent_upgrade_master")
                         unlocked.append("talent_upgrade_master")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
 
             elif trigger == "chronicle_created":
                 stats = await self.client.get_calendar_stats()
@@ -560,13 +562,15 @@ class GrowthService:
                         await self.unlock_achievement("first_chronicle")
                         unlocked.append("first_chronicle")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
                 if total_chronicles >= 10:
                     try:
                         await self.unlock_achievement("chronicle_collector")
                         unlocked.append("chronicle_collector")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
 
             elif trigger == "echo_generated":
                 echoes_data = await self.client.list_echoes(page=1, size=1)
@@ -576,13 +580,15 @@ class GrowthService:
                         await self.unlock_achievement("first_echo")
                         unlocked.append("first_echo")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
                 if total_echoes >= 10:
                     try:
                         await self.unlock_achievement("echo_master")
                         unlocked.append("echo_master")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
 
             elif trigger == "task_completed":
                 season_history = await self.client.get_season_history()
@@ -592,13 +598,15 @@ class GrowthService:
                         await self.unlock_achievement("first_season_task")
                         unlocked.append("first_season_task")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
                 if total_tasks >= 10:
                     try:
                         await self.unlock_achievement("season_task_master")
                         unlocked.append("season_task_master")
                     except Exception:
-                        pass
+                        # 成就解锁失败不影响主流程，记录 debug 日志
+                        logger.debug("Achievement unlock failed", exc_info=True)
 
             if unlocked:
                 logger.info(

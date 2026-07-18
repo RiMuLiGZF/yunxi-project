@@ -5,9 +5,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from semantic_intent_v3 import SemanticIntentClassifierV3
 from group_chat import (
     GroupChatEngine, GroupChatAgent, ChatMessage,

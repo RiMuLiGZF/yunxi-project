@@ -185,11 +185,13 @@ class Settings(BaseSettings):
     admin_password: str = _global_get("m8_admin_password", "")
     jwt_secret: str = _global_get("m8_jwt_secret", "")
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440  # 24小时
+    # SEC-011: 开发环境 24 小时（方便调试），生产环境 2 小时
+    access_token_expire_minutes: int = 1440 if env == "development" else 120
+    refresh_token_expire_days: int = 7  # SEC-011: Refresh Token 7 天过期
     m8_admin_token: str = _global_get("module_tokens", {}).get("m8", "")
 
-    # ===== CORS（与全局配置同步） =====
-    cors_origins: str = _global_get("cors_origins", "*")
+    # ===== CORS（与全局配置同步，开发环境默认 localhost 常见端口） =====
+    cors_origins: str = _global_get("cors_origins", "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:8000")
 
     # ===== 数据库（M8 特有） =====
     database_url: str = f"sqlite:///{db_path}"

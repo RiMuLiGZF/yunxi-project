@@ -15,10 +15,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
-
-
 class TestProjectCRUD:
     """项目 CRUD 测试"""
 

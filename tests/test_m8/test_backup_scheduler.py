@@ -15,10 +15,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower"))
-
-
 class TestBackupScheduler:
     """备份调度接口测试"""
 
@@ -255,7 +251,6 @@ class TestBackupModel:
     def test_backup_scheduler_model_exists(self):
         """备份调度模型存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from models.backup_scheduler import BackupModule
             assert BackupModule is not None
         except (ImportError, Exception) as e:
@@ -267,7 +262,6 @@ class TestBackupModel:
     def test_backup_record_model_exists(self):
         """备份记录模型存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from models.backup_scheduler import BackupRecord
             assert BackupRecord is not None
         except (ImportError, Exception) as e:
@@ -279,7 +273,6 @@ class TestBackupModel:
     def test_backup_schedule_types(self):
         """备份调度类型"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from models.backup_scheduler import BackupScheduleType
             assert BackupScheduleType is not None
         except (ImportError, Exception) as e:

@@ -4,9 +4,6 @@
 
 import sys
 import pytest
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from memory_bridge import MemoryBridge
 from rbac_memory import RBACMemoryGuard, AgentIdentity, AgentRole
 from swarm_and_innovation import ExtractedMemory, MemoryTier

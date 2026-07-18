@@ -20,10 +20,6 @@ from io import StringIO
 
 import pytest
 
-# 确保项目根目录在 path 中
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
 # ============================================================================
 # 1. 脱敏路径可达性测试（来源：test_v11_1_m8_integration.py）
 # ============================================================================

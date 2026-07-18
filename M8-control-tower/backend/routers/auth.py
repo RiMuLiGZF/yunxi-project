@@ -1,12 +1,18 @@
 """
 认证路由
+
+SEC-012 P2级安全修复：登录接口速率限制
+- 同一 IP：5 次/分钟
+- 同一用户名：5 次/分钟
+- 连续 10 次失败锁定 30 分钟
+- 审计日志记录失败尝试
 """
 
 import sys
 import json
 from pathlib import Path
 from datetime import timedelta, datetime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -23,10 +29,17 @@ from ..config import (
 from ..auth import (
     verify_password,
     create_access_token,
+    create_refresh_token,
+    refresh_access_token,
     get_password_hash,
     get_current_user,
     blacklist_token,
+    revoke_refresh_token,
     security,
+)
+from ..rate_limit import (
+    check_login_rate_limit,
+    record_login_attempt,
 )
 from ..schemas import ApiResponse
 
@@ -185,6 +198,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
@@ -193,21 +210,48 @@ class ChangePasswordRequest(BaseModel):
 # ==================== 认证接口 ====================
 
 @router.post("/login")
-async def login(req: LoginRequest):
-    """用户登录"""
+async def login(req: LoginRequest, request: Request):
+    """用户登录（SEC-011: 同时返回 Access Token 和 Refresh Token）
+
+    SEC-012 安全修复：登录接口速率限制
+    - 同一 IP：5 次/分钟
+    - 同一用户名：5 次/分钟
+    - 连续 10 次失败锁定 30 分钟
+    """
+    # 获取客户端 IP
+    client_ip = request.client.host if request.client else "unknown"
+
+    # SEC-012: 检查速率限制
+    allowed, retry_after, reason = check_login_rate_limit(client_ip, req.username)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=reason,
+            headers={"Retry-After": str(retry_after)},
+        )
+
     user = _find_user_by_username(req.username)
 
     # 用户不存在
     if not user:
+        # SEC-012: 记录失败尝试
+        record_login_attempt(client_ip, req.username, success=False)
         raise HTTPException(status_code=401, detail="用户名或密码错误")
 
     # 检查用户状态
     if user.get("status") == "disabled":
+        # SEC-012: 记录失败尝试（账号禁用也算失败）
+        record_login_attempt(client_ip, req.username, success=False)
         raise HTTPException(status_code=401, detail="账号已被禁用")
 
     # 验证密码（bcrypt 哈希）
     if not verify_password(req.password, user["password_hash"]):
+        # SEC-012: 记录失败尝试
+        record_login_attempt(client_ip, req.username, success=False)
         raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    # SEC-012: 记录成功尝试
+    record_login_attempt(client_ip, req.username, success=True)
 
     # 更新最后登录时间
     users = _load_users()
@@ -222,10 +266,16 @@ async def login(req: LoginRequest):
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
 
+    refresh_token = create_refresh_token(
+        data={"sub": req.username, "role": user.get("role", "viewer")},
+    )
+
     return ApiResponse.success(
         data={
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
+            "expires_in": settings.access_token_expire_minutes * 60,
             "user": {
                 "username": user["username"],
                 "role": user.get("role", "viewer"),
@@ -234,6 +284,20 @@ async def login(req: LoginRequest):
             },
         }
     )
+
+
+@router.post("/refresh")
+async def refresh(req: RefreshRequest):
+    """使用 Refresh Token 刷新 Access Token（SEC-011 新增）
+
+    使用有效的 Refresh Token 换取新的 Access Token 和 Refresh Token。
+    采用滚动刷新策略：旧的 Refresh Token 会被吊销，返回新的 Token 对。
+    """
+    result = refresh_access_token(req.refresh_token)
+    if not result:
+        raise HTTPException(status_code=401, detail="Refresh Token 无效或已过期")
+
+    return ApiResponse.success(data=result)
 
 
 @router.post("/logout")

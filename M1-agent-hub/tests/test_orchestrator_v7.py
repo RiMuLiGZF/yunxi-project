@@ -5,9 +5,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from orchestrator_v7 import OrchestratorV7
 from ensemble_engine import EnsembleStrategy, AgentVote, EnsembleResult
 from budget_manager import BudgetManager

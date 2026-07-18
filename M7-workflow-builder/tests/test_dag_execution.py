@@ -8,10 +8,6 @@ M7 单元测试 - DAG 执行引擎核心逻辑 (TS-002, P2级)
 import os
 import sys
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
 from services.engine import WorkflowEngine, build_adjacency_list, topological_sort, is_linear_workflow
 from services.validator import WorkflowValidator
 

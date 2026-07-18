@@ -33,8 +33,6 @@ from datetime import datetime
 # 将 data_layer 加入 path
 _project_root = Path(__file__).parent.parent.parent
 _data_layer_dir = _project_root / "shared" / "data" / "data_layer"
-sys.path.insert(0, str(_data_layer_dir))
-
 from backup_manager import (
     BackupManager,
     BackupReport,

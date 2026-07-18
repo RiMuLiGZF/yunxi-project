@@ -19,10 +19,6 @@ import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
-# 确保项目根目录在 path 中
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
 def _make_task(intent: str, payload: dict | None = None, **kwargs):
     """辅助函数：创建 AgentTask"""
     from interfaces import AgentTask

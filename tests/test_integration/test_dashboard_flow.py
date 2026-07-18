@@ -13,9 +13,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestDashboardDataFlow:
     """仪表盘数据流程集成测试类"""
 

@@ -25,8 +25,6 @@ from datetime import datetime, timedelta, timezone
 # 确保项目根目录在路径中
 _project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 from shared.core.audit_framework import (
     AuditEvent,
     AuditCategory,

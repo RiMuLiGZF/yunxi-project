@@ -23,9 +23,6 @@ import pytest
 SHARED_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = SHARED_DIR.parent
 if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
-
-
 # ===========================================================================
 # SEC-001: 全局模块默认 Token 硬编码
 # ===========================================================================
@@ -333,8 +330,6 @@ class TestSEC006_JWTSignatureVerification:
         from pathlib import Path as P
         gateway_root = P(__file__).resolve().parent.parent.parent / "API-Gateway"
         if str(gateway_root) not in sys.path:
-            sys.path.insert(0, str(gateway_root))
-
         # 使用 unittest.mock 来模拟 HAS_JOSE = False
         from unittest.mock import patch as mock_patch
         from importlib import reload
@@ -368,8 +363,6 @@ class TestSEC006_JWTSignatureVerification:
         """开发环境下签名无效的 JWT 也被拒绝（不再有降级模式）"""
         gateway_root = Path(__file__).resolve().parent.parent.parent / "API-Gateway"
         if str(gateway_root) not in sys.path:
-            sys.path.insert(0, str(gateway_root))
-
         from src.middleware.auth import AuthMiddleware
 
         with patch.dict(os.environ, {
@@ -403,8 +396,6 @@ class TestSEC006_JWTSignatureVerification:
         """不再有 jwt_dev 类型的认证结果（降级模式已移除）"""
         gateway_root = Path(__file__).resolve().parent.parent.parent / "API-Gateway"
         if str(gateway_root) not in sys.path:
-            sys.path.insert(0, str(gateway_root))
-
         from src.middleware.auth import AuthMiddleware
 
         with patch.dict(os.environ, {

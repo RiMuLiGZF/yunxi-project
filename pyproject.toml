@@ -226,6 +226,12 @@ ignore = [
     "RUF003", # 未使用的变量（与 F841 重复，以 F841 为准）
 ]
 
+# --- ARC 架构规范规则 ---
+# ARC-006: 禁止滥用 sys.path.insert（允许入口文件和 conftest.py）
+# ARC-008: 禁止裸 except + pass（吞异常）
+# 注：使用 flake8-bandit (S) 和 flake8-bugbear (B) 规则检测
+# 额外通过 pre-commit 钩子进行自定义检查
+
 # --- 圈复杂度阈值 ---
 [tool.ruff.lint.mccabe]
 max-complexity = 15

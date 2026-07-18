@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import time
+import logging
 import threading
 from collections import OrderedDict
 from typing import Any, Callable, Generic, Iterable, Iterator, Optional, TypeVar
@@ -28,6 +29,8 @@ from typing import Any, Callable, Generic, Iterable, Iterator, Optional, TypeVar
 T = TypeVar("T")
 KT = TypeVar("KT")
 VT = TypeVar("VT")
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "BoundedList",
@@ -131,8 +134,8 @@ class BoundedList(Generic[T]):
                 try:
                     self._on_evict(evicted, EvictionReason.CAPACITY)
                 except Exception:
-                    # 回调异常不影响主流程
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -176,7 +179,8 @@ class BoundedList(Generic[T]):
                     try:
                         self._on_evict(item, EvictionReason.CAPACITY)
                     except Exception:
-                        pass
+                        # 回调异常不影响主流程，记录 debug 日志便于排查
+                        logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -304,7 +308,8 @@ class BoundedList(Generic[T]):
                             try:
                                 self._on_evict(item, EvictionReason.CAPACITY)
                             except Exception:
-                                pass
+                                # 回调异常不影响主流程，记录 debug 日志便于排查
+                                logger.debug("Eviction callback raised an exception", exc_info=True)
         else:
             self._max_size = new_max_size
             if len(self._items) > new_max_size:
@@ -317,7 +322,8 @@ class BoundedList(Generic[T]):
                         try:
                             self._on_evict(item, EvictionReason.CAPACITY)
                         except Exception:
-                            pass
+                            # 回调异常不影响主流程，记录 debug 日志便于排查
+                            logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -425,7 +431,8 @@ class LRUDict(Generic[KT, VT]):
                 try:
                     self._on_evict(evicted_key, evicted_value, EvictionReason.CAPACITY)
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -494,7 +501,8 @@ class LRUDict(Generic[KT, VT]):
                 try:
                     self._on_evict(key, value, EvictionReason.EXPIRED)
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
             return default
 
         # 移到末尾（表示最近使用）
@@ -549,7 +557,8 @@ class LRUDict(Generic[KT, VT]):
                 try:
                     self._on_evict(key, value, EvictionReason.EXPIRED)  # type: ignore[arg-type]
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
             return False
 
         return True
@@ -630,7 +639,8 @@ class LRUDict(Generic[KT, VT]):
                 try:
                     self._on_evict(key, value, EvictionReason.EXPIRED)
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return expired
 
@@ -720,7 +730,8 @@ class LRUDict(Generic[KT, VT]):
                 try:
                     self._on_evict(key, value, EvictionReason.CAPACITY)
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -818,7 +829,8 @@ class BoundedSet(Generic[T]):
                 try:
                     self._on_evict(evicted, EvictionReason.CAPACITY)
                 except Exception:
-                    pass
+                    # 回调异常不影响主流程，记录 debug 日志便于排查
+                    logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted
 
@@ -976,7 +988,8 @@ class BoundedSet(Generic[T]):
                         try:
                             self._on_evict(item, EvictionReason.CAPACITY)
                         except Exception:
-                            pass
+                            # 回调异常不影响主流程，记录 debug 日志便于排查
+                            logger.debug("Eviction callback raised an exception", exc_info=True)
         else:
             self._max_size = new_max_size
             while len(self._data) > new_max_size:
@@ -987,6 +1000,7 @@ class BoundedSet(Generic[T]):
                     try:
                         self._on_evict(item, EvictionReason.CAPACITY)
                     except Exception:
-                        pass
+                        # 回调异常不影响主流程，记录 debug 日志便于排查
+                        logger.debug("Eviction callback raised an exception", exc_info=True)
 
         return evicted

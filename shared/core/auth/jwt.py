@@ -94,7 +94,7 @@ class JWTConfig:
         self,
         secret: str = "",
         algorithm: str = "RS256",
-        access_token_expire_minutes: int = 1440,  # 24 小时
+        access_token_expire_minutes: int = 120,  # SEC-011: 默认 2 小时（生产环境）
         refresh_token_expire_days: int = 7,
         issuer: Optional[str] = None,
         audience: Optional[str] = None,
@@ -616,7 +616,7 @@ class JWTHandler:
 
 def create_jwt_handler_from_key_manager(
     key_manager,
-    access_token_expire_minutes: int = 1440,
+    access_token_expire_minutes: int = 120,  # SEC-011: 默认 2 小时
     refresh_token_expire_days: int = 7,
     issuer: Optional[str] = None,
     audience: Optional[str] = None,

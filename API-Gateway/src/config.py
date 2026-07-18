@@ -417,9 +417,9 @@ if _USE_UNIFIED_CONFIG:
         port: int = Field(default=8080, ge=1, le=65535, description="服务监听端口")
         log_level: str = Field(default="info", description="日志级别")
 
-        # CORS
+        # CORS（开发环境默认 localhost 常见端口，生产环境必须显式配置）
         cors_origins: str = Field(
-            default="*",
+            default="http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:8000",
             description="允许的来源（逗号分隔，生产环境禁止使用 *）",
         )
 

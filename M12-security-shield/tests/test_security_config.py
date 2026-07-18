@@ -10,8 +10,6 @@ import warnings
 from unittest.mock import patch, MagicMock
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 from backend.config import (
     Settings,
     generate_secret_key,

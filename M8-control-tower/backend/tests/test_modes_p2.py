@@ -14,8 +14,6 @@ from datetime import datetime, timedelta
 
 # 将项目根目录加入 path
 backend_dir = Path(__file__).parent
-sys.path.insert(0, str(backend_dir))
-
 # 使用临时数据库
 TEST_DB_PATH = os.path.join(backend_dir, "data", "test_modes_p2.db")
 

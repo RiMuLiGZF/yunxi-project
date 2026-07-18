@@ -7,9 +7,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from llm_provider import InferenceRouter
 
 

@@ -22,8 +22,6 @@ import unittest.mock as mock
 # 将 M8-control-tower 目录加入 path（backend 的父目录）
 backend_dir = Path(__file__).parent
 parent_dir = backend_dir.parent
-sys.path.insert(0, str(parent_dir))
-
 # 临时修改用户文件路径，避免影响真实数据
 TEST_DIR = Path(tempfile.mkdtemp(prefix="m8_security_test_"))
 

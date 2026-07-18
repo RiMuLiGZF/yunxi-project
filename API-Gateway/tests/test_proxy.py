@@ -27,14 +27,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
-
 class TestFindRoute(unittest.TestCase):
     """路由匹配测试"""
 

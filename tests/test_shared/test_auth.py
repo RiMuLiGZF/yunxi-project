@@ -40,10 +40,10 @@ class TestJWTConfig:
     @pytest.mark.shared
     @pytest.mark.jwt
     def test_default_values(self, make_config):
-        """默认配置值正确"""
+        """默认配置值正确（SEC-011: 默认 2 小时生产环境安全值）"""
         config = make_config()
         assert config.algorithm == "HS256"
-        assert config.access_token_expire_minutes == 1440
+        assert config.access_token_expire_minutes == 120  # SEC-011: 默认 2 小时
         assert config.refresh_token_expire_days == 7
 
     @pytest.mark.unit

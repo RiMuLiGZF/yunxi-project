@@ -15,10 +15,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
-
-
 class TestFileManagement:
     """文件管理测试"""
 
@@ -235,7 +231,6 @@ class TestPathSafety:
     def test_safe_join_exists(self):
         """安全路径拼接函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.path_safety import safe_join
             assert callable(safe_join)
         except (ImportError, Exception) as e:
@@ -247,7 +242,6 @@ class TestPathSafety:
     def test_is_path_within_base(self):
         """路径范围检查函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.path_safety import is_path_within_base
             assert callable(is_path_within_base)
         except (ImportError, Exception) as e:
@@ -259,7 +253,6 @@ class TestPathSafety:
     def test_path_within_base_true(self):
         """路径在基础目录内返回 True"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.path_safety import is_path_within_base
             base = "/home/user/workspace"
             path = "/home/user/workspace/project/file.py"
@@ -273,7 +266,6 @@ class TestPathSafety:
     def test_path_outside_base_false(self):
         """路径在基础目录外返回 False"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M9-dev-workshop" / "backend"))
             from core.path_safety import is_path_within_base
             base = "/home/user/workspace"
             path = "/etc/passwd"

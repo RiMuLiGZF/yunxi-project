@@ -12,10 +12,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 # 添加模块路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
-
 class TestM8AuthMiddleware:
     """M8 鉴权中间件测试"""
 

@@ -7,10 +7,6 @@ M7 单元测试 - 工作流引擎核心逻辑
 import os
 import sys
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "shared"))
-
 from services.engine import (
     build_adjacency_list,
     topological_sort,

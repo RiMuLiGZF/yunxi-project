@@ -12,8 +12,6 @@ import threading
 import pytest
 
 # 确保 shared 包可被导入
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 from shared.core.bounded_collections import (
     BoundedList,
     LRUDict,

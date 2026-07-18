@@ -448,6 +448,87 @@ from .services import user_service
 from .models import User
 ```
 
+### 3.8 架构规范（ARC 系列）
+
+#### ARC-006：禁止滥用 sys.path.insert
+
+**问题**：手动 `sys.path.insert(0, ...)` 导致导入混乱、循环导入风险、不可预测的模块解析顺序。
+
+**规范**：
+1. **禁止**在业务代码、工具类、服务类中使用 `sys.path.insert`
+2. **允许**在以下场景使用（必须添加注释说明原因）：
+   - 模块入口文件（`server.py`, `main.py`, `__main__.py`）
+   - pytest 的 `conftest.py`（统一管理测试路径注入）
+   - 迁移脚本、一次性脚本
+3. **推荐**使用标准包结构和相对导入/绝对导入
+4. 新模块创建时，应将源码放在 `src/` 或 `backend/` 目录下，通过 `conftest.py` 统一处理测试路径
+
+**正确示例**：
+```python
+# conftest.py - 统一管理测试路径注入
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_MODULE_SRC = Path(__file__).resolve().parents[1] / "src"
+
+for _p in (str(_MODULE_SRC), str(_PROJECT_ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+```
+
+#### ARC-008：禁止裸 except + pass（吞异常）
+
+**问题**：`except Exception: pass` 或 `except: pass` 导致故障排查困难，错误被静默忽略。
+
+**规范**：
+1. **禁止**使用裸 `except: pass`（不捕获具体异常类型）
+2. **禁止**使用 `except Exception: pass`（宽泛捕获 + 静默忽略）
+3. 捕获异常时应：
+   - 尽可能指定具体异常类型（如 `ValueError`, `OSError`, `httpx.HTTPError`）
+   - 至少记录 `logger.exception()` 或 `logger.error()` 级别日志
+   - 如果确实需要静默忽略（如回调异常、非核心功能失败），必须添加注释说明原因，并记录 `logger.debug()`
+4. 可接受的"静默"场景（仍需记录 debug 日志）：
+   - 回调函数异常（不影响主流程）
+   - 非核心功能降级（如健康检查子项失败）
+   - 用户输入容错（如时间格式解析失败时忽略筛选条件）
+
+**正确示例**：
+```python
+try:
+    self._on_evict(item, reason)
+except Exception:
+    # 回调异常不影响主流程，记录 debug 日志便于排查
+    logger.debug("Eviction callback raised an exception", exc_info=True)
+```
+
+#### ARC-010：禁止使用全局可变变量存储状态
+
+**问题**：全局可变变量并发不安全、多进程不一致、难以测试和维护。
+
+**规范**：
+1. **禁止**使用 `global` 关键字修改模块级可变状态
+2. **推荐**将状态封装为类，使用 `threading.Lock` 保护并发访问
+3. 状态类应提供统一的读写接口，外部不直接操作内部数据结构
+4. 单例模式应使用线程安全的实现（双重检查锁定）
+5. 跨进程共享状态应使用数据库、Redis 等持久化方案
+
+**正确示例**：
+```python
+class MonitorService:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._metrics = {}
+
+    def update_metric(self, key: str, value: float):
+        with self._lock:
+            self._metrics[key] = value
+
+    def get_metric(self, key: str) -> Optional[float]:
+        with self._lock:
+            return self._metrics.get(key)
+```
+
 ---
 
 ## 4. 测试规范

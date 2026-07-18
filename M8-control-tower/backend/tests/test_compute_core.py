@@ -37,9 +37,6 @@ while current != current.parent:
 if project_root is None:
     # 硬编码备用
     project_root = Path("c:/Yunxi/workspace/yunxi-project/M8-control-tower")
-
-sys.path.insert(0, str(project_root))
-
 # 设置测试用主密钥（避免影响生产环境）
 os.environ.setdefault("COMPUTE_MASTER_KEY", "test-master-key-for-validation-1234567890")
 

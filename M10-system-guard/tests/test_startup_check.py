@@ -13,8 +13,6 @@ import pytest
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
-
 from m10_system_guard.startup_check import (
     StartupChecker, get_startup_checker,
 )

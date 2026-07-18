@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Dict, Any
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class MockChatFlow:
     """模拟完整对话流程"""
 

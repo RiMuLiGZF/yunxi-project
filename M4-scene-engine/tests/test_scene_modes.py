@@ -9,9 +9,6 @@ import os
 import sys
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from src.modes.base_mode import BaseMode
 from src.modes.mode_registry import ModeRegistry
 

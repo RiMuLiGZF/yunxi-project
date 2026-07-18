@@ -20,8 +20,6 @@ from unittest.mock import patch, MagicMock
 # 将 M8-control-tower 目录加入 path（backend 的父目录）
 _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _parent_dir = os.path.dirname(_backend_dir)
-sys.path.insert(0, _parent_dir)
-
 # 设置测试用 JWT 密钥（确保统一 JWTHandler 可用）
 os.environ["JWT_SECRET"] = "test-jwt-secret-key-for-unit-testing-only-1234567890"
 # 设置为测试环境

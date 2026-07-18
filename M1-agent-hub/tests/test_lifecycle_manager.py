@@ -6,9 +6,6 @@ import pytest
 import sys
 import asyncio
 import signal
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from lifecycle_manager import LifecycleManager
 
 

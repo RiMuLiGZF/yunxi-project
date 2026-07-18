@@ -7,9 +7,6 @@
 import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from fastapi.testclient import TestClient
 
 from api.server import create_server

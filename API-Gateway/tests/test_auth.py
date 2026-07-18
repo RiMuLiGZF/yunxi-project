@@ -24,13 +24,9 @@ from unittest.mock import MagicMock, patch, AsyncMock
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
 # 测试用 JWT 密钥
 TEST_JWT_SECRET = "test-secret-key-for-unit-testing-only"
 TEST_JWT_ALGORITHM = "HS256"

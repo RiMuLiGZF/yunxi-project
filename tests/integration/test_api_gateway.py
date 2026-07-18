@@ -12,9 +12,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestAPIGatewayIntegration:
     """API Gateway 转发集成测试"""
 
@@ -58,8 +55,6 @@ class TestAPIGatewayIntegration:
     @pytest.mark.gateway
     def test_gateway_routes_configuration(self):
         """Gateway 路由配置存在"""
-        sys.path.insert(0, str(PROJECT_ROOT / "api-gateway"))
-        sys.path.insert(0, str(PROJECT_ROOT / "api-gateway" / "src"))
         try:
             from config import settings
             # 检查是否有路由配置

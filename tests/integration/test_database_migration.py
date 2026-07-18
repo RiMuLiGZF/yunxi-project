@@ -9,9 +9,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
 class TestDatabaseMigration:
     """数据库迁移集成测试"""
 
@@ -66,7 +63,6 @@ class TestDatabaseMigration:
     def test_m8_user_model_create(self, m8_db_session):
         """M8 用户模型创建"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from models import User
 
             # 创建测试用户
@@ -94,7 +90,6 @@ class TestDatabaseMigration:
     def test_m11_server_model_create(self, m11_db_session):
         """M11 服务器模型创建"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M11-mcp-bus" / "src"))
             from models import McpServer
 
             # 创建测试服务器
@@ -124,7 +119,6 @@ class TestDatabaseMigration:
     def test_database_transaction_rollback(self, m8_db_session):
         """数据库事务回滚"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from models import User
 
             # 开始一个事务，然后回滚
@@ -154,7 +148,6 @@ class TestDatabaseMigration:
     def test_shared_db_module_importable(self):
         """shared 数据库模块可导入"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT))
             from shared.core.config import BaseConfig
             assert BaseConfig is not None
         except (ImportError, Exception) as e:

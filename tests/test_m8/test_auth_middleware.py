@@ -14,10 +14,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower"))
-
-
 class TestAuthAPI:
     """认证接口测试"""
 
@@ -249,7 +245,6 @@ class TestPasswordHashing:
     def test_password_hash_function_exists(self):
         """密码哈希函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import get_password_hash
             assert callable(get_password_hash)
         except (ImportError, Exception) as e:
@@ -261,7 +256,6 @@ class TestPasswordHashing:
     def test_password_verify_function_exists(self):
         """密码验证函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import verify_password
             assert callable(verify_password)
         except (ImportError, Exception) as e:
@@ -273,7 +267,6 @@ class TestPasswordHashing:
     def test_password_hash_not_plaintext(self):
         """密码哈希不等于明文"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import get_password_hash
             password = "test_password_123"
             hashed = get_password_hash(password)
@@ -288,7 +281,6 @@ class TestPasswordHashing:
     def test_password_hash_consistent(self):
         """相同密码哈希不同（有盐）"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import get_password_hash
             password = "same_password"
             hash1 = get_password_hash(password)
@@ -304,7 +296,6 @@ class TestPasswordHashing:
     def test_password_verify_correct(self):
         """正确密码验证通过"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import get_password_hash, verify_password
             password = "correct_password"
             hashed = get_password_hash(password)
@@ -318,7 +309,6 @@ class TestPasswordHashing:
     def test_password_verify_wrong(self):
         """错误密码验证失败"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import get_password_hash, verify_password
             password = "correct_password"
             hashed = get_password_hash(password)
@@ -332,7 +322,6 @@ class TestPasswordHashing:
     def test_access_token_creation(self):
         """访问令牌创建函数存在"""
         try:
-            sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower" / "backend"))
             from auth import create_access_token
             assert callable(create_access_token)
         except (ImportError, Exception) as e:

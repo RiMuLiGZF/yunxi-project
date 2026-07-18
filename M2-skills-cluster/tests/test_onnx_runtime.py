@@ -6,10 +6,6 @@ import os
 import tempfile
 import pytest
 
-# 直接添加 skill_cluster 到 path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "skill_cluster"))
-
-
 class TestONNXRuntimeEngine:
     """ONNX Runtime 引擎测试"""
 

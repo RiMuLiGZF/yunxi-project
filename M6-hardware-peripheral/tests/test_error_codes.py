@@ -1,8 +1,6 @@
 """P1-6: 错误码体系测试覆盖扩展"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 
 from m6_hardware.models.errors import ErrorCode, M6Exception

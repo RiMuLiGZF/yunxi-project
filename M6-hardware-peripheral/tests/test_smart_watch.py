@@ -1,8 +1,6 @@
 """P1-6: 智能手表模拟器测试覆盖扩展"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from unittest.mock import MagicMock, patch
 

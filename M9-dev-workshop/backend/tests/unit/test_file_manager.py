@@ -9,10 +9,6 @@ import sys
 import pytest
 import tempfile
 import shutil
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
-
 from file_manager import FileManager
 
 

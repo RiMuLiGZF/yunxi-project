@@ -6,8 +6,6 @@ import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 MOCK_SKILLS = [
     {"skill_id": "skill_001", "name": "日程管理", "category": "productivity",
      "description": "管理日程安排", "version": "v1.2.0", "status": "active",

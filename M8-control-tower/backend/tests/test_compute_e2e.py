@@ -35,8 +35,6 @@ from unittest.mock import patch, MagicMock
 
 backend_dir = Path(__file__).parent
 project_root = backend_dir.parent.parent
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(backend_dir.parent))
 __package__ = "backend"
 
 # 使用测试数据库（在导入 models 之前设置环境变量）

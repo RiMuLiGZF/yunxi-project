@@ -59,6 +59,110 @@ _jwt_handler: Optional["JWTHandler"] = None
 _token_blacklist: Optional["InMemoryTokenBlacklist"] = None
 _jwt_init_failed = False
 
+# ===========================================================================
+# Refresh Token 存储（SEC-011 新增：内存版，生产环境建议用 Redis/数据库）
+# ===========================================================================
+
+_refresh_tokens: dict[str, dict] = {}  # token_jti -> {sub, exp, created_at, token_hash}
+_refresh_lock = None  # 懒加载 threading.Lock
+
+
+def _get_refresh_lock():
+    """获取 Refresh Token 存储的锁（懒加载）"""
+    global _refresh_lock
+    if _refresh_lock is None:
+        import threading
+        _refresh_lock = threading.Lock()
+    return _refresh_lock
+
+
+def store_refresh_token(token_jti: str, sub: str, exp_timestamp: float, token_hash: str) -> None:
+    """存储 Refresh Token
+
+    Args:
+        token_jti: Token 的 JTI 标识
+        sub: 用户标识（用户名）
+        exp_timestamp: 过期时间戳（Unix 时间）
+        token_hash: Token 的 SHA256 哈希
+    """
+    lock = _get_refresh_lock()
+    with lock:
+        _refresh_tokens[token_jti] = {
+            "sub": sub,
+            "exp": exp_timestamp,
+            "created_at": datetime.now(tz=timezone.utc).timestamp(),
+            "token_hash": token_hash,
+            "revoked": False,
+        }
+
+
+def get_refresh_token_info(token_jti: str) -> Optional[dict]:
+    """获取 Refresh Token 信息
+
+    Args:
+        token_jti: Token 的 JTI 标识
+
+    Returns:
+        Token 信息字典，不存在或已过期返回 None
+    """
+    lock = _get_refresh_lock()
+    with lock:
+        info = _refresh_tokens.get(token_jti)
+        if info is None:
+            return None
+        # 检查是否已过期
+        if info["exp"] < datetime.now(tz=timezone.utc).timestamp():
+            del _refresh_tokens[token_jti]
+            return None
+        return info.copy()
+
+
+def revoke_refresh_token(token_jti: str) -> bool:
+    """吊销 Refresh Token
+
+    Args:
+        token_jti: Token 的 JTI 标识
+
+    Returns:
+        True 表示成功吊销
+    """
+    lock = _get_refresh_lock()
+    with lock:
+        if token_jti in _refresh_tokens:
+            _refresh_tokens[token_jti]["revoked"] = True
+            return True
+        return False
+
+
+def is_refresh_token_revoked(token_jti: str) -> bool:
+    """检查 Refresh Token 是否已被吊销
+
+    Args:
+        token_jti: Token 的 JTI 标识
+
+    Returns:
+        True 表示已吊销
+    """
+    info = get_refresh_token_info(token_jti)
+    if info is None:
+        return True  # 不存在视为已吊销/无效
+    return info.get("revoked", False)
+
+
+def clean_expired_refresh_tokens() -> int:
+    """清理已过期的 Refresh Token
+
+    Returns:
+        清理的记录数量
+    """
+    lock = _get_refresh_lock()
+    now = datetime.now(tz=timezone.utc).timestamp()
+    with lock:
+        expired = [jti for jti, info in _refresh_tokens.items() if info["exp"] < now]
+        for jti in expired:
+            del _refresh_tokens[jti]
+        return len(expired)
+
 
 def _get_jwt_handler() -> Optional["JWTHandler"]:
     """获取或初始化统一 JWTHandler（懒加载）
@@ -288,6 +392,117 @@ def create_access_token(
         )
 
     raise RuntimeError("JWT 功能不可用，请安装 python-jose")
+
+
+def create_refresh_token(
+    data: dict, expires_delta: Optional[timedelta] = None
+) -> str:
+    """创建刷新令牌（Refresh Token）
+
+    Refresh Token 用于换取新的 Access Token，有效期更长（默认 7 天）。
+    创建后会自动存储到 Refresh Token 存储中，支持吊销。
+
+    Args:
+        data: 要编码到 Token 中的数据（通常只包含 sub）
+        expires_delta: 过期时间增量，不传则使用默认配置
+
+    Returns:
+        JWT Refresh Token 字符串
+    """
+    handler = _get_jwt_handler()
+    if handler is not None:
+        token = handler.create_refresh_token(data, expires_delta)
+        # 存储 Refresh Token
+        try:
+            payload = handler.decode_token(token, token_type="refresh")
+            if payload:
+                jti = payload.get("jti", "")
+                sub = payload.get("sub", "")
+                exp = payload.get("exp", 0)
+                token_hash = handler.hash_token(token)
+                store_refresh_token(jti, sub, exp, token_hash)
+        except Exception:
+            pass  # 存储失败不影响 Token 签发
+        return token
+
+    # 回退方案：直接使用 jose
+    if not _HAS_UNIFIED_JWT and _jose_jwt is not None:
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.now(tz=timezone.utc) + expires_delta
+        else:
+            expire = datetime.now(tz=timezone.utc) + timedelta(
+                days=getattr(settings, "refresh_token_expire_days", 7)
+            )
+        to_encode.update({"exp": expire, "type": "refresh"})
+        token = _jose_jwt.encode(
+            to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        )
+        return token
+
+    raise RuntimeError("JWT 功能不可用，请安装 python-jose")
+
+
+def refresh_access_token(refresh_token_str: str) -> Optional[dict]:
+    """使用 Refresh Token 刷新 Access Token
+
+    验证 Refresh Token 有效性，检查是否被吊销，然后生成新的 Token 对。
+
+    Args:
+        refresh_token_str: Refresh Token 字符串
+
+    Returns:
+        包含新 access_token 和 refresh_token 的字典，失败返回 None
+    """
+    handler = _get_jwt_handler()
+    if handler is None:
+        return None
+
+    try:
+        # 验证 Refresh Token
+        payload = handler.decode_token(refresh_token_str, token_type="refresh")
+        if payload is None:
+            return None
+
+        jti = payload.get("jti", "")
+        sub = payload.get("sub", "")
+
+        # 检查是否被吊销
+        if is_refresh_token_revoked(jti):
+            return None
+
+        # 生成新的 Token 对
+        token_data = {"sub": sub}
+        # 如果原 Token 中包含 role，也保留（从存储或 payload 中获取）
+        role = payload.get("role", "viewer")
+        if role != "viewer":
+            token_data["role"] = role
+
+        new_access = handler.create_access_token(token_data)
+        new_refresh = handler.create_refresh_token({"sub": sub})
+
+        # 吊销旧的 Refresh Token（滚动刷新策略）
+        revoke_refresh_token(jti)
+
+        # 存储新的 Refresh Token
+        try:
+            new_payload = handler.decode_token(new_refresh, token_type="refresh")
+            if new_payload:
+                new_jti = new_payload.get("jti", "")
+                new_exp = new_payload.get("exp", 0)
+                new_hash = handler.hash_token(new_refresh)
+                store_refresh_token(new_jti, sub, new_exp, new_hash)
+        except Exception:
+            pass
+
+        return {
+            "access_token": new_access,
+            "refresh_token": new_refresh,
+            "token_type": "bearer",
+            "expires_in": handler.config.access_token_expire_minutes * 60,
+        }
+    except Exception:
+        return None
 
 
 def _decode_token_legacy(token: str) -> Optional[dict]:

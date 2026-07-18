@@ -1,8 +1,5 @@
 """自适应路由优化器单元测试"""
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-sys.path.insert(0, "/workspace")
-
 import pytest
 
 from agent_cluster.core.adaptive_router import AdaptiveRouter

@@ -9,8 +9,6 @@ import sys
 import pytest
 import logging
 from unittest.mock import patch, MagicMock
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # shared 使用相对导入，需确保作为包导入
 import importlib.util
 spec = importlib.util.spec_from_file_location(

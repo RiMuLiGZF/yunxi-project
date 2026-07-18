@@ -91,6 +91,102 @@ def is_sensitive_field(field_name: str) -> bool:
 
 
 # ============================================================
+# CORS 配置验证工具（SEC-009）
+# ============================================================
+
+# 开发环境默认允许的本地来源
+DEFAULT_DEV_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8000",
+]
+
+
+def parse_cors_origins(cors_str: str) -> List[str]:
+    """解析 CORS 来源字符串为列表
+
+    Args:
+        cors_str: 逗号分隔的 CORS 来源字符串
+
+    Returns:
+        去除空白后的来源列表
+    """
+    if not cors_str or not isinstance(cors_str, str):
+        return []
+    return [o.strip() for o in cors_str.split(",") if o.strip()]
+
+
+def validate_cors_config(
+    cors_origins: str,
+    env: EnvType,
+    allow_credentials: bool = True,
+) -> tuple[bool, str, List[str]]:
+    """
+    验证 CORS 配置的安全性（SEC-009 P2级安全修复）。
+
+    验证规则：
+    - 生产/预发布环境：禁止 "*"，必须显式配置域名列表
+    - 开发环境：允许 "*" 但给出警告，推荐使用具体地址
+    - 任何环境：allow_credentials=True 时绝对禁止 "*"
+
+    Args:
+        cors_origins: CORS 来源字符串（逗号分隔）
+        env: 运行环境类型
+        allow_credentials: 是否允许携带凭证
+
+    Returns:
+        (is_valid, message, issues): 是否通过、说明信息、问题列表
+        is_valid=False 表示严重错误（应阻止启动）
+        is_valid=True 但 issues 非空表示有警告
+    """
+    origins = parse_cors_origins(cors_origins)
+    has_wildcard = "*" in origins
+    issues: List[str] = []
+    is_valid = True
+
+    # allow_credentials + "*" 组合是绝对禁止的（浏览器规范也不允许）
+    if allow_credentials and has_wildcard:
+        issues.append(
+            "CORS 配置存在严重风险：allow_credentials=True 与 origins=['*'] 同时存在。"
+            "这会导致 CSRF 漏洞，且浏览器规范不允许这种组合。"
+        )
+        is_valid = False
+
+    # 生产/预发布环境：严格校验
+    if env in (EnvType.PRODUCTION, EnvType.STAGING):
+        env_label = "生产环境" if env == EnvType.PRODUCTION else "预发布环境"
+
+        if has_wildcard:
+            issues.append(
+                f"{env_label}禁止使用通配符 '*'，必须显式配置具体的允许来源域名。"
+            )
+            is_valid = False
+
+        if not origins:
+            issues.append(
+                f"{env_label}CORS 配置为空，必须显式配置具体的允许来源域名。"
+            )
+            is_valid = False
+
+        message = f"{env_label}CORS 配置校验{'通过' if is_valid else '失败'}"
+    else:
+        # 开发/测试环境
+        if has_wildcard:
+            issues.append(
+                "开发环境 CORS 配置包含通配符 '*'，存在安全风险。"
+                "建议配置为具体的本地开发地址（如 http://localhost:3000）。"
+            )
+        message = "开发环境 CORS 配置校验完成（警告不阻止启动）"
+
+    return is_valid, message, issues
+
+
+# ============================================================
 # 密钥安全工具函数
 # ============================================================
 
@@ -271,8 +367,11 @@ class BaseConfig(BaseSettings):
     host: str = Field(default="0.0.0.0", description="服务监听地址")
     # 监听端口
     port: int = Field(default=8000, ge=1, le=65535, description="服务监听端口")
-    # CORS 来源
-    cors_origins: str = Field(default="*", description="CORS 允许的来源（逗号分隔）")
+    # CORS 来源（开发环境默认 localhost 常见端口，生产环境必须显式配置）
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:8000",
+        description="CORS 允许的来源（逗号分隔），生产环境必须显式配置具体域名",
+    )
     # 管理员令牌
     admin_token: str = Field(default="", description="管理员令牌（敏感字段）")
 
@@ -464,14 +563,19 @@ class BaseConfig(BaseSettings):
     @model_validator(mode="after")
     def _validate_cors_security(self) -> "BaseConfig":
         """
-        CORS 安全校验（SC-002 P0级）。
+        CORS 安全校验（SEC-009 P2级 + SC-002 P0级）。
 
         生产环境规则：
         - cors_origins 不能包含 "*"
         - 如果有 allow_credentials 相关字段且为 True，origins 绝对不能为 "*"
+        - 必须显式配置具体域名，禁止为空
 
-        开发环境规则：
+        开发/测试环境规则：
         - 如果 cors_origins 为 "*"，输出警告
+        - 默认允许 localhost 和 127.0.0.1 的常见端口
+
+        Staging 环境规则：
+        - 同生产环境严格校验
         """
         # 检查是否有 cors_origins 字段
         if "cors_origins" not in self.model_fields:
@@ -490,42 +594,59 @@ class BaseConfig(BaseSettings):
             # 默认假设为 True（FastAPI 常见配置）
             allow_creds = True
 
-        if self.env == EnvType.PRODUCTION:
-            # 生产环境：绝对不允许 "*"
+        # 生产环境和 Staging 环境：严格校验
+        if self.env in (EnvType.PRODUCTION, EnvType.STAGING):
+            env_label = "生产环境" if self.env == EnvType.PRODUCTION else "预发布环境"
+            # 绝对不允许 "*"
             if has_wildcard:
                 raise ValueError(
-                    "[SC-002 P0] 生产环境 CORS 安全校验失败：cors_origins 包含通配符 '*'。\n"
-                    "生产环境必须显式配置具体的允许来源域名，禁止使用 '*'。\n"
+                    f"[SEC-009 P2] {env_label} CORS 安全校验失败：cors_origins 包含通配符 '*'。\n"
+                    f"{env_label}必须显式配置具体的允许来源域名，禁止使用 '*'。\n"
                     "请修改 CORS_ORIGINS 配置为具体域名列表（逗号分隔）。"
                 )
             # allow_credentials + "*" 组合是绝对禁止的
             if allow_creds and has_wildcard:
                 raise ValueError(
-                    "[SC-002 P0] 生产环境 CORS 严重安全风险：allow_credentials=True "
+                    f"[SEC-009 P2] {env_label} CORS 严重安全风险：allow_credentials=True "
                     "与 origins=['*'] 同时存在。\n"
                     "这会导致 CSRF 漏洞，且浏览器规范不允许这种组合。\n"
                     "请将 origins 配置为具体的域名列表。"
                 )
             if not origins:
                 raise ValueError(
-                    "[SC-002 P0] 生产环境 CORS 安全校验失败：cors_origins 为空。\n"
-                    "生产环境必须显式配置具体的允许来源域名。"
+                    f"[SEC-009 P2] {env_label} CORS 安全校验失败：cors_origins 为空。\n"
+                    f"{env_label}必须显式配置具体的允许来源域名。"
                 )
+
+        # 开发环境：如果是 "*" 则警告
+        if self.env == EnvType.DEVELOPMENT and has_wildcard:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "[SEC-009 P2] 开发环境 CORS 配置包含通配符 '*'，存在安全风险。\n"
+                "       建议配置为具体的本地开发地址（如 http://localhost:3000）。"
+            )
 
         return self
 
     @model_validator(mode="after")
     def _validate_waf_security(self) -> "BaseConfig":
         """
-        WAF 安全校验（SC-003 P1级）。
+        WAF 安全校验（SEC-010 P2级 + SC-003 P1级）。
 
         生产环境规则：
         - WAF 必须启用（waf_enabled=True）
         - WAF 模式必须为 block（waf_mode="block"）
+        - WAF 不能为 disabled 模式
         - 如果为 monitor 模式，输出严重警告
+
+        预发布环境规则：
+        - WAF 必须启用
+        - 建议使用 block 模式（monitor 模式给出警告）
 
         开发环境规则：
         - 允许 monitor 模式，但输出提示
+        - 允许 disabled（完全关闭时警告）
         """
         # 检查是否有 waf 相关字段
         has_waf_enabled = "waf_enabled" in self.model_fields
@@ -535,20 +656,45 @@ class BaseConfig(BaseSettings):
             return self
 
         waf_enabled = getattr(self, "waf_enabled", True) if has_waf_enabled else True
-        waf_mode = getattr(self, "waf_mode", "monitor") if has_waf_mode else "monitor"
+        waf_mode = (getattr(self, "waf_mode", "") if has_waf_mode else "").lower()
+
+        # 如果没有显式配置模式，根据环境推断默认值
+        if not waf_mode:
+            if self.env in (EnvType.PRODUCTION, EnvType.STAGING):
+                waf_mode = "block"
+            else:
+                waf_mode = "monitor"
+
+        # disabled 模式下自动视为未启用
+        if waf_mode == "disabled":
+            waf_enabled = False
 
         if self.env == EnvType.PRODUCTION:
             if not waf_enabled:
                 raise ValueError(
-                    "[SC-003 P1] 生产环境安全校验失败：WAF 未启用（waf_enabled=False）。\n"
+                    "[SEC-010 P2] 生产环境安全校验失败：WAF 已禁用（waf_mode=disabled 或 waf_enabled=False）。\n"
                     "生产环境必须启用 WAF 以提供 Web 应用防火墙防护。\n"
-                    "请设置 WAF_ENABLED=true。"
+                    "请设置 WAF_MODE=block 或 WAF_ENABLED=true。"
                 )
-            if waf_mode and waf_mode.lower() != "block":
+            if waf_mode != "block":
                 raise ValueError(
-                    f"[SC-003 P1] 生产环境安全校验失败：WAF 模式为 '{waf_mode}'。\n"
+                    f"[SEC-010 P2] 生产环境安全校验失败：WAF 模式为 '{waf_mode}'。\n"
                     "生产环境 WAF 必须设为 block 模式才能真正拦截攻击。\n"
                     "请设置 WAF_MODE=block。"
+                )
+        elif self.env == EnvType.STAGING:
+            if not waf_enabled:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "[SEC-010 P2] 预发布环境 WAF 已禁用，建议启用以接近生产环境行为。"
+                )
+            elif waf_mode != "block":
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "[SEC-010 P2] 预发布环境 WAF 模式为 '%s'，建议使用 block 模式。",
+                    waf_mode,
                 )
 
         return self
@@ -1081,7 +1227,14 @@ class GlobalSecurityConfig(BaseModel):
     """
     jwt_secret: str = Field(default="", description="JWT 签名密钥（HS256 使用，RS256 可留空，生产环境必须配置且长度 >= 32）")
     jwt_algorithm: str = Field(default="RS256", description="JWT 签名算法：HS256 / RS256 / RS384 / RS512")
-    access_token_expire_minutes: int = Field(default=1440, description="访问令牌有效期（分钟）")
+    access_token_expire_minutes: int = Field(
+        default=120,
+        description="访问令牌有效期（分钟），生产环境默认 2 小时，开发环境可延长",
+    )
+    refresh_token_expire_days: int = Field(
+        default=7,
+        description="刷新令牌有效期（天），默认 7 天",
+    )
     # RS256 密钥配置
     jwt_private_key_path: str = Field(default="config/keys/jwt_private.pem", description="JWT RSA 私钥文件路径")
     jwt_public_key_path: str = Field(default="config/keys/jwt_public.pem", description="JWT RSA 公钥文件路径")
@@ -1089,7 +1242,10 @@ class GlobalSecurityConfig(BaseModel):
     jwt_auto_generate_keys: bool = Field(default=True, description="首次启动是否自动生成 RSA 密钥对")
     jwt_key_rotation_days: int = Field(default=0, description="密钥轮换周期（天），0 表示不自动轮换")
     jwt_old_key_retention_days: int = Field(default=30, description="旧密钥保留天数（用于验证未过期 Token）")
-    cors_origins: str = Field(default="*", description="全局 CORS 来源")
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:8000",
+        description="全局 CORS 来源（开发环境默认 localhost 常见端口，生产环境必须显式配置）",
+    )
     # WAF 配置（全局默认值，各模块可覆盖）
     waf_enabled: bool = Field(default=True, description="是否启用 WAF")
     waf_mode: str = Field(default="block", description="WAF 工作模式：monitor/block")

@@ -5,9 +5,6 @@
 import pytest
 import sys
 import asyncio
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from streaming_engine import StreamingEngine, StreamChunk, StreamChunkType
 from llm_provider import LLMStreamChunk
 

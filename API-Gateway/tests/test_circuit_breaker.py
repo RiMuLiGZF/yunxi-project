@@ -24,13 +24,9 @@ from unittest.mock import patch, MagicMock
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 # 将 API-Gateway 目录加入 path
 _gateway_root = Path(__file__).resolve().parent.parent
 if str(_gateway_root) not in sys.path:
-    sys.path.insert(0, str(_gateway_root))
-
 # 使用自定义模块名进行测试，避免与路由配置中的模块混淆
 TEST_MOD = "test_module"
 TEST_MOD_2 = "test_module_2"

@@ -24,9 +24,10 @@ bandit>=1.7.0,<2.0.0        # Python 安全扫描（检测常见安全漏洞）
 radon>=6.0.0,<7.0.0         # 代码复杂度和可维护性分析
 
 # --- HTTP 测试 ---
-httpx>=0.27.0,<1.0.0        # 异步 HTTP 客户端（FastAPI 测试）
-fastapi>=0.110.0,<1.0.0     # Web 框架（测试依赖）
-uvicorn>=0.27.0,<1.0.0      # ASGI 服务器
+httpx~=0.27.0        # 异步 HTTP 客户端（FastAPI 测试）
+# SEC-013: 关键安全依赖使用 ~= 格式
+fastapi~=0.115.0     # Web 框架（测试依赖）
+uvicorn~=0.30.0      # ASGI 服务器
 
 # --- 其他 ---
 # 注意：项目主要依赖请参见各模块的 requirements.txt

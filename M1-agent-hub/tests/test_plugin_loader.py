@@ -6,9 +6,6 @@ import pytest
 import sys
 import asyncio
 from pathlib import Path
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from plugin_loader import PluginLoader, PluginLoadError
 from agent_registry import AgentRegistry
 from interfaces import AgentTask, AgentResult, IAgentPlugin

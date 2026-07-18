@@ -9,8 +9,6 @@ import os
 import unittest
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 from backend.services.masking import (
     mask_api_key,
     mask_password,

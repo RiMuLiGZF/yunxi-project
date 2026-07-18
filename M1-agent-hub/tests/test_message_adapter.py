@@ -4,9 +4,6 @@
 
 import sys
 import pytest
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from interfaces import BusMessage
 from a2a_protocol import (
     Task, TaskStatus, MemoryTransport, TaskUpdate,

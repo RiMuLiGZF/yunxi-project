@@ -1,9 +1,6 @@
 """P2-7: 场景 API 集成测试"""
 import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from fastapi.testclient import TestClient
 from main import app
 import pytest

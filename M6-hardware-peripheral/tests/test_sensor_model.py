@@ -1,8 +1,6 @@
 """P2-11: 传感器数据模型测试"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from m6_hardware.models.sensor_data import SensorData, SensorReading
 

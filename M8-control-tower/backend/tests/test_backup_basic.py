@@ -10,10 +10,6 @@ from pathlib import Path
 # 将 yunxi-project 目录加入 path（M8-control-tower 的父目录）
 m8_dir = Path(__file__).parent.parent  # backend
 project_root = m8_dir.parent.parent  # yunxi-project
-
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(m8_dir.parent))  # M8-control-tower
-
 # 修改目录名：M8-control-tower 含连字符，不能直接作为包名
 # 但我们可以直接从 backend 目录导入，将 backend 作为顶级包
 # 为了解决相对导入问题，我们把 backend 目录的父目录加入路径

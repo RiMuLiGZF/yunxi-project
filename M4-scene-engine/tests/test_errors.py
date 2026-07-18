@@ -1,7 +1,6 @@
 """P2-7: 统一错误码测试"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from errors import ErrorCode, M4Error, error_response, get_error_message, ERROR_MESSAGES
 
 

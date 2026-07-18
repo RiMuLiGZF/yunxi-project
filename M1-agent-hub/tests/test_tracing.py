@@ -1,8 +1,5 @@
 """Tracing 链路追踪系统单元测试"""
 import sys
-sys.path.insert(0, "/workspace/agent_cluster")
-sys.path.insert(0, "/workspace")
-
 import pytest
 import time
 

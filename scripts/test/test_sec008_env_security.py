@@ -20,8 +20,6 @@ from pathlib import Path
 
 # 将项目根目录加入 path
 _project_root = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_project_root))
-
 # 直接加载 test_env_security_check 模块
 _check_script_path = _project_root / "scripts" / "test" / "test_env_security_check.py"
 _spec = importlib.util.spec_from_file_location("test_env_security_check", _check_script_path)

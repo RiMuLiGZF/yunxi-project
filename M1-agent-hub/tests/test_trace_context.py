@@ -10,8 +10,6 @@ import uuid
 import time
 
 # 将项目根目录加入路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from trace_context import (
     get_trace_id,
     set_trace_id,

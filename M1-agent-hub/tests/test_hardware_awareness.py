@@ -8,9 +8,6 @@ import pytest
 import sys
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
-
-sys.path.insert(0, "/workspace/agent_cluster")
-
 from task_dispatcher import TaskDispatcher
 from agent_registry import AgentRegistry
 from interfaces import AgentTask, HardwareStatus

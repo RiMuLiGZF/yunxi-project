@@ -7,10 +7,6 @@ M9 单元测试 - 代码质量工具测试
 import os
 import sys
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
-
 from code_quality import CodeQualityManager
 
 

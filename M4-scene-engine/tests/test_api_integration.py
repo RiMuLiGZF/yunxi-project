@@ -19,9 +19,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 # 使用默认数据库路径，避免临时文件导致的 "file is not a database" 错误
 os.environ["M4_LOG_LEVEL"] = "error"
 

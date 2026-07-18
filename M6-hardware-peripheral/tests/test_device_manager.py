@@ -1,8 +1,6 @@
 """P2-11: 设备管理器测试"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from m6_hardware.services.device_manager import DeviceManager, get_device_manager
 from m6_hardware.models.device import DeviceStatus, DeviceType

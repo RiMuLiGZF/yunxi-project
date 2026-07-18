@@ -13,8 +13,6 @@ import pytest
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
-
 from m10_system_guard.process_manager import ProcessManager, get_process_manager
 from tests.fixtures.mock_processes import MockProcessGenerator
 from m10_system_guard.models import ProcessSnapshot, ProcessTreeNode

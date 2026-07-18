@@ -9,10 +9,6 @@ import sys
 import pytest
 import tempfile
 import time
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
-
 from run_history import RunHistoryManager, RunConfiguration
 
 

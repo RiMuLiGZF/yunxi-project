@@ -15,10 +15,6 @@ from pathlib import Path
 from unittest.mock import patch, AsyncMock, MagicMock
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "M8-control-tower"))
-
-
 class TestModuleManagement:
     """模块管理接口测试"""
 

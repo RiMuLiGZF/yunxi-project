@@ -22,8 +22,6 @@ import pytest
 # 确保项目根目录在 Python 路径中
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 from tests.performance.benchmark import (
     BenchmarkTimer,
     BenchmarkStats,
@@ -48,7 +46,6 @@ except ImportError:
 
 # 尝试导入各模块的 API
 try:
-    sys.path.insert(0, str(PROJECT_ROOT / "M0-principal-console"))
     from src.main import app as m0_app
     HAS_M0_APP = True
 except (ImportError, Exception):
@@ -56,7 +53,6 @@ except (ImportError, Exception):
     m0_app = None
 
 try:
-    sys.path.insert(0, str(PROJECT_ROOT / "API-Gateway" / "src"))
     from main import app as gateway_app
     HAS_GATEWAY_APP = True
 except (ImportError, Exception):

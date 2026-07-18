@@ -26,8 +26,6 @@ from pathlib import Path
 _project_root = Path(__file__).resolve().parent.parent
 _shared_path = _project_root / "shared"
 if str(_shared_path) not in sys.path:
-    sys.path.insert(0, str(_shared_path))
-
 from core.ha import (  # noqa: E402
     HealthCheckerPro,
     HealthCheckType,

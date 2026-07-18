@@ -17,8 +17,6 @@ from pathlib import Path
 
 # 确保项目根目录在 path 中
 project_root = Path(__file__).parent.parent.parent.resolve()
-sys.path.insert(0, str(project_root))
-
 # 使用独立的测试数据库，避免与开发数据库冲突
 test_db_path = Path(__file__).parent / "data" / "test_m8.db"
 test_db_path.parent.mkdir(parents=True, exist_ok=True)

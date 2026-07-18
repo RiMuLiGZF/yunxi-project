@@ -8,8 +8,6 @@ from typing import Dict, List, Any
 from datetime import datetime, timedelta
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 class MockHealthMgr:
     NORMAL = {"heart_rate": (60, 100), "spo2": (95, 100),
               "temperature": (36.0, 37.5), "steps": (0, 50000)}

@@ -11,8 +11,6 @@ from unittest.mock import patch
 
 # 确保项目根目录在 Python 路径中，使 src 作为包导入
 # 这样源码中的相对导入（from ..config import ...）才能正确解析
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 from src.config import Settings, get_settings, reload_settings
 
 

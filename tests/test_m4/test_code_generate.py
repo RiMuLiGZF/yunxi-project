@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 class MockCodeGen:
     LANGS = ["python", "javascript", "java", "go", "rust", "typescript"]
     TEMPLATES = {
