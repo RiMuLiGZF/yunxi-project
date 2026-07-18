@@ -17,6 +17,10 @@ from typing import Any, Dict, Optional, Tuple
 import httpx
 
 from ..config import get_settings
+from ..security.sandbox import (
+    SandboxConfig,
+    SandboxManager,
+)
 from .audit import audit_logger
 from .cache import mcp_cache
 from .monitor import mcp_monitor
@@ -361,6 +365,81 @@ class McpRouter:
         self._default_timeout = timeout
         self._settings = get_settings()
         self._circuit_breakers = CircuitBreakerManager()
+        # 初始化沙箱管理器
+        self._init_sandbox()
+
+    def _init_sandbox(self) -> None:
+        """初始化沙箱管理器.
+
+        从配置中读取沙箱配置，创建 SandboxManager 单例。
+        沙箱为增量功能，默认 Level 1（基础隔离），可通过配置关闭。
+        """
+        try:
+            settings = self._settings
+            sandbox_config = SandboxConfig(
+                level=getattr(settings, "sandbox_level", 1),
+                timeout=getattr(settings, "sandbox_timeout", 30),
+                max_output_size=getattr(settings, "sandbox_max_output_size", 1048576),
+                max_string_length=getattr(settings, "sandbox_max_string_length", 10000),
+                max_list_length=getattr(settings, "sandbox_max_list_length", 1000),
+                max_dict_keys=getattr(settings, "sandbox_max_dict_keys", 1000),
+                max_nesting_depth=getattr(settings, "sandbox_max_nesting_depth", 10),
+                rate_limit_per_tool=getattr(settings, "rate_limit_per_tool", 100),
+                rate_limit_per_key=getattr(settings, "rate_limit_per_key", 1000),
+                max_concurrent_executions=getattr(settings, "max_concurrent_executions", 10),
+                working_directory=getattr(settings, "sandbox_working_directory", ""),
+                security_headers_enabled=getattr(settings, "security_headers_enabled", True),
+            )
+            # 获取或创建全局沙箱管理器
+            self._sandbox_manager = SandboxManager.get_instance(sandbox_config)
+            # 如果已存在实例，更新配置
+            if self._sandbox_manager.config.level != sandbox_config.level:
+                self._sandbox_manager.update_config(sandbox_config)
+            logger.info(
+                "[McpRouter] 沙箱初始化完成, level=%s",
+                sandbox_config.level,
+            )
+        except Exception as e:
+            logger.warning("[McpRouter] 沙箱初始化失败，将降级为无限制模式: %s", e)
+            self._sandbox_manager = None
+
+    def _check_sandbox(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        consumer: str = "",
+    ) -> Dict[str, Any]:
+        """沙箱安全检查.
+
+        检查工具调用参数是否符合沙箱安全策略。
+        沙箱未初始化或 Level 0 时直接放行。
+
+        Args:
+            tool_name: 工具名称
+            arguments: 调用参数
+            consumer: 调用方标识
+
+        Returns:
+            {"allowed": bool, "reason": str, "blocked_by": str}
+        """
+        if self._sandbox_manager is None:
+            return {"allowed": True, "reason": "", "blocked_by": ""}
+
+        try:
+            executor = self._sandbox_manager.get_executor()
+            result = executor.validate_only(
+                tool_name=tool_name,
+                arguments=arguments,
+                api_key_id=None,  # 工具级别的限流在沙箱内处理
+            )
+            return {
+                "allowed": result.allowed,
+                "reason": result.reason,
+                "blocked_by": result.blocked_by,
+            }
+        except Exception as e:
+            logger.warning("[McpRouter] 沙箱检查异常，放行请求: %s", e)
+            return {"allowed": True, "reason": f"sandbox_error:{e}", "blocked_by": ""}
 
     # --------------------------------------------------------
     # 同步调用
@@ -518,6 +597,54 @@ class McpRouter:
 
         # 5. 提取原始工具名（去除服务器前缀）
         raw_tool_name = self._extract_raw_tool_name(tool_name, server.name)
+
+        # 5.1 沙箱安全检查（Level 1+）
+        sandbox_result = self._check_sandbox(
+            tool_name=tool_name,
+            arguments=arguments,
+            consumer=consumer,
+        )
+        if not sandbox_result["allowed"]:
+            duration_ms = int((time.time() - start_time) * 1000)
+            error_msg = sandbox_result.get("reason", "沙箱安全检查未通过")
+            call_id = mcp_monitor.record_call(
+                tool_name=tool_name,
+                status="blocked",
+                duration_ms=duration_ms,
+                error=error_msg,
+                server_id=server.id,
+                consumer=consumer,
+            )
+            # 审计日志：沙箱拦截
+            audit_logger.log_event(
+                event_type="security.alert",
+                actor=consumer or "api",
+                action="blocked",
+                resource=f"tool:{tool_name}",
+                metadata={
+                    "tool_name": tool_name,
+                    "status": "blocked",
+                    "duration_ms": duration_ms,
+                    "server_id": server.id,
+                    "server_name": server.name,
+                    "blocked_by": sandbox_result.get("blocked_by", ""),
+                    "consumer": consumer,
+                    "reason": error_msg[:500],
+                },
+                description=f"沙箱拦截: {tool_name} - {error_msg[:100]}",
+            )
+            return {
+                "success": False,
+                "result": None,
+                "error": error_msg,
+                "duration_ms": duration_ms,
+                "tool_name": tool_name,
+                "call_id": call_id,
+                "from_cache": False,
+                "retried": 0,
+                "circuit_breaker": breaker.state,
+                "sandbox_blocked": True,
+            }
 
         # 6. 发送 MCP 请求（带重试）
         max_attempts = self._settings.retry_max_attempts + 1  # 首次 + 重试次数

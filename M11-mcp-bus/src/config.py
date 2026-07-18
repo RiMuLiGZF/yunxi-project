@@ -133,6 +133,55 @@ if _USE_UNIFIED_CONFIG_M11:
             default=5, ge=1, description="Redis 操作超时时间（秒）"
         )
 
+        # ---------- 沙箱安全配置 ----------
+        sandbox_level: int = Field(
+            default=1, ge=0, le=3,
+            description="沙箱安全级别：0=无限制, 1=基础隔离(默认), 2=严格隔离, 3=最大安全(Docker)"
+        )
+        sandbox_timeout: int = Field(
+            default=30, ge=1, le=3600,
+            description="沙箱执行超时时间（秒）"
+        )
+        sandbox_max_output_size: int = Field(
+            default=1048576, ge=1024,
+            description="沙箱最大输出大小（字节，默认 1MB）"
+        )
+        sandbox_max_string_length: int = Field(
+            default=10000, ge=1,
+            description="沙箱参数字符串最大长度"
+        )
+        sandbox_max_list_length: int = Field(
+            default=1000, ge=1,
+            description="沙箱参数列表最大长度"
+        )
+        sandbox_max_dict_keys: int = Field(
+            default=1000, ge=1,
+            description="沙箱参数字典最大键数"
+        )
+        sandbox_max_nesting_depth: int = Field(
+            default=10, ge=1, le=100,
+            description="沙箱参数最大嵌套深度"
+        )
+        rate_limit_per_tool: int = Field(
+            default=100, ge=0,
+            description="每工具每分钟调用限制（0 表示不限制）"
+        )
+        rate_limit_per_key: int = Field(
+            default=1000, ge=0,
+            description="每 API Key 每分钟调用限制（0 表示不限制）"
+        )
+        max_concurrent_executions: int = Field(
+            default=10, ge=0,
+            description="最大并发执行数（0 表示不限制）"
+        )
+        security_headers_enabled: bool = Field(
+            default=True, description="是否启用安全响应头（CSP, X-Frame-Options 等）"
+        )
+        sandbox_working_directory: str = Field(
+            default="",
+            description="沙箱工作目录（仅 Level 2+ 生效，空表示不限制）"
+        )
+
         # ---------- stdio 传输配置 ----------
         stdio_enabled: bool = Field(
             default=True, description="是否启用 stdio 传输支持"
@@ -318,6 +367,20 @@ class Settings:
         self.redis_url = kwargs.get("redis_url", "")
         self.redis_prefix = kwargs.get("redis_prefix", "m11:")
         self.redis_timeout = int(kwargs.get("redis_timeout", 5))
+
+        # 沙箱安全配置
+        self.sandbox_level = int(kwargs.get("sandbox_level", 1))
+        self.sandbox_timeout = int(kwargs.get("sandbox_timeout", 30))
+        self.sandbox_max_output_size = int(kwargs.get("sandbox_max_output_size", 1048576))
+        self.sandbox_max_string_length = int(kwargs.get("sandbox_max_string_length", 10000))
+        self.sandbox_max_list_length = int(kwargs.get("sandbox_max_list_length", 1000))
+        self.sandbox_max_dict_keys = int(kwargs.get("sandbox_max_dict_keys", 1000))
+        self.sandbox_max_nesting_depth = int(kwargs.get("sandbox_max_nesting_depth", 10))
+        self.rate_limit_per_tool = int(kwargs.get("rate_limit_per_tool", 100))
+        self.rate_limit_per_key = int(kwargs.get("rate_limit_per_key", 1000))
+        self.max_concurrent_executions = int(kwargs.get("max_concurrent_executions", 10))
+        self.security_headers_enabled = kwargs.get("security_headers_enabled", True)
+        self.sandbox_working_directory = kwargs.get("sandbox_working_directory", "")
 
         # stdio
         self.stdio_enabled = kwargs.get("stdio_enabled", True)
