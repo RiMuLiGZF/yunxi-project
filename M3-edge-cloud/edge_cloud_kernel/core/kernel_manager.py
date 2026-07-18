@@ -3,7 +3,7 @@
 封装所有 M3 核心组件的初始化逻辑，支持 mock 模式降级。
 每个组件独立 try/except，确保服务能够正常启动。
 
-8 大组件：
+核心组件：
     1. ConfigManager       - 配置管理器
     2. DeviceRegistry      - 设备注册表
     3. ConflictResolver    - 冲突解决器
@@ -12,6 +12,15 @@
     6. ContextSyncController - 上下文同步控制器
     7. HealthMetricsService  - 健康指标服务
     8. M8APIService        - M8 API 服务
+
+端云协同增强组件（大二轮 P2 增量）：
+    9. SyncEngine          - 数据同步引擎（增量/双向/冲突/重试）
+    10. OfflineManager     - 离线数据管理器
+    11. EdgeScheduler      - 边缘任务调度器
+    12. EdgeFunctionService - 边缘函数服务（FaaS）
+    13. SyncProtocol       - 端云协同协议
+    14. MessageBus         - 消息总线
+    15. DeviceManagerEnhanced - 增强设备管理器
 """
 
 from __future__ import annotations
@@ -152,6 +161,7 @@ class KernelManager:
             1. 加载 yunxi.env 环境变量
             2. 确保 config.yaml 配置文件存在
             3. 初始化 8 大核心组件
+            4. 初始化端云协同增强组件（大二轮 P2 增量）
         """
         # 1. 加载 yunxi.env
         self._load_yunxi_env()
@@ -159,7 +169,7 @@ class KernelManager:
         # 2. 确保配置文件存在
         self._ensure_config_file()
 
-        # 3. 初始化组件
+        # 3. 初始化核心组件
         self._init_config_manager()
         self._init_device_registry()
         self._init_conflict_resolver()
@@ -168,6 +178,15 @@ class KernelManager:
         self._init_sync_controller()
         self._init_health_metrics()
         self._init_m8_api()
+
+        # 4. 初始化端云协同增强组件（大二轮 P2 增量，纯增量不影响现有功能）
+        self._init_device_manager_enhanced()  # 先初始化，被其他组件依赖
+        self._init_sync_engine()
+        self._init_offline_manager()
+        self._init_message_bus()
+        self._init_sync_protocol()
+        self._init_edge_scheduler()
+        self._init_edge_functions()
 
         self._services["_start_time"] = self._start_time
 
@@ -324,6 +343,127 @@ class KernelManager:
         except Exception as e:
             logger.error("component.init_failed", name="M8APIService", error=str(e))
             self._mock_mode["m8_api"] = True
+
+    # -----------------------------------------------------------------------
+    # 端云协同增强组件初始化（大二轮 P2 增量）
+    # -----------------------------------------------------------------------
+
+    def _init_sync_engine(self) -> None:
+        """初始化数据同步引擎（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.sync_engine import SyncEngine
+
+            data_dir = self._base_dir / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            sync_engine = SyncEngine(
+                db_path=str(data_dir / "sync_engine.db"),
+            )
+            self._services["sync_engine"] = sync_engine
+            self._mock_mode["sync_engine"] = False
+            logger.info("component.init_ok", name="SyncEngine")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="SyncEngine", error=str(e))
+            self._mock_mode["sync_engine"] = True
+
+    def _init_offline_manager(self) -> None:
+        """初始化离线数据管理器（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.offline_manager import OfflineManager
+
+            data_dir = self._base_dir / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            offline_manager = OfflineManager(
+                db_path=str(data_dir / "offline_cache.db"),
+                sync_engine=self._services.get("sync_engine"),
+            )
+            self._services["offline_manager"] = offline_manager
+            self._mock_mode["offline_manager"] = False
+            logger.info("component.init_ok", name="OfflineManager")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="OfflineManager", error=str(e))
+            self._mock_mode["offline_manager"] = True
+
+    def _init_edge_scheduler(self) -> None:
+        """初始化边缘任务调度器（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.edge_scheduler import EdgeScheduler
+
+            edge_scheduler = EdgeScheduler(
+                device_manager=self._services.get("device_manager_enhanced"),
+            )
+            self._services["edge_scheduler"] = edge_scheduler
+            self._mock_mode["edge_scheduler"] = False
+            logger.info("component.init_ok", name="EdgeScheduler")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="EdgeScheduler", error=str(e))
+            self._mock_mode["edge_scheduler"] = True
+
+    def _init_edge_functions(self) -> None:
+        """初始化边缘函数服务（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.edge_functions import EdgeFunctionService
+
+            data_dir = self._base_dir / "data" / "edge_functions"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            edge_functions = EdgeFunctionService(
+                storage_path=str(data_dir),
+            )
+            self._services["edge_functions"] = edge_functions
+            self._mock_mode["edge_functions"] = False
+            logger.info("component.init_ok", name="EdgeFunctionService")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="EdgeFunctionService", error=str(e))
+            self._mock_mode["edge_functions"] = True
+
+    def _init_sync_protocol(self) -> None:
+        """初始化端云协同协议（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.protocol import SyncProtocol
+
+            sync_protocol = SyncProtocol(
+                sync_engine=self._services.get("sync_engine"),
+                device_manager=self._services.get("device_manager_enhanced"),
+            )
+            self._services["sync_protocol"] = sync_protocol
+            self._mock_mode["sync_protocol"] = False
+            logger.info("component.init_ok", name="SyncProtocol")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="SyncProtocol", error=str(e))
+            self._mock_mode["sync_protocol"] = True
+
+    def _init_message_bus(self) -> None:
+        """初始化消息总线（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.message_bus import MessageBus
+
+            data_dir = self._base_dir / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            message_bus = MessageBus(
+                persistence_path=str(data_dir / "message_bus.db"),
+            )
+            self._services["message_bus"] = message_bus
+            self._mock_mode["message_bus"] = False
+            logger.info("component.init_ok", name="MessageBus")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="MessageBus", error=str(e))
+            self._mock_mode["message_bus"] = True
+
+    def _init_device_manager_enhanced(self) -> None:
+        """初始化增强设备管理器（端云协同增强）."""
+        try:
+            from edge_cloud_kernel.services.device_manager import DeviceManager
+
+            data_dir = self._base_dir / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            device_manager = DeviceManager(
+                db_path=str(data_dir / "devices_enhanced.db"),
+            )
+            self._services["device_manager_enhanced"] = device_manager
+            self._mock_mode["device_manager_enhanced"] = False
+            logger.info("component.init_ok", name="DeviceManager(Enhanced)")
+        except Exception as e:
+            logger.warning("component.init_skipped", name="DeviceManager(Enhanced)", error=str(e))
+            self._mock_mode["device_manager_enhanced"] = True
 
     # -----------------------------------------------------------------------
     # 环境变量覆盖

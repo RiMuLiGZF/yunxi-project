@@ -369,8 +369,10 @@ def _register_routers(app: FastAPI) -> None:
     from edge_cloud_kernel.api import (
         config_router,
         device_router,
+        edge_router,
         health_router,
         m8_router,
+        offline_router,
         sync_router,
     )
 
@@ -385,6 +387,12 @@ def _register_routers(app: FastAPI) -> None:
 
     # 设备管理路由
     app.include_router(device_router)
+
+    # 边缘计算路由（端云协同增强）
+    app.include_router(edge_router)
+
+    # 离线管理路由（端云协同增强）
+    app.include_router(offline_router)
 
     # M8 标准接口路由（/m8/*）
     app.include_router(m8_router)
@@ -478,9 +486,24 @@ def _register_root_endpoint(app: FastAPI) -> None:
                 "api_metrics": "/api/v3/metrics",
                 "config": "/api/v3/config",
                 "sync_status": "/api/v3/sync/status",
+                "sync_handshake": "/api/v3/sync/handshake",
+                "sync_push": "/api/v3/sync/push",
+                "sync_pull": "/api/v3/sync/pull",
                 "sync_conflict_resolve": "/api/v3/sync/conflicts/{id}/resolve",
                 "devices": "/api/v3/devices",
+                "device_register": "/api/v3/devices/register",
+                "device_detail": "/api/v3/devices/{id}",
+                "device_health": "/api/v3/devices/{id}/health",
                 "device_remove": "/api/v3/devices/{id}/remove",
+                # 端云协同增强接口
+                "edge_task_submit": "/api/v3/edge/task/submit",
+                "edge_task_status": "/api/v3/edge/task/{id}",
+                "edge_function_register": "/api/v3/edge/function/register",
+                "edge_functions": "/api/v3/edge/functions",
+                "edge_function_invoke": "/api/v3/edge/function/{id}/invoke",
+                "edge_metrics": "/api/v3/edge/metrics",
+                "offline_queue": "/api/v3/offline/queue",
+                "offline_flush": "/api/v3/offline/flush",
             },
         }
 

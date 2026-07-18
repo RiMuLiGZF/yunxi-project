@@ -8,6 +8,8 @@ from edge_cloud_kernel.api.config_router import router as config_router
 from edge_cloud_kernel.api.sync_router import router as sync_router
 from edge_cloud_kernel.api.device_router import router as device_router
 from edge_cloud_kernel.api.m8_router import router as m8_router
+from edge_cloud_kernel.api.edge_router import router as edge_router
+from edge_cloud_kernel.api.offline_router import router as offline_router
 
 __all__ = [
     "health_router",
@@ -15,4 +17,6 @@ __all__ = [
     "sync_router",
     "device_router",
     "m8_router",
+    "edge_router",
+    "offline_router",
 ]
