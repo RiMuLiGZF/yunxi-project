@@ -18,12 +18,16 @@ M8 控制塔 - 运维状态聚合器（Ops Status Aggregator）
 import os
 import sys
 import time
+import logging
 import threading
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import deque
+
+# 结构化日志
+logger = logging.getLogger(__name__)
 
 # 项目根路径
 project_root = Path(__file__).parent.parent.parent.parent
@@ -47,6 +51,8 @@ class ModuleHealthSnapshot:
     last_check: float = 0
     checks: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
+    is_standard_m8: bool = True  # 是否为标准 M8 三接口接入（/m8/health, /m8/metrics, /m8/config）
+    used_fallback: bool = False  # 本次检查是否使用了降级路径
 
 
 @dataclass
@@ -185,6 +191,8 @@ class OpsStatusAggregator:
                     "score": snap.score if snap else 0,
                     "uptime_seconds": round(snap.uptime_seconds, 2) if snap else 0,
                     "last_check": datetime.fromtimestamp(snap.last_check).isoformat() if snap and snap.last_check else None,
+                    "is_standard_m8": snap.is_standard_m8 if snap else True,
+                    "used_fallback": snap.used_fallback if snap else False,
                 })
             return result
 
@@ -211,6 +219,8 @@ class OpsStatusAggregator:
                 "last_check": datetime.fromtimestamp(snap.last_check).isoformat() if snap and snap.last_check else None,
                 "checks": snap.checks if snap else {},
                 "error": snap.error if snap else None,
+                "is_standard_m8": snap.is_standard_m8 if snap else True,
+                "used_fallback": snap.used_fallback if snap else False,
                 "score_history": history[-20:],  # 最近20条
             }
 
@@ -416,26 +426,55 @@ class OpsStatusAggregator:
                 time.sleep(1)
 
     def _refresh_module(self, module_name: str) -> None:
-        """刷新单个模块的健康状态"""
+        """刷新单个模块的健康状态
+
+        调用策略：
+        1. 优先使用 M8 标准路径 /m8/health
+        2. 若返回 404 或连接失败，降级尝试 /health
+        3. 降级时记录 WARNING 日志，并标记模块为"非标准接入"
+        """
         info = self.MODULES.get(module_name)
         if not info:
             return
 
         port = info["port"]
         base_url = self._base_url_template.format(port=port)
+        used_fallback = False
+        is_standard = True
 
         try:
             import httpx
-            # 调用模块的健康端点
+            # 优先尝试 M8 标准路径
             with httpx.Client(timeout=3.0) as client:
-                resp = client.get(f"{base_url}/health")
+                # 第一步：尝试标准 /m8/health 路径
+                resp = client.get(f"{base_url}/m8/health")
+                data = None
+
                 if resp.status_code == 200:
                     data = resp.json()
-                    # 兼容新旧两种格式
-                    status_str = data.get("status", "unknown")
-                    score = data.get("score", 0)
-                    uptime = data.get("uptime_seconds", 0)
-                    checks = data.get("checks", {})
+                elif resp.status_code == 404:
+                    # 404 降级：尝试 /health 路径
+                    logger.warning(
+                        "模块 %s 不支持 /m8/health（HTTP 404），降级到 /health",
+                        module_name,
+                    )
+                    used_fallback = True
+                    is_standard = False
+                    resp = client.get(f"{base_url}/health")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                else:
+                    # 其他错误状态，标记为不健康
+                    self._mark_module_unhealthy(module_name, f"HTTP {resp.status_code}")
+                    return
+
+                if data is not None:
+                    # 解析响应数据（兼容新旧两种格式：直接字段 或 data 包裹）
+                    raw_data = data.get("data", data) if isinstance(data, dict) else {}
+                    status_str = raw_data.get("status", data.get("status", "unknown"))
+                    score = raw_data.get("score", data.get("score", 0))
+                    uptime = raw_data.get("uptime_seconds", data.get("uptime_seconds", 0))
+                    checks = raw_data.get("checks", data.get("checks", {}))
 
                     try:
                         status = HealthStatus(status_str)
@@ -451,15 +490,65 @@ class OpsStatusAggregator:
                             snap.last_check = time.time()
                             snap.checks = checks
                             snap.error = None
+                            snap.is_standard_m8 = is_standard
+                            snap.used_fallback = used_fallback
 
                         # 记录历史
                         self._score_history[module_name].append(score)
                 else:
                     self._mark_module_unhealthy(module_name, f"HTTP {resp.status_code}")
         except Exception as e:
-            self._mark_module_unhealthy(module_name, str(e))
+            # 连接失败等异常，尝试降级到 /health
+            if not used_fallback:
+                try:
+                    import httpx
+                    with httpx.Client(timeout=3.0) as client:
+                        logger.warning(
+                            "模块 %s 调用 /m8/health 失败（%s），降级到 /health 重试",
+                            module_name,
+                            str(e)[:80],
+                        )
+                        used_fallback = True
+                        is_standard = False
+                        resp = client.get(f"{base_url}/health")
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            raw_data = data.get("data", data) if isinstance(data, dict) else {}
+                            status_str = raw_data.get("status", data.get("status", "unknown"))
+                            score = raw_data.get("score", data.get("score", 0))
+                            uptime = raw_data.get("uptime_seconds", data.get("uptime_seconds", 0))
+                            checks = raw_data.get("checks", data.get("checks", {}))
 
-    def _mark_module_unhealthy(self, module_name: str, error: str) -> None:
+                            try:
+                                status = HealthStatus(status_str)
+                            except ValueError:
+                                status = HealthStatus.DEGRADED
+
+                            with self._lock:
+                                snap = self._snapshots.get(module_name)
+                                if snap:
+                                    snap.status = status
+                                    snap.score = score
+                                    snap.uptime_seconds = uptime
+                                    snap.last_check = time.time()
+                                    snap.checks = checks
+                                    snap.error = None
+                                    snap.is_standard_m8 = is_standard
+                                    snap.used_fallback = used_fallback
+
+                                self._score_history[module_name].append(score)
+                            return
+                        else:
+                            self._mark_module_unhealthy(module_name, f"HTTP {resp.status_code}")
+                            return
+                except Exception as e2:
+                    # 降级也失败，标记为不健康
+                    self._mark_module_unhealthy(module_name, str(e2))
+                    return
+            else:
+                self._mark_module_unhealthy(module_name, str(e))
+
+    def _mark_module_unhealthy(self, module_name: str, error: str, is_standard: bool = True, used_fallback: bool = False) -> None:
         """标记模块为不健康"""
         with self._lock:
             snap = self._snapshots.get(module_name)
@@ -468,6 +557,8 @@ class OpsStatusAggregator:
                 snap.score = 0
                 snap.last_check = time.time()
                 snap.error = error
+                snap.is_standard_m8 = is_standard
+                snap.used_fallback = used_fallback
             self._score_history[module_name].append(0)
 
     def _compute_summary(self) -> SystemHealthSummary:

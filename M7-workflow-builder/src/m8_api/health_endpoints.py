@@ -287,25 +287,75 @@ async def m8_std_health(request: Request):
 
 @router.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
 async def m8_std_metrics(request: Request):
-    """M8 标准性能指标（/m8/metrics 路径别名）"""
-    # 直接返回指标数据，避免鉴权中间件问题
+    """M8 标准性能指标（/m8/metrics 路径别名）
+
+    与 /api/v1/admin/metrics 字段对齐，包含：
+    - 系统资源：CPU、内存、运行时间
+    - 请求统计：请求总数、错误数、平均响应时间、错误率
+    - 工作流统计：工作流总数、运行总数、成功/失败数、成功率
+    - 健康状态与活跃连接数
+    """
     import time as _m7_time
     from .. import __version__
-    
+
+    # 系统资源（与 admin metrics 复用同一函数）
+    sys_res = _get_system_resources()
+
+    # 计算平均响应时间（与 admin metrics 一致）
+    avg_response_ms = 0.0
+    if _metrics["response_time_count"] > 0:
+        avg_response_ms = round(
+            _metrics["response_time_sum_ms"] / _metrics["response_time_count"], 1
+        )
+
+    # 计算错误率（与 admin metrics 一致）
+    error_rate = 0.0
+    if _metrics["requests_total"] > 0:
+        error_rate = round(_metrics["requests_error"] / _metrics["requests_total"], 4)
+
+    # 计算工作流运行成功率
+    run_success_rate = 1.0
+    if _metrics["runs_total"] > 0:
+        run_success_rate = round(_metrics["runs_success"] / _metrics["runs_total"], 4)
+
+    # 健康状态
     checks = {
-        "storage": "healthy",
+        "storage": _check_storage(),
+        "m2_skills": _check_m2_connectivity(),
     }
-    
+    health_status = _compute_overall_status(checks)
+
+    # 活跃连接数（简化估算：基于请求计数趋势）
+    active_connections = min(
+        100, max(1, _metrics["response_time_count"])
+    )
+
     metrics_data = {
+        # 系统资源（与 admin metrics 对齐）
+        "cpu_percent": sys_res["cpu_percent"],
+        "memory_mb": sys_res["memory_mb"],
         "uptime_seconds": int(_m7_time.time() - _start_time),
+        # 请求统计（与 admin metrics 对齐）
         "requests_total": _metrics["requests_total"],
         "requests_error": _metrics["requests_error"],
+        "avg_response_ms": avg_response_ms,
+        "error_rate": error_rate,
+        # 工作流统计（与 admin metrics 对齐）
         "workflows_total": _metrics["workflows_total"],
         "runs_total": _metrics["runs_total"],
         "runs_success": _metrics["runs_success"],
         "runs_failed": _metrics["runs_failed"],
+        "run_success_rate": run_success_rate,
+        # 健康状态
+        "health_status": health_status,
+        "checks": checks,
+        # 活跃连接数
+        "active_connections": active_connections,
+        # 版本信息
+        "version": __version__,
+        "module": __module_name__,
     }
-    
+
     return {
         "code": 0,
         "message": "ok",

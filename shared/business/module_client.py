@@ -372,10 +372,18 @@ class ModuleClient:
         return await self.request("DELETE", path, params=params, **kwargs)
 
     async def health_check(self) -> bool:
-        """健康检查（GET /health），结果可走缓存（TTL 2s）。"""
+        """健康检查，优先使用 M8 标准路径 /m8/health，失败时降级到 /health。
+
+        调用策略：
+        1. 先尝试 /m8/health（M8 标准接口）
+        2. 若返回 404 或连接失败，降级尝试 /health
+        3. 降级时记录 WARNING 日志
+
+        结果可走缓存（TTL 2s）。
+        """
         # 尝试从缓存读取
         if self.use_cache:
-            cache_key = f"{self.module_key}:GET:/health:d41d8cd98f00"  # 空 params 的 MD5
+            cache_key = f"{self.module_key}:GET:/m8/health:d41d8cd98f00"
             cached = self.cache.get(cache_key)
             if cached is not None and isinstance(cached, dict):
                 return cached.get("ok", False)
@@ -383,6 +391,59 @@ class ModuleClient:
         try:
             client = await self._ensure_client()
             start = time.time()
+
+            # 第一步：尝试 M8 标准路径
+            try:
+                resp = await client.get("/m8/health", headers=self._headers(False))
+                latency = (time.time() - start) * 1000
+                ok = resp.status_code == 200
+                if ok:
+                    _log_event(
+                        "debug",
+                        "module_health_check",
+                        module=self.module_key,
+                        base_url=self.base_url,
+                        path="/m8/health",
+                        status=resp.status_code,
+                        latency_ms=round(latency, 1),
+                    )
+                    # 写入缓存（健康检查 TTL 2s）
+                    if self.use_cache:
+                        cache_key = f"{self.module_key}:GET:/m8/health:d41d8cd98f00"
+                        self.cache.set(cache_key, {"ok": ok}, ttl=2.0)
+                    return True
+                elif resp.status_code == 404:
+                    # 404 降级到 /health
+                    _log_event(
+                        "warning",
+                        "module_health_fallback",
+                        module=self.module_key,
+                        reason="m8_health_404",
+                        fallback_path="/health",
+                    )
+                else:
+                    # 其他错误状态
+                    _log_event(
+                        "warning",
+                        "module_health_check",
+                        module=self.module_key,
+                        base_url=self.base_url,
+                        path="/m8/health",
+                        status=resp.status_code,
+                        latency_ms=round(latency, 1),
+                    )
+                    return False
+            except Exception:
+                # 连接异常，降级到 /health
+                _log_event(
+                    "warning",
+                    "module_health_fallback",
+                    module=self.module_key,
+                    reason="m8_health_connection_error",
+                    fallback_path="/health",
+                )
+
+            # 第二步：降级到 /health
             resp = await client.get("/health", headers=self._headers(False))
             latency = (time.time() - start) * 1000
             ok = resp.status_code == 200
@@ -391,12 +452,14 @@ class ModuleClient:
                 "module_health_check",
                 module=self.module_key,
                 base_url=self.base_url,
+                path="/health",
                 status=resp.status_code,
                 latency_ms=round(latency, 1),
+                fallback=True,
             )
             # 写入缓存（健康检查 TTL 2s）
             if self.use_cache:
-                cache_key = f"{self.module_key}:GET:/health:d41d8cd98f00"
+                cache_key = f"{self.module_key}:GET:/m8/health:d41d8cd98f00"
                 self.cache.set(cache_key, {"ok": ok}, ttl=2.0)
             return ok
         except Exception as exc:
