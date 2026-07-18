@@ -69,7 +69,8 @@ except ImportError:
     from database import init_db
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 
 # ===========================================================================
@@ -107,6 +108,9 @@ def create_app(lifespan: Optional[Callable] = None) -> FastAPI:
             exclude_paths=["/health", "/api/v1/status/health", "/status/health"],
         )
         logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
+
+    # 挂载前端静态文件
+    _mount_frontend_static(app)
 
     # 注册路由
     _register_routers(app)
@@ -197,6 +201,38 @@ async def _default_lifespan(app: FastAPI):
 
 
 # ===========================================================================
+# 前端静态文件挂载
+# ===========================================================================
+
+def _mount_frontend_static(app: FastAPI) -> None:
+    """挂载前端管理界面静态文件
+
+    将 frontend/ 目录下的静态文件挂载到 /admin 路径。
+    登录页面为默认入口，所有 API 路由（/api/m12/*）不受影响。
+
+    Args:
+        app: FastAPI 应用实例
+    """
+    # 计算 frontend 目录路径（M12-security-shield/frontend/）
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+
+    if not frontend_dir.exists():
+        logger.warning("[M12] 前端目录不存在: %s，跳过静态文件挂载", frontend_dir)
+        return
+
+    # 挂载静态文件到 /admin 路径
+    app.mount("/admin", StaticFiles(directory=str(frontend_dir), html=True), name="m12_admin")
+
+    # 根路径重定向到管理后台
+    @app.get("/", include_in_schema=False)
+    async def root_redirect():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/admin/login.html")
+
+    logger.info("[M12] 前端管理界面已挂载: /admin (目录: %s)", frontend_dir.name)
+
+
+# ===========================================================================
 # 路由注册
 # ===========================================================================
 
@@ -215,6 +251,7 @@ def _register_routers(app: FastAPI) -> None:
         from .routers.audit import router as audit_router
         from .routers.dashboard import router as dashboard_router
         from .routers.auto_response import router as auto_response_router
+        from .routers.masking import router as masking_router
     except ImportError:
         from routers.status import router as status_router
         from routers.waf import router as waf_router
@@ -223,6 +260,7 @@ def _register_routers(app: FastAPI) -> None:
         from routers.audit import router as audit_router
         from routers.dashboard import router as dashboard_router
         from routers.auto_response import router as auto_response_router
+        from routers.masking import router as masking_router
 
     # 注册各模块路由
     app.include_router(status_router)
@@ -232,6 +270,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(audit_router)
     app.include_router(dashboard_router)
     app.include_router(auto_response_router)
+    app.include_router(masking_router)
 
 
 # ===========================================================================

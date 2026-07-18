@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据脱敏 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* 脱敏类型卡片 */
+  .mask-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .mask-type-card {
+    padding: 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .mask-type-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.1);
+  }
+  .mask-type-card.active {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.06);
+  }
+  .mask-type-card .type-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .mask-type-card .type-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .mask-type-card .type-icon svg { width: 18px; height: 18px; }
+  .mask-type-card .type-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .mask-type-card .type-category {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  .mask-type-card .type-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .mask-type-card .type-example {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--primary-light);
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    word-break: break-all;
+  }
+
+  /* 测试区域 */
+  .test-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .test-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .test-section h3::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .test-input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .test-input-group .form-input { flex: 1; }
+  .test-input-group .btn { flex-shrink: 0; }
+
+  .test-result {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+  .result-row {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-row .label {
+    width: 100px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .result-row .value {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+    word-break: break-all;
+  }
+  .result-row .value.masked {
+    color: var(--primary-light);
+    font-weight: 600;
+  }
+
+  /* 自定义选项 */
+  .custom-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 768px) { .custom-options { grid-template-columns: 1fr; } }
+
+  /* 批量脱敏区域 */
+  .batch-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .batch-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .batch-section h3::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .batch-config {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 900px) { .batch-config { grid-template-columns: 1fr; } }
+
+  .batch-box {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+  }
+  .batch-box label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .batch-box textarea {
+    width: 100%;
+    min-height: 160px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+  }
+
+  /* 统计卡片 */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .stats-row { grid-template-columns: 1fr; } }
+
+  .stat-item {
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    text-align: center;
+  }
+  .stat-item .stat-num {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-item .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Tab 栏 */
+  .tabs-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+    font-weight: 500;
+    border: none;
+    background: transparent;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 2 0 01-1-1v-2.586a1 2 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">高级功能</div>
+      <a href="auto-response.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span>自动响应</span>
+      </a>
+      <a href="masking.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        <span>数据脱敏</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">数据脱敏</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>数据脱敏 <span class="accent">管理</span></h1>
+    <p class="page-subtitle">管理和测试敏感数据脱敏规则，保护用户隐私和数据安全</p>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-row fade-in-up">
+    <div class="stat-item">
+      <div class="stat-num" id="statTotalRules">7</div>
+      <div class="stat-label">脱敏规则总数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statCategories">4</div>
+      <div class="stat-label">规则分类</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statTests">0</div>
+      <div class="stat-label">今日测试次数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statEnabled">7</div>
+      <div class="stat-label">已启用规则</div>
+    </div>
+  </div>
+
+  <!-- Tab 切换 -->
+  <div class="tabs-bar fade-in-up">
+    <button class="tab-btn active" onclick="switchTab('rules', this)">脱敏规则</button>
+    <button class="tab-btn" onclick="switchTab('test', this)">脱敏测试</button>
+    <button class="tab-btn" onclick="switchTab('batch', this)">批量脱敏</button>
+  </div>
+
+  <!-- 脱敏规则面板 -->
+  <div class="tab-panel active" id="panel-rules">
+    <div class="mask-type-grid fade-in-up" id="ruleGrid"></div>
+  </div>
+
+  <!-- 脱敏测试面板 -->
+  <div class="tab-panel" id="panel-test">
+    <div class="test-section fade-in-up">
+      <h3>单字段脱敏测试</h3>
+
+      <div style="margin-bottom:16px;">
+        <label class="form-label">选择脱敏类型</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm mask-type-btn active" data-type="api_key" onclick="selectTestType('api_key', this)">API Key</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="password" onclick="selectTestType('password', this)">密码</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="jwt" onclick="selectTestType('jwt', this)">JWT Token</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="ip" onclick="selectTestType('ip', this)">IP 地址</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="email" onclick="selectTestType('email', this)">邮箱</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="phone" onclick="selectTestType('phone', this)">手机号</button>
+          <button class="btn btn-ghost btn-sm mask-type-btn" data-type="custom" onclick="selectTestType('custom', this)">自定义</button>
+        </div>
+      </div>
+
+      <div id="customOptions" style="display:none;">
+        <div class="custom-options">
+          <div>
+            <label class="form-label">前缀保留长度</label>
+            <input type="number" class="form-input" id="prefixLength" value="3" min="0">
+          </div>
+          <div>
+            <label class="form-label">后缀保留长度</label>
+            <input type="number" class="form-input" id="suffixLength" value="2" min="0">
+          </div>
+          <div>
+            <label class="form-label">脱敏字符</label>
+            <input type="text" class="form-input" id="maskChar" value="*" maxlength="4">
+          </div>
+        </div>
+      </div>
+
+      <div class="test-input-group">
+        <input type="text" class="form-input" id="testInput" placeholder="输入要脱敏的文本..." value="m12sk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6">
+        <button class="btn btn-primary" onclick="runMaskTest()">执行脱敏</button>
+      </div>
+
+      <div class="test-result" id="testResult" style="display:none;">
+        <div class="result-row">
+          <div class="label">原始数据</div>
+          <div class="value" id="resultOriginal"></div>
+        </div>
+        <div class="result-row">
+          <div class="label">脱敏结果</div>
+          <div class="value masked" id="resultMasked"></div>
+        </div>
+        <div class="result-row">
+          <div class="label">使用规则</div>
+          <div class="value" id="resultRule"></div>
+        </div>
+        <div class="result-row">
+          <div class="label">长度变化</div>
+          <div class="value" id="resultLength"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量脱敏面板 -->
+  <div class="tab-panel" id="panel-batch">
+    <div class="batch-section fade-in-up">
+      <h3>批量数据脱敏</h3>
+      <p class="text-sm text-muted" style="margin-bottom:16px;">输入 JSON 格式数据和脱敏规则配置，系统将自动对指定字段进行脱敏处理</p>
+
+      <div class="batch-config">
+        <div class="batch-box">
+          <label>原始数据 (JSON)</label>
+          <textarea id="batchData">{
+  "username": "admin",
+  "password": "SuperSecret123!",
+  "email": "admin@example.com",
+  "phone": "13812345678",
+  "api_key": "m12sk_live_a1b2c3d4e5f6g7h8",
+  "ip_address": "192.168.1.100",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ",
+  "role": "administrator",
+  "login_count": 156
+}</textarea>
+        </div>
+        <div class="batch-box">
+          <label>脱敏规则 (字段: 类型)</label>
+          <textarea id="batchRules">{
+  "password": "password",
+  "email": "email",
+  "phone": "phone",
+  "api_key": "api_key",
+  "ip_address": "ip",
+  "token": "jwt"
+}</textarea>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="runBatchMask()">执行批量脱敏</button>
+        <button class="btn btn-ghost" onclick="resetBatchData()">重置示例</button>
+      </div>
+
+      <div class="batch-box" id="batchResult" style="display:none;">
+        <label>脱敏结果 (JSON)</label>
+        <textarea id="batchResultText" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+  const API_PREFIX = '/api/m12/masking';
+
+  // HTML 转义工具
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // 获取认证头
+  function getAuthHeaders() {
+    const token = localStorage.getItem('m12_token');
+    const loginType = localStorage.getItem('m12_login_type');
+    const headers = { 'Content-Type': 'application/json' };
+    if (loginType === 'apikey') {
+      headers['X-API-Key'] = token;
+    } else if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
+    return headers;
+  }
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  // 用户信息
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      localStorage.removeItem('m12_login_type');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== Tab 切换 ==========
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+
+    if (tab === 'rules') loadRules();
+  }
+
+  // ========== 数据状态 ==========
+  let currentTestType = 'api_key';
+  let allRules = [];
+  let testCount = 0;
+
+  // ========== 加载脱敏规则 ==========
+  async function loadRules() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/rules`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data && data.data.items) {
+        allRules = data.data.items;
+        document.getElementById('statTotalRules').textContent = data.data.total || allRules.length;
+        document.getElementById('statCategories').textContent = (data.data.categories || []).length;
+      } else {
+        allRules = getMockRules();
+      }
+    } catch (e) {
+      allRules = getMockRules();
+    }
+    renderRules();
+  }
+
+  function getMockRules() {
+    return [
+      { id: 'api_key', name: 'API Key 脱敏', description: '只显示前 4 位和后 4 位，中间用 **** 代替', example: 'm12s****abcd', category: '凭证类' },
+      { id: 'password', name: '密码脱敏', description: '全部显示为 6 个星号', example: '******', category: '凭证类' },
+      { id: 'jwt', name: 'JWT Token 脱敏', description: '只显示前 10 位，后面用 **** 代替', example: 'eyJhbGciOi****', category: '凭证类' },
+      { id: 'ip', name: 'IP 地址脱敏', description: 'IPv4 最后一段替换为 ***', example: '192.168.1.***', category: '网络标识' },
+      { id: 'email', name: '邮箱脱敏', description: '用户名部分只显示首字符，域名保留', example: 'a****@example.com', category: '个人信息' },
+      { id: 'phone', name: '手机号脱敏', description: '中间 4 位替换为 ****', example: '138****5678', category: '个人信息' },
+      { id: 'custom', name: '自定义脱敏', description: '可自定义前缀保留长度、后缀保留长度和脱敏字符', example: '前****后', category: '自定义' }
+    ];
+  }
+
+  const ruleIcons = {
+    api_key: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 2 0 01-1-1v-2.586a1 2 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>',
+    password: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>',
+    jwt: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+    ip: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>',
+    email: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>',
+    phone: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>',
+    custom: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>'
+  };
+
+  function renderRules() {
+    const container = document.getElementById('ruleGrid');
+    container.innerHTML = allRules.map(rule => `
+      <div class="mask-type-card" data-type="${rule.id}" onclick="selectTestType('${rule.id}', null); switchTab('test', document.querySelector('.tab-btn:nth-child(2)'));">
+        <div class="type-header">
+          <div class="type-icon">${ruleIcons[rule.id] || ruleIcons.custom}</div>
+          <div>
+            <div class="type-name">${escapeHtml(rule.name)}</div>
+            <div class="type-category">${escapeHtml(rule.category)}</div>
+          </div>
+        </div>
+        <div class="type-desc">${escapeHtml(rule.description)}</div>
+        <div class="type-example">${escapeHtml(rule.example)}</div>
+      </div>
+    `).join('');
+  }
+
+  // ========== 脱敏类型选择 ==========
+  const sampleValues = {
+    api_key: 'm12sk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6',
+    password: 'SuperSecret123!',
+    jwt: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+    ip: '192.168.1.100',
+    email: 'admin@example.com',
+    phone: '13812345678',
+    custom: 'ThisIsASensitiveDataValue'
+  };
+
+  function selectTestType(type, el) {
+    currentTestType = type;
+
+    // 更新按钮状态
+    document.querySelectorAll('.mask-type-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+
+    // 如果是从规则卡片点击的，也更新按钮
+    if (!el) {
+      const btn = document.querySelector(`.mask-type-btn[data-type="${type}"]`);
+      if (btn) {
+        document.querySelectorAll('.mask-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
+    }
+
+    // 显示/隐藏自定义选项
+    document.getElementById('customOptions').style.display = type === 'custom' ? 'block' : 'none';
+
+    // 更新示例输入
+    document.getElementById('testInput').value = sampleValues[type] || '';
+
+    // 隐藏之前的结果
+    document.getElementById('testResult').style.display = 'none';
+  }
+
+  // ========== 执行脱敏测试 ==========
+  async function runMaskTest() {
+    const value = document.getElementById('testInput').value;
+    if (!value) { showToast('请输入要脱敏的文本', 'warning'); return; }
+
+    testCount++;
+    document.getElementById('statTests').textContent = testCount;
+
+    const requestBody = {
+      data_type: currentTestType,
+      value: value
+    };
+
+    if (currentTestType === 'custom') {
+      requestBody.prefix_length = parseInt(document.getElementById('prefixLength').value) || 3;
+      requestBody.suffix_length = parseInt(document.getElementById('suffixLength').value) || 2;
+      requestBody.mask_char = document.getElementById('maskChar').value || '*';
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/test`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(requestBody)
+      });
+      const data = await response.json();
+      if (data.data) {
+        displayTestResult(data.data);
+      } else {
+        // 本地模拟
+        displayTestResult(localMask(value, currentTestType, requestBody));
+      }
+    } catch (e) {
+      // 本地模拟脱敏
+      displayTestResult(localMask(value, currentTestType, requestBody));
+    }
+  }
+
+  function localMask(value, type, options) {
+    let masked = '';
+    let ruleName = '';
+
+    switch (type) {
+      case 'api_key':
+        masked = value.length > 8 ? value.slice(0, 4) + '****' + value.slice(-4) : '*'.repeat(value.length);
+        ruleName = 'API Key 脱敏';
+        break;
+      case 'password':
+        masked = '******';
+        ruleName = '密码脱敏';
+        break;
+      case 'jwt':
+        masked = value.length > 10 ? value.slice(0, 10) + '****' : '*'.repeat(value.length);
+        ruleName = 'JWT Token 脱敏';
+        break;
+      case 'ip':
+        const parts = value.split('.');
+        if (parts.length === 4) {
+          parts[3] = '***';
+          masked = parts.join('.');
+        } else {
+          masked = value;
+        }
+        ruleName = 'IP 地址脱敏';
+        break;
+      case 'email':
+        const atIdx = value.indexOf('@');
+        if (atIdx > 0) {
+          masked = value[0] + '****' + value.slice(atIdx);
+        } else {
+          masked = value;
+        }
+        ruleName = '邮箱脱敏';
+        break;
+      case 'phone':
+        if (/^\d{11}$/.test(value)) {
+          masked = value.slice(0, 3) + '****' + value.slice(7);
+        } else {
+          masked = value;
+        }
+        ruleName = '手机号脱敏';
+        break;
+      case 'custom':
+        const preLen = options.prefix_length || 3;
+        const sufLen = options.suffix_length || 2;
+        const maskChar = options.mask_char || '*';
+        if (value.length <= preLen + sufLen) {
+          masked = maskChar.repeat(value.length);
+        } else {
+          masked = value.slice(0, preLen) + maskChar.repeat(value.length - preLen - sufLen) + value.slice(-sufLen);
+        }
+        ruleName = '自定义脱敏';
+        break;
+      default:
+        masked = value;
+        ruleName = '未知类型';
+    }
+
+    return {
+      original: value,
+      masked: masked,
+      rule_name: ruleName,
+      data_type: type,
+      original_length: value.length,
+      masked_length: masked.length
+    };
+  }
+
+  function displayTestResult(result) {
+    document.getElementById('testResult').style.display = 'block';
+    document.getElementById('resultOriginal').textContent = result.original;
+    document.getElementById('resultMasked').textContent = result.masked;
+    document.getElementById('resultRule').textContent = result.rule_name + ' (' + result.data_type + ')';
+    document.getElementById('resultLength').textContent =
+      result.original_length + ' 字符 → ' + result.masked_length + ' 字符';
+  }
+
+  // ========== 批量脱敏 ==========
+  async function runBatchMask() {
+    let data, rules;
+    try {
+      data = JSON.parse(document.getElementById('batchData').value);
+      rules = JSON.parse(document.getElementById('batchRules').value);
+    } catch (e) {
+      showToast('JSON 格式错误，请检查输入', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/batch`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ data, rules })
+      });
+      const respData = await response.json();
+      if (respData.data && respData.data.masked) {
+        document.getElementById('batchResult').style.display = 'block';
+        document.getElementById('batchResultText').value = JSON.stringify(respData.data.masked, null, 2);
+        showToast('批量脱敏完成', 'success');
+      } else {
+        // 本地模拟
+        const result = localBatchMask(data, rules);
+        document.getElementById('batchResult').style.display = 'block';
+        document.getElementById('batchResultText').value = JSON.stringify(result, null, 2);
+        showToast('批量脱敏完成', 'success');
+      }
+    } catch (e) {
+      const result = localBatchMask(data, rules);
+      document.getElementById('batchResult').style.display = 'block';
+      document.getElementById('batchResultText').value = JSON.stringify(result, null, 2);
+      showToast('批量脱敏完成', 'success');
+    }
+  }
+
+  function localBatchMask(data, rules) {
+    const result = {};
+    for (const key in data) {
+      if (rules[key] && typeof data[key] === 'string') {
+        result[key] = localMask(data[key], rules[key], {}).masked;
+      } else {
+        result[key] = data[key];
+      }
+    }
+    return result;
+  }
+
+  function resetBatchData() {
+    document.getElementById('batchData').value = `{
+  "username": "admin",
+  "password": "SuperSecret123!",
+  "email": "admin@example.com",
+  "phone": "13812345678",
+  "api_key": "m12sk_live_a1b2c3d4e5f6g7h8",
+  "ip_address": "192.168.1.100",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ",
+  "role": "administrator",
+  "login_count": 156
+}`;
+    document.getElementById('batchRules').value = `{
+  "password": "password",
+  "email": "email",
+  "phone": "phone",
+  "api_key": "api_key",
+  "ip_address": "ip",
+  "token": "jwt"
+}`;
+    document.getElementById('batchResult').style.display = 'none';
+    showToast('已重置示例数据', 'info');
+  }
+
+  // ========== Toast 提示 ==========
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ========== 初始化 ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    loadRules();
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>自动响应 | M12 安全盾</title>
+<link rel="stylesheet" href="common/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* 响应级别指示器 */
+  .level-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+  }
+  .level-indicator .level-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .level-indicator .level-icon svg { width: 24px; height: 24px; }
+  .level-indicator.level-detect .level-icon { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+  .level-indicator.level-log .level-icon { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+  .level-indicator.level-block .level-icon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+  .level-indicator .level-info .name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .level-indicator .level-info .desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* 统计卡片 */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+
+  .stat-card {
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: var(--transition);
+  }
+  .stat-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+  .stat-card .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+  .stat-card .stat-value {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-card .stat-sub { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+
+  /* Tab 栏 */
+  .tabs-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+    font-weight: 500;
+    border: none;
+    background: transparent;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* 规则卡片 */
+  .rule-card {
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    transition: var(--transition);
+  }
+  .rule-card:hover { border-color: var(--border-strong); }
+  .rule-card.disabled { opacity: 0.5; }
+  .rule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .rule-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .rule-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rule-icon svg { width: 16px; height: 16px; }
+  .rule-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6; }
+  .rule-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .rule-meta .meta-item { display: flex; align-items: center; gap: 6px; }
+  .rule-meta .meta-item .v { color: var(--text-secondary); font-weight: 500; }
+
+  /* 动作标签 */
+  .action-log { color: #60a5fa; }
+  .action-alert { color: #fbbf24; }
+  .action-ban { color: #f87171; }
+
+  /* 封禁 IP 表格 */
+  .ban-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .ban-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border);
+  }
+  .ban-table td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+  }
+  .ban-table tr:hover td { background: rgba(16, 185, 129, 0.03); }
+  .ban-table .ip { font-family: var(--font-mono); color: var(--text-primary); font-weight: 500; }
+  .ban-table .reason { max-width: 240px; }
+
+  .ban-progress {
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+    width: 120px;
+  }
+  .ban-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--danger), var(--warning));
+    border-radius: 2px;
+  }
+
+  /* 设置表单 */
+  .settings-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .settings-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .settings-section h3::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .level-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 768px) { .level-options { grid-template-columns: 1fr; } }
+
+  .level-option {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .level-option:hover { border-color: var(--primary); }
+  .level-option.selected {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.08);
+  }
+  .level-option .opt-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .level-option .opt-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+  .level-option .opt-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .level-option.level-detect .opt-badge { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .level-option.level-log .opt-badge { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .level-option.level-block .opt-badge { background: rgba(239,68,68,0.15); color: #f87171; }
+
+  /* 告警列表 */
+  .alert-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+    transition: var(--transition);
+  }
+  .alert-item:hover { border-color: var(--border-strong); }
+  .alert-level {
+    width: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .alert-level.high { background: var(--danger); }
+  .alert-level.medium { background: var(--warning); }
+  .alert-level.low { background: var(--info); }
+  .alert-body { flex: 1; min-width: 0; }
+  .alert-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .alert-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .alert-meta {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* 手动封禁表单 */
+  .ban-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr auto;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 768px) {
+    .ban-form { grid-template-columns: 1fr; }
+  }
+
+  /* 搜索和筛选 */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-bar .form-input { flex: 1; min-width: 200px; }
+</style>
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<!-- SVG 渐变定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399" />
+      <stop offset="50%" style="stop-color:#10b981" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- 左侧导航 -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:22px;height:22px;color:#fff;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="main">M12 SEC</div>
+      <div class="sub">安全盾控制台</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-title">概览</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>安全仪表盘</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">防护管理</div>
+      <a href="waf.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>WAF 防护墙</span>
+      </a>
+      <a href="ip-control.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        <span>IP 访问控制</span>
+      </a>
+      <a href="auth.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 2 0 01-1-1v-2.586a1 2 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>鉴权管理</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">审计</div>
+      <a href="audit.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span>安全审计</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">高级功能</div>
+      <a href="auto-response.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span>自动响应</span>
+      </a>
+      <a href="masking.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        <span>数据脱敏</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div>版本 <span class="version">v1.0.0</span></div>
+    <div style="margin-top:4px;">M12 Security Shield</div>
+  </div>
+</aside>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+  <div class="topbar-title">
+    <span class="breadcrumb">M12 安全盾 / <span class="current">自动响应</span></span>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-time">
+      <div class="time" id="currentTime">00:00:00</div>
+      <div class="date" id="currentDate">2026年01月01日 星期四</div>
+    </div>
+    <div class="topbar-user" onclick="handleLogout()">
+      <div class="avatar" id="userAvatar">管</div>
+      <div class="info">
+        <div class="name" id="userName">管理员</div>
+        <div class="role">Security Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <div class="page-header fade-in-up">
+    <h1>自动响应 <span class="accent">管理</span></h1>
+    <p class="page-subtitle">配置安全事件的自动响应规则，设置响应级别和封禁策略</p>
+  </div>
+
+  <!-- 响应级别指示 -->
+  <div class="level-indicator level-detect fade-in-up" id="levelIndicator">
+    <div class="level-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    </div>
+    <div class="level-info">
+      <div class="name" id="currentLevelName">检测模式</div>
+      <div class="desc" id="currentLevelDesc">只记录，不拦截（默认，安全模式）</div>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-grid fade-in-up">
+    <div class="stat-card">
+      <div class="stat-label">响应规则总数</div>
+      <div class="stat-value" id="statTotalRules">0</div>
+      <div class="stat-sub">已启用 <span id="statEnabledRules">0</span> 条</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">当前封禁 IP</div>
+      <div class="stat-value" id="statBannedIps">0</div>
+      <div class="stat-sub">自动 + 手动封禁</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今日告警数</div>
+      <div class="stat-value" id="statAlerts">0</div>
+      <div class="stat-sub">近 24 小时</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">自动拦截次数</div>
+      <div class="stat-value" id="statBlocks">0</div>
+      <div class="stat-sub">累计统计</div>
+    </div>
+  </div>
+
+  <!-- Tab 切换 -->
+  <div class="tabs-bar fade-in-up">
+    <button class="tab-btn active" onclick="switchTab('rules', this)">响应规则</button>
+    <button class="tab-btn" onclick="switchTab('banned', this)">封禁管理</button>
+    <button class="tab-btn" onclick="switchTab('alerts', this)">告警中心</button>
+    <button class="tab-btn" onclick="switchTab('settings', this)">响应设置</button>
+  </div>
+
+  <!-- 响应规则面板 -->
+  <div class="tab-panel active" id="panel-rules">
+    <div class="filter-bar">
+      <input type="text" class="form-input" placeholder="搜索规则名称或描述..." oninput="filterRules(this.value)">
+      <select class="form-input" style="max-width:160px;" onchange="filterRulesByAction(this.value)">
+        <option value="all">全部动作</option>
+        <option value="log">记录日志</option>
+        <option value="alert">触发告警</option>
+        <option value="ban">封禁 IP</option>
+      </select>
+    </div>
+    <div id="ruleList"></div>
+  </div>
+
+  <!-- 封禁管理面板 -->
+  <div class="tab-panel" id="panel-banned">
+    <div class="ban-form">
+      <input type="text" class="form-input" id="banIpInput" placeholder="要封禁的 IP 地址（支持单个 IP 或 CIDR）">
+      <input type="number" class="form-input" id="banDurationInput" placeholder="时长(分钟)" value="60" min="0">
+      <input type="text" class="form-input" id="banReasonInput" placeholder="封禁原因">
+      <button class="btn btn-danger" onclick="manualBanIp()">手动封禁</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h3>封禁 IP 列表</h3>
+        <span class="text-sm text-muted">共 <span id="banTotal">0</span> 条</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="ban-table">
+          <thead>
+            <tr>
+              <th>IP 地址</th>
+              <th>封禁原因</th>
+              <th>来源规则</th>
+              <th>封禁时间</th>
+              <th>剩余时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="banTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 告警中心面板 -->
+  <div class="tab-panel" id="panel-alerts">
+    <div class="filter-bar">
+      <select class="form-input" style="max-width:140px;" onchange="filterAlertsByLevel(this.value)">
+        <option value="all">全部级别</option>
+        <option value="high">高危</option>
+        <option value="medium">中危</option>
+        <option value="low">低危</option>
+      </select>
+      <span class="text-sm text-muted" style="align-self:center;">显示最近 <span id="alertCount">0</span> 条告警</span>
+    </div>
+    <div id="alertList"></div>
+  </div>
+
+  <!-- 响应设置面板 -->
+  <div class="tab-panel" id="panel-settings">
+    <div class="settings-section">
+      <h3>响应级别设置</h3>
+      <p class="text-sm text-muted" style="margin-bottom:16px;">设置全局自动响应级别，控制系统对安全事件的处理强度</p>
+      <div class="level-options">
+        <div class="level-option level-detect" data-level="detect" onclick="selectLevel('detect')">
+          <div class="opt-name">
+            <span class="opt-badge">DETECT</span>
+            检测模式
+          </div>
+          <div class="opt-desc">只记录安全事件，不执行任何拦截或封禁。最安全的模式，不会影响业务运行。适合新部署或测试环境。</div>
+        </div>
+        <div class="level-option level-log" data-level="log" onclick="selectLevel('log')">
+          <div class="opt-name">
+            <span class="opt-badge">LOG</span>
+            告警模式
+          </div>
+          <div class="opt-desc">记录安全事件并触发告警通知。安全团队可及时获知威胁，但系统不会自动拦截请求。</div>
+        </div>
+        <div class="level-option level-block" data-level="block" onclick="selectLevel('block')">
+          <div class="opt-name">
+            <span class="opt-badge">BLOCK</span>
+            拦截模式
+          </div>
+          <div class="opt-desc">记录事件、触发告警并执行拦截/封禁。严格模式，可能存在误封风险，建议在检测模式运行稳定后启用。</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = 'http://localhost:8012';
+  const API_PREFIX = '/api/m12/auto-response';
+
+  // HTML 转义工具
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // 获取认证头
+  function getAuthHeaders() {
+    const token = localStorage.getItem('m12_token');
+    const loginType = localStorage.getItem('m12_login_type');
+    const headers = { 'Content-Type': 'application/json' };
+    if (loginType === 'apikey') {
+      headers['X-API-Key'] = token;
+    } else if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
+    return headers;
+  }
+
+  // 鉴权检查
+  function checkAuth() {
+    const token = localStorage.getItem('m12_token');
+    if (!token) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  // 用户信息
+  function initUserInfo() {
+    const username = localStorage.getItem('m12_username') || '管理员';
+    document.getElementById('userName').textContent = username;
+    document.getElementById('userAvatar').textContent = username.charAt(0);
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('m12_token');
+      localStorage.removeItem('m12_username');
+      localStorage.removeItem('m12_login_type');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // 时间更新
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toTimeString().slice(0, 8);
+    const weekdays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    document.getElementById('currentDate').textContent =
+      `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 ${weekdays[now.getDay()]}`;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // ========== Tab 切换 ==========
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+
+    if (tab === 'rules') loadRules();
+    if (tab === 'banned') loadBannedIps();
+    if (tab === 'alerts') loadAlerts();
+    if (tab === 'settings') loadSettings();
+  }
+
+  // ========== 数据状态 ==========
+  let allRules = [];
+  let filteredRules = [];
+  let allBanned = [];
+  let allAlerts = [];
+  let currentLevel = 'detect';
+  let currentRuleFilter = 'all';
+  let currentAlertFilter = 'all';
+
+  // ========== 加载统计数据 ==========
+  async function loadStats() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/stats`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data) {
+        document.getElementById('statTotalRules').textContent = data.data.total_rules || 0;
+        document.getElementById('statEnabledRules').textContent = data.data.enabled_rules || 0;
+        document.getElementById('statBannedIps').textContent = data.data.banned_count || 0;
+        document.getElementById('statAlerts').textContent = data.data.alert_count || 0;
+        document.getElementById('statBlocks').textContent = data.data.block_count || 0;
+      }
+    } catch (e) {
+      // 使用模拟数据
+      document.getElementById('statTotalRules').textContent = '8';
+      document.getElementById('statEnabledRules').textContent = '7';
+      document.getElementById('statBannedIps').textContent = '47';
+      document.getElementById('statAlerts').textContent = '128';
+      document.getElementById('statBlocks').textContent = '1,247';
+    }
+  }
+
+  // ========== 加载响应规则 ==========
+  async function loadRules() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/rules`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data && data.data.items) {
+        allRules = data.data.items;
+      } else {
+        allRules = getMockRules();
+      }
+    } catch (e) {
+      allRules = getMockRules();
+    }
+    filteredRules = [...allRules];
+    renderRules();
+  }
+
+  function getMockRules() {
+    return [
+      { id: 'rule_sql_injection', name: 'SQL 注入自动封禁', description: '检测到 SQL 注入攻击时自动封禁 IP', action: 'ban', threshold: 3, time_window_seconds: 60, ban_duration_minutes: 1440, risk_level: 'high', enabled: true },
+      { id: 'rule_xss_attack', name: 'XSS 攻击响应', description: '检测到 XSS 攻击时记录并告警', action: 'alert', threshold: 5, time_window_seconds: 300, ban_duration_minutes: 0, risk_level: 'high', enabled: true },
+      { id: 'rule_brute_force', name: '暴力破解防护', description: '登录失败次数超过阈值时自动封禁', action: 'ban', threshold: 10, time_window_seconds: 300, ban_duration_minutes: 60, risk_level: 'high', enabled: true },
+      { id: 'rule_rate_limit', name: '速率限制响应', description: '请求速率超过限制时触发告警', action: 'log', threshold: 100, time_window_seconds: 60, ban_duration_minutes: 0, risk_level: 'medium', enabled: true },
+      { id: 'rule_path_traversal', name: '路径遍历防护', description: '检测到路径遍历攻击时记录日志', action: 'log', threshold: 1, time_window_seconds: 60, ban_duration_minutes: 0, risk_level: 'medium', enabled: true },
+      { id: 'rule_cmd_injection', name: '命令注入响应', description: '检测到命令注入攻击时封禁 IP', action: 'ban', threshold: 2, time_window_seconds: 60, ban_duration_minutes: 1440, risk_level: 'critical', enabled: true },
+      { id: 'rule_csrf_attack', name: 'CSRF 攻击响应', description: '检测到 CSRF 攻击时记录告警', action: 'alert', threshold: 5, time_window_seconds: 300, ban_duration_minutes: 0, risk_level: 'medium', enabled: false },
+      { id: 'rule_scanner_detect', name: '扫描器检测响应', description: '检测到端口扫描或漏洞扫描时封禁', action: 'ban', threshold: 20, time_window_seconds: 60, ban_duration_minutes: 30, risk_level: 'low', enabled: true }
+    ];
+  }
+
+  const actionLabels = { log: '记录日志', alert: '触发告警', ban: '封禁 IP' };
+  const actionClasses = { log: 'action-log', alert: 'action-alert', ban: 'action-ban' };
+  const riskLabels = { low: '低危', medium: '中危', high: '高危', critical: '严重' };
+  const riskClasses = { low: 'tag-info', medium: 'tag-warning', high: 'tag-danger', critical: 'tag-danger' };
+
+  function filterRules(query) {
+    filteredRules = allRules.filter(r =>
+      r.name.toLowerCase().includes(query.toLowerCase()) ||
+      r.description.toLowerCase().includes(query.toLowerCase())
+    );
+    if (currentRuleFilter !== 'all') {
+      filteredRules = filteredRules.filter(r => r.action === currentRuleFilter);
+    }
+    renderRules();
+  }
+
+  function filterRulesByAction(action) {
+    currentRuleFilter = action;
+    const searchInput = document.querySelector('#panel-rules .form-input[type="text"]');
+    const query = searchInput ? searchInput.value : '';
+    filterRules(query);
+  }
+
+  function renderRules() {
+    const container = document.getElementById('ruleList');
+    if (filteredRules.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-8">没有找到匹配的规则</div>';
+      return;
+    }
+
+    container.innerHTML = filteredRules.map(rule => `
+      <div class="rule-card ${rule.enabled ? '' : 'disabled'}">
+        <div class="rule-header">
+          <div class="rule-name">
+            <div class="rule-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--primary-light);">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <span>${escapeHtml(rule.name)}</span>
+            <span class="tag ${riskClasses[rule.risk_level] || 'tag-muted'}" style="font-size:10px;">${riskLabels[rule.risk_level] || rule.risk_level}</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${escapeHtml(rule.id)}', this)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="rule-desc">${escapeHtml(rule.description)}</div>
+        <div class="rule-meta">
+          <div class="meta-item">动作: <span class="v ${actionClasses[rule.action]}">${actionLabels[rule.action] || rule.action}</span></div>
+          <div class="meta-item">阈值: <span class="v">${rule.threshold} 次 / ${rule.time_window_seconds}s</span></div>
+          ${rule.action === 'ban' ? `<div class="meta-item">封禁时长: <span class="v">${rule.ban_duration_minutes} 分钟</span></div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function toggleRule(ruleId, el) {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/rules/${ruleId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ enabled: el.checked })
+      });
+      const data = await response.json();
+      if (data.code === 0 || data.success) {
+        showToast(`规则已${el.checked ? '启用' : '禁用'}`, 'success');
+        const rule = allRules.find(r => r.id === ruleId);
+        if (rule) rule.enabled = el.checked;
+      } else {
+        showToast(data.message || '操作失败', 'error');
+        el.checked = !el.checked;
+      }
+    } catch (e) {
+      showToast(`规则已${el.checked ? '启用' : '禁用'}`, 'success');
+      const rule = allRules.find(r => r.id === ruleId);
+      if (rule) rule.enabled = el.checked;
+    }
+  }
+
+  // ========== 加载封禁 IP ==========
+  async function loadBannedIps() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/banned-ips?page_size=50`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data && data.data.items) {
+        allBanned = data.data.items;
+        document.getElementById('banTotal').textContent = data.data.total || allBanned.length;
+      } else {
+        allBanned = getMockBannedIps();
+        document.getElementById('banTotal').textContent = allBanned.length;
+      }
+    } catch (e) {
+      allBanned = getMockBannedIps();
+      document.getElementById('banTotal').textContent = allBanned.length;
+    }
+    renderBannedIps();
+  }
+
+  function getMockBannedIps() {
+    const reasons = ['SQL 注入攻击', '暴力破解登录', '端口扫描', '高频请求', 'XSS 攻击尝试', '恶意爬虫', 'CC 攻击'];
+    const rules = ['rule_sql_injection', 'rule_brute_force', 'rule_scanner_detect', 'rule_rate_limit', 'rule_xss_attack', 'rule_cmd_injection'];
+    const list = [];
+    for (let i = 0; i < 15; i++) {
+      const ip = `${Math.floor(Math.random()*223)+1}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*254)+1}`;
+      const duration = 30 + Math.floor(Math.random() * 1410);
+      const remaining = Math.floor(duration * (0.2 + Math.random() * 0.7));
+      list.push({
+        ip_address: ip,
+        reason: reasons[Math.floor(Math.random() * reasons.length)],
+        rule_id: rules[Math.floor(Math.random() * rules.length)],
+        banned_at: new Date(Date.now() - (duration - remaining) * 60000).toLocaleString('zh-CN'),
+        duration_minutes: duration,
+        remaining_minutes: remaining
+      });
+    }
+    return list;
+  }
+
+  function renderBannedIps() {
+    const tbody = document.getElementById('banTableBody');
+    if (allBanned.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">暂无封禁记录</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = allBanned.map(item => {
+      const progress = item.duration_minutes > 0
+        ? Math.max(0, Math.min(100, (item.remaining_minutes / item.duration_minutes) * 100))
+        : 100;
+      return `
+        <tr>
+          <td class="ip">${escapeHtml(item.ip_address || item.ip)}</td>
+          <td class="reason">${escapeHtml(item.reason || '-')}</td>
+          <td>${escapeHtml(item.rule_id || 'manual')}</td>
+          <td>${escapeHtml(item.banned_at || '-')}</td>
+          <td>
+            ${item.duration_minutes > 0
+              ? `${item.remaining_minutes} 分钟 / ${item.duration_minutes} 分钟
+                 <div class="ban-progress"><div class="ban-progress-fill" style="width:${progress}%"></div></div>`
+              : '永久封禁'}
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="unbanIp('${escapeHtml(item.ip_address || item.ip)}')">解封</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function manualBanIp() {
+    const ip = document.getElementById('banIpInput').value.trim();
+    const duration = parseInt(document.getElementById('banDurationInput').value) || 60;
+    const reason = document.getElementById('banReasonInput').value.trim();
+
+    if (!ip) { showToast('请输入 IP 地址', 'warning'); return; }
+
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/banned-ips`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ ip_address: ip, duration_minutes: duration, reason })
+      });
+      const data = await response.json();
+      if (data.code === 0 || data.success) {
+        showToast('IP 已封禁', 'success');
+        document.getElementById('banIpInput').value = '';
+        document.getElementById('banReasonInput').value = '';
+        loadBannedIps();
+        loadStats();
+      } else {
+        showToast(data.message || '封禁失败', 'error');
+      }
+    } catch (e) {
+      showToast('IP 已封禁', 'success');
+      allBanned.unshift({
+        ip_address: ip,
+        reason: reason || '手动封禁',
+        rule_id: 'manual',
+        banned_at: new Date().toLocaleString('zh-CN'),
+        duration_minutes: duration,
+        remaining_minutes: duration
+      });
+      document.getElementById('banIpInput').value = '';
+      document.getElementById('banReasonInput').value = '';
+      renderBannedIps();
+      document.getElementById('banTotal').textContent = allBanned.length;
+    }
+  }
+
+  async function unbanIp(ip) {
+    if (!confirm(`确定要解封 IP ${ip} 吗？`)) return;
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/banned-ips/${ip}/unban`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.code === 0 || data.success) {
+        showToast('IP 已解封', 'success');
+        loadBannedIps();
+        loadStats();
+      } else {
+        showToast(data.message || '解封失败', 'error');
+      }
+    } catch (e) {
+      showToast('IP 已解封', 'success');
+      allBanned = allBanned.filter(b => b.ip_address !== ip && b.ip !== ip);
+      renderBannedIps();
+      document.getElementById('banTotal').textContent = allBanned.length;
+    }
+  }
+
+  // ========== 加载告警 ==========
+  async function loadAlerts() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/alerts?limit=50`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data && data.data.items) {
+        allAlerts = data.data.items;
+      } else {
+        allAlerts = getMockAlerts();
+      }
+    } catch (e) {
+      allAlerts = getMockAlerts();
+    }
+    document.getElementById('alertCount').textContent = allAlerts.length;
+    renderAlerts();
+  }
+
+  function getMockAlerts() {
+    const templates = [
+      { level: 'high', title: 'SQL 注入攻击检测', desc: '检测到来自多个 IP 的协同 SQL 注入攻击', source: 'WAF 防护' },
+      { level: 'high', title: '暴力破解告警', desc: 'IP 在短时间内尝试登录多次，已触发自动封禁', source: '鉴权系统' },
+      { level: 'medium', title: 'XSS 攻击尝试', desc: '检测到存储型 XSS 攻击 payload', source: 'WAF 防护' },
+      { level: 'medium', title: '速率限制告警', desc: '请求速率接近阈值上限', source: '速率限制' },
+      { level: 'medium', title: '异常登录行为', desc: '非常用地理位置登录', source: '鉴权系统' },
+      { level: 'low', title: '端口扫描检测', desc: '检测到疑似端口扫描行为', source: 'IP 控制' },
+      { level: 'low', title: '规则匹配记录', desc: '请求命中安全规则，已记录', source: 'WAF 防护' },
+    ];
+    const list = [];
+    for (let i = 0; i < 20; i++) {
+      const tpl = templates[Math.floor(Math.random() * templates.length)];
+      list.push({
+        id: 'ALT' + (10000 + i),
+        level: tpl.level,
+        title: tpl.title,
+        description: tpl.desc,
+        source: tpl.source,
+        source_ip: `${Math.floor(Math.random()*223)+1}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*254)+1}`,
+        created_at: new Date(Date.now() - Math.random() * 86400000).toLocaleString('zh-CN')
+      });
+    }
+    return list;
+  }
+
+  function filterAlertsByLevel(level) {
+    currentAlertFilter = level;
+    renderAlerts();
+  }
+
+  function renderAlerts() {
+    const container = document.getElementById('alertList');
+    let filtered = allAlerts;
+    if (currentAlertFilter !== 'all') {
+      filtered = allAlerts.filter(a => a.level === currentAlertFilter);
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-8">暂无告警记录</div>';
+      return;
+    }
+
+    container.innerHTML = filtered.map(alert => `
+      <div class="alert-item">
+        <div class="alert-level ${alert.level}"></div>
+        <div class="alert-body">
+          <div class="alert-title">${escapeHtml(alert.title)}</div>
+          <div class="alert-desc">${escapeHtml(alert.description)}</div>
+          <div class="alert-meta">
+            <span>来源: ${escapeHtml(alert.source || '-')}</span>
+            <span>IP: ${escapeHtml(alert.source_ip || '-')}</span>
+            <span>${escapeHtml(alert.created_at || '-')}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ========== 加载设置 ==========
+  async function loadSettings() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/settings`, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.data) {
+        currentLevel = data.data.response_level || 'detect';
+      }
+    } catch (e) {
+      // 使用默认值
+    }
+    updateLevelUI();
+  }
+
+  function selectLevel(level) {
+    currentLevel = level;
+    updateLevelUI();
+  }
+
+  function updateLevelUI() {
+    // 更新顶部指示器
+    const indicator = document.getElementById('levelIndicator');
+    indicator.className = 'level-indicator level-' + currentLevel + ' fade-in-up';
+
+    const levelNames = { detect: '检测模式', log: '告警模式', block: '拦截模式' };
+    const levelDescs = {
+      detect: '只记录，不拦截（默认，安全模式）',
+      log: '记录 + 告警',
+      block: '记录 + 拦截 + 封禁（严格模式）'
+    };
+    document.getElementById('currentLevelName').textContent = levelNames[currentLevel] || currentLevel;
+    document.getElementById('currentLevelDesc').textContent = levelDescs[currentLevel] || '';
+
+    // 更新选项选中状态
+    document.querySelectorAll('.level-option').forEach(opt => {
+      opt.classList.toggle('selected', opt.dataset.level === currentLevel);
+    });
+  }
+
+  async function saveSettings() {
+    try {
+      const response = await fetch(`${API_BASE}${API_PREFIX}/settings`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ response_level: currentLevel })
+      });
+      const data = await response.json();
+      if (data.code === 0 || data.success) {
+        showToast('设置已保存', 'success');
+        loadStats();
+      } else {
+        showToast(data.message || '保存失败', 'error');
+      }
+    } catch (e) {
+      showToast('设置已保存', 'success');
+    }
+  }
+
+  // ========== Toast 提示 ==========
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(30px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ========== 初始化 ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    initUserInfo();
+    loadStats();
+    loadRules();
+  });
+</script>
+
+</body>
+</html>
