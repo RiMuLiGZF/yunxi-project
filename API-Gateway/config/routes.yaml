@@ -1,0 +1,543 @@
+# ============================================================
+# 云汐 API 网关 - 路由配置文件
+# ============================================================
+# 动态路由配置，支持热加载
+# 修改此文件后，网关将自动检测变更并重新加载路由配置
+# ============================================================
+
+# 路由配置版本（用于配置管理和版本追踪）
+version: "2.0.0"
+
+# 全局默认配置（各路由可单独覆盖）
+defaults:
+  timeout: 30.0
+  retry: 2
+  strip_prefix: true
+  enabled: true
+  auth_required: true
+  rate_limit:
+    per_minute: 60
+    per_ip: 30
+    tier: "public"
+
+# 路由表
+routes:
+  # --------------------------------------------------------
+  # M1 多Agent调度中心
+  # --------------------------------------------------------
+  - id: m1
+    name: "M1 多Agent调度中心"
+    description: "多智能体集群调度与管理，负责Agent的创建、调度、负载均衡"
+    path: /m1
+    target: m1-service
+    url: "http://localhost:8001"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 60.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/public
+    rate_limit:
+      per_minute: 120
+      per_ip: 60
+      tier: "public"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M2 技能集群
+  # --------------------------------------------------------
+  - id: m2
+    name: "M2 技能集群"
+    description: "技能市场与技能执行引擎，提供各类AI能力调用"
+    path: /m2
+    target: m2-service
+    url: "http://localhost:8002"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/skills/public
+      - /api/v1/categories
+    rate_limit:
+      per_minute: 100
+      per_ip: 50
+      tier: "public"
+    supports_websocket: false
+    supports_sse: false
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M3 端云协同内核
+  # --------------------------------------------------------
+  - id: m3
+    name: "M3 端云协同内核"
+    description: "端云协同计算框架，支持本地推理与云端协同"
+    path: /m3
+    target: m3-service
+    url: "http://localhost:8003"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 120.0
+    retry: 1
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/status
+    rate_limit:
+      per_minute: 80
+      per_ip: 40
+      tier: "public"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 3
+      recovery_time: 60
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M4 场景引擎
+  # --------------------------------------------------------
+  - id: m4
+    name: "M4 场景引擎"
+    description: "场景模板引擎，支持场景配置、代码生成与执行"
+    path: /m4
+    target: m4-service
+    url: "http://localhost:8004"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 60.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/scenes/public
+      - /api/v1/templates
+    rate_limit:
+      per_minute: 60
+      per_ip: 30
+      tier: "public"
+    supports_websocket: false
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M5 潮汐记忆系统
+  # --------------------------------------------------------
+  - id: m5
+    name: "M5 潮汐记忆系统"
+    description: "长期记忆系统，支持向量检索、记忆存储与遗忘机制"
+    path: /m5
+    target: m5-service
+    url: "http://localhost:8005"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+    rate_limit:
+      per_minute: 120
+      per_ip: 60
+      tier: "public"
+    supports_websocket: false
+    supports_sse: false
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M6 硬件外设模拟
+  # --------------------------------------------------------
+  - id: m6
+    name: "M6 硬件外设模拟"
+    description: "硬件外设模拟与管理，支持IoT设备接入"
+    path: /m6
+    target: m6-service
+    url: "http://localhost:8006"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/devices/public
+    rate_limit:
+      per_minute: 60
+      per_ip: 30
+      tier: "public"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M7 积木平台（工作流编排）
+  # --------------------------------------------------------
+  - id: m7
+    name: "M7 积木平台"
+    description: "可视化工作流编排平台，支持拖拽式流程构建"
+    path: /m7
+    target: m7-service
+    url: "http://localhost:8007"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 60.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/workflows/public
+    rate_limit:
+      per_minute: 60
+      per_ip: 30
+      tier: "public"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M8 管理控制塔
+  # --------------------------------------------------------
+  - id: m8
+    name: "M8 管理控制塔"
+    description: "系统管理控制台，负责全局监控、配置管理与运维操作"
+    path: /m8
+    target: m8-service
+    url: "http://localhost:8008"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /metrics
+      - /api/v1/auth/login
+      - /api/v1/status
+      - /api/v1/public
+    rate_limit:
+      per_minute: 120
+      per_ip: 60
+      tier: "admin"
+    supports_websocket: false
+    supports_sse: false
+    circuit_breaker:
+      failure_threshold: 10
+      recovery_time: 15
+    plugins:
+      - request_logging
+      - trace_id
+      - audit_log
+
+  # --------------------------------------------------------
+  # M9 开发者工坊
+  # --------------------------------------------------------
+  - id: m9
+    name: "M9 开发者工坊"
+    description: "开发者工具集，代码生成、调试、测试一站式服务"
+    path: /m9
+    target: m9-service
+    url: "http://localhost:8009"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 120.0
+    retry: 1
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/public
+    rate_limit:
+      per_minute: 60
+      per_ip: 30
+      tier: "public"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M10 系统卫士
+  # --------------------------------------------------------
+  - id: m10
+    name: "M10 系统卫士"
+    description: "系统监控与运维管理，性能监控、告警、日志分析"
+    path: /m10
+    target: m10-service
+    url: "http://localhost:8010"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/status
+    rate_limit:
+      per_minute: 120
+      per_ip: 60
+      tier: "admin"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M11 MCP总线
+  # --------------------------------------------------------
+  - id: m11
+    name: "M11 MCP总线"
+    description: "MCP协议总线，统一管理各类工具与数据源接入"
+    path: /m11
+    target: m11-service
+    url: "http://localhost:8011"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 60.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/tools/public
+      - /sse
+    rate_limit:
+      per_minute: 120
+      per_ip: 60
+      tier: "mcp"
+    supports_websocket: true
+    supports_sse: true
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_time: 30
+    plugins:
+      - request_logging
+      - trace_id
+
+  # --------------------------------------------------------
+  # M12 安全盾
+  # --------------------------------------------------------
+  - id: m12
+    name: "M12 安全盾"
+    description: "安全防护中心，认证鉴权、WAF、审计日志"
+    path: /m12
+    target: m12-service
+    url: "http://localhost:8012"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    timeout: 30.0
+    retry: 2
+    strip_prefix: true
+    enabled: true
+    auth_required: true
+    health_path: /health
+    health_timeout: 5.0
+    public_paths:
+      - /health
+      - /api/v1/auth/login
+      - /api/v1/auth/register
+      - /api/v1/auth/password/forgot
+      - /api/v1/auth/password/reset
+      - /api/v1/status
+      - /api/v1/public-key
+    rate_limit:
+      per_minute: 60
+      per_ip: 30
+      tier: "public"
+    supports_websocket: false
+    supports_sse: false
+    circuit_breaker:
+      failure_threshold: 10
+      recovery_time: 15
+    plugins:
+      - request_logging
+      - trace_id
+      - audit_log
+
+  # --------------------------------------------------------
+  # API Gateway 自身管理接口
+  # --------------------------------------------------------
+  - id: gateway
+    name: "API Gateway 管理接口"
+    description: "网关自身的管理、健康检查、监控接口"
+    path: /gateway
+    target: gateway-internal
+    url: "internal://gateway"
+    weight: 100
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    timeout: 30.0
+    retry: 0
+    strip_prefix: false
+    enabled: true
+    auth_required: false
+    health_path: /health
+    health_timeout: 2.0
+    public_paths:
+      - /health
+      - /routes
+      - /status
+      - /metrics
+    rate_limit:
+      per_minute: 600
+      per_ip: 100
+      tier: "admin"
+    supports_websocket: false
+    supports_sse: false
+    circuit_breaker:
+      failure_threshold: 20
+      recovery_time: 10
+    plugins:
+      - request_logging
+      - trace_id

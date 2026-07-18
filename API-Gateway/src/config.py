@@ -427,6 +427,40 @@ if _USE_UNIFIED_CONFIG:
         api_key_header: str = Field(default="X-API-Key", description="API Key 头字段名")
         jwt_header: str = Field(default="Authorization", description="JWT 头字段名")
 
+        # 认证模式（M12 集成）
+        auth_mode: str = Field(
+            default="local",
+            description="认证模式：local（本地认证）或 m12（M12统一认证）"
+        )
+        m12_url: str = Field(
+            default="http://localhost:8012",
+            description="M12 安全盾服务地址"
+        )
+        m12_verify_endpoint: str = Field(
+            default="/api/m12/auth/verify",
+            description="M12 Token 验证端点"
+        )
+        m12_auth_cache_ttl: int = Field(
+            default=300,
+            ge=1,
+            description="M12 认证结果缓存时间（秒），默认 5 分钟"
+        )
+
+        # 动态路由配置
+        route_config_file: str = Field(
+            default="config/routes.yaml",
+            description="路由配置文件路径"
+        )
+        route_auto_reload: bool = Field(
+            default=True,
+            description="是否自动检测路由配置文件变更并热加载"
+        )
+        route_reload_interval: int = Field(
+            default=5,
+            ge=1,
+            description="路由配置文件检测间隔（秒）"
+        )
+
         # 限流
         rate_limit_per_minute: int = Field(
             default=600, ge=1, description="全局每分钟限流次数"
@@ -539,6 +573,13 @@ class GatewaySettings:
         self._fallback_cors_origins: str = "*"
         self._fallback_api_key_header: str = "X-API-Key"
         self._fallback_jwt_header: str = "Authorization"
+        self._fallback_auth_mode: str = "local"
+        self._fallback_m12_url: str = "http://localhost:8012"
+        self._fallback_m12_verify_endpoint: str = "/api/m12/auth/verify"
+        self._fallback_m12_auth_cache_ttl: int = 300
+        self._fallback_route_config_file: str = "config/routes.yaml"
+        self._fallback_route_auto_reload: bool = True
+        self._fallback_route_reload_interval: int = 5
         self._fallback_rate_limit_per_minute: int = 600
         self._fallback_rate_limit_per_ip: int = 100
         self._fallback_circuit_breaker_threshold: int = 5
@@ -643,6 +684,97 @@ class GatewaySettings:
             self._unified.jwt_header = value
         else:
             self._fallback_jwt_header = value
+
+    @property
+    def auth_mode(self) -> str:
+        if self._unified is not None:
+            return self._unified.auth_mode
+        return self._fallback_auth_mode
+
+    @auth_mode.setter
+    def auth_mode(self, value: str) -> None:
+        if self._unified is not None:
+            self._unified.auth_mode = value
+        else:
+            self._fallback_auth_mode = value
+
+    @property
+    def m12_url(self) -> str:
+        if self._unified is not None:
+            return self._unified.m12_url
+        return self._fallback_m12_url
+
+    @m12_url.setter
+    def m12_url(self, value: str) -> None:
+        if self._unified is not None:
+            self._unified.m12_url = value
+        else:
+            self._fallback_m12_url = value
+
+    @property
+    def m12_verify_endpoint(self) -> str:
+        if self._unified is not None:
+            return self._unified.m12_verify_endpoint
+        return self._fallback_m12_verify_endpoint
+
+    @m12_verify_endpoint.setter
+    def m12_verify_endpoint(self, value: str) -> None:
+        if self._unified is not None:
+            self._unified.m12_verify_endpoint = value
+        else:
+            self._fallback_m12_verify_endpoint = value
+
+    @property
+    def m12_auth_cache_ttl(self) -> int:
+        if self._unified is not None:
+            return self._unified.m12_auth_cache_ttl
+        return self._fallback_m12_auth_cache_ttl
+
+    @m12_auth_cache_ttl.setter
+    def m12_auth_cache_ttl(self, value: int) -> None:
+        if self._unified is not None:
+            self._unified.m12_auth_cache_ttl = value
+        else:
+            self._fallback_m12_auth_cache_ttl = value
+
+    @property
+    def route_config_file(self) -> str:
+        if self._unified is not None:
+            return self._unified.route_config_file
+        return self._fallback_route_config_file
+
+    @route_config_file.setter
+    def route_config_file(self, value: str) -> None:
+        if self._unified is not None:
+            self._unified.route_config_file = value
+        else:
+            self._fallback_route_config_file = value
+
+    @property
+    def route_auto_reload(self) -> bool:
+        if self._unified is not None:
+            return self._unified.route_auto_reload
+        return self._fallback_route_auto_reload
+
+    @route_auto_reload.setter
+    def route_auto_reload(self, value: bool) -> None:
+        if self._unified is not None:
+            self._unified.route_auto_reload = value
+        else:
+            self._fallback_route_auto_reload = value
+
+    @property
+    def route_reload_interval(self) -> int:
+        if self._unified is not None:
+            return self._unified.route_reload_interval
+        return self._fallback_route_reload_interval
+
+    @route_reload_interval.setter
+    def route_reload_interval(self, value: int) -> None:
+        if self._unified is not None:
+            self._unified.route_reload_interval = value
+        else:
+            self._fallback_route_reload_interval = value
 
     @property
     def rate_limit_per_minute(self) -> int:

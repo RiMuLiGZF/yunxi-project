@@ -1,9 +1,10 @@
 """
 云汐 API 网关 - 认证中间件（增强版）
 
-支持两种认证方式：
+支持三种认证方式：
 1. API Key - 服务间调用
-2. JWT Bearer Token - 用户登录认证（使用 jose 库验证签名）
+2. JWT Bearer Token - 本地验证（使用 jose 库验证签名）
+3. M12 统一认证 - 转发到 M12 安全盾验证（带缓存）
 
 认证策略：
 - 开发环境: 本地验证 JWT 签名 + API Key
@@ -14,6 +15,7 @@
 - 统一错误响应格式
 - 用户信息注入 request.state，供后续中间件和代理使用
 - 支持 API Key 和 JWT 双重认证
+- M12 认证模式，带结果缓存（TTL 5 分钟）
 """
 import hashlib
 import hmac
@@ -22,6 +24,7 @@ import os
 import base64
 import json
 import logging
+import asyncio
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -42,6 +45,13 @@ except ImportError:
     class JWTError(Exception):
         """JWT 验证错误占位符（jose 不可用时使用）"""
         pass
+
+# 尝试导入 httpx 用于 M12 认证
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    HAS_HTTPX = False
 
 
 def _find_route_by_path(path: str) -> Optional[ModuleRoute]:
@@ -87,6 +97,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self._jwt_issuer = os.getenv("GATEWAY_JWT_ISSUER", os.getenv("JWT_ISSUER", "yunxi"))
         self._dev_mode = os.getenv("ENV", "development") == "development"
 
+        # 认证模式：local 或 m12
+        self._auth_mode = getattr(settings, "auth_mode", "local")
+        self._m12_url = getattr(settings, "m12_url", "http://localhost:8012")
+        self._m12_verify_endpoint = getattr(
+            settings, "m12_verify_endpoint", "/api/m12/auth/verify"
+        )
+        self._m12_cache_ttl = getattr(settings, "m12_auth_cache_ttl", 300)
+
+        # M12 认证结果缓存（token -> (payload, expire_time)）
+        self._m12_cache: Dict[str, tuple] = {}
+        self._m12_cache_lock = asyncio.Lock()
+        self._m12_client: Optional[httpx.AsyncClient] = None
+
         # SEC-006: jose 库必须可用，禁止降级到不验证签名的模式
         if not HAS_JOSE:
             error_msg = (
@@ -97,8 +120,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             logger.critical(error_msg)
             raise RuntimeError(error_msg)
 
-        # 安全检查：生产环境不允许空密钥
-        if not self._jwt_secret:
+        # 安全检查：生产环境不允许空密钥（local 模式下）
+        if self._auth_mode == "local" and not self._jwt_secret:
             if self._dev_mode:
                 logger.warning(
                     "[Auth] 开发环境未配置 GATEWAY_JWT_SECRET，JWT认证将不可用。"
@@ -110,6 +133,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     "未配置密钥将导致所有JWT认证失败。"
                 )
                 raise RuntimeError("GATEWAY_JWT_SECRET must be set in production environment")
+
+        # M12 模式检查
+        if self._auth_mode == "m12":
+            if not HAS_HTTPX:
+                logger.warning(
+                    "[Auth-M12] httpx 库未安装，M12 认证模式不可用，将降级为 local 模式"
+                )
+                self._auth_mode = "local"
+            else:
+                logger.info(
+                    f"[Auth-M12] M12 认证模式已启用，M12 地址: {self._m12_url}"
+                    f", 缓存 TTL: {self._m12_cache_ttl}s"
+                )
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -153,7 +189,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get(settings.jwt_header)
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
-            payload = self._validate_jwt(token)
+
+            # 根据认证模式选择验证方式
+            if self._auth_mode == "m12":
+                # M12 统一认证模式
+                payload = await self._verify_with_m12(token)
+            else:
+                # 本地认证模式
+                payload = self._validate_jwt(token)
+
             if payload:
                 request.state.auth_method = "jwt"
                 request.state.authenticated = True
@@ -339,6 +383,137 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 "X-Trace-Id": trace_id,
             },
         )
+
+    # --------------------------------------------------------
+    # M12 统一认证
+    # --------------------------------------------------------
+
+    async def _verify_with_m12(self, token: str) -> Optional[Dict[str, Any]]:
+        """通过 M12 安全盾验证 Token
+
+        验证结果会缓存一段时间（默认 5 分钟），减少 M12 压力。
+
+        Args:
+            token: JWT Token
+
+        Returns:
+            验证成功返回用户信息字典，失败返回 None
+        """
+        # 先查缓存
+        cached = await self._get_m12_cache(token)
+        if cached is not None:
+            logger.debug("[Auth-M12] Cache hit for token")
+            return cached
+
+        # 调用 M12 验证接口
+        try:
+            client = await self._get_m12_client()
+            verify_url = self._m12_url + self._m12_verify_endpoint
+
+            response = await client.post(
+                verify_url,
+                json={"token": token},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Gateway-Request": "true",
+                },
+                timeout=5.0,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                # 假设 M12 返回格式: { code: 0, data: { user_id, username, roles, ... } }
+                if data.get("code") == 0 and data.get("data"):
+                    user_data = data["data"]
+                    payload = {
+                        "auth_type": "m12_jwt",
+                        "user_id": str(user_data.get("user_id", user_data.get("id", ""))),
+                        "username": user_data.get("username", ""),
+                        "roles": user_data.get("roles", []),
+                        "scopes": user_data.get("scopes", []),
+                        "jti": user_data.get("jti", ""),
+                        "exp": user_data.get("exp"),
+                        "iat": user_data.get("iat"),
+                        "type": user_data.get("type", "access"),
+                    }
+
+                    # 写入缓存
+                    await self._set_m12_cache(token, payload)
+                    logger.debug(f"[Auth-M12] Token verified successfully for user {payload['user_id']}")
+                    return payload
+
+            logger.warning(
+                f"[Auth-M12] Token verification failed, "
+                f"status={response.status_code}"
+            )
+            return None
+
+        except Exception as e:
+            logger.error(f"[Auth-M12] Verification error: {e}", exc_info=True)
+            # M12 不可用时，降级到本地验证（如果配置了本地密钥）
+            if self._jwt_secret:
+                logger.warning("[Auth-M12] M12 unavailable, falling back to local JWT validation")
+                return self._validate_jwt(token)
+            return None
+
+    async def _get_m12_client(self) -> httpx.AsyncClient:
+        """获取或创建 M12 HTTP 客户端"""
+        if self._m12_client is None:
+            self._m12_client = httpx.AsyncClient(
+                base_url=self._m12_url,
+                timeout=httpx.Timeout(5.0),
+                limits=httpx.Limits(
+                    max_connections=20,
+                    max_keepalive_connections=5,
+                    keepalive_expiry=30.0,
+                ),
+            )
+        return self._m12_client
+
+    async def _get_m12_cache(self, token: str) -> Optional[Dict[str, Any]]:
+        """获取 M12 认证缓存
+
+        Args:
+            token: JWT Token
+
+        Returns:
+            缓存的用户信息，未命中或已过期返回 None
+        """
+        async with self._m12_cache_lock:
+            cached = self._m12_cache.get(token)
+            if cached:
+                payload, expire_time = cached
+                if time.time() < expire_time:
+                    return payload
+                else:
+                    # 已过期，删除
+                    del self._m12_cache[token]
+            return None
+
+    async def _set_m12_cache(self, token: str, payload: Dict[str, Any]):
+        """设置 M12 认证缓存
+
+        Args:
+            token: JWT Token
+            payload: 用户信息
+        """
+        async with self._m12_cache_lock:
+            expire_time = time.time() + self._m12_cache_ttl
+            self._m12_cache[token] = (payload, expire_time)
+            # 简单的缓存清理：超过 1000 条时清理过期的
+            if len(self._m12_cache) > 1000:
+                self._clean_expired_cache()
+
+    def _clean_expired_cache(self):
+        """清理过期的缓存（非线程安全，应在锁内调用）"""
+        now = time.time()
+        expired = [
+            k for k, (_, exp) in self._m12_cache.items()
+            if exp < now
+        ]
+        for k in expired:
+            del self._m12_cache[k]
+        logger.debug(f"[Auth-M12] Cleaned {len(expired)} expired cache entries")
 
     def get_token_info(self, token: str) -> Optional[Dict[str, Any]]:
         """获取Token信息（已验证）"""

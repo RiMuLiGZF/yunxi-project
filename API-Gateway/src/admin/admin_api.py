@@ -8,6 +8,7 @@
 - 缓存管理（查询、清除）
 - 插件管理（列表、启用、禁用）
 - 统计和指标
+- 动态路由配置（热加载）
 """
 import time
 from typing import Dict, Any, Optional, List
@@ -17,6 +18,14 @@ from pydantic import BaseModel, Field
 
 from ..config import ModuleRoute
 from ..routing.weighted_router import RouteTarget
+
+# 动态路由配置相关导入（可选）
+try:
+    from ..services.route_config_loader import RouteConfig
+    from ..services.router_manager import get_router_manager
+    HAS_DYNAMIC_ROUTING = True
+except ImportError:
+    HAS_DYNAMIC_ROUTING = False
 
 
 # ===================================================================
@@ -114,6 +123,68 @@ class RewriteRuleRequest(BaseModel):
     type: str = "regex"
     order: int = 100
     enabled: bool = True
+
+
+# ===================================================================
+# 动态路由配置请求模型
+# ===================================================================
+
+class DynamicRouteCreateRequest(BaseModel):
+    """动态路由创建请求"""
+    id: str
+    name: str = ""
+    description: str = ""
+    path: str
+    target: str = ""
+    url: str
+    weight: int = 100
+    methods: List[str] = Field(default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "PATCH"])
+    timeout: float = 30.0
+    retry: int = 2
+    strip_prefix: bool = True
+    enabled: bool = True
+    auth_required: bool = True
+    health_path: str = "/health"
+    health_timeout: float = 5.0
+    public_paths: List[str] = Field(default_factory=list)
+    rate_limit: Dict[str, Any] = Field(default_factory=dict)
+    supports_websocket: bool = False
+    supports_sse: bool = False
+    circuit_breaker: Dict[str, Any] = Field(default_factory=dict)
+    plugins: List[str] = Field(default_factory=list)
+
+
+class DynamicRouteUpdateRequest(BaseModel):
+    """动态路由更新请求"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    path: Optional[str] = None
+    target: Optional[str] = None
+    url: Optional[str] = None
+    weight: Optional[int] = None
+    methods: Optional[List[str]] = None
+    timeout: Optional[float] = None
+    retry: Optional[int] = None
+    strip_prefix: Optional[bool] = None
+    enabled: Optional[bool] = None
+    auth_required: Optional[bool] = None
+    health_path: Optional[str] = None
+    health_timeout: Optional[float] = None
+    public_paths: Optional[List[str]] = None
+    rate_limit: Optional[Dict[str, Any]] = None
+    supports_websocket: Optional[bool] = None
+    supports_sse: Optional[bool] = None
+    circuit_breaker: Optional[Dict[str, Any]] = None
+    plugins: Optional[List[str]] = None
+
+
+class RouteReloadResponse(BaseModel):
+    """路由重新加载响应"""
+    success: bool
+    message: str
+    routes_before: int = 0
+    routes_after: int = 0
+    load_count: int = 0
 
 
 # ===================================================================
@@ -261,6 +332,289 @@ def create_admin_router(
             "code": 0,
             "message": "Route deleted successfully",
             "data": {"key": route_key},
+        }
+
+    # ===================================================================
+    # 动态路由配置管理（基于 RouteConfigLoader / RouterManager）
+    # ===================================================================
+
+    @router.get("/dynamic-routes")
+    async def list_dynamic_routes():
+        """获取所有动态路由配置"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        routes = rm.get_all_routes()
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "total": len(routes),
+                "enabled_count": sum(1 for r in routes if r.enabled),
+                "routes": [r.dict() for r in routes],
+            },
+        }
+
+    @router.get("/dynamic-routes/{route_id}")
+    async def get_dynamic_route(route_id: str):
+        """获取单条动态路由配置"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        route = rm.get_route(route_id)
+
+        if not route:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "code": 404,
+                    "message": f"Route '{route_id}' not found",
+                    "data": None,
+                },
+            )
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": route.dict(),
+        }
+
+    @router.post("/dynamic-routes")
+    async def create_dynamic_route(req: DynamicRouteCreateRequest):
+        """新增动态路由（运行时添加，仅内存生效）"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+
+        # 检查是否已存在
+        if rm.get_route(req.id):
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "code": 409,
+                    "message": f"Route '{req.id}' already exists",
+                    "data": None,
+                },
+            )
+
+        from ..services.route_config_loader import RouteConfig
+        route = RouteConfig(**req.dict())
+
+        success = rm.add_route(route)
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "code": 500,
+                    "message": "Failed to add route",
+                    "data": None,
+                },
+            )
+
+        return {
+            "code": 0,
+            "message": "Route created successfully",
+            "data": {"id": req.id, "name": req.name},
+        }
+
+    @router.put("/dynamic-routes/{route_id}")
+    async def update_dynamic_route(route_id: str, req: DynamicRouteUpdateRequest):
+        """修改动态路由（运行时修改，仅内存生效）"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        updates = req.dict(exclude_unset=True)
+
+        if not updates:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "code": 400,
+                    "message": "No fields to update",
+                    "data": None,
+                },
+            )
+
+        success = rm.update_route(route_id, updates)
+        if not success:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "code": 404,
+                    "message": f"Route '{route_id}' not found or update failed",
+                    "data": None,
+                },
+            )
+
+        # 重建 HTTP 客户端
+        if proxy_service:
+            await proxy_service.reload_route(route_id)
+
+        return {
+            "code": 0,
+            "message": "Route updated successfully",
+            "data": {"id": route_id, "updated_fields": list(updates.keys())},
+        }
+
+    @router.delete("/dynamic-routes/{route_id}")
+    async def delete_dynamic_route(route_id: str):
+        """删除动态路由（运行时删除，仅内存生效）"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        success = rm.delete_route(route_id)
+
+        if not success:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "code": 404,
+                    "message": f"Route '{route_id}' not found",
+                    "data": None,
+                },
+            )
+
+        # 清理相关资源
+        if proxy_service:
+            await proxy_service.reload_route(route_id)
+
+        return {
+            "code": 0,
+            "message": "Route deleted successfully",
+            "data": {"id": route_id},
+        }
+
+    @router.post("/dynamic-routes/reload")
+    async def reload_dynamic_routes():
+        """手动触发路由配置重新加载（从配置文件）"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        before_count = len(rm.get_all_routes())
+
+        success = rm.reload_config()
+
+        after_count = len(rm.get_all_routes())
+        stats = rm.config_loader.get_stats()
+
+        if success:
+            return {
+                "code": 0,
+                "message": "Routes reloaded successfully",
+                "data": {
+                    "success": True,
+                    "routes_before": before_count,
+                    "routes_after": after_count,
+                    "load_count": stats.get("load_count", 0),
+                    "timestamp": int(time.time()),
+                },
+            }
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "code": 500,
+                    "message": "Route reload failed",
+                    "data": {
+                        "success": False,
+                        "routes_before": before_count,
+                        "routes_after": after_count,
+                        "error": stats.get("last_error"),
+                    },
+                },
+            )
+
+    @router.get("/dynamic-routes/stats")
+    async def get_dynamic_routes_stats():
+        """获取路由统计信息（命中次数等）"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        stats = rm.get_all_stats()
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": stats,
+        }
+
+    @router.post("/dynamic-routes/stats/reset")
+    async def reset_dynamic_routes_stats():
+        """重置路由统计信息"""
+        if not HAS_DYNAMIC_ROUTING:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": 503,
+                    "message": "Dynamic routing not available",
+                    "data": None,
+                },
+            )
+
+        rm = get_router_manager()
+        rm.reset_stats()
+
+        return {
+            "code": 0,
+            "message": "Route stats reset successfully",
+            "data": {"reset": True},
         }
 
     # ===================================================================
