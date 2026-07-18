@@ -64,7 +64,7 @@ def _get_health_checker():
         settings = get_settings()
         checker = HealthChecker(
             module_name="m11",
-            version="0.1.0",
+            version="1.2.0",
             module_display_name="MCP 总线",
         )
 
@@ -208,7 +208,7 @@ async def m8_health() -> HealthResponse:
     return HealthResponse(
         status="healthy" if db_status == "healthy" else "degraded",
         module="m11",
-        version="0.1.0",
+        version="1.2.0",
         timestamp=datetime.utcnow(),
         details={
             "uptime_seconds": round(uptime, 2),
@@ -274,7 +274,7 @@ async def m8_config() -> ConfigResponse:
 
     return ConfigResponse(
         module="m11",
-        version="0.1.0",
+        version="1.2.0",
         env=settings.env,
         port=settings.port,
         heartbeat_timeout=settings.heartbeat_timeout,
@@ -333,7 +333,7 @@ async def prometheus_metrics():
     # 回退：返回 JSON 格式的基本指标
     return {
         "module": "m11",
-        "version": "0.1.0",
+        "version": "1.2.0",
         "uptime_seconds": round(_get_uptime_seconds(), 2),
     }
 

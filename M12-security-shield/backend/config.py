@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # 模块中文名
     module_name_cn: str = "安全盾"
     # 版本号
-    version: str = "1.0.0"
+    version: str = "1.2.0"
     # 服务主机
     host: str = "0.0.0.0"
     # 服务端口

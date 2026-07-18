@@ -45,7 +45,7 @@ except ImportError:
 class BasicConfig(BaseModel):
     """基础配置."""
     name: str = "m10-system-guard"
-    version: str = "1.1.0"
+    version: str = "1.2.0"
     port: int = 8010
     host: str = "0.0.0.0"
     log_level: str = "info"

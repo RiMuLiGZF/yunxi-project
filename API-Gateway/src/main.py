@@ -181,7 +181,7 @@ if _observability_available:
         # 创建网关健康检查器
         gw_checker = HealthChecker(
             module_name="gateway",
-            version="2.0.0",
+            version="1.2.0",
             module_display_name="API 网关",
         )
 
@@ -342,7 +342,7 @@ if _observability_available:
         # 创建可观测性路由并注册
         obs_router = create_observability_router(
             service_name="gateway",
-            version="2.0.0",
+            version="1.2.0",
             health_checker=gw_checker,
         )
         app.include_router(obs_router)

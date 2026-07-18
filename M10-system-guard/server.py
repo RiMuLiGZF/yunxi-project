@@ -256,7 +256,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="M10 系统卫士 API",
     description="云汐系统模块十：系统资源监控、进程管理、阈值防护、启动安全检查、审计日志、硬件保护报告、沙箱任务调度",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 

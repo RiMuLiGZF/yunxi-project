@@ -175,7 +175,7 @@ class Settings(BaseSettings):
 
     # ===== 服务配置（与全局配置同步） =====
     app_name: str = "云汐管理工作台 M8"
-    version: str = _global_get("version", "1.0.0")
+    version: str = _global_get("version", "1.2.0")
     host: str = _global_get("module_hosts", {}).get("m8", "0.0.0.0")
     port: int = _global_get("module_ports", {}).get("m8", 8008)
     env: str = _global_get("env", "development")

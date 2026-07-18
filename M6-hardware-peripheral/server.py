@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="M6 硬件外设模拟服务 API",
     description="云汐系统模块六：智能穿戴设备、无人机、桌面终端等硬件外设的模拟服务，支持实时传感器数据采集和SSE推送",
-    version="1.0.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 

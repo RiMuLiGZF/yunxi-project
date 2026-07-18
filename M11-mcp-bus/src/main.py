@@ -166,7 +166,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="M11 MCP Bus",
         description="MCP 总线服务 - 统一管理和路由所有 MCP 工具服务",
-        version="0.1.0",
+        version="1.2.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -243,7 +243,7 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "module": "M11 MCP Bus",
-            "version": "0.1.0",
+            "version": "1.2.0",
             "description": "MCP 总线服务 - 统一管理和路由所有 MCP 工具服务",
             "endpoints": {
                 "mcp": "/mcp",

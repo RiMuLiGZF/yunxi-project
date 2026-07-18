@@ -30,7 +30,22 @@ def _load_system_version() -> str:
 
 
 SYSTEM_VERSION = _load_system_version()
-__version_info__ = (3, 10, 2)
+
+# 模块内部迭代版本（独立于系统对外版本号）
+INTERNAL_VERSION_INFO = (3, 10, 2)
+
+# 向后兼容：旧变量名别名（已弃用）
+import warnings as _warnings_m2
+
+def __getattr__(name):
+    if name == "__version_info__":
+        _warnings_m2.warn(
+            "__version_info__ 已弃用，请使用 INTERNAL_VERSION_INFO",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return INTERNAL_VERSION_INFO
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # 迭代轮次标识
 ITERATION_ROUND = 12
