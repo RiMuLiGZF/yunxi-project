@@ -328,3 +328,177 @@ class CustomBlockInfo(BaseModel):
     user_id: str = ""
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+# ============================================================
+# P2 持久化执行引擎 - 持久化运行模型
+# ============================================================
+
+class PersistentRunStatus(str, Enum):
+    """持久化运行状态."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    DEAD_LETTER = "dead_letter"
+
+
+class PersistentWorkflowRun(BaseModel):
+    """持久化工作流运行记录."""
+    run_id: str
+    workflow_id: str
+    workflow_name: str = ""
+    status: PersistentRunStatus = PersistentRunStatus.PENDING
+    current_node_id: str = ""
+    context_data: Dict[str, Any] = Field(default_factory=dict)
+    step_results: Dict[str, Any] = Field(default_factory=dict)
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    created_by: str = ""
+    priority: int = 5
+    result_summary: Dict[str, Any] = Field(default_factory=dict)
+    error_message: str = ""
+    retry_count: int = 0
+    max_retries: int = 0
+    trigger_type: str = "manual"
+    trigger_id: str = ""
+    input_data: Dict[str, Any] = Field(default_factory=dict)
+    timeout_seconds: int = 300
+    last_heartbeat: Optional[str] = None
+    version: int = 1
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    class Config:
+        use_enum_values = True
+
+
+class PersistentRunCreateRequest(BaseModel):
+    """创建持久化运行请求."""
+    workflow_id: str
+    input_data: Dict[str, Any] = Field(default_factory=dict)
+    priority: int = 5
+    max_retries: int = 0
+    timeout_seconds: int = 300
+
+
+class PersistentRunListResponse(BaseModel):
+    """持久化运行列表响应."""
+    total: int
+    items: List[PersistentWorkflowRun]
+    page: int = 1
+    page_size: int = 20
+
+
+class ExecutionContextSnapshot(BaseModel):
+    """执行上下文快照."""
+    id: int
+    run_id: str
+    node_id: str = ""
+    context_data: Dict[str, Any] = Field(default_factory=dict)
+    step_results: Dict[str, Any] = Field(default_factory=dict)
+    variables: Dict[str, Any] = Field(default_factory=dict)
+    snapshot_type: str = "node_complete"
+    created_at: Optional[str] = None
+
+
+# ============================================================
+# P2 触发器系统 - 触发器模型
+# ============================================================
+
+class TriggerTypeEnum(str, Enum):
+    """触发器类型."""
+    SCHEDULE = "schedule"
+    WEBHOOK = "webhook"
+    EVENT = "event"
+
+
+class TriggerStatusEnum(str, Enum):
+    """触发历史状态."""
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class TriggerDefinition(BaseModel):
+    """触发器定义."""
+    id: str
+    name: str
+    description: str = ""
+    workflow_id: str
+    trigger_type: TriggerTypeEnum = TriggerTypeEnum.SCHEDULE
+    enabled: bool = False
+    config: Dict[str, Any] = Field(default_factory=dict)
+    input_mapping: Dict[str, Any] = Field(default_factory=dict)
+    filter_config: Dict[str, Any] = Field(default_factory=dict)
+    webhook_secret: str = ""
+    webhook_path: str = ""
+    timezone: str = "Asia/Shanghai"
+    last_triggered_at: Optional[str] = None
+    trigger_count: int = 0
+    success_count: int = 0
+    failed_count: int = 0
+    created_by: str = ""
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    class Config:
+        use_enum_values = True
+
+
+class TriggerCreateRequest(BaseModel):
+    """创建触发器请求."""
+    name: str
+    workflow_id: str
+    trigger_type: TriggerTypeEnum = TriggerTypeEnum.SCHEDULE
+    description: str = ""
+    config: Dict[str, Any] = Field(default_factory=dict)
+    input_mapping: Dict[str, Any] = Field(default_factory=dict)
+    filter_config: Dict[str, Any] = Field(default_factory=dict)
+    enabled: bool = False
+    timezone: str = "Asia/Shanghai"
+
+
+class TriggerUpdateRequest(BaseModel):
+    """更新触发器请求."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+    input_mapping: Optional[Dict[str, Any]] = None
+    filter_config: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = None
+    timezone: Optional[str] = None
+
+
+class TriggerHistoryRecord(BaseModel):
+    """触发历史记录."""
+    id: int
+    trigger_id: str
+    workflow_id: str
+    run_id: str = ""
+    trigger_type: str = "schedule"
+    status: TriggerStatusEnum = TriggerStatusEnum.SUCCESS
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    input_data: Dict[str, Any] = Field(default_factory=dict)
+    result_data: Dict[str, Any] = Field(default_factory=dict)
+    error_message: str = ""
+    triggered_at: Optional[str] = None
+    duration_ms: int = 0
+    source_info: Dict[str, Any] = Field(default_factory=dict)
+
+
+class TriggerListResponse(BaseModel):
+    """触发器列表响应."""
+    total: int
+    items: List[TriggerDefinition]
+    page: int = 1
+    page_size: int = 20
+
+
+class TriggerHistoryResponse(BaseModel):
+    """触发历史列表响应."""
+    total: int
+    items: List[TriggerHistoryRecord]
+    page: int = 1
+    page_size: int = 20

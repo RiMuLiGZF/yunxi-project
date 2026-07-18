@@ -34,6 +34,7 @@ from .routers.runs import router as runs_router
 from .routers.custom_blocks import router as custom_blocks_router
 from .routers.market import market_router
 from .routers.backup import router as backup_router
+from .routers.triggers import router as triggers_router
 from .services.storage import get_storage
 
 # ---------------------------------------------------------------------------
@@ -157,6 +158,25 @@ async def lifespan(app: FastAPI):
     stats = storage.get_stats()
     set_workflow_count(stats.get("total_workflows", 0))
     print(f"[M7] Loaded {stats.get('total_workflows', 0)} workflows from storage")
+
+    # P2: 启动触发器系统
+    try:
+        from .services.trigger_manager import get_trigger_manager
+        trigger_mgr = get_trigger_manager()
+        trigger_mgr.start()
+        print("[M7] 触发器系统已启动")
+    except Exception as e:
+        print(f"[M7-WARN] 触发器系统启动失败: {e}")
+
+    # P2: 崩溃恢复
+    try:
+        from .services.persistence import CrashRecoveryManager
+        recovery_mgr = CrashRecoveryManager()
+        recovery_result = recovery_mgr.recover_on_startup()
+        if recovery_result["total"] > 0:
+            print(f"[M7] 崩溃恢复完成: {recovery_result['recovered']}个恢复, {recovery_result['failed']}个失败")
+    except Exception as e:
+        print(f"[M7-WARN] 崩溃恢复执行失败: {e}")
 
     # P1-07: 启动时清理遗留临时文件
     _cleanup_temp_files(max_age_seconds=3600)
@@ -399,6 +419,7 @@ def create_app() -> FastAPI:
     app.include_router(custom_blocks_router)
     app.include_router(market_router)
     app.include_router(backup_router)
+    app.include_router(triggers_router)
 
     # 统一异常处理器（优先使用，覆盖原有装饰器注册的处理器）
     if _unified_exception_handler_m7:
