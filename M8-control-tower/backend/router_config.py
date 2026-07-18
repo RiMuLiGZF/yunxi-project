@@ -58,6 +58,9 @@ from .routers import (
     config_center_router,
     registry_router,
     data_access_router,
+    ops_dashboard_router,
+    performance_router,
+    i18n_router,
 )
 
 #: 路由配置列表：(router 实例, URL 前缀, 标签列表)
@@ -121,6 +124,13 @@ ROUTER_CONFIGS = [
     # ---- 设备与穿戴 ----
     (m6_devices_router, "/api/v1/m6", ["M6穿戴设备"]),
     (watch_router, "/api/watch", ["手表交互"]),
+    
+    # ---- 运维管理 ----
+    (ops_dashboard_router, "/api/ops", ["运维仪表盘"]),
+    (performance_router, "/api/performance", ["性能监控"]),
+    
+    # ---- 国际化 ----
+    (i18n_router, "/api/i18n", ["国际化"]),
     
     # ---- 其他 ----
     (git_status_router, "/api/git", ["Git状态看板"]),
