@@ -1,6 +1,11 @@
 """
 M6 硬件外设 - 设备控制 API
 设备动作指令、通知推送
+
+P2 半真实化改造：
+- 集成延迟模拟（写入类操作）
+- 窗帘电机等慢速设备特殊延迟
+- 操作后状态持久化
 """
 
 from typing import Optional, Dict, Any
@@ -11,6 +16,8 @@ from .deps import get_device_manager, get_notification_service
 from .utils import success_response, get_device_or_404
 from ..services.device_manager import DeviceManager
 from ..services.notification import NotificationService
+from ..services.simulation_core import get_delay_simulator
+from ..models.device import DeviceType
 
 router = APIRouter()
 
@@ -35,7 +42,7 @@ async def send_device_action(
     body: DeviceActionRequest,
     dm: DeviceManager = Depends(get_device_manager),
 ):
-    """向设备发送动作指令
+    """向设备发送动作指令（写入类操作，含延迟模拟）
 
     支持的动作因设备类型而异：
     - 手表: start_exercise, stop_exercise, find_device
@@ -44,15 +51,45 @@ async def send_device_action(
     - AR眼镜: start_navigation, translate, display_info, power_off
     - 无人机: takeoff, return_home, take_photo, start_video, stop_video, deliver
     - 笔记本: start_work, focus_mode, sleep
+    - 智能台灯: turn_on, turn_off, toggle, set_brightness, set_color_temp
+    - 温湿度传感器: calibrate, reset_calibration, force_reading
+    - 智能插座: turn_on, turn_off, toggle, reset_energy, set_overload_threshold
+    - 窗帘电机: open, close, stop, set_position, set_speed, calibrate_limits
     """
     sim = dm.get_simulator(device_id)
     if not sim:
         raise HTTPException(status_code=404, detail=f"设备不存在: {device_id}")
 
+    # P2: 延迟模拟
+    delay = get_delay_simulator()
+
+    # 慢速设备（窗帘电机）使用特殊延迟
+    if sim.device_type == DeviceType.CURTAIN_MOTOR:
+        # 计算行程距离比例
+        if body.action in ("open", "close", "set_position"):
+            if hasattr(sim, "get_travel_time") and hasattr(sim, "_position"):
+                if body.action == "open":
+                    target = 0.0
+                elif body.action == "close":
+                    target = 100.0
+                else:
+                    target = float(body.params.get("position", 50.0))
+                distance = abs(target - sim._position) / 100.0
+                await delay.simulate_slow_device_delay(distance_ratio=distance)
+            else:
+                await delay.simulate_slow_device_delay(distance_ratio=1.0)
+        else:
+            await delay.simulate_write_delay()
+    else:
+        await delay.simulate_write_delay()
+
     result = sim.execute_action(body.action, body.params)
 
     if not result.get("success", False):
         raise HTTPException(status_code=400, detail=result.get("message", "动作执行失败"))
+
+    # P2: 操作后保存状态
+    dm.save_device_state(device_id)
 
     return success_response(result, "指令已发送")
 
@@ -64,8 +101,12 @@ async def push_notification(
     dm: DeviceManager = Depends(get_device_manager),
     ns: NotificationService = Depends(get_notification_service),
 ):
-    """向指定设备推送通知消息"""
+    """向指定设备推送通知消息（写入类操作，含延迟模拟）"""
     get_device_or_404(dm, device_id)
+
+    # P2: 写入类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_write_delay()
 
     result = ns.push_to_device(
         device_id=device_id,
@@ -88,8 +129,12 @@ async def get_device_alerts(
     dm: DeviceManager = Depends(get_device_manager),
     ns: NotificationService = Depends(get_notification_service),
 ):
-    """获取设备的告警列表"""
+    """获取设备的告警列表（读取类操作，含延迟模拟）"""
     get_device_or_404(dm, device_id)
+
+    # P2: 读取类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_read_delay()
 
     alerts = ns.get_recent_alerts(device_id=device_id, limit=limit, clear=clear)
 
@@ -107,8 +152,12 @@ async def get_device_notifications(
     dm: DeviceManager = Depends(get_device_manager),
     ns: NotificationService = Depends(get_notification_service),
 ):
-    """获取设备的通知历史"""
+    """获取设备的通知历史（读取类操作，含延迟模拟）"""
     get_device_or_404(dm, device_id)
+
+    # P2: 读取类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_read_delay()
 
     notifications = ns.get_recent_notifications(device_id=device_id, limit=limit)
 

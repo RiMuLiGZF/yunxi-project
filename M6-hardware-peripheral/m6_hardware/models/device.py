@@ -26,6 +26,12 @@ class DeviceType(str, Enum):
     AR = "ar"                  # AR眼镜
     DRONE = "drone"            # 无人机
     LAPTOP = "laptop"          # 笔记本电脑
+    # P2 半真实化改造：新增智能家居设备
+    SMART_LAMP = "smart_lamp"          # 智能台灯
+    TEMP_HUMIDITY = "temp_humidity"    # 温湿度传感器
+    SMART_PLUG = "smart_plug"          # 智能插座
+    CURTAIN_MOTOR = "curtain_motor"  # 窗帘电机
+    AIR_QUALITY = "air_quality"      # 空气质量传感器
 
 
 class Device(BaseModel):

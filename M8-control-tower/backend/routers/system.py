@@ -5,9 +5,11 @@
 import sys
 import json
 import os
+import hashlib
+import asyncio
 from pathlib import Path
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 
@@ -22,6 +24,10 @@ from shared.business.module_client import get_module_registry, ModuleStatus
 from shared.business.process_manager import get_process_manager, ProcessStatus
 from shared.business.startup_orchestrator import get_startup_orchestrator
 from .users import router as users_router
+
+from shared.core.observability import get_logger
+
+logger = get_logger("m8.system")
 
 router = APIRouter()
 registry = get_module_registry()
@@ -161,12 +167,29 @@ async def get_system_info(current_user: dict = Depends(get_current_user)):
 
 @router.get("/health")
 async def system_health(current_user: dict = Depends(get_current_user)):
-    """系统健康检查"""
+    """系统健康检查
+
+    Deprecated: 已弃用，请使用标准路径 /m8/health（模块间调用）或 /health（公开健康检查）。
+    本端点为 M8 内部受保护版本，与公开 /health 功能重复，计划在 v0.7 移除。
+    """
+    # [M8-路由清理 P2] 标记弃用：/api/system/health 与公开 /health 功能重复
+    # 保留向后兼容，记录弃用警告日志，计划 v0.7 移除
+    import warnings
+    warnings.warn(
+        "Endpoint /api/system/health is deprecated, use /m8/health or /health instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    logger.warning(
+        "[DEPRECATED] /api/system/health 已弃用，请使用 /m8/health（标准接口）或 /health（公开接口）"
+    )
     return ApiResponse.success(
         data={
             "status": "healthy",
             "database": "connected",
             "modules_total": 8,
+            "_deprecated": True,
+            "_replacement": "/m8/health",
         }
     )
 
@@ -350,18 +373,202 @@ async def clear_cache(current_user: dict = Depends(get_current_user)):
     )
 
 
+# ==================== 运维联动辅助工具 ====================
+
+# 状态查询超时时间（秒）
+STATE_QUERY_TIMEOUT = 3.0
+
+# 模块级可用操作定义
+_MODULE_ACTIONS = {
+    "restart": {
+        "name": "restart",
+        "method": "POST",
+        "path": "/api/system/modules/{module_key}/restart",
+        "description": "重启模块进程",
+    },
+    "start": {
+        "name": "start",
+        "method": "POST",
+        "path": "/api/system/modules/{module_key}/start",
+        "description": "启动模块进程",
+    },
+    "stop": {
+        "name": "stop",
+        "method": "POST",
+        "path": "/api/system/modules/{module_key}/stop",
+        "description": "停止模块进程",
+    },
+    "health_check": {
+        "name": "health_check",
+        "method": "GET",
+        "path": "/api/system/modules/{module_key}",
+        "description": "查看模块健康状态",
+    },
+    "view_metrics": {
+        "name": "view_metrics",
+        "method": "GET",
+        "path": "/api/monitor/metrics/realtime",
+        "description": "查看实时监控指标",
+    },
+}
+
+# 系统级可用操作定义
+_SYSTEM_ACTIONS = [
+    {
+        "name": "reload_config",
+        "method": "POST",
+        "path": "/api/modules/registry/reload",
+        "description": "重新加载模块配置",
+    },
+    {
+        "name": "clear_cache",
+        "method": "POST",
+        "path": "/api/system/cache/clear",
+        "description": "清理系统缓存",
+    },
+    {
+        "name": "batch_start",
+        "method": "POST",
+        "path": "/api/system/modules/batch-start",
+        "description": "批量启动所有模块",
+    },
+    {
+        "name": "batch_stop",
+        "method": "POST",
+        "path": "/api/system/modules/batch-stop",
+        "description": "批量停止所有模块",
+    },
+    {
+        "name": "health_check_all",
+        "method": "POST",
+        "path": "/api/deploy/health-check",
+        "description": "对所有模块执行健康检查",
+    },
+]
+
+
+def _get_module_actions(module_key: str, simplified: bool = False) -> Any:
+    """
+    获取指定模块的可用操作列表。
+
+    Args:
+        module_key: 模块 key
+        simplified: 是否返回简化格式（仅操作名称列表）
+
+    Returns:
+        simplified=True: 操作名称列表 ["restart", "stop", ...]
+        simplified=False: 完整操作信息列表
+    """
+    # M8 自身不可重启/停止/启动
+    if module_key == "m8":
+        action_names = ["health_check", "view_metrics"]
+    else:
+        action_names = ["restart", "start", "stop", "health_check", "view_metrics"]
+
+    if simplified:
+        return action_names
+
+    return [
+        {
+            "name": info["name"],
+            "method": info["method"],
+            "path": info["path"].format(module_key=module_key),
+            "description": info["description"],
+        }
+        for name, info in _MODULE_ACTIONS.items()
+        if name in action_names
+    ]
+
+
+async def _get_module_health_state(module_key: str) -> Optional[Dict[str, Any]]:
+    """
+    获取模块当前健康状态（带超时保护）。
+
+    Returns:
+        健康状态字典，失败返回 None
+    """
+    try:
+        client = registry.get_client(module_key)
+        is_healthy = await asyncio.wait_for(
+            client.health_check(),
+            timeout=STATE_QUERY_TIMEOUT,
+        )
+        module = registry.get_module(module_key)
+        return {
+            "key": module_key,
+            "name": module.name if module else module_key,
+            "status": "running" if is_healthy else "stopped",
+            "healthy": is_healthy,
+            "latency_ms": module.latency_ms if module else None,
+        }
+    except (asyncio.TimeoutError, ValueError, AttributeError, Exception) as exc:
+        logger.warning(f"获取模块 {module_key} 状态失败（return_state）: {exc}")
+        return None
+
+
+def _get_config_hash() -> str:
+    """获取当前配置的哈希值（用于比较配置变更）"""
+    try:
+        settings_data = _load_settings()
+        # 只对非敏感字段计算 hash
+        hashable = {k: v for k, v in settings_data.items() if not k.endswith("_encrypted")}
+        raw = json.dumps(hashable, sort_keys=True, ensure_ascii=False)
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
+    except Exception:
+        return "unknown"
+
+
+def _get_cache_stats() -> Dict[str, Any]:
+    """获取当前缓存统计信息"""
+    from shared.data.cache import get_cache
+    try:
+        cache = get_cache()
+        info = getattr(cache, "info", None)
+        if callable(info):
+            return info()
+        # 降级：尝试获取已知属性
+        return {
+            "size": getattr(cache, "_size", None) or getattr(cache, "size", None),
+            "hit_count": getattr(cache, "_hit_count", None) or getattr(cache, "hit_count", None),
+            "miss_count": getattr(cache, "_miss_count", None) or getattr(cache, "miss_count", None),
+        }
+    except Exception:
+        return {"status": "unavailable"}
+
+
 # ==================== 模块管理接口 ====================
 # 【去重标注 AR-005 phase-1】
 # 模块管理主入口已统一为 /api/modules/*（见 routers/modules.py，63个端点）
 # 此处 /api/system/modules/* 保留用于向后兼容，后续版本将迁移到 modules.py
 # 推荐使用: GET /api/modules/list, POST /api/modules/{key}/start 等
+#
+# [M8-路由清理 P2] 已标记为弃用（deprecated），功能完全保留，仅添加弃用警告
+# 计划在 v0.8 版本移除，请迁移到 /api/modules/* 标准路径
+
+def _log_deprecated_modules(old_path: str, new_path: str) -> None:
+    """记录模块管理旧路径弃用警告"""
+    import warnings
+    warnings.warn(
+        f"Endpoint {old_path} is deprecated, use {new_path} instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    logger.warning(
+        "[DEPRECATED] %s 已弃用，请使用 %s（标准模块管理路径）",
+        old_path, new_path,
+    )
 
 @router.get("/modules")
 async def list_modules(
     health_check: bool = False,
     current_user: dict = Depends(get_current_user),
 ):
-    """获取所有模块列表"""
+    """获取所有模块列表
+
+    Deprecated: 请使用 GET /api/modules/ 替代。
+    本端点为旧版路径，功能与 /api/modules/ 重复，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules("/api/system/modules", "/api/modules/")
     modules = registry.get_all_modules()
     
     if health_check:
@@ -385,7 +592,15 @@ async def list_modules(
 
 @router.get("/modules/{module_key}")
 async def get_module_detail(module_key: str, current_user: dict = Depends(get_current_user)):
-    """获取单个模块详情"""
+    """获取单个模块详情
+
+    Deprecated: 请使用 GET /api/modules/{module_key} 替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        f"/api/system/modules/{module_key}",
+        f"/api/modules/{module_key}",
+    )
     module = registry.get_module(module_key)
     if not module:
         return ApiResponse.error(code=404, message=f"模块 {module_key} 不存在")
@@ -394,7 +609,15 @@ async def get_module_detail(module_key: str, current_user: dict = Depends(get_cu
 
 @router.post("/modules/{module_key}/start")
 async def start_module(module_key: str, current_user: dict = Depends(get_current_user)):
-    """启动模块（真实进程管理）"""
+    """启动模块（真实进程管理）
+
+    Deprecated: 请使用 POST /api/modules/{module_key}/start 替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        f"/api/system/modules/{module_key}/start",
+        f"/api/modules/{module_key}/start",
+    )
     module = registry.get_module(module_key)
     if not module:
         return ApiResponse.error(code=404, message=f"模块 {module_key} 不存在")
@@ -427,7 +650,15 @@ async def start_module(module_key: str, current_user: dict = Depends(get_current
 
 @router.post("/modules/{module_key}/stop")
 async def stop_module(module_key: str, current_user: dict = Depends(get_current_user)):
-    """停止模块（真实进程管理）"""
+    """停止模块（真实进程管理）
+
+    Deprecated: 请使用 POST /api/modules/{module_key}/stop 替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        f"/api/system/modules/{module_key}/stop",
+        f"/api/modules/{module_key}/stop",
+    )
     module = registry.get_module(module_key)
     if not module:
         return ApiResponse.error(code=404, message=f"模块 {module_key} 不存在")
@@ -452,35 +683,87 @@ async def stop_module(module_key: str, current_user: dict = Depends(get_current_
 
 
 @router.post("/modules/{module_key}/restart")
-async def restart_module(module_key: str, current_user: dict = Depends(get_current_user)):
-    """重启模块（真实进程管理）"""
+async def restart_module(
+    module_key: str,
+    return_state: bool = Query(False, description="操作完成后是否返回最新状态"),
+    current_user: dict = Depends(get_current_user),
+):
+    """重启模块（真实进程管理）
+
+    Deprecated: 请使用 POST /api/modules/{module_key}/restart 替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+
+    - 默认行为（return_state=false）：仅返回操作结果，向后兼容
+    - return_state=true：操作完成后自动进行健康检查，返回操作前后状态
+    """
+    _log_deprecated_modules(
+        f"/api/system/modules/{module_key}/restart",
+        f"/api/modules/{module_key}/restart",
+    )
     module = registry.get_module(module_key)
     if not module:
         return ApiResponse.error(code=404, message=f"模块 {module_key} 不存在")
 
+    # 先记录操作前状态
+    previous_state = None
+    if return_state:
+        previous_state = await _get_module_health_state(module_key)
+
     # M8 自己不能重启自己
     if module_key == "m8":
+        result_data = module.to_dict()
+        if return_state:
+            result_data = {
+                "operation": "restart",
+                "previous_state": previous_state,
+                "current_state": previous_state,
+                "module": module.to_dict(),
+            }
         return ApiResponse.success(
             message="M8 管理工作台无法自行重启，请手动重启服务",
-            data=module.to_dict(),
+            data=result_data,
         )
 
     proc_info = process_mgr.restart_module(module_key)
-    
+
     if proc_info.status == ProcessStatus.ERROR:
+        error_data = {"error": proc_info.error_message, "process": proc_info.to_dict()}
+        if return_state:
+            error_data["operation"] = "restart"
+            error_data["previous_state"] = previous_state
+            error_data["current_state"] = None
         return ApiResponse.error(
             message=f"模块 {module_key} 重启失败",
-            data={"error": proc_info.error_message, "process": proc_info.to_dict()},
+            data=error_data,
         )
-    
+
     module.status = ModuleStatus.RUNNING if proc_info.status == ProcessStatus.RUNNING else ModuleStatus.UNKNOWN
-    
+
+    # 操作后获取最新状态
+    current_state = None
+    if return_state:
+        current_state = await _get_module_health_state(module_key)
+        # 状态查询失败不影响操作结果（只记 warning 日志）
+        if current_state is None:
+            logger.warning(f"模块 {module_key} 重启后状态查询失败，已跳过")
+
+    result_data = {
+        **module.to_dict(),
+        "process": proc_info.to_dict(),
+    }
+
+    if return_state:
+        result_data = {
+            "operation": "restart",
+            "previous_state": previous_state,
+            "current_state": current_state,
+            "module": module.to_dict(),
+            "process": proc_info.to_dict(),
+        }
+
     return ApiResponse.success(
         message=f"模块 {module_key} 重启指令已发送",
-        data={
-            **module.to_dict(),
-            "process": proc_info.to_dict(),
-        },
+        data=result_data,
     )
 
 
@@ -494,7 +777,15 @@ async def batch_start_modules(
     req: BatchModuleRequest = None,
     current_user: dict = Depends(get_current_user),
 ):
-    """批量启动模块（不包含 M8 自身）"""
+    """批量启动模块（不包含 M8 自身）
+
+    Deprecated: 请使用 /api/modules/registry 相关接口替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        "/api/system/modules/batch-start",
+        "/api/modules/registry",
+    )
     modules = req.modules if req and req.modules else None
     
     all_modules = registry.get_all_modules()
@@ -541,7 +832,15 @@ async def batch_stop_modules(
     req: BatchModuleRequest = None,
     current_user: dict = Depends(get_current_user),
 ):
-    """批量停止模块"""
+    """批量停止模块
+
+    Deprecated: 请使用 /api/modules/registry 相关接口替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        "/api/system/modules/batch-stop",
+        "/api/modules/registry",
+    )
     modules = req.modules if req and req.modules else None
     force = req.force if req else False
     
@@ -584,7 +883,15 @@ async def batch_stop_modules(
 async def get_modules_realtime_status(
     current_user: dict = Depends(get_current_user),
 ):
-    """获取所有模块的实时状态（结合进程状态 + HTTP 健康检查）"""
+    """获取所有模块的实时状态（结合进程状态 + HTTP 健康检查）
+
+    Deprecated: 请使用 GET /api/monitor/modules 或 GET /api/ops/modules 替代。
+    本端点为旧版路径，计划在 v0.8 移除。
+    """
+    _log_deprecated_modules(
+        "/api/system/modules/status/realtime",
+        "/api/monitor/modules",
+    )
     import asyncio
     import httpx
     
@@ -666,10 +973,24 @@ async def get_announcements(current_user: dict = Depends(get_current_user)):
     return ApiResponse.success(data={"total": len(items), "items": items})
 
 
-# 保留原 /notices 路径作为别名
+# [M8-路由清理 P2] 旧路径别名，已弃用
+# 保留向后兼容，记录弃用警告日志，计划 v0.7 移除
 @router.get("/notices")
 async def get_notices(current_user: dict = Depends(get_current_user)):
-    """获取系统公告（旧路径别名）"""
+    """获取系统公告（旧路径别名，已弃用）
+
+    Deprecated: 请使用 GET /api/system/announcements 替代。
+    本端点为旧版命名遗留，计划在 v0.7 移除。
+    """
+    import warnings
+    warnings.warn(
+        "Endpoint /api/system/notices is deprecated, use /api/system/announcements instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    logger.warning(
+        "[DEPRECATED] /api/system/notices 已弃用，请使用 /api/system/announcements"
+    )
     return await get_announcements(current_user)
 
 

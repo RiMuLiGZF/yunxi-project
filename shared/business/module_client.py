@@ -20,8 +20,8 @@ _shared_parent = Path(__file__).resolve().parent.parent.parent
 if str(_shared_parent) not in sys.path:
     sys.path.insert(0, str(_shared_parent))
 
-from shared.config import get_config
-from shared.cache import SimpleCache, get_path_ttl, get_cache_from_env
+from shared.core.config import get_config
+from shared.data.cache import SimpleCache, get_path_ttl, get_cache_from_env
 
 # 结构化日志：优先 structlog，缺失时回退到 stdlib logging
 try:
@@ -90,7 +90,7 @@ class ModuleInfo:
         port: int,
         base_url: str,
         description: str = "",
-        health_endpoint: str = "/health",
+        health_endpoint: str = "/health",  # [M8-路由清理 P2] 默认旧路径，保留兼容
         category: str = "core",
     ):
         self.key = key
@@ -374,10 +374,14 @@ class ModuleClient:
     async def health_check(self) -> bool:
         """健康检查，优先使用 M8 标准路径 /m8/health，失败时降级到 /health。
 
-        调用策略：
+        调用策略（P1-3 运维调用路径统一）：
         1. 先尝试 /m8/health（M8 标准接口）
         2. 若返回 404 或连接失败，降级尝试 /health
         3. 降级时记录 WARNING 日志
+
+        [M8-路由清理 P2] 降级逻辑保留：老模块可能仍未迁移到 /m8/health，
+        需要继续支持降级以保证向后兼容。
+        计划在所有模块完成迁移后（预计 v1.0）移除降级路径。
 
         结果可走缓存（TTL 2s）。
         """
@@ -769,7 +773,7 @@ class ModuleRegistry:
         Returns:
             { module_key: warmed_count } 每个模块成功预热的路径数
         """
-        warm_paths = paths or ["/health"]
+        warm_paths = paths or ["/health"]  # [M8-路由清理 P2] 预热默认用旧路径，保留兼容
         results: Dict[str, int] = {}
         for module in self.get_all_modules():
             count = 0

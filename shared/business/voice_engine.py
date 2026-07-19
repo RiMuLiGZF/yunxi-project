@@ -489,7 +489,7 @@ class TTSEngine:
             return self._cosyvoice_available
         
         try:
-            from shared.cosyvoice_client import CosyVoiceClient, CosyVoiceConfig
+            from shared.business.cosyvoice_client import CosyVoiceClient, CosyVoiceConfig
             cfg = CosyVoiceConfig(
                 api_url=self._cosyvoice_api_url,
                 default_speaker_id=self._cosyvoice_speaker_id,

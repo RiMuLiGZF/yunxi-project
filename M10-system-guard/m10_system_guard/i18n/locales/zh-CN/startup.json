@@ -1,0 +1,59 @@
+{
+  "levels": {
+    "safe": {
+      "name": "安全",
+      "description": "系统资源充足，可以安全启动任务"
+    },
+    "warning": {
+      "name": "警告",
+      "description": "系统资源偏高，可以启动但建议关注"
+    },
+    "danger": {
+      "name": "危险",
+      "description": "系统资源不足，不建议启动任务"
+    }
+  },
+  "task_levels": {
+    "light": {
+      "name": "轻量",
+      "description": "低资源需求任务"
+    },
+    "normal": {
+      "name": "普通",
+      "description": "标准资源需求任务"
+    },
+    "heavy": {
+      "name": "重型",
+      "description": "高资源需求任务"
+    },
+    "super_heavy": {
+      "name": "超重型",
+      "description": "极高资源需求任务"
+    }
+  },
+  "memory_check": {
+    "danger": "预估内存使用率将达到 {percent:.1f}%，超过危险阈值",
+    "warning": "预估内存使用率将达到 {percent:.1f}%，偏高",
+    "safe": "内存充足"
+  },
+  "cpu_check": {
+    "danger": "预估CPU使用率将达到 {percent:.1f}%，超过危险阈值",
+    "warning": "预估CPU使用率将达到 {percent:.1f}%，偏高",
+    "safe": "CPU资源充足"
+  },
+  "temperature_check": {
+    "danger": "预估温度将达到 {temp:.1f}°C，过热危险",
+    "warning": "预估温度将达到 {temp:.1f}°C，偏高",
+    "safe": "温度正常"
+  },
+  "process_check": {
+    "danger": "同类进程数 ({count}) 过多，可能造成资源竞争",
+    "warning": "同类进程数 ({count}) 已达上限，建议等待",
+    "safe": "同类进程数 ({count}) 在合理范围内"
+  },
+  "recommendations": {
+    "safe": "系统状态良好，可以安全启动任务",
+    "warning": "系统状态偏高，建议: {warnings}",
+    "danger": "危险！不建议启动任务。原因: {reasons}"
+  }
+}

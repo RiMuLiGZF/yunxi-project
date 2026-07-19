@@ -648,9 +648,15 @@ def register_public_health_endpoint(app: FastAPI, settings, logger,
     
     端点：
     - GET /health  系统健康检查
+
+    注意：模块间调用请使用标准路径 /m8/health（P1-3 已完成迁移统一）。
+    本端点保留供外部监控系统（如 Prometheus、负载均衡器）使用，
+    暂不计划移除。[M8-路由清理 P2] 保留不清理。
     """
-    @app.get("/health", tags=["系统"], summary="系统健康检查")
+    @app.get("/health", tags=["系统"], summary="系统健康检查（公开，向后兼容）")
     async def public_health():
+        # 公开健康检查接口：保留供外部监控使用
+        # 模块间健康检查请使用 /m8/health 标准路径
         # 如果可用，使用标准化健康检查器
         if _observability_available:
             try:

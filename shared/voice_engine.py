@@ -1,28 +1,29 @@
 """
-语音引擎（向后兼容存根）
+voice_engine 模块（已归档）
 
-.. deprecated:: 1.0.0
-   模块已迁移至 `shared.business.voice_engine`。
-   旧路径 `shared.voice_engine` 将在未来版本中移除，请尽快更新 import。
+.. deprecated:: 1.3.0
+   本模块已在 shared 库瘦身第一步中归档至 shared._deprecated。
+   模块已迁移至新路径，具体请查看 shared/_deprecated/voice_engine.py。
 
-推荐用法：
-    from shared.business.voice_engine import ...
+   请尽快更新 import 路径到对应的新模块位置。
+
+归档时间: 2026-07-19
 """
 
 import warnings as _warnings
 
 _warnings.warn(
-    f"模块 {__name__} 已弃用，已迁移至 shared.business.voice_engine。"
-    f"请更新 import 路径为 'from shared.business.voice_engine import ...'。"
-    f"旧路径将在未来版本中移除。",
+    f"模块 shared.voice_engine 已归档至 shared._deprecated，"
+    f"请迁移到新的 import 路径。"
+    f"旧路径将在 v2.0.0 中彻底移除。",
     DeprecationWarning,
     stacklevel=2,
 )
 
-# 从新路径 re-export 所有内容
-from shared.business.voice_engine import *  # noqa: F401,F403
+# 从归档位置 re-export 所有内容（保持向后兼容）
+from shared._deprecated.voice_engine import *  # noqa: F401,F403
 try:
-    from shared.business.voice_engine import __all__ as _new_all  # noqa: F401
-    __all__ = _new_all
+    from shared._deprecated.voice_engine import __all__ as _deprecated_all  # noqa: F401
+    __all__ = _deprecated_all
 except ImportError:
     pass

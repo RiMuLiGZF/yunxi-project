@@ -432,9 +432,16 @@ def _get_mock_logs(limit: int = 50) -> List[Dict[str, Any]]:
 def _get_system_metrics() -> Dict[str, Any]:
     """获取真实系统指标，psutil 不可用时降级为模拟数据
 
-    注意：已迁移到 MonitorService 类，此处为向后兼容的薄封装。
+    Deprecated: 已迁移到 MonitorService 类，此处为向后兼容的薄封装。
     新代码请直接使用 monitor_service.get_system_metrics()。
+    计划在 v0.8 移除。
     """
+    import warnings
+    warnings.warn(
+        "_get_system_metrics() is deprecated, use monitor_service.get_system_metrics() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return monitor_service.get_system_metrics()
 
 
@@ -884,34 +891,55 @@ async def get_alert_stats(
 # ============================================================
 # 历史数据采集（已迁移到 MonitorService）
 # ============================================================
-# 注意：历史数据采集已由 MonitorService 类统一管理（线程安全）
-# monitor_service 在模块加载时自动启动后台采集线程
-# 以下为向后兼容的薄封装函数
+# [M8-路由清理 P2] 以下为向后兼容的薄封装函数，已标记为弃用
+# 新代码请直接使用 monitor_service 的对应方法
+# 计划在 v0.8 移除
 
 def _collect_history_point():
-    """采集一个历史数据点（向后兼容）
+    """采集一个历史数据点（向后兼容，已弃用）
 
-    新代码请使用 monitor_service.collect_history_point()
+    Deprecated: 新代码请使用 monitor_service.collect_history_point()
+    计划在 v0.8 移除。
     """
+    import warnings
+    warnings.warn(
+        "_collect_history_point() is deprecated, use monitor_service.collect_history_point() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     monitor_service.collect_history_point()
 
 
 def _start_history_collector():
-    """启动后台历史数据采集线程（向后兼容）
+    """启动后台历史数据采集线程（向后兼容，已弃用）
 
-    新代码请使用 monitor_service.start_collector()
+    Deprecated: 新代码请使用 monitor_service.start_collector()
+    计划在 v0.8 移除。
     """
+    import warnings
+    warnings.warn(
+        "_start_history_collector() is deprecated, use monitor_service.start_collector() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     monitor_service.start_collector()
 
 
 def _get_history_data(period: str) -> dict:
     """
-    根据时间段获取历史数据（向后兼容的薄封装）
+    根据时间段获取历史数据（向后兼容的薄封装，已弃用）
+
+    Deprecated: 新代码请使用 monitor_service.get_history_data()
+    计划在 v0.8 移除。
 
     period: 1h, 6h, 24h, 7d, 30d
-
-    新代码请使用 monitor_service.get_history_data()
     """
+    import warnings
+    warnings.warn(
+        "_get_history_data() is deprecated, use monitor_service.get_history_data() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     raw_data = monitor_service.get_history_data(period)
 
     # 格式化时间戳为标签（保持原有接口格式）

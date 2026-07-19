@@ -1,0 +1,55 @@
+{
+  "cpu_protection": {
+    "name": "CPU防护",
+    "description": "CPU使用率超过阈值时触发分级拦截"
+  },
+  "memory_protection": {
+    "name": "内存防护",
+    "description": "内存使用率超过阈值时触发分级拦截"
+  },
+  "temperature_protection": {
+    "name": "温度防护",
+    "description": "系统温度超过阈值时触发硬件保护"
+  },
+  "disk_protection": {
+    "name": "磁盘防护",
+    "description": "磁盘使用率超过阈值时触发告警"
+  },
+  "action_on_warning": {
+    "cpu": "日志记录，降低非核心任务优先级",
+    "memory": "日志记录，触发GC回收",
+    "temperature": "日志记录，提高风扇转速（模拟）",
+    "disk": "日志记录，提醒清理磁盘"
+  },
+  "action_on_critical": {
+    "cpu": "启动过载限流，减少并发数",
+    "memory": "启动内存限流，限制新任务内存分配",
+    "temperature": "降低CPU频率，暂停重型计算",
+    "disk": "暂停磁盘写入密集型任务"
+  },
+  "action_on_emergency": {
+    "cpu": "暂停重型任务，仅保留核心服务",
+    "memory": "暂停重型任务，释放缓存内存",
+    "temperature": "暂停所有重型任务，强制降温",
+    "disk": "强制清理临时文件和缓存"
+  },
+  "metric_names": {
+    "cpu": "CPU使用率",
+    "memory": "内存使用率",
+    "temperature": "系统温度",
+    "disk": "磁盘使用率",
+    "gpu": "GPU使用率",
+    "network": "网络带宽",
+    "battery": "电池电量"
+  },
+  "level_descriptions": {
+    "info": "正常范围",
+    "warning": "偏高，建议关注",
+    "critical": "过高，已启动限流措施",
+    "emergency": "危险！已暂停重型任务"
+  },
+  "policy_disabled": "策略未启用",
+  "overall_level": "总体防护级别",
+  "throttling_active": "限流已激活",
+  "heavy_tasks_paused": "重型任务已暂停"
+}

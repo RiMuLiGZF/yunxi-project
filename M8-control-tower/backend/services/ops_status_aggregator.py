@@ -428,10 +428,14 @@ class OpsStatusAggregator:
     def _refresh_module(self, module_name: str) -> None:
         """刷新单个模块的健康状态
 
-        调用策略：
+        调用策略（P1-3 运维调用路径统一）：
         1. 优先使用 M8 标准路径 /m8/health
         2. 若返回 404 或连接失败，降级尝试 /health
         3. 降级时记录 WARNING 日志，并标记模块为"非标准接入"
+
+        [M8-路由清理 P2] 降级逻辑保留：老模块可能仍未迁移到 /m8/health，
+        需要继续支持降级以保证向后兼容。
+        计划在所有模块完成迁移后（预计 v1.0）移除降级路径。
         """
         info = self.MODULES.get(module_name)
         if not info:

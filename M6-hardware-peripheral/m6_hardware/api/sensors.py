@@ -1,6 +1,9 @@
 """
 M6 硬件外设 - 传感器数据 API
 实时数据、历史数据查询
+
+P2 半真实化改造：
+- 集成延迟模拟（读取类操作）
 """
 
 from typing import Optional
@@ -11,6 +14,7 @@ from .deps import get_device_manager, get_data_collector
 from .utils import success_response, get_device_or_404
 from ..services.data_collector import DataCollector
 from ..services.device_manager import DeviceManager
+from ..services.simulation_core import get_delay_simulator
 
 router = APIRouter()
 
@@ -21,7 +25,11 @@ async def get_latest_sensor_data(
     dm: DeviceManager = Depends(get_device_manager),
     dc: DataCollector = Depends(get_data_collector),
 ):
-    """获取指定设备的最新传感器数据"""
+    """获取指定设备的最新传感器数据（读取类操作，含延迟模拟）"""
+    # P2: 读取类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_read_delay()
+
     get_device_or_404(dm, device_id)
 
     data = dc.get_latest_sensor_data(device_id)
@@ -38,7 +46,11 @@ async def get_sensor_history(
     dm: DeviceManager = Depends(get_device_manager),
     dc: DataCollector = Depends(get_data_collector),
 ):
-    """查询传感器历史数据，支持按时间范围和传感器类型筛选"""
+    """查询传感器历史数据，支持按时间范围和传感器类型筛选（读取类操作，含延迟模拟）"""
+    # P2: 读取类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_read_delay()
+
     get_device_or_404(dm, device_id)
 
     # 解析时间
@@ -84,7 +96,11 @@ async def get_specific_sensor(
     dm: DeviceManager = Depends(get_device_manager),
     dc: DataCollector = Depends(get_data_collector),
 ):
-    """获取指定设备特定传感器的历史数据"""
+    """获取指定设备特定传感器的历史数据（读取类操作，含延迟模拟）"""
+    # P2: 读取类操作延迟模拟
+    delay = get_delay_simulator()
+    await delay.simulate_read_delay()
+
     get_device_or_404(dm, device_id)
 
     end_dt = datetime.now()
