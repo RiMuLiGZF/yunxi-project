@@ -6,7 +6,7 @@
 import os
 import sys
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
@@ -22,6 +22,9 @@ from shared.business.tool_system import get_tool_registry
 from shared.business.agent_engine import get_agent_engine
 from ...schemas import ApiResponse
 from ...auth import get_current_user
+from shared.core.observability import get_logger
+
+logger = get_logger("brain_router_proxy")
 
 router = APIRouter()
 
@@ -842,221 +845,546 @@ async def update_plan_progress(
     return ApiResponse(code=0, message="进度已更新")
 
 
-# ==================== Agent工具接口 ====================
+# ==================== Agent/工具/多Agent团队接口（代理模式）====================
+#
+# [V12.0] Agent/工具/多Agent团队接口已迁移至 M1-agent-hub
+# M8 端保留代理路由，向后兼容。
+#
+# 代理配置：
+#   BRAIN_AGENT_PROXY_MODE=proxy  (默认，转发到 M1)
+#   BRAIN_AGENT_PROXY_MODE=local  (降级，使用本地实现)
+#
+# 接口清单（共 9 个，全部代理到 M1）：
+# 工具系统（3 个）：
+#   1. GET    /api/brain/tools/list
+#   2. GET    /api/brain/tools/stats
+#   3. POST   /api/brain/tools/call/{tool_name}
+# 单 Agent（2 个）：
+#   4. POST   /api/brain/agent/run
+#   5. GET    /api/brain/agent/stats
+# 多 Agent 团队（4 个）：
+#   6. GET    /api/brain/team/profile
+#   7. POST   /api/brain/team/query
+#   8. GET    /api/brain/team/stats
+#   9. GET    /api/brain/team/tasks
 
-_agent_engine_cache = None
-_tool_registry_cache = None
+# ── 代理配置 ──────────────────────────────────────────
 
+BRAIN_AGENT_PROXY_MODE = os.getenv("BRAIN_AGENT_PROXY_MODE", "proxy").lower()
 
-def _get_agent_engine_api():
-    """获取Agent引擎（API用懒加载）"""
-    global _agent_engine_cache
-    if _agent_engine_cache is None:
-        try:
-            _agent_engine_cache = get_agent_engine()
-        except Exception:
-            _agent_engine_cache = False
-    return _agent_engine_cache if _agent_engine_cache else None
+# M1 服务地址
+M1_BASE_URL = os.getenv("M1_BASE_URL", "http://localhost:8001")
 
+# M1 Admin Token（用于 M8 -> M1 鉴权）
+M1_ADMIN_TOKEN = os.getenv("M1_ADMIN_TOKEN", "yunxi-m1-admin-token-2026")
 
-def _get_tool_registry_api():
-    """获取工具注册表（API用懒加载）"""
-    global _tool_registry_cache
-    if _tool_registry_cache is None:
-        try:
-            # 确保内置工具已注册
-            from shared.business.builtin_tools import _ensure_registered
-            _ensure_registered()
-            _tool_registry_cache = get_tool_registry()
-        except Exception:
-            _tool_registry_cache = False
-    return _tool_registry_cache if _tool_registry_cache else None
+# 代理超时时间（秒）
+BRAIN_AGENT_PROXY_TIMEOUT = float(os.getenv("BRAIN_AGENT_PROXY_TIMEOUT", "30.0"))
 
-
-@router.get("/tools/list")
-async def list_tools(
-    category: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
-):
-    """获取可用工具列表"""
-    registry = _get_tool_registry_api()
-    if not registry:
-        raise HTTPException(status_code=500, detail="工具系统不可用")
-    
-    tools = registry.list_tools(category=category)
-    
-    return ApiResponse(code=0, message="ok", data={
-        "tools": [t.get_description_for_llm() for t in tools],
-        "total": len(tools),
-        "categories": list(set(t.category for t in tools)),
-    })
+# HTTP 客户端（懒加载）
+_brain_agent_client: Any = None
 
 
-@router.get("/tools/stats")
-async def tool_stats(current_user: dict = Depends(get_current_user)):
-    """获取工具调用统计"""
-    registry = _get_tool_registry_api()
-    if not registry:
-        raise HTTPException(status_code=500, detail="工具系统不可用")
-    
-    stats = registry.get_stats()
-    history = registry.get_call_history(limit=20)
-    
-    return ApiResponse(code=0, message="ok", data={
-        "stats": stats,
-        "recent_calls": history,
-    })
+def _get_brain_agent_client() -> Any:
+    """获取 HTTP 客户端（懒加载 httpx）"""
+    global _brain_agent_client
+    if _brain_agent_client is None:
+        import httpx
+        _brain_agent_client = httpx.AsyncClient(
+            base_url=M1_BASE_URL,
+            timeout=BRAIN_AGENT_PROXY_TIMEOUT,
+            headers={
+                "X-M8-Token": M1_ADMIN_TOKEN,
+                "Content-Type": "application/json",
+            },
+        )
+    return _brain_agent_client
 
 
-@router.post("/tools/call/{tool_name}")
-async def call_tool(
-    tool_name: str,
+async def _proxy_brain_agent_to_m1(
+    method: str,
+    path: str,
     params: Optional[Dict[str, Any]] = None,
-    current_user: dict = Depends(get_current_user),
-):
-    """调用指定工具"""
-    registry = _get_tool_registry_api()
-    if not registry:
-        raise HTTPException(status_code=500, detail="工具系统不可用")
-    
-    user_id = current_user.get("user_id", "default") if current_user else "default"
-    context = {"user_id": user_id}
-    
-    result = registry.call_tool(tool_name, params or {}, context=context)
-    
-    return ApiResponse(code=0 if result.success else 1,
-                       message="ok" if result.success else result.error or "调用失败",
-                       data=result.to_dict())
+    json_data: Optional[Dict[str, Any]] = None,
+    trace_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    代理 Brain Agent 请求到 M1 Agent Hub
 
+    Args:
+        method: HTTP 方法 (GET/POST/DELETE/PUT)
+        path: 目标路径（含 /api/brain 前缀）
+        params: 查询参数
+        json_data: 请求体 JSON
+        trace_id: 链路追踪 ID
+
+    Returns:
+        M1 返回的 JSON 数据（已解析为 dict）
+
+    Raises:
+        HTTPException: 代理失败时抛出
+    """
+    client = _get_brain_agent_client()
+    headers = {}
+    if trace_id:
+        headers["X-Trace-Id"] = trace_id
+
+    try:
+        response = await client.request(
+            method=method.upper(),
+            url=path,
+            params=params,
+            json=json_data,
+            headers=headers if headers else None,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        # 区分错误类型，提供友好提示
+        error_msg = str(exc)
+        if hasattr(exc, "response") and exc.response is not None:
+            status_code = exc.response.status_code
+            try:
+                err_body = exc.response.json()
+                detail = err_body.get("detail", err_body.get("message", error_msg))
+            except Exception:
+                detail = error_msg
+            raise HTTPException(
+                status_code=502,
+                detail=f"M1 Brain Agent 返回错误 ({status_code}): {detail}",
+            )
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail=f"M1 Brain Agent 连接失败: {error_msg}",
+            )
+
+
+def _get_trace_id_from_request(request) -> Optional[str]:
+    """从请求中提取 trace_id"""
+    return request.headers.get("X-Trace-Id") or request.headers.get("x-trace-id")
+
+
+# ── 请求模型（保留 Pydantic 校验，代理层仍然验证输入）──────────
 
 class AgentRunRequest(BaseModel):
     query: str
     available_tools: Optional[List[str]] = None
 
 
-@router.post("/agent/run")
-async def agent_run(
-    req: AgentRunRequest,
-    current_user: dict = Depends(get_current_user),
-):
-    """执行Agent任务"""
-    engine = _get_agent_engine_api()
-    if not engine:
-        raise HTTPException(status_code=500, detail="Agent引擎不可用")
-    
-    user_id = current_user.get("user_id", "default") if current_user else "default"
-    context = {"user_id": user_id}
-    
-    result = engine.run(
-        query=req.query,
-        context=context,
-        available_tools=req.available_tools,
-    )
-    
-    return ApiResponse(code=0 if result.success else 1,
-                       message="ok" if result.success else result.error or "执行失败",
-                       data=result.to_dict())
-
-
-@router.get("/agent/stats")
-async def agent_stats(current_user: dict = Depends(get_current_user)):
-    """获取Agent统计信息"""
-    engine = _get_agent_engine_api()
-    if not engine:
-        raise HTTPException(status_code=500, detail="Agent引擎不可用")
-    
-    stats = engine.get_stats()
-    history = engine.get_execution_history(limit=10)
-    
-    return ApiResponse(code=0, message="ok", data={
-        "stats": stats,
-        "recent_executions": history,
-    })
-
-
-# ==================== 多Agent团队接口 ====================
-
-_agent_team_cache = None
-
-
-def _get_agent_team_api():
-    """获取多Agent团队（API用懒加载）"""
-    global _agent_team_cache
-    if _agent_team_cache is None:
-        try:
-            from shared.business.agent_team import _ensure_team_registered
-            _ensure_team_registered()
-            from shared.business.multi_agent import get_agent_team
-            _agent_team_cache = get_agent_team()
-        except Exception:
-            _agent_team_cache = False
-    return _agent_team_cache if _agent_team_cache else None
-
-
-@router.get("/team/profile")
-async def team_profile(current_user: dict = Depends(get_current_user)):
-    """获取Agent团队简介"""
-    team = _get_agent_team_api()
-    if not team:
-        raise HTTPException(status_code=500, detail="Agent团队不可用")
-    
-    profile = team.get_team_profile()
-    return ApiResponse(code=0, message="ok", data=profile)
-
-
 class TeamQueryRequest(BaseModel):
     query: str
 
 
-@router.post("/team/query")
-async def team_query(
-    req: TeamQueryRequest,
-    current_user: dict = Depends(get_current_user),
-):
-    """团队协作处理查询"""
-    team = _get_agent_team_api()
-    if not team:
-        raise HTTPException(status_code=500, detail="Agent团队不可用")
-    
-    user_id = current_user.get("user_id", "default") if current_user else "default"
-    context = {"user_id": user_id}
-    
-    result = team.handle_query(req.query, context=context)
-    
-    return ApiResponse(code=0 if result.success else 1,
-                       message="ok" if result.success else result.error or "执行失败",
-                       data=result.to_dict())
+# ═══════════════════════════════════════════════════════
+# 代理模式：9 个接口全部转发到 M1
+# ═══════════════════════════════════════════════════════
+
+if BRAIN_AGENT_PROXY_MODE == "proxy":
+    logger.info("BRAIN_AGENT_PROXY_MODE=proxy，Agent/工具/团队接口代理到 M1")
+
+    @router.get("/tools/list")
+    async def list_tools(
+        request: Request,
+        category: Optional[str] = None,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取可用工具列表（代理到 M1）"""
+        try:
+            params = {}
+            if category:
+                params["category"] = category
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/tools/list",
+                params=params if params else None,
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("list_tools_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取工具列表失败: {exc}")
 
 
-@router.get("/team/stats")
-async def team_stats(current_user: dict = Depends(get_current_user)):
-    """获取团队统计信息"""
-    team = _get_agent_team_api()
-    if not team:
-        raise HTTPException(status_code=500, detail="Agent团队不可用")
-    
-    stats = team.get_stats()
-    history = team.get_task_history(limit=20)
-    
-    return ApiResponse(code=0, message="ok", data={
-        "stats": stats,
-        "recent_tasks": history,
-    })
+    @router.get("/tools/stats")
+    async def tool_stats(
+        request: Request,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取工具调用统计（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/tools/stats",
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("tool_stats_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取工具统计失败: {exc}")
 
 
-@router.get("/team/tasks")
-async def team_tasks(
-    limit: int = 20,
-    current_user: dict = Depends(get_current_user),
-):
-    """获取团队任务历史"""
-    team = _get_agent_team_api()
-    if not team:
-        raise HTTPException(status_code=500, detail="Agent团队不可用")
-    
-    tasks = team.get_task_history(limit=limit)
-    
-    return ApiResponse(code=0, message="ok", data={
-        "tasks": tasks,
-        "total": len(tasks),
-    })
+    @router.post("/tools/call/{tool_name}")
+    async def call_tool(
+        request: Request,
+        tool_name: str,
+        params: Optional[Dict[str, Any]] = None,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """调用指定工具（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="POST",
+                path=f"/api/brain/tools/call/{tool_name}",
+                json_data=params,
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("call_tool_proxy_failed", tool_name=tool_name, error=str(exc))
+            return ApiResponse.error(code=502, message=f"工具调用失败: {exc}")
+
+
+    @router.post("/agent/run")
+    async def agent_run(
+        request: Request,
+        req: AgentRunRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """执行Agent任务（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="POST",
+                path="/api/brain/agent/run",
+                json_data=req.model_dump(),
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("agent_run_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"Agent 执行失败: {exc}")
+
+
+    @router.get("/agent/stats")
+    async def agent_stats(
+        request: Request,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取Agent统计信息（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/agent/stats",
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("agent_stats_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取 Agent 统计失败: {exc}")
+
+
+    @router.get("/team/profile")
+    async def team_profile(
+        request: Request,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取Agent团队简介（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/team/profile",
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("team_profile_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取团队简介失败: {exc}")
+
+
+    @router.post("/team/query")
+    async def team_query(
+        request: Request,
+        req: TeamQueryRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """团队协作处理查询（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="POST",
+                path="/api/brain/team/query",
+                json_data=req.model_dump(),
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("team_query_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"团队查询失败: {exc}")
+
+
+    @router.get("/team/stats")
+    async def team_stats(
+        request: Request,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取团队统计信息（代理到 M1）"""
+        try:
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/team/stats",
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("team_stats_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取团队统计失败: {exc}")
+
+
+    @router.get("/team/tasks")
+    async def team_tasks(
+        request: Request,
+        limit: int = 20,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取团队任务历史（代理到 M1）"""
+        try:
+            params = {"limit": limit}
+            result = await _proxy_brain_agent_to_m1(
+                method="GET",
+                path="/api/brain/team/tasks",
+                params=params,
+                trace_id=_get_trace_id_from_request(request),
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("team_tasks_proxy_failed", error=str(exc))
+            return ApiResponse.error(code=502, message=f"获取团队任务失败: {exc}")
+
+
+# ═══════════════════════════════════════════════════════
+# 降级模式：本地实现（当 BRAIN_AGENT_PROXY_MODE=local 时启用）
+# ═══════════════════════════════════════════════════════
+
+else:
+    logger.warning("BRAIN_AGENT_PROXY_MODE=local，使用本地 Agent/工具/团队实现（降级模式）")
+
+    _agent_engine_cache = None
+    _tool_registry_cache = None
+    _agent_team_cache = None
+
+
+    def _get_agent_engine_api():
+        """获取Agent引擎（API用懒加载）"""
+        global _agent_engine_cache
+        if _agent_engine_cache is None:
+            try:
+                _agent_engine_cache = get_agent_engine()
+            except Exception:
+                _agent_engine_cache = False
+        return _agent_engine_cache if _agent_engine_cache else None
+
+
+    def _get_tool_registry_api():
+        """获取工具注册表（API用懒加载）"""
+        global _tool_registry_cache
+        if _tool_registry_cache is None:
+            try:
+                # 确保内置工具已注册
+                from shared.business.builtin_tools import _ensure_registered
+                _ensure_registered()
+                _tool_registry_cache = get_tool_registry()
+            except Exception:
+                _tool_registry_cache = False
+        return _tool_registry_cache if _tool_registry_cache else None
+
+
+    def _get_agent_team_api():
+        """获取多Agent团队（API用懒加载）"""
+        global _agent_team_cache
+        if _agent_team_cache is None:
+            try:
+                from shared.business.agent_team import _ensure_team_registered
+                _ensure_team_registered()
+                from shared.business.multi_agent import get_agent_team
+                _agent_team_cache = get_agent_team()
+            except Exception:
+                _agent_team_cache = False
+        return _agent_team_cache if _agent_team_cache else None
+
+
+    @router.get("/tools/list")
+    async def list_tools(
+        category: Optional[str] = None,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取可用工具列表"""
+        registry = _get_tool_registry_api()
+        if not registry:
+            raise HTTPException(status_code=500, detail="工具系统不可用")
+
+        tools = registry.list_tools(category=category)
+
+        return ApiResponse(code=0, message="ok", data={
+            "tools": [t.get_description_for_llm() for t in tools],
+            "total": len(tools),
+            "categories": list(set(t.category for t in tools)),
+        })
+
+
+    @router.get("/tools/stats")
+    async def tool_stats(current_user: dict = Depends(get_current_user)):
+        """获取工具调用统计"""
+        registry = _get_tool_registry_api()
+        if not registry:
+            raise HTTPException(status_code=500, detail="工具系统不可用")
+
+        stats = registry.get_stats()
+        history = registry.get_call_history(limit=20)
+
+        return ApiResponse(code=0, message="ok", data={
+            "stats": stats,
+            "recent_calls": history,
+        })
+
+
+    @router.post("/tools/call/{tool_name}")
+    async def call_tool(
+        tool_name: str,
+        params: Optional[Dict[str, Any]] = None,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """调用指定工具"""
+        registry = _get_tool_registry_api()
+        if not registry:
+            raise HTTPException(status_code=500, detail="工具系统不可用")
+
+        user_id = current_user.get("user_id", "default") if current_user else "default"
+        context = {"user_id": user_id}
+
+        result = registry.call_tool(tool_name, params or {}, context=context)
+
+        return ApiResponse(code=0 if result.success else 1,
+                           message="ok" if result.success else result.error or "调用失败",
+                           data=result.to_dict())
+
+
+    @router.post("/agent/run")
+    async def agent_run(
+        req: AgentRunRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """执行Agent任务"""
+        engine = _get_agent_engine_api()
+        if not engine:
+            raise HTTPException(status_code=500, detail="Agent引擎不可用")
+
+        user_id = current_user.get("user_id", "default") if current_user else "default"
+        context = {"user_id": user_id}
+
+        result = engine.run(
+            query=req.query,
+            context=context,
+            available_tools=req.available_tools,
+        )
+
+        return ApiResponse(code=0 if result.success else 1,
+                           message="ok" if result.success else result.error or "执行失败",
+                           data=result.to_dict())
+
+
+    @router.get("/agent/stats")
+    async def agent_stats(current_user: dict = Depends(get_current_user)):
+        """获取Agent统计信息"""
+        engine = _get_agent_engine_api()
+        if not engine:
+            raise HTTPException(status_code=500, detail="Agent引擎不可用")
+
+        stats = engine.get_stats()
+        history = engine.get_execution_history(limit=10)
+
+        return ApiResponse(code=0, message="ok", data={
+            "stats": stats,
+            "recent_executions": history,
+        })
+
+
+    @router.get("/team/profile")
+    async def team_profile(current_user: dict = Depends(get_current_user)):
+        """获取Agent团队简介"""
+        team = _get_agent_team_api()
+        if not team:
+            raise HTTPException(status_code=500, detail="Agent团队不可用")
+
+        profile = team.get_team_profile()
+        return ApiResponse(code=0, message="ok", data=profile)
+
+
+    @router.post("/team/query")
+    async def team_query(
+        req: TeamQueryRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """团队协作处理查询"""
+        team = _get_agent_team_api()
+        if not team:
+            raise HTTPException(status_code=500, detail="Agent团队不可用")
+
+        user_id = current_user.get("user_id", "default") if current_user else "default"
+        context = {"user_id": user_id}
+
+        result = team.handle_query(req.query, context=context)
+
+        return ApiResponse(code=0 if result.success else 1,
+                           message="ok" if result.success else result.error or "执行失败",
+                           data=result.to_dict())
+
+
+    @router.get("/team/stats")
+    async def team_stats(current_user: dict = Depends(get_current_user)):
+        """获取团队统计信息"""
+        team = _get_agent_team_api()
+        if not team:
+            raise HTTPException(status_code=500, detail="Agent团队不可用")
+
+        stats = team.get_stats()
+        history = team.get_task_history(limit=20)
+
+        return ApiResponse(code=0, message="ok", data={
+            "stats": stats,
+            "recent_tasks": history,
+        })
+
+
+    @router.get("/team/tasks")
+    async def team_tasks(
+        limit: int = 20,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """获取团队任务历史"""
+        team = _get_agent_team_api()
+        if not team:
+            raise HTTPException(status_code=500, detail="Agent团队不可用")
+
+        tasks = team.get_task_history(limit=limit)
+
+        return ApiResponse(code=0, message="ok", data={
+            "tasks": tasks,
+            "total": len(tasks),
+        })
