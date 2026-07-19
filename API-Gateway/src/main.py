@@ -46,6 +46,23 @@ try:
 except ImportError:
     _unified_exception_handler_available = False
 
+# 统一响应标准（项目级权威 ApiResponse + 中间件 + 便捷函数）
+try:
+    from shared.unified_response import (
+        ApiResponse,
+        UnifiedResponseMiddleware,
+        register_unified_response,
+        ok,
+        fail,
+    )
+    _unified_response_available = True
+except ImportError:
+    _unified_response_available = False
+    ApiResponse = None  # type: ignore
+    UnifiedResponseMiddleware = None  # type: ignore
+    ok = None  # type: ignore
+    fail = None  # type: ignore
+
 # 初始化日志系统
 if _observability_available:
     logger = init_module_logger("gateway")
@@ -156,6 +173,11 @@ if _observability_available:
     )
     logger.info("可观测性中间件已注册（统一日志 + 链路追踪 + 慢请求告警）")
 
+# 统一响应中间件（标准格式 + X-Trace-Id 透传 + 异常兜底包装）
+if _unified_response_available:
+    app.add_middleware(UnifiedResponseMiddleware, logger=logger)
+    logger.info("统一响应中间件已注册（标准格式 + X-Trace-Id 透传）")
+
 # 速率限制中间件
 app.add_middleware(RateLimitMiddleware)
 
@@ -168,6 +190,11 @@ if _unified_exception_handler_available:
     logger.info("统一异常处理器已注册（6 位错误码体系）")
 else:
     logger.warning("统一异常处理器不可用，将使用 FastAPI 默认异常处理")
+
+# 统一响应全局异常处理器（项目级权威标准，优先级更高）
+if _unified_response_available:
+    register_unified_response(app, logger=logger)
+    logger.info("统一响应全局异常处理器已注册（项目级权威标准）")
 
 
 # ============================================================================

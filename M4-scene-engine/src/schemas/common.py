@@ -1,40 +1,88 @@
 """通用响应模型模块.
 
 定义通用的 Pydantic 响应模型，用于 API 接口的标准化返回。
+
+迁移说明：
+    ApiResponse 已接入项目级统一响应标准 shared.unified_response。
+    标准字段：code/message/data/trace_id/timestamp
+    旧的 3 字段格式保留为 LegacyApiResponse（向后兼容）。
+    新代码建议使用：from shared.unified_response import ApiResponse
 """
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
+
+# 确保能导入 shared 包
+_project_root = Path(__file__).resolve().parents[3]
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 # 泛型类型变量，用于响应数据
 T = TypeVar("T")
 
 
 # ---------------------------------------------------------------------------
-# 通用响应模型
+# 通用响应模型（已接入统一标准）
 # ---------------------------------------------------------------------------
 
-class ApiResponse(BaseModel, Generic[T]):
-    """通用 API 响应模型.
+# 从项目权威标准导入 ApiResponse
+try:
+    from shared.unified_response import ApiResponse as _UnifiedApiResponse
 
-    所有 API 接口的返回值都应遵循此格式。
-    """
-    code: int = Field(0, description="状态码，0 表示成功")
-    message: str = Field("success", description="状态消息")
-    data: T = Field(default_factory=dict, description="响应数据")
+    # 新版：使用权威标准 ApiResponse
+    ApiResponse = _UnifiedApiResponse
 
-    class Config:
-        """Pydantic 配置."""
-        json_schema_extra = {
-            "example": {
-                "code": 0,
-                "message": "success",
-                "data": {},
+    # 旧版兼容：保留 3 字段格式
+    class LegacyApiResponse(BaseModel, Generic[T]):
+        """旧版通用 API 响应模型（3 字段，向后兼容）.
+
+        .. deprecated:: 2.0.0
+           请迁移到 shared.unified_response.ApiResponse。
+        """
+        code: int = Field(0, description="状态码，0 表示成功")
+        message: str = Field("success", description="状态消息")
+        data: T = Field(default_factory=dict, description="响应数据")
+
+        class Config:
+            """Pydantic 配置."""
+            json_schema_extra = {
+                "example": {
+                    "code": 0,
+                    "message": "success",
+                    "data": {},
+                }
             }
-        }
+
+except ImportError:
+    # 回退：本地实现
+    class ApiResponse(BaseModel, Generic[T]):
+        """通用 API 响应模型（本地回退实现）."""
+        code: int = Field(0, description="状态码，0 表示成功")
+        message: str = Field("success", description="状态消息")
+        data: T = Field(default_factory=dict, description="响应数据")
+        trace_id: Optional[str] = Field(None, description="链路追踪 ID")
+        timestamp: float = Field(
+            default_factory=__import__("time").time,
+            description="Unix 时间戳（秒级）",
+        )
+
+        class Config:
+            json_schema_extra = {
+                "example": {
+                    "code": 0,
+                    "message": "success",
+                    "data": {},
+                    "trace_id": "abc123",
+                    "timestamp": 1700000000.0,
+                }
+            }
+
+    LegacyApiResponse = ApiResponse  # type: ignore
 
 
 # ---------------------------------------------------------------------------

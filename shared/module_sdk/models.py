@@ -11,10 +11,16 @@
         Event,
         SdkErrorCode,
     )
+
+迁移说明：
+    ApiResponse 已迁移至 shared.unified_response 作为项目级权威标准。
+    本模块保留向后兼容，从权威版本 re-export。
+    建议新代码使用：from shared.unified_response import ApiResponse
 """
 
 from __future__ import annotations
 
+import warnings
 import time
 import uuid
 from enum import Enum, IntEnum
@@ -23,76 +29,139 @@ from typing import Any, Dict, List, Optional
 
 
 # ============================================================
-# 统一响应格式
+# 统一响应格式（已迁移至 shared.unified_response）
 # ============================================================
+# ApiResponse 现在从权威标准包导入，保持向后兼容。
+# 旧的导入路径仍然有效，但建议迁移到新路径。
 
-@dataclass
-class ApiResponse:
-    """
-    统一 API 响应格式。
+try:
+    from shared.unified_response import ApiResponse as _UnifiedApiResponse
 
-    所有模块间通信都应使用此格式包装响应：
-    {
-        "code": 0,           # 0 表示成功，非 0 为错误码
-        "message": "success",# 描述信息
-        "data": {...},       # 业务数据
-        "trace_id": "xxx",   # 链路追踪 ID
-        "timestamp": 123456  # 时间戳
-    }
-    """
+    # 向后兼容：确保旧接口（trace_id 默认空字符串、message 默认 "success"）仍可用
+    class ApiResponse(_UnifiedApiResponse):  # type: ignore
+        """
+        统一 API 响应格式（向后兼容版）。
 
-    code: int = 0
-    message: str = "success"
-    data: Any = None
-    trace_id: str = ""
-    timestamp: float = field(default_factory=time.time)
+        .. deprecated:: 2.0.0
+           请迁移到 shared.unified_response.ApiResponse。
+           本类为旧路径兼容别名，行为与权威版本一致。
 
-    @property
-    def is_success(self) -> bool:
-        """是否成功"""
-        return self.code == 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "code": self.code,
-            "message": self.message,
-            "data": self.data,
-            "trace_id": self.trace_id,
-            "timestamp": self.timestamp,
+        所有模块间通信都应使用此格式包装响应：
+        {
+            "code": 0,           # 0 表示成功，非 0 为错误码
+            "message": "success",# 描述信息
+            "data": {...},       # 业务数据
+            "trace_id": "xxx",   # 链路追踪 ID
+            "timestamp": 123456  # 时间戳
         }
+        """
 
-    @classmethod
-    def success(
-        cls,
-        data: Any = None,
-        message: str = "success",
-        trace_id: str = "",
-    ) -> "ApiResponse":
-        """创建成功响应"""
-        return cls(code=0, message=message, data=data, trace_id=trace_id)
+        @classmethod
+        def success(
+            cls,
+            data: Any = None,
+            message: str = "success",
+            trace_id: str = "",
+        ) -> "ApiResponse":
+            """创建成功响应（保持旧接口：message 默认 "success"，trace_id 默认 ""）"""
+            return super().success(
+                data=data,
+                message=message,
+                trace_id=trace_id if trace_id else None,
+            )
 
-    @classmethod
-    def error(
-        cls,
-        code: int,
-        message: str = "error",
-        data: Any = None,
-        trace_id: str = "",
-    ) -> "ApiResponse":
-        """创建错误响应"""
-        return cls(code=code, message=message, data=data, trace_id=trace_id)
+        @classmethod
+        def error(
+            cls,
+            code: int,
+            message: str = "error",
+            data: Any = None,
+            trace_id: str = "",
+        ) -> "ApiResponse":
+            """创建错误响应（保持旧接口）"""
+            return super().error(
+                code=code,
+                message=message,
+                data=data,
+                trace_id=trace_id if trace_id else None,
+            )
 
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ApiResponse":
-        """从字典解析"""
-        return cls(
-            code=d.get("code", -1),
-            message=d.get("message", ""),
-            data=d.get("data"),
-            trace_id=d.get("trace_id", ""),
-            timestamp=d.get("timestamp", time.time()),
-        )
+        @classmethod
+        def from_dict(cls, d: Dict[str, Any]) -> "ApiResponse":
+            """从字典解析（保持旧接口）"""
+            return super().from_dict(d)
+
+    # 发出弃用警告（模块级别，只警告一次）
+    warnings.warn(
+        "shared.module_sdk.models.ApiResponse 已迁移至 shared.unified_response.ApiResponse。"
+        "旧导入路径将在 v3.0.0 中移除，请尽快迁移。",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+except ImportError:
+    # 回退：如果权威包不可用，使用原始 dataclass 实现
+    @dataclass
+    class ApiResponse:
+        """
+        统一 API 响应格式（本地回退实现）。
+
+        .. note::
+           这是回退实现，正常情况下应使用 shared.unified_response.ApiResponse。
+        """
+
+        code: int = 0
+        message: str = "success"
+        data: Any = None
+        trace_id: str = ""
+        timestamp: float = field(default_factory=time.time)
+
+        @property
+        def is_success(self) -> bool:
+            """是否成功"""
+            return self.code == 0
+
+        def to_dict(self) -> Dict[str, Any]:
+            """转换为字典"""
+            return {
+                "code": self.code,
+                "message": self.message,
+                "data": self.data,
+                "trace_id": self.trace_id,
+                "timestamp": self.timestamp,
+            }
+
+        @classmethod
+        def success(
+            cls,
+            data: Any = None,
+            message: str = "success",
+            trace_id: str = "",
+        ) -> "ApiResponse":
+            """创建成功响应"""
+            return cls(code=0, message=message, data=data, trace_id=trace_id)
+
+        @classmethod
+        def error(
+            cls,
+            code: int,
+            message: str = "error",
+            data: Any = None,
+            trace_id: str = "",
+        ) -> "ApiResponse":
+            """创建错误响应"""
+            return cls(code=code, message=message, data=data, trace_id=trace_id)
+
+        @classmethod
+        def from_dict(cls, d: Dict[str, Any]) -> "ApiResponse":
+            """从字典解析"""
+            return cls(
+                code=d.get("code", -1),
+                message=d.get("message", ""),
+                data=d.get("data"),
+                trace_id=d.get("trace_id", ""),
+                timestamp=d.get("timestamp", time.time()),
+            )
 
 
 # ============================================================

@@ -11,6 +11,7 @@ import json
 import csv
 from pathlib import Path
 import pytest
+from unittest.mock import patch, MagicMock
 
 backend_dir = Path(__file__).resolve().parent.parent.parent
 if str(backend_dir) not in sys.path:
@@ -27,6 +28,14 @@ from connectors import (
     S3Connector,
     ConnectorRegistry,
 )
+
+# 检查 openpyxl 是否可用（用于 skipif 装饰器）
+def _openpyxl_available():
+    try:
+        import openpyxl
+        return True
+    except ImportError:
+        return False
 
 
 # ============================================================
@@ -343,13 +352,30 @@ class TestExcelConnector:
         assert conn is not None
         assert conn.meta.name == "excel"
 
+    def test_meta_properties(self):
+        """测试连接器元数据属性"""
+        conn = ExcelConnector(config={"file_path": "/tmp/test.xlsx"})
+        assert conn.meta.connector_type == "file"
+        assert hasattr(conn, "connect")
+        assert hasattr(conn, "disconnect")
+        assert hasattr(conn, "read_all")
+        assert hasattr(conn, "write")
+
+    def test_disconnect_without_connect(self):
+        """测试未连接时断开连接"""
+        conn = ExcelConnector(config={"file_path": "/tmp/test.xlsx"})
+        # 未连接时断开应该返回 True（或不抛出异常）
+        result = conn.disconnect()
+        assert isinstance(result, bool)
+
+    def test_is_connected_before_connect(self):
+        """测试连接前 is_connected 返回 False"""
+        conn = ExcelConnector(config={"file_path": "/tmp/test.xlsx"})
+        assert conn.is_connected() is False
+
+    @pytest.mark.skipif(not _openpyxl_available(), reason="openpyxl not installed")
     def test_connect_and_create(self):
         """测试连接并创建新文件"""
-        try:
-            import openpyxl
-        except ImportError:
-            pytest.skip("openpyxl not installed")
-
         with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
             path = f.name
 
@@ -362,13 +388,9 @@ class TestExcelConnector:
             if os.path.exists(path):
                 os.unlink(path)
 
+    @pytest.mark.skipif(not _openpyxl_available(), reason="openpyxl not installed")
     def test_write_and_read(self):
         """测试写入和读取"""
-        try:
-            import openpyxl
-        except ImportError:
-            pytest.skip("openpyxl not installed")
-
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.xlsx")
 
@@ -393,13 +415,9 @@ class TestExcelConnector:
             if os.path.exists(tmpdir):
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
+    @pytest.mark.skipif(not _openpyxl_available(), reason="openpyxl not installed")
     def test_list_tables(self):
         """测试列出 Sheet"""
-        try:
-            import openpyxl
-        except ImportError:
-            pytest.skip("openpyxl not installed")
-
         with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
             path = f.name
 
@@ -408,6 +426,22 @@ class TestExcelConnector:
             conn.connect()
             sheets = conn.list_tables()
             assert len(sheets) >= 1  # 至少有一个默认 Sheet
+            conn.disconnect()
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+    @pytest.mark.skipif(not _openpyxl_available(), reason="openpyxl not installed")
+    def test_write_empty_data(self):
+        """测试写入空数据"""
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
+            path = f.name
+
+        try:
+            conn = ExcelConnector(config={"file_path": path, "mode": "w"})
+            conn.connect()
+            count = conn.write([])
+            assert count == 0
             conn.disconnect()
         finally:
             if os.path.exists(path):

@@ -3,6 +3,11 @@ M8 控制塔 - 通用 Schema 模型
 
 包含通用响应、分页、排序、过滤等通用 Pydantic 模型。
 所有模块共用的基础模型都放在这里。
+
+迁移说明：
+    ApiResponse 已迁移至 shared.unified_response 作为项目级权威标准。
+    本模块保留向后兼容，旧 ApiResponse 仍可用但建议迁移。
+    新代码请使用：from shared.unified_response import ApiResponse
 """
 
 from typing import Generic, TypeVar, Optional, Any, List, Dict
@@ -13,32 +18,95 @@ T = TypeVar("T")
 
 
 # ═══════════════════════════════════════════════════════
-# 通用响应模型
+# 通用响应模型（已接入统一标准）
 # ═══════════════════════════════════════════════════════
+# 从项目权威标准导入 ApiResponse，同时保留旧版作为兼容别名
+# 旧版字段差异：request_id -> trace_id，timestamp 毫秒 -> 秒级
+# 迁移方式：新代码直接用 ApiResponse（来自 unified_response）
+#           旧代码继续用 LegacyApiResponse 或 ApiResponseCompat
 
-class ApiResponse(BaseModel, Generic[T]):
-    """统一 API 响应格式
+try:
+    import sys
+    from pathlib import Path
+    # 确保能导入 shared 包
+    _project_root = Path(__file__).resolve().parents[3]
+    if str(_project_root) not in sys.path:
+        sys.path.insert(0, str(_project_root))
 
-    所有 M8 API 接口都应返回此格式，保持前后端契约一致。
-    """
-    code: int = Field(default=0, description="状态码，0表示成功，非0表示错误")
-    message: str = Field(default="ok", description="状态消息")
-    data: Optional[T] = Field(default=None, description="响应数据")
-    request_id: Optional[str] = Field(default=None, description="请求ID（链路追踪用）")
-    timestamp: int = Field(
-        default_factory=lambda: int(__import__("time").time() * 1000),
-        description="响应时间戳（毫秒）"
-    )
+    from shared.unified_response import ApiResponse as _UnifiedApiResponse
 
-    @classmethod
-    def success(cls, data: Any = None, message: str = "ok") -> "ApiResponse":
-        """成功响应"""
-        return cls(code=0, message=message, data=data)
+    # 新版：直接使用权威标准（推荐路径）
+    ApiResponse = _UnifiedApiResponse
 
-    @classmethod
-    def error(cls, code: int, message: str, data: Any = None) -> "ApiResponse":
-        """错误响应"""
-        return cls(code=code, message=message, data=data)
+    # 向后兼容：保留旧版 ApiResponse 类名和接口
+    class ApiResponseCompat(BaseModel, Generic[T]):
+        """旧版兼容响应模型（保留 request_id 字段和毫秒级时间戳）.
+
+        .. deprecated:: 2.0.0
+           请迁移到 shared.unified_response.ApiResponse。
+           字段差异：request_id -> trace_id，timestamp（毫秒）-> timestamp（秒）
+        """
+        code: int = Field(default=0, description="状态码，0表示成功，非0表示错误")
+        message: str = Field(default="ok", description="状态消息")
+        data: Optional[T] = Field(default=None, description="响应数据")
+        request_id: Optional[str] = Field(default=None, description="请求ID（链路追踪用）")
+        timestamp: int = Field(
+            default_factory=lambda: int(__import__("time").time() * 1000),
+            description="响应时间戳（毫秒）"
+        )
+
+        @classmethod
+        def success(cls, data: Any = None, message: str = "ok") -> "ApiResponseCompat":
+            """成功响应"""
+            return cls(code=0, message=message, data=data)
+
+        @classmethod
+        def error(cls, code: int, message: str, data: Any = None) -> "ApiResponseCompat":
+            """错误响应"""
+            return cls(code=code, message=message, data=data)
+
+        def to_unified(self) -> Any:
+            """转换为权威统一响应格式."""
+            import time as _time
+            return _UnifiedApiResponse(
+                code=self.code,
+                message=self.message,
+                data=self.data,
+                trace_id=self.request_id,
+                timestamp=self.timestamp / 1000.0 if self.timestamp else _time.time(),
+            )
+
+    # 旧版别名（保持向后兼容）
+    LegacyApiResponse = ApiResponseCompat
+
+except ImportError:
+    # 回退：使用原实现
+    class ApiResponse(BaseModel, Generic[T]):
+        """统一 API 响应格式
+
+        所有 M8 API 接口都应返回此格式，保持前后端契约一致。
+        """
+        code: int = Field(default=0, description="状态码，0表示成功，非0表示错误")
+        message: str = Field(default="ok", description="状态消息")
+        data: Optional[T] = Field(default=None, description="响应数据")
+        request_id: Optional[str] = Field(default=None, description="请求ID（链路追踪用）")
+        timestamp: int = Field(
+            default_factory=lambda: int(__import__("time").time() * 1000),
+            description="响应时间戳（毫秒）"
+        )
+
+        @classmethod
+        def success(cls, data: Any = None, message: str = "ok") -> "ApiResponse":
+            """成功响应"""
+            return cls(code=0, message=message, data=data)
+
+        @classmethod
+        def error(cls, code: int, message: str, data: Any = None) -> "ApiResponse":
+            """错误响应"""
+            return cls(code=code, message=message, data=data)
+
+    ApiResponseCompat = ApiResponse  # type: ignore
+    LegacyApiResponse = ApiResponse  # type: ignore
 
 
 class PaginatedResponse(BaseModel, Generic[T]):

@@ -1,42 +1,90 @@
 """
 云汐 M12 安全盾 - 通用响应模型
 定义统一的 API 响应格式和分页模型
+
+迁移说明：
+    ApiResponse 已接入项目级统一响应标准 shared.unified_response。
+    标准字段：code/message/data/trace_id/timestamp
+    旧的 3 字段格式保留为 LegacyApiResponse（向后兼容）。
+    新代码建议使用：from shared.unified_response import ApiResponse
 """
 
 from typing import Generic, TypeVar, Optional, Any, List
 from pydantic import BaseModel, Field
 
+import sys
+from pathlib import Path
+
+# 确保能导入 shared 包
+_project_root = Path(__file__).resolve().parents[3]
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 
 # ===========================================================================
-# 通用响应模型
+# 通用响应模型（已接入统一标准）
 # ===========================================================================
 
 T = TypeVar("T")
 
+# 从项目权威标准导入 ApiResponse
+try:
+    from shared.unified_response import ApiResponse as _UnifiedApiResponse
 
-class ApiResponse(BaseModel, Generic[T]):
-    """
-    统一 API 响应格式
+    # 新版：使用权威标准 ApiResponse
+    ApiResponse = _UnifiedApiResponse
 
-    所有接口返回数据都遵循 {code, message, data} 格式：
-    - code: 状态码，0 表示成功，非 0 表示失败
-    - message: 状态描述
-    - data: 响应数据
-    """
+    # 旧版兼容：保留 3 字段格式作为 LegacyApiResponse
+    class LegacyApiResponse(BaseModel, Generic[T]):
+        """
+        旧版 API 响应格式（仅 3 字段，向后兼容）.
 
-    code: int = Field(default=0, description="状态码，0 表示成功")
-    message: str = Field(default="success", description="状态消息")
-    data: Optional[T] = Field(default=None, description="响应数据")
+        .. deprecated:: 2.0.0
+           请迁移到 shared.unified_response.ApiResponse。
+        """
 
-    class Config:
-        """Pydantic 配置"""
-        json_schema_extra = {
-            "example": {
-                "code": 0,
-                "message": "success",
-                "data": {"key": "value"},
+        code: int = Field(default=0, description="状态码，0 表示成功")
+        message: str = Field(default="success", description="状态消息")
+        data: Optional[T] = Field(default=None, description="响应数据")
+
+        class Config:
+            """Pydantic 配置"""
+            json_schema_extra = {
+                "example": {
+                    "code": 0,
+                    "message": "success",
+                    "data": {"key": "value"},
+                }
             }
-        }
+
+except ImportError:
+    # 回退：使用本地实现
+    class ApiResponse(BaseModel, Generic[T]):
+        """
+        统一 API 响应格式（本地回退实现）.
+        """
+
+        code: int = Field(default=0, description="状态码，0 表示成功")
+        message: str = Field(default="success", description="状态消息")
+        data: Optional[T] = Field(default=None, description="响应数据")
+        trace_id: Optional[str] = Field(default=None, description="链路追踪 ID")
+        timestamp: float = Field(
+            default_factory=__import__("time").time,
+            description="Unix 时间戳（秒级）",
+        )
+
+        class Config:
+            json_schema_extra = {
+                "example": {
+                    "code": 0,
+                    "message": "success",
+                    "data": {"key": "value"},
+                    "trace_id": "abc123",
+                    "timestamp": 1700000000.0,
+                }
+            }
+
+    LegacyApiResponse = ApiResponse  # type: ignore
 
 
 # ===========================================================================
@@ -142,7 +190,7 @@ def validate_no_path_traversal(value: str) -> str:
 # ===========================================================================
 
 def make_response(data: Any = None, code: int = 0, message: str = "success") -> dict:
-    """构造统一格式的 API 响应
+    """构造统一格式的 API 响应（已升级为 5 字段标准格式）.
 
     Args:
         data: 响应数据
@@ -150,17 +198,20 @@ def make_response(data: Any = None, code: int = 0, message: str = "success") -> 
         message: 状态消息
 
     Returns:
-        统一格式的响应字典 {code, message, data}
+        标准格式的响应字典 {code, message, data, trace_id, timestamp}
     """
+    import time as _time
     return {
         "code": code,
         "message": message,
         "data": data,
+        "trace_id": None,
+        "timestamp": _time.time(),
     }
 
 
 def make_error_response(message: str, code: int = -1, data: Any = None) -> dict:
-    """构造错误响应
+    """构造错误响应（已升级为 5 字段标准格式）.
 
     Args:
         message: 错误消息

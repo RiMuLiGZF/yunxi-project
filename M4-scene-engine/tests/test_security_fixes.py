@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -93,69 +94,147 @@ class TestTerminalCommandSecurity:
     def test_injection_semicolon_blocked_by_shell_false(self, skill, context):
         """测试分号注入：由于 shell=False，分号不会执行第二条命令.
 
-        命令：python -c "print('test'); print('injected')"
-        在 shell=False 模式下，整个字符串作为参数传给 python，
-        python 会执行两条 print 语句，这是 python 自己的语法，
-        不是 shell 注入。真正的注入测试应该验证 shell 元字符
-        不会被 shell 解释。
+        使用 mock 验证 subprocess.run 被调用时：
+        1. shell=False（从根本上防止 shell 注入）
+        2. 命令以列表形式传递，分号作为 python 命令的参数，不会被 shell 解释
         """
-        # 使用一个命令，参数中包含 ; ，验证 ; 作为普通字符传递
-        result = skill.execute(
-            {"action": "run", "command": "python -c \"print('a;b')\""},
-            context,
-        )
-        if not _has_command("python") and not _has_command("python3"):
-            pytest.skip("python 不可用")
-        # ; 作为普通字符在字符串中输出
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "a;b\n"
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            result = skill.execute(
+                {"action": "run", "command": "python -c \"print('a;b')\""},
+                context,
+            )
+
+        # 验证 subprocess.run 被调用
+        assert mock_run.called
+        call_kwargs = mock_run.call_args
+        # 验证 shell=False
+        assert call_kwargs.kwargs.get("shell") is False
+        # 验证命令以列表形式传递（第一个参数是列表）
+        cmd_list = call_kwargs.args[0]
+        assert isinstance(cmd_list, list)
+        # 验证分号作为参数传递，不会被 shell 解释
+        # 命令是 python，参数包含 -c 和 print('a;b')
+        assert cmd_list[0].endswith("python") or "python" in cmd_list[0].lower()
+        # 分号出现在参数中（作为普通字符串）
+        joined_args = " ".join(cmd_list[1:])
+        assert ";" in joined_args
+        # 执行结果应该成功
         assert result["success"] is True
         assert "a;b" in result["data"]["stdout"]
 
     def test_injection_pipe_not_interpreted_by_shell(self, skill, context):
-        """测试管道符：由于 shell=False，管道符不会被 shell 解释."""
-        # 如果我们执行 "echo hello | cat" 用列表形式（shell=False），
-        # 管道符会作为参数传给第一个命令，而不是创建管道
-        # 用 python 测试更可靠
-        result = skill.execute(
-            {"action": "run", "command": "python -c \"print('x|y')\""},
-            context,
-        )
-        if not _has_command("python") and not _has_command("python3"):
-            pytest.skip("python 不可用")
+        """测试管道符：由于 shell=False，管道符不会被 shell 解释.
+
+        使用 mock 验证 subprocess.run 被调用时，管道符作为普通参数传递，
+        不会创建管道连接两个进程。
+        """
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "x|y\n"
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            result = skill.execute(
+                {"action": "run", "command": "python -c \"print('x|y')\""},
+                context,
+            )
+
+        # 验证 shell=False
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs.get("shell") is False
+        # 验证管道符在参数中（作为普通字符串）
+        cmd_list = call_kwargs.args[0]
+        joined_args = " ".join(cmd_list[1:])
+        assert "|" in joined_args
+        # 执行结果
         assert result["success"] is True
         assert "x|y" in result["data"]["stdout"]
 
     def test_injection_backtick_not_interpreted(self, skill, context):
-        """测试反引号：由于 shell=False，反引号不会被执行."""
-        result = skill.execute(
-            {"action": "run", "command": "python -c \"print('`whoami`')\""},
-            context,
-        )
-        if not _has_command("python") and not _has_command("python3"):
-            pytest.skip("python 不可用")
+        """测试反引号：由于 shell=False，反引号不会被执行.
+
+        使用 mock 验证 subprocess.run 被调用时，反引号作为普通参数传递。
+        """
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "`whoami`\n"
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            result = skill.execute(
+                {"action": "run", "command": "python -c \"print('`whoami`')\""},
+                context,
+            )
+
+        # 验证 shell=False
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs.get("shell") is False
+        # 验证反引号在参数中（作为普通字符串）
+        cmd_list = call_kwargs.args[0]
+        joined_args = " ".join(cmd_list[1:])
+        assert "`whoami`" in joined_args
+        # 执行结果
         assert result["success"] is True
         # 反引号作为普通字符输出，不会被执行
         assert "`whoami`" in result["data"]["stdout"]
 
     def test_injection_dollar_paren_not_interpreted(self, skill, context):
-        """测试 $() 命令替换：由于 shell=False，不会被 shell 解释."""
-        result = skill.execute(
-            {"action": "run", "command": "python -c \"print('$(whoami)')\""},
-            context,
-        )
-        if not _has_command("python") and not _has_command("python3"):
-            pytest.skip("python 不可用")
+        """测试 $() 命令替换：由于 shell=False，不会被 shell 解释.
+
+        使用 mock 验证 subprocess.run 被调用时，$() 作为普通参数传递。
+        """
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "$(whoami)\n"
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            result = skill.execute(
+                {"action": "run", "command": "python -c \"print('$(whoami)')\""},
+                context,
+            )
+
+        # 验证 shell=False
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs.get("shell") is False
+        # 验证 $() 在参数中（作为普通字符串）
+        cmd_list = call_kwargs.args[0]
+        joined_args = " ".join(cmd_list[1:])
+        assert "$(whoami)" in joined_args
+        # 执行结果
         assert result["success"] is True
         # $() 作为普通字符输出
         assert "$(whoami)" in result["data"]["stdout"]
 
     def test_injection_double_ampersand_not_interpreted(self, skill, context):
-        """测试 &&：由于 shell=False，&& 不会被 shell 解释."""
-        result = skill.execute(
-            {"action": "run", "command": "python -c \"print('a&&b')\""},
-            context,
-        )
-        if not _has_command("python") and not _has_command("python3"):
-            pytest.skip("python 不可用")
+        """测试 &&：由于 shell=False，&& 不会被 shell 解释.
+
+        使用 mock 验证 subprocess.run 被调用时，&& 作为普通参数传递。
+        """
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "a&&b\n"
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            result = skill.execute(
+                {"action": "run", "command": "python -c \"print('a&&b')\""},
+                context,
+            )
+
+        # 验证 shell=False
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs.get("shell") is False
+        # 验证 && 在参数中（作为普通字符串）
+        cmd_list = call_kwargs.args[0]
+        joined_args = " ".join(cmd_list[1:])
+        assert "&&" in joined_args
+        # 执行结果
         assert result["success"] is True
         assert "a&&b" in result["data"]["stdout"]
 
@@ -285,15 +364,26 @@ class TestTerminalCommandSecurity:
         assert "越界" in result["message"] or "安全检查" in result["message"]
 
     def test_cwd_absolute_outside_workspace(self, skill, workspace, context):
-        """测试绝对路径工作目录在 workspace 外时应被拒绝."""
-        outside = tempfile.gettempdir()
+        """测试绝对路径工作目录在 workspace 外时应被拒绝.
+
+        构造一个确定不在 workspace 内的绝对路径来测试越界检测。
+        在 Windows 上使用另一个盘符或系统根目录外的路径，
+        在 POSIX 上使用 /root 或其他系统目录。
+        """
+        # 构造一个确定不在 workspace 内的绝对路径
+        # 使用一个显然不存在的系统级路径，确保安全检查会拒绝
+        if sys.platform.startswith("win"):
+            # Windows: 使用另一个不存在的盘符路径
+            outside_path = "Z:\\definitely_outside_workspace\\test"
+        else:
+            # POSIX: 使用系统级目录
+            outside_path = "/root/definitely_outside_workspace/test"
+
         result = skill.execute(
-            {"action": "run", "command": "python -c \"print('test')\"", "cwd": outside},
+            {"action": "run", "command": "python -c \"print('test')\"", "cwd": outside_path},
             context,
         )
-        # 临时目录可能在 workspace 外
-        if os.path.realpath(outside).startswith(os.path.realpath(workspace)):
-            pytest.skip("临时目录恰好在 workspace 内")
+        # 由于 outside_path 显然不在 workspace 内，应该被越界检查拒绝
         assert result["success"] is False
         assert "越界" in result["message"] or "安全检查" in result["message"]
 
@@ -524,11 +614,16 @@ class TestFileOperationSecurity:
         assert "越界" in result["message"] or "不在工作目录" in result["message"]
 
     def test_path_traversal_absolute(self, skill, context, workspace):
-        """测试绝对路径遍历（workspace 外的路径）."""
-        outside_path = os.path.join(tempfile.gettempdir(), "secret.txt")
-        # 确保不在 workspace 内
-        if os.path.realpath(tempfile.gettempdir()).startswith(os.path.realpath(workspace)):
-            pytest.skip("临时目录恰好在 workspace 内")
+        """测试绝对路径遍历（workspace 外的路径）.
+
+        构造一个确定不在 workspace 内的绝对路径来测试越界检测。
+        """
+        # 构造一个确定不在 workspace 内的绝对路径
+        if sys.platform.startswith("win"):
+            outside_path = "Z:\\definitely_outside\\secret.txt"
+        else:
+            outside_path = "/etc/secret.txt"
+
         result = skill.execute(
             {"action": "read_file", "path": outside_path},
             context,
@@ -615,41 +710,104 @@ class TestFileOperationSecurity:
     def test_symlink_outside_workspace_skipped_in_listdir(
         self, skill, workspace, context
     ):
-        """测试 list_dir 中指向 workspace 外的符号链接应被跳过."""
-        # 创建指向 workspace 外的符号链接
-        outside_dir = tempfile.mkdtemp()
-        symlink_path = os.path.join(workspace, "link_outside")
+        """测试 list_dir 中指向 workspace 外的符号链接应被跳过.
 
-        # 尝试创建符号链接（Windows 上可能需要管理员权限）
-        try:
-            os.symlink(outside_dir, symlink_path)
-        except (OSError, AttributeError):
-            pytest.skip("无法创建符号链接（可能需要管理员权限）")
+        使用 mock 模拟符号链接行为，避免在 Windows 上创建符号链接需要管理员权限的问题。
+        """
+        # 在 workspace 中创建一个真实目录（模拟符号链接指向的内部目录）
+        # 以及一个模拟的"符号链接"条目
+        real_inside_dir = os.path.join(workspace, "real_dir")
+        os.makedirs(real_inside_dir, exist_ok=True)
 
-        result = skill.execute(
-            {"action": "list_dir", "path": ""},
-            context,
-        )
+        # 创建一个假的"符号链接"文件（普通文件，但我们 mock islink 返回 True）
+        fake_symlink = os.path.join(workspace, "link_outside")
+        with open(fake_symlink, "w") as f:
+            f.write("fake")
+
+        # mock os.path.islink 让 link_outside 看起来像符号链接
+        # mock os.path.realpath 让 link_outside 的 realpath 指向 workspace 外
+        original_islink = os.path.islink
+        original_realpath = os.path.realpath
+        original_isdir = os.path.isdir
+
+        def mock_islink(path):
+            if os.path.basename(path) == "link_outside":
+                return True
+            return original_islink(path)
+
+        def mock_realpath(path):
+            if os.path.basename(path) == "link_outside":
+                # 返回一个 workspace 外的路径
+                if sys.platform.startswith("win"):
+                    return "Z:\\outside_dir"
+                else:
+                    return "/outside_dir"
+            return original_realpath(path)
+
+        def mock_isdir(path):
+            if os.path.basename(path) == "link_outside":
+                return True  # 模拟指向目录的符号链接
+            return original_isdir(path)
+
+        with patch.object(os.path, "islink", side_effect=mock_islink), \
+             patch.object(os.path, "realpath", side_effect=mock_realpath), \
+             patch.object(os.path, "isdir", side_effect=mock_isdir):
+            result = skill.execute(
+                {"action": "list_dir", "path": ""},
+                context,
+            )
+
         assert result["success"] is True
         # 指向 workspace 外的符号链接不应出现在列表中
         names = [e["name"] for e in result["data"]["entries"]]
         assert "link_outside" not in names
+        # 真实目录应该还在
+        assert "real_dir" in names
 
     def test_symlink_inside_workspace_allowed(
         self, skill, workspace, context
     ):
-        """测试指向 workspace 内的符号链接应被允许."""
-        symlink_path = os.path.join(workspace, "link_inside")
+        """测试指向 workspace 内的符号链接应被允许.
 
-        try:
-            os.symlink(os.path.join(workspace, "subdir"), symlink_path)
-        except (OSError, AttributeError):
-            pytest.skip("无法创建符号链接（可能需要管理员权限）")
+        使用 mock 模拟符号链接行为，避免在 Windows 上创建符号链接需要管理员权限的问题。
+        """
+        # 在 workspace 中创建真实目录
+        subdir = os.path.join(workspace, "subdir")
+        os.makedirs(subdir, exist_ok=True)
 
-        result = skill.execute(
-            {"action": "list_dir", "path": ""},
-            context,
-        )
+        # 创建一个假的"符号链接"文件
+        fake_symlink = os.path.join(workspace, "link_inside")
+        with open(fake_symlink, "w") as f:
+            f.write("fake")
+
+        original_islink = os.path.islink
+        original_realpath = os.path.realpath
+        original_isdir = os.path.isdir
+
+        def mock_islink(path):
+            if os.path.basename(path) == "link_inside":
+                return True
+            return original_islink(path)
+
+        def mock_realpath(path):
+            if os.path.basename(path) == "link_inside":
+                # 返回 workspace 内的路径（指向 subdir）
+                return os.path.join(workspace, "subdir")
+            return original_realpath(path)
+
+        def mock_isdir(path):
+            if os.path.basename(path) == "link_inside":
+                return True  # 模拟指向目录的符号链接
+            return original_isdir(path)
+
+        with patch.object(os.path, "islink", side_effect=mock_islink), \
+             patch.object(os.path, "realpath", side_effect=mock_realpath), \
+             patch.object(os.path, "isdir", side_effect=mock_isdir):
+            result = skill.execute(
+                {"action": "list_dir", "path": ""},
+                context,
+            )
+
         assert result["success"] is True
         # 指向 workspace 内的符号链接应该出现在列表中
         names = [e["name"] for e in result["data"]["entries"]]
