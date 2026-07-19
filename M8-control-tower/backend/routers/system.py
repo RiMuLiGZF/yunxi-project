@@ -335,6 +335,9 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     except Exception:
         stats["health_score"] = 85
 
+    # 系统级快捷操作入口
+    stats["system_actions"] = get_system_actions()
+
     return ApiResponse.success(data=stats)
 
 @router.post("/cache/clear")
@@ -378,6 +381,53 @@ async def clear_cache(current_user: dict = Depends(get_current_user)):
 # 状态查询超时时间（秒）
 STATE_QUERY_TIMEOUT = 3.0
 
+# 操作分类常量
+ACTION_CATEGORY_CONTROL = "control"     # 控制类：重启、启动、停止、暂停、恢复
+ACTION_CATEGORY_CONFIG = "config"       # 配置类：重新加载配置、更新配置
+ACTION_CATEGORY_DATA = "data"           # 数据类：清理缓存、数据备份、数据导出
+
+# 操作分类优先级（数值越小越靠前）
+_ACTION_CATEGORY_ORDER = {
+    ACTION_CATEGORY_CONTROL: 0,
+    ACTION_CATEGORY_CONFIG: 1,
+    ACTION_CATEGORY_DATA: 2,
+}
+
+# 常用操作优先级（在同分类内排序，数值越小越靠前）
+_ACTION_PRIORITY = {
+    # control 类
+    "restart": 0,
+    "start": 1,
+    "stop": 2,
+    "health_check": 3,
+    # config 类
+    "reload_config": 0,
+    # data 类
+    "view_metrics": 0,
+    "clear_cache": 9,    # 危险操作靠后
+    # 系统级操作
+    "batch_start": 1,
+    "batch_stop": 2,
+    "health_check_all": 3,
+}
+
+
+def _sort_actions(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    对操作列表进行排序：
+    1. 控制类操作排前面
+    2. 常用操作（重启、重载配置）排前面
+    3. 危险操作（清空数据、删除）排最后
+    """
+    return sorted(
+        actions,
+        key=lambda a: (
+            _ACTION_CATEGORY_ORDER.get(a.get("category", ACTION_CATEGORY_CONTROL), 99),
+            _ACTION_PRIORITY.get(a.get("name", ""), 50),
+        ),
+    )
+
+
 # 模块级可用操作定义
 _MODULE_ACTIONS = {
     "restart": {
@@ -385,71 +435,91 @@ _MODULE_ACTIONS = {
         "method": "POST",
         "path": "/api/system/modules/{module_key}/restart",
         "description": "重启模块进程",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": True,
     },
     "start": {
         "name": "start",
         "method": "POST",
         "path": "/api/system/modules/{module_key}/start",
         "description": "启动模块进程",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": False,
     },
     "stop": {
         "name": "stop",
         "method": "POST",
         "path": "/api/system/modules/{module_key}/stop",
         "description": "停止模块进程",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": True,
     },
     "health_check": {
         "name": "health_check",
         "method": "GET",
         "path": "/api/system/modules/{module_key}",
         "description": "查看模块健康状态",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": False,
     },
     "view_metrics": {
         "name": "view_metrics",
         "method": "GET",
         "path": "/api/monitor/metrics/realtime",
         "description": "查看实时监控指标",
+        "category": ACTION_CATEGORY_DATA,
+        "requires_confirm": False,
     },
 }
 
 # 系统级可用操作定义
-_SYSTEM_ACTIONS = [
+_SYSTEM_ACTIONS = _sort_actions([
     {
         "name": "reload_config",
         "method": "POST",
         "path": "/api/modules/registry/reload",
         "description": "重新加载模块配置",
+        "category": ACTION_CATEGORY_CONFIG,
+        "requires_confirm": False,
     },
     {
         "name": "clear_cache",
         "method": "POST",
         "path": "/api/system/cache/clear",
         "description": "清理系统缓存",
+        "category": ACTION_CATEGORY_DATA,
+        "requires_confirm": True,
     },
     {
         "name": "batch_start",
         "method": "POST",
         "path": "/api/system/modules/batch-start",
         "description": "批量启动所有模块",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": True,
     },
     {
         "name": "batch_stop",
         "method": "POST",
         "path": "/api/system/modules/batch-stop",
         "description": "批量停止所有模块",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": True,
     },
     {
         "name": "health_check_all",
         "method": "POST",
         "path": "/api/deploy/health-check",
         "description": "对所有模块执行健康检查",
+        "category": ACTION_CATEGORY_CONTROL,
+        "requires_confirm": False,
     },
-]
+])
 
 
-def _get_module_actions(module_key: str, simplified: bool = False) -> Any:
+def get_module_actions(module_key: str, simplified: bool = False) -> Any:
     """
-    获取指定模块的可用操作列表。
+    获取指定模块的可用操作列表（公开函数，供其他模块调用）。
 
     Args:
         module_key: 模块 key
@@ -457,7 +527,7 @@ def _get_module_actions(module_key: str, simplified: bool = False) -> Any:
 
     Returns:
         simplified=True: 操作名称列表 ["restart", "stop", ...]
-        simplified=False: 完整操作信息列表
+        simplified=False: 完整操作信息列表（已排序）
     """
     # M8 自身不可重启/停止/启动
     if module_key == "m8":
@@ -466,18 +536,49 @@ def _get_module_actions(module_key: str, simplified: bool = False) -> Any:
         action_names = ["restart", "start", "stop", "health_check", "view_metrics"]
 
     if simplified:
-        return action_names
+        # 简化格式也按排序顺序返回名称
+        full_actions = [
+            {
+                "name": info["name"],
+                "category": info.get("category", ACTION_CATEGORY_CONTROL),
+            }
+            for name, info in _MODULE_ACTIONS.items()
+            if name in action_names
+        ]
+        sorted_actions = _sort_actions(full_actions)
+        return [a["name"] for a in sorted_actions]
 
-    return [
+    actions = [
         {
             "name": info["name"],
             "method": info["method"],
             "path": info["path"].format(module_key=module_key),
             "description": info["description"],
+            "category": info["category"],
+            "requires_confirm": info["requires_confirm"],
         }
         for name, info in _MODULE_ACTIONS.items()
         if name in action_names
     ]
+    return _sort_actions(actions)
+
+
+# 向后兼容：保留私有函数名别名
+_get_module_actions = get_module_actions
+
+
+def get_system_actions() -> List[Dict[str, Any]]:
+    """
+    获取系统级可用操作列表（公开函数，供其他模块调用）。
+
+    Returns:
+        系统操作列表（已按分类和优先级排序）
+    """
+    return list(_SYSTEM_ACTIONS)
+
+
+# 向后兼容：保留私有变量别名
+# _SYSTEM_ACTIONS 本身已是排序后的列表
 
 
 async def _get_module_health_state(module_key: str) -> Optional[Dict[str, Any]]:

@@ -32,6 +32,7 @@ sys.path.insert(0, str(project_root))
 from ..schemas import ApiResponse
 from ..auth import get_current_user
 from ..errors import M8ErrorCode
+from .system import get_module_actions
 from shared.business.module_client import get_module_registry, ModuleStatus, ModuleClient
 from shared.core.config import get_config
 from shared.core.observability import get_logger
@@ -217,7 +218,20 @@ async def list_modules(
         # 先做一次健康检查，更新状态
         await registry.check_all_health()
         summary = registry.get_status_summary()
-        result = ApiResponse.success(data=summary)
+
+        # 为每个模块添加简化版 actions 字段（仅操作名称列表）
+        modules = registry.get_all_modules()
+        module_items = []
+        for mod in modules:
+            item = mod.to_dict()
+            item["actions"] = get_module_actions(mod.key, simplified=True)
+            module_items.append(item)
+
+        result_data = {
+            **summary,
+            "items": module_items,
+        }
+        result = ApiResponse.success(data=result_data)
         # 缓存结果 10 秒
         _cache.set(cache_key, result, ttl=10.0, tags=["m8:modules"])
         return result
@@ -259,7 +273,11 @@ async def get_module_detail(
         logger.debug(f"模块健康检查异常 {module_key}", exc_info=True)
         module.status = ModuleStatus.STOPPED
 
-    return ApiResponse.success(data=module.to_dict())
+    # 组装返回数据，添加 available_actions
+    data = module.to_dict()
+    data["available_actions"] = get_module_actions(module_key, simplified=False)
+
+    return ApiResponse.success(data=data)
 
 
 @router.get("/{module_key}/health")
@@ -1115,6 +1133,9 @@ async def registry_list_modules(
             enabled_only=enabled_only,
         )
         data = [m.to_dict(include_runtime=True) for m in modules]
+        # 为每个模块添加简化版 actions 字段
+        for item in data:
+            item["actions"] = get_module_actions(item.get("id", item.get("key", "")), simplified=True)
         return ApiResponse.success(
             data={
                 "items": data,
@@ -1147,7 +1168,9 @@ async def registry_get_module(
             details={"module_id": module_id},
         )
 
-    return ApiResponse.success(data=module.to_dict(include_runtime=True))
+    data = module.to_dict(include_runtime=True)
+    data["available_actions"] = get_module_actions(module_id, simplified=False)
+    return ApiResponse.success(data=data)
 
 
 @router.post("/registry/register")

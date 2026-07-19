@@ -34,6 +34,7 @@ from .ops_status_aggregator import (
     get_ops_aggregator,
     OpsStatusAggregator,
 )
+from .system import get_system_actions
 
 router = APIRouter(prefix="/ops", tags=["运维管理"])
 aggregator: OpsStatusAggregator = get_ops_aggregator()
@@ -84,6 +85,7 @@ async def ops_dashboard(
 
     return ApiResponse.success(data={
         **overview,
+        "system_actions": get_system_actions(),
         "predictions": [
             {
                 "module": p.module,

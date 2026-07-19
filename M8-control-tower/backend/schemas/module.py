@@ -242,3 +242,34 @@ class ModuleProxyResponse(BaseModel):
     data: Optional[Any] = Field(default=None, description="响应数据")
     latency_ms: float = Field(default=0.0, description="耗时（毫秒）")
     error: Optional[str] = Field(default=None, description="错误信息")
+
+
+# ═══════════════════════════════════════════════════════
+# 快捷操作入口
+# ═══════════════════════════════════════════════════════
+
+class ActionCategory(str, Enum):
+    """操作分类"""
+    CONTROL = "control"     # 控制类：重启、启动、停止、暂停、恢复
+    CONFIG = "config"       # 配置类：重新加载配置、更新配置
+    DATA = "data"           # 数据类：清理缓存、数据备份、数据导出
+
+
+class ModuleAction(BaseModel):
+    """模块操作定义（快捷操作入口）"""
+    name: str = Field(description="操作标识，如 restart、reload_config")
+    method: str = Field(description="HTTP 方法，如 GET、POST、PUT、DELETE")
+    path: str = Field(description="操作 API 路径")
+    description: str = Field(description="操作描述（可国际化）")
+    category: ActionCategory = Field(description="操作分类：control/config/data")
+    requires_confirm: bool = Field(default=False, description="是否需要确认")
+
+
+class SystemAction(BaseModel):
+    """系统级操作定义（快捷操作入口）"""
+    name: str = Field(description="操作标识")
+    method: str = Field(description="HTTP 方法")
+    path: str = Field(description="操作 API 路径")
+    description: str = Field(description="操作描述")
+    category: ActionCategory = Field(description="操作分类：control/config/data")
+    requires_confirm: bool = Field(default=False, description="是否需要确认")

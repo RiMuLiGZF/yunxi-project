@@ -36,6 +36,33 @@ if str(project_root) not in sys.path:
 
 from shared.health.health_checker import HealthStatus
 
+# 操作辅助函数（延迟导入避免循环依赖）
+def _get_module_actions_simplified(module_name: str) -> List[str]:
+    """获取模块的简化操作列表（仅名称）"""
+    try:
+        from backend.routers.system import get_module_actions
+        return get_module_actions(module_name, simplified=True)
+    except (ImportError, Exception):
+        return []
+
+
+def _get_module_actions_full(module_name: str) -> List[Dict[str, Any]]:
+    """获取模块的完整操作列表"""
+    try:
+        from backend.routers.system import get_module_actions
+        return get_module_actions(module_name, simplified=False)
+    except (ImportError, Exception):
+        return []
+
+
+def _get_system_actions() -> List[Dict[str, Any]]:
+    """获取系统级操作列表"""
+    try:
+        from backend.routers.system import get_system_actions
+        return get_system_actions()
+    except (ImportError, Exception):
+        return []
+
 
 # ============================================================================
 # 数据类
@@ -193,6 +220,7 @@ class OpsStatusAggregator:
                     "last_check": datetime.fromtimestamp(snap.last_check).isoformat() if snap and snap.last_check else None,
                     "is_standard_m8": snap.is_standard_m8 if snap else True,
                     "used_fallback": snap.used_fallback if snap else False,
+                    "actions": _get_module_actions_simplified(name),
                 })
             return result
 
@@ -222,6 +250,7 @@ class OpsStatusAggregator:
                 "is_standard_m8": snap.is_standard_m8 if snap else True,
                 "used_fallback": snap.used_fallback if snap else False,
                 "score_history": history[-20:],  # 最近20条
+                "available_actions": _get_module_actions_full(module_name),
             }
 
     def get_resource_usage(self) -> Dict[str, Any]:

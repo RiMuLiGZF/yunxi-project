@@ -87,6 +87,9 @@ from .module import (
     ModuleRegisterResponse,
     ModuleProxyRequest,
     ModuleProxyResponse,
+    ActionCategory,
+    ModuleAction,
+    SystemAction,
 )
 
 __all__ = [
@@ -156,4 +159,7 @@ __all__ = [
     "ModuleRegisterResponse",
     "ModuleProxyRequest",
     "ModuleProxyResponse",
+    "ActionCategory",
+    "ModuleAction",
+    "SystemAction",
 ]
