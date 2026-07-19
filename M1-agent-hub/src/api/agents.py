@@ -42,12 +42,38 @@ logger = structlog.get_logger(__name__)
 M8_TOKEN_ENV = "M1_ADMIN_TOKEN"
 
 
+def _is_production_env() -> bool:
+    """检查是否处于生产环境.
+
+    当 YUNXI_ENV 设置为 production 或 prod 时返回 True.
+    """
+    return os.environ.get("YUNXI_ENV", "").lower() in ("production", "prod")
+
+
 def _verify_m8_token(x_m8_token: str = "") -> bool:
-    """验证 M8 管理令牌"""
+    """验证 M8 管理令牌（使用 hmac.compare_digest 防止时序攻击）.
+
+    安全策略：
+    - 生产环境（YUNXI_ENV=production/prod）：token 未配置时拒绝访问（secure by default）
+    - 开发环境（默认）：token 未配置时放行并告警，便于本地调试
+    - token 存在时：使用 hmac.compare_digest 安全比较
+    """
     expected = os.environ.get(M8_TOKEN_ENV, "")
     if not expected:
-        # 未配置 Token 时，开发模式允许访问
+        if _is_production_env():
+            logger.warning(
+                "m1.agents.auth.token_not_configured_rejected",
+                message="M1_ADMIN_TOKEN 未配置，生产环境下 agents API 拒绝所有访问",
+            )
+            return False
+        logger.warning(
+            "m1.agents.auth.dev_mode_no_token",
+            message="M1_ADMIN_TOKEN 未配置，开发环境下 agents API 允许空 token 访问",
+        )
         return True
+    # 拒绝空 Token，防止空值绕过
+    if not x_m8_token:
+        return False
     import hmac
     return hmac.compare_digest(x_m8_token, expected)
 

@@ -9,25 +9,61 @@ M8 作为代理，将成长相关请求转发到 M5 潮汐记忆的成长系统
 """
 
 import sys
+import secrets
 from pathlib import Path
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 import json
 import httpx
+import os
 
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from ...schemas import ApiResponse
 from ...auth import get_current_user
+from shared.core.observability import get_logger
+
+logger = get_logger("growth_m5_proxy")
 
 router = APIRouter()
 
 # M5 服务地址（从环境变量或默认值）
-import os
 M5_BASE_URL = os.getenv("M5_BASE_URL", "http://localhost:8005")
-M5_ADMIN_TOKEN = os.getenv("M5_ADMIN_TOKEN", "yunxi-m5-admin-token-2026")
+
+
+def _is_production_env() -> bool:
+    """检查是否处于生产环境."""
+    return os.environ.get("YUNXI_ENV", "").lower() in ("production", "prod")
+
+
+def _resolve_admin_token(env_var: str, module_name: str) -> str:
+    """解析 Admin Token，根据环境采取不同策略.
+
+    - 生产环境：未配置时报错并返回空字符串（代理将拒绝）
+    - 开发环境：未配置时生成随机 token 并打印到日志，便于本地调试
+    """
+    token = os.getenv(env_var, "")
+    if not token:
+        if _is_production_env():
+            logger.error(
+                f"{env_var}_not_configured",
+                message=f"{module_name} 代理 Token 未配置，生产环境下代理将不可用",
+            )
+            return ""
+        # 开发环境生成随机 token
+        random_token = secrets.token_urlsafe(32)
+        logger.warning(
+            f"{env_var}_dev_auto_generated",
+            message=f"{module_name} 代理 Token 未配置，开发环境自动生成随机 token: {random_token}",
+        )
+        return random_token
+    return token
+
+
+# M5 Admin Token（用于 M8 -> M5 鉴权）
+M5_ADMIN_TOKEN = _resolve_admin_token("M5_ADMIN_TOKEN", "M5 成长系统")
 
 # HTTP 客户端
 _client: Optional[httpx.AsyncClient] = None
@@ -68,6 +104,13 @@ async def _proxy(
     """
     client = _get_client()
     full_path = f"/api/v1/growth{path}"
+
+    # 生产环境下 token 未配置时拒绝代理
+    if not M5_ADMIN_TOKEN and _is_production_env():
+        raise HTTPException(
+            status_code=503,
+            detail="M5_ADMIN_TOKEN 未配置，生产环境下 M5 成长代理不可用",
+        )
 
     try:
         response = await client.request(

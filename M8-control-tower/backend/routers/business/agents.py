@@ -29,6 +29,7 @@ Agent 管理（6 个）：
 """
 
 import os
+import secrets
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -56,8 +57,37 @@ AGENTS_PROXY_MODE = os.getenv("AGENTS_PROXY_MODE", "proxy").lower()
 # M1 服务地址
 M1_BASE_URL = os.getenv("M1_BASE_URL", "http://localhost:8001")
 
+def _is_production_env() -> bool:
+    """检查是否处于生产环境."""
+    return os.environ.get("YUNXI_ENV", "").lower() in ("production", "prod")
+
+
+def _resolve_admin_token(env_var: str, module_name: str) -> str:
+    """解析 Admin Token，根据环境采取不同策略.
+
+    - 生产环境：未配置时报错并返回空字符串（代理将拒绝）
+    - 开发环境：未配置时生成随机 token 并打印到日志，便于本地调试
+    """
+    token = os.getenv(env_var, "")
+    if not token:
+        if _is_production_env():
+            logger.error(
+                f"{env_var}_not_configured",
+                message=f"{module_name} 代理 Token 未配置，生产环境下代理将不可用",
+            )
+            return ""
+        # 开发环境生成随机 token
+        random_token = secrets.token_urlsafe(32)
+        logger.warning(
+            f"{env_var}_dev_auto_generated",
+            message=f"{module_name} 代理 Token 未配置，开发环境自动生成随机 token: {random_token}",
+        )
+        return random_token
+    return token
+
+
 # M1 Admin Token（用于 M8 -> M1 鉴权）
-M1_ADMIN_TOKEN = os.getenv("M1_ADMIN_TOKEN", "yunxi-m1-admin-token-2026")
+M1_ADMIN_TOKEN = _resolve_admin_token("M1_ADMIN_TOKEN", "M1 Agent Hub")
 
 # 代理超时时间（秒）
 PROXY_TIMEOUT = float(os.getenv("AGENTS_PROXY_TIMEOUT", "30.0"))
@@ -109,6 +139,13 @@ async def _proxy_to_m1(
     headers = {}
     if trace_id:
         headers["X-Trace-Id"] = trace_id
+
+    # 生产环境下 token 未配置时拒绝代理
+    if not M1_ADMIN_TOKEN and _is_production_env():
+        raise HTTPException(
+            status_code=503,
+            detail="M1_ADMIN_TOKEN 未配置，生产环境下 M1 代理不可用",
+        )
 
     try:
         response = await client.request(
