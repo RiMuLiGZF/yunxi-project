@@ -32,6 +32,43 @@ if sys.platform == "win32":
             spec.loader.exec_module(resource_module)
 
 # ============================================================
+# 1.5 统一日志接入（shared.core.observability）
+# 优先使用 shared 统一日志，失败则回退到 structlog
+# ============================================================
+
+# 尝试将项目根目录加入 path（shared 模块所在位置）
+def _try_add_project_root() -> str:
+    """查找并添加项目根目录到 sys.path，返回根目录路径（空串表示未找到）."""
+    current = os.path.abspath(_current_dir)
+    for _ in range(10):
+        if os.path.exists(os.path.join(current, "shared", "core", "observability", "__init__.py")):
+            if current not in sys.path:
+                sys.path.insert(0, current)
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return ""
+
+_project_root_for_logging = _try_add_project_root()
+
+# 统一可观测性：日志 + 链路追踪 + 慢请求告警
+_unified_observability_m2 = False
+try:
+    from shared.core.observability import init_module_logger, ObservabilityMiddleware
+    _unified_observability_m2 = True
+except ImportError:
+    ObservabilityMiddleware = None  # type: ignore
+
+# 统一日志 logger（优先使用 shared 统一日志）
+if _unified_observability_m2:
+    logger = init_module_logger("m2")
+else:
+    import structlog
+    logger = structlog.get_logger("m2")
+
+# ============================================================
 # 2. 加载全局配置 yunxi.env
 # ============================================================
 
@@ -211,10 +248,10 @@ def main():
     """启动 M2 技能集群"""
     import time as _time_mod
     _start_time = _time_mod.time()
-    print("=" * 60)
-    print("  M2 技能集群 (v3.10.2) - 启动中...")
-    print("  云汐系统 yunxi-project 整合版")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("  M2 技能集群 (v3.10.2) - 启动中...")
+    logger.info("  云汐系统 yunxi-project 整合版")
+    logger.info("=" * 60)
 
     # 读取配置
     port = int(os.environ.get("M2_PORT", "8002"))
@@ -223,25 +260,24 @@ def main():
     admin_token = os.environ.get("M2_ADMIN_TOKEN", "")
 
     if _project_root:
-        print(f"  项目根目录: {_project_root}")
-        print(f"  配置来源: config/yunxi.env")
+        logger.info(f"  项目根目录: {_project_root}")
+        logger.info("  配置来源: config/yunxi.env")
     else:
-        print("  提示: 未找到 yunxi.env，使用环境变量/默认值")
-    print(f"  运行环境: {env}")
-    print()
+        logger.warning("  提示: 未找到 yunxi.env，使用环境变量/默认值")
+    logger.info(f"  运行环境: {env}")
 
     # 初始化组件
-    print("[1/5] 初始化技能注册表...")
+    logger.info("[1/5] 初始化技能注册表...")
     registry = SkillRegistry()
-    
-    print("[2/5] 加载内置技能...")
-    skill_count = _load_builtin_skills(registry)
-    print(f"      已加载 {skill_count} 个技能")
 
-    print("[3/5] 初始化技能路由器...")
+    logger.info("[2/5] 加载内置技能...")
+    skill_count = _load_builtin_skills(registry)
+    logger.info(f"      已加载 {skill_count} 个技能", skill_count=skill_count)
+
+    logger.info("[3/5] 初始化技能路由器...")
     router = SkillRouter(registry=registry)
 
-    print("[4/5] 初始化发现引擎...")
+    logger.info("[4/5] 初始化发现引擎...")
     discovery = SkillDiscoveryEngine()
     for skill_id in registry.list_skills():
         manifest = registry.get_manifest(skill_id)
@@ -256,11 +292,11 @@ def main():
                 keywords=list(manifest.capabilities) if hasattr(manifest, 'capabilities') else [],
             )
 
-    print("[5/5] 初始化健康检查器...")
+    logger.info("[5/5] 初始化健康检查器...")
     health_checker = HealthChecker(registry=registry)
 
     # 创建 FastAPI 应用
-    print("\n创建 API 服务...")
+    logger.info("创建 API 服务...")
     app = create_v2_app(
         registry=registry,
         router=router,
@@ -269,7 +305,7 @@ def main():
     )
 
     if app is None:
-        print("错误: FastAPI 未安装，请运行: pip install fastapi uvicorn")
+        logger.error("错误: FastAPI 未安装，请运行: pip install fastapi uvicorn")
         sys.exit(1)
 
     # 添加根路径健康检查（yunxi 标准格式）
@@ -302,27 +338,26 @@ def main():
     )
 
     # 启动服务
-    print(f"\nM2 技能集群启动完成！")
-    print(f"  服务地址: http://{host}:{port}")
-    print(f"  健康检查: http://{host}:{port}/health")
-    print(f"  API v2 健康: http://{host}:{port}/api/v2/health")
-    print(f"  M8 健康: http://{host}:{port}/m8/health")
-    print(f"  M8 指标: http://{host}:{port}/m8/metrics")
-    print(f"  M8 配置: http://{host}:{port}/m8/config")
-    print(f"  技能列表: http://{host}:{port}/api/v2/skills")
-    print(f"  API 文档: http://{host}:{port}/docs")
-    print(f"  技能数量: {skill_count}")
+    logger.info("M2 技能集群启动完成！")
+    logger.info(f"  服务地址: http://{host}:{port}")
+    logger.info(f"  健康检查: http://{host}:{port}/health")
+    logger.info(f"  API v2 健康: http://{host}:{port}/api/v2/health")
+    logger.info(f"  M8 健康: http://{host}:{port}/m8/health")
+    logger.info(f"  M8 指标: http://{host}:{port}/m8/metrics")
+    logger.info(f"  M8 配置: http://{host}:{port}/m8/config")
+    logger.info(f"  技能列表: http://{host}:{port}/api/v2/skills")
+    logger.info(f"  API 文档: http://{host}:{port}/docs")
+    logger.info(f"  技能数量: {skill_count}", skill_count=skill_count)
     _m8_token = os.environ.get("M2_M8_TOKEN", "") or os.environ.get("M8_TOKEN", "")
     if admin_token:
-        print(f"  v2 API 鉴权: 已启用 (M2_ADMIN_TOKEN)")
+        logger.info("  v2 API 鉴权: 已启用 (M2_ADMIN_TOKEN)")
     else:
-        print(f"  v2 API 鉴权: 未启用（开发模式）")
+        logger.warning("  v2 API 鉴权: 未启用（开发模式）")
     if _m8_token:
-        print(f"  M8 接口鉴权: 已启用 (M2_M8_TOKEN/M8_TOKEN)")
+        logger.info("  M8 接口鉴权: 已启用 (M2_M8_TOKEN/M8_TOKEN)")
     else:
-        print(f"  M8 接口鉴权: 未启用（开发模式）")
-    print("=" * 60)
-    print()
+        logger.warning("  M8 接口鉴权: 未启用（开发模式）")
+    logger.info("=" * 60)
 
     uvicorn.run(app, host=host, port=port, log_level="info")
 

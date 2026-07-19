@@ -9,11 +9,14 @@ M8 统一鉴权中间件
 import os
 import hmac
 import secrets
+import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from .utils import error_response
+
+logger = logging.getLogger(__name__)
 
 
 # 白名单路径（无需鉴权即可访问）
@@ -68,8 +71,8 @@ def _get_expected_token() -> str:
 
     # 开发环境：自动生成随机一次性 token（每次启动不同，防止硬编码泄露）
     random_token = "dev-" + secrets.token_hex(16)
-    print(
-        f"[M6] ⚠️  开发模式：M6_ADMIN_TOKEN 未配置，已生成临时 token\n"
+    logger.warning(
+        f"[M6] 开发模式：M6_ADMIN_TOKEN 未配置，已生成临时 token\n"
         f"       临时 Token: {random_token}\n"
         f"       请通过 M6_ADMIN_TOKEN 环境变量设置自定义 token"
     )

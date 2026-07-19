@@ -245,6 +245,20 @@ def create_v2_app(
             raise
         logger.warning("auth_middleware_skip", reason=str(e))
 
+    # ---- 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警） ----
+    try:
+        from shared.core.observability import ObservabilityMiddleware
+        app.add_middleware(
+            ObservabilityMiddleware,
+            service_name="m2",
+            log_level="INFO",
+            slow_request_threshold=3.0,
+            exclude_paths=["/health", "/api/v2/health", "/m8/health"],
+        )
+        logger.info("observability_middleware_registered", service="m2")
+    except ImportError:
+        logger.debug("observability_middleware_skipped", reason="shared module not available")
+
     # ---- 升级管理路由 ----
     from skill_cluster.api.upgrade import UpgradeManager, register_upgrade_routes
 

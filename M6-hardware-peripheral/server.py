@@ -107,14 +107,14 @@ async def lifespan(app: FastAPI):
     初始化顺序: config -> device_manager -> data_collector -> notification_service -> sse_manager
     """
     # ===== 启动时初始化 =====
-    print("\n" + "=" * 60)
-    print("  M6 硬件外设模拟服务 - 启动中...")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("  M6 硬件外设模拟服务 - 启动中...")
+    logger.info("=" * 60)
 
     # 1. 加载配置
     config = M6Config()
     app.state.config = config
-    print(f"  配置: 已加载 (环境: {config.env})")
+    logger.info(f"  配置: 已加载 (环境: {config.env})")
 
     # P2-2/P2-4: 初始化全局指标收集器与数据采集熔断器
     metrics = Metrics()
@@ -125,26 +125,27 @@ async def lifespan(app: FastAPI):
         recovery_timeout=30.0,
     )
     app.state.collector_breaker = collector_breaker
-    print(f"  Metrics 指标收集器: 已就绪")
-    print(f"  数据采集熔断器: 已就绪 (阈值={collector_breaker.failure_threshold}, 恢复={collector_breaker.recovery_timeout}s)")
+    logger.info("  Metrics 指标收集器: 已就绪")
+    logger.info(f"  数据采集熔断器: 已就绪 (阈值={collector_breaker.failure_threshold}, 恢复={collector_breaker.recovery_timeout}s)")
 
     # 2. 初始化设备管理器
     device_manager = DeviceManager()
     app.state.device_manager = device_manager
     device_stats = device_manager.get_stats()
-    print(f"  设备管理器: 已加载 {device_stats['total']} 台设备")
-    print(f"    - 在线: {device_stats['online']}  离线: {device_stats['offline']}  警告: {device_stats['warning']}")
+    logger.info(f"  设备管理器: 已加载 {device_stats['total']} 台设备", device_total=device_stats['total'])
+    logger.info(f"    - 在线: {device_stats['online']}  离线: {device_stats['offline']}  警告: {device_stats['warning']}",
+                device_online=device_stats['online'], device_offline=device_stats['offline'], device_warning=device_stats['warning'])
 
     # 3. 初始化数据采集服务（注入 config 和 device_manager）
     data_collector = DataCollector(config=config, device_manager=device_manager)
     app.state.data_collector = data_collector
-    print(f"  数据采集服务: 已就绪 (间隔 {config.collection_interval}s)")
+    logger.info(f"  数据采集服务: 已就绪 (间隔 {config.collection_interval}s)", collection_interval=config.collection_interval)
     await data_collector.start()
 
     # 4. 初始化通知服务（注入 device_manager）
     notification_service = NotificationService(device_manager=device_manager)
     app.state.notification_service = notification_service
-    print(f"  通知推送服务: 已就绪")
+    logger.info("  通知推送服务: 已就绪")
 
     # 5. 初始化 SSE 推送服务（注入 device_manager 和 notification_service）
     sse_manager = SSEManager(
@@ -153,22 +154,22 @@ async def lifespan(app: FastAPI):
     )
     app.state.sse_manager = sse_manager
     await sse_manager.start()
-    print(f"  SSE 推送服务: 已启动")
+    logger.info("  SSE 推送服务: 已启动")
 
-    print("-" * 60)
-    print(f"  模拟模式: {'开启' if config.simulation_mode else '关闭'}")
-    print(f"  数据库: {config.database_path}")
-    print("=" * 60 + "\n")
+    logger.info("-" * 60)
+    logger.info(f"  模拟模式: {'开启' if config.simulation_mode else '关闭'}", simulation_mode=config.simulation_mode)
+    logger.info(f"  数据库: {config.database_path}", database_path=config.database_path)
+    logger.info("=" * 60)
 
     yield
 
     # ===== 关闭时清理 =====
-    print("\n正在关闭 M6 硬件外设服务...")
+    logger.info("正在关闭 M6 硬件外设服务...")
     data_collector = app.state.data_collector
     await data_collector.stop()
     sse_manager = app.state.sse_manager
     await sse_manager.stop()
-    print("M6 硬件外设服务已关闭\n")
+    logger.info("M6 硬件外设服务已关闭")
 
 
 # ---------------------------------------------------------------------------
@@ -489,20 +490,19 @@ def main() -> None:
     port = _cfg.port
     host = _cfg.host
 
-    print("\n" + "=" * 60)
-    print("  M6 硬件外设模拟服务")
-    print("  M6 Hardware Peripheral Simulation Service")
-    print("=" * 60)
-    print(f"  版本:        1.0.0")
-    print(f"  模块名:      {_cfg.module_name}")
-    print(f"  监听地址:    {host}:{port}")
-    print(f"  模拟模式:    {'开启' if _cfg.simulation_mode else '关闭'}")
-    print(f"  文档地址:    http://localhost:{port}/docs")
-    print(f"  健康检查:    http://localhost:{port}/health")
-    print(f"  设备列表:    http://localhost:{port}/api/v1/devices")
-    print(f"  SSE 流:      http://localhost:{port}/api/v1/sse/stream")
-    print("=" * 60)
-    print()
+    logger.info("=" * 60)
+    logger.info("  M6 硬件外设模拟服务")
+    logger.info("  M6 Hardware Peripheral Simulation Service")
+    logger.info("=" * 60)
+    logger.info(f"  版本:        1.0.0")
+    logger.info(f"  模块名:      {_cfg.module_name}")
+    logger.info(f"  监听地址:    {host}:{port}")
+    logger.info(f"  模拟模式:    {'开启' if _cfg.simulation_mode else '关闭'}", simulation_mode=_cfg.simulation_mode)
+    logger.info(f"  文档地址:    http://localhost:{port}/docs")
+    logger.info(f"  健康检查:    http://localhost:{port}/health")
+    logger.info(f"  设备列表:    http://localhost:{port}/api/v1/devices")
+    logger.info(f"  SSE 流:      http://localhost:{port}/api/v1/sse/stream")
+    logger.info("=" * 60)
 
     uvicorn.run(
         app,

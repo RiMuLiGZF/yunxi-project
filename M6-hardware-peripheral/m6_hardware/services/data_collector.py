@@ -78,7 +78,7 @@ class DataCollector:
             try:
                 self._collect_once()
             except Exception as e:
-                print(f"[DataCollector] 采集异常: {e}")
+                logger.error(f"[DataCollector] 采集异常: {e}", exc_info=True)
             await asyncio.sleep(interval)
 
     def _collect_once(self):
