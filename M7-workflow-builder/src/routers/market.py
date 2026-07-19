@@ -7,17 +7,24 @@ v0.9.0 内容生态：用户可以将工作流发布为市场模板，将自定�
 - 发布自定义积木到市场前会进行代码安全校验
 - 安装市场积木时也会进行代码安全校验
 - 所有操作均记录安全审计日志
+
+性能说明：
+- 高频读接口接入三级缓存（L1内存 + L2文件 + L3 Redis预留）
+- 写操作后自动失效相关缓存
+- 缓存 key 统一命名：m7:market:*
 """
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Text, desc
+from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Text, desc, func
 
 from ..db import Base, get_engine
 from ..m8_api.m8_auth_middleware import get_current_user
@@ -26,6 +33,46 @@ from ..utils.security import (
     sanitize_custom_block_name,
     _add_audit_log,
 )
+
+# ---------------------------------------------------------------------------
+# 接入统一缓存框架 (shared.perf)
+# 优先使用统一实现，失败则回退到模块内简单实现
+# ---------------------------------------------------------------------------
+try:
+    _project_root = Path(__file__).resolve()
+    for _ in range(10):
+        _project_root = _project_root.parent
+        if (_project_root / "shared" / "perf" / "cache_manager.py").exists():
+            if str(_project_root) not in sys.path:
+                sys.path.insert(0, str(_project_root))
+            break
+except Exception:
+    pass
+
+try:
+    from shared.perf.cache_manager import (
+        CacheManager,
+        async_cache_result,
+        async_cache_invalidate,
+    )
+    _market_cache = CacheManager.from_env(namespace="m7_market")
+    _HAS_UNIFIED_CACHE = True
+except ImportError:
+    _HAS_UNIFIED_CACHE = False
+    _market_cache = None  # type: ignore
+
+
+# ============================================================
+# 缓存 key 命名空间 (统一前缀：m7:market:)
+# ============================================================
+# m7:market:stats            - 市场统计
+# m7:market:templates:list   - 模板列表
+# m7:market:templates:detail - 模板详情
+# m7:market:templates:search - 模板搜索
+# m7:market:blocks:list      - 积木列表
+# m7:market:blocks:detail    - 积木详情
+# m7:market:blocks:search    - 积木搜索
+# m7:market:categories       - 分类列表
 
 # ============================================================
 # Pydantic 请求/响应模型
@@ -113,8 +160,8 @@ class MarketTemplate(Base):
     template_id = Column(String(64), primary_key=True)
     name = Column(String(200), nullable=False)
     description = Column(Text, default="")
-    author = Column(String(50), default="anonymous")
-    category = Column(String(50), default="general")
+    author = Column(String(50), default="anonymous", index=True)
+    category = Column(String(50), default="general", index=True)
     tags = Column(JSON, default=list)
 
     blocks = Column(JSON, nullable=False)
@@ -127,9 +174,9 @@ class MarketTemplate(Base):
     rating_count = Column(Integer, default=0)
 
     source_workflow_id = Column(String(64), default="")
-    status = Column(String(20), default="published")
+    status = Column(String(20), default="published", index=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -141,8 +188,8 @@ class MarketBlock(Base):
     block_id = Column(String(64), primary_key=True)
     name = Column(String(200), nullable=False)
     description = Column(Text, default="")
-    author = Column(String(50), default="anonymous")
-    category = Column(String(50), default="general")
+    author = Column(String(50), default="anonymous", index=True)
+    category = Column(String(50), default="general", index=True)
     tags = Column(JSON, default=list)
 
     code = Column(Text, default="")
@@ -154,9 +201,9 @@ class MarketBlock(Base):
     rating_count = Column(Integer, default=0)
 
     source_block_id = Column(String(64), default="")
-    status = Column(String(20), default="published")
+    status = Column(String(20), default="published", index=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -166,8 +213,8 @@ class MarketRating(Base):
     __tablename__ = "market_ratings"
 
     id = Column(String(64), primary_key=True)
-    item_type = Column(String(20), nullable=False)  # template / block
-    item_id = Column(String(64), nullable=False)
+    item_type = Column(String(20), nullable=False, index=True)  # template / block
+    item_id = Column(String(64), nullable=False, index=True)
     user_id = Column(String(50), default="anonymous")
     rating = Column(Integer, nullable=False)
     comment = Column(Text, default="")
@@ -198,6 +245,51 @@ def _ensure_tables():
         MarketRating.__table__.create(engine, checkfirst=True)
     except Exception:
         pass
+
+
+def _calc_rating_avg(rating_sum: float, rating_count: int) -> float:
+    """计算平均评分."""
+    return round(rating_sum / rating_count, 1) if rating_count and rating_count > 0 else 0.0
+
+
+def _paginate_result(items: list, total: int, page: int, page_size: int) -> Dict[str, Any]:
+    """生成分页结果字典.
+
+    Args:
+        items: 当前页数据列表
+        total: 总记录数
+        page: 当前页码
+        page_size: 每页数量
+
+    Returns:
+        标准分页结果字典
+    """
+    total_pages = (total + page_size - 1) // page_size if page_size > 0 else 0
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "size": page_size,  # 向后兼容
+        "total_pages": total_pages,
+    }
+
+
+def _apply_pagination(query, page: int, page_size: int, get_all: bool = False):
+    """应用分页到查询.
+
+    Args:
+        query: SQLAlchemy 查询对象
+        page: 页码
+        page_size: 每页数量
+        get_all: 是否返回全部（跳过分页）
+
+    Returns:
+        应用分页后的查询对象
+    """
+    if get_all:
+        return query
+    return query.offset((page - 1) * page_size).limit(page_size)
 
 
 # === 模板市场 ===
@@ -233,6 +325,12 @@ async def publish_template(request: PublishTemplateRequest):
         session.add(mt)
         session.commit()
 
+        # 失效相关缓存
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.delete("m7:market:stats")
+            _market_cache.delete("m7:market:categories")
+
         return {
             "code": 0,
             "message": "ok",
@@ -256,13 +354,20 @@ async def list_market_templates(
     category: Optional[str] = None,
     tag: Optional[str] = None,
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100),
+    size: Optional[int] = Query(None, ge=1, le=100),
     sort: str = "newest",
+    all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
     """浏览模板市场."""
     _ensure_tables()
     session = _get_session()
     try:
+        # 向后兼容：size 参数作为 page_size 的别名
+        actual_page_size = size if size is not None else page_size
+        # all 模式下使用一个很大的 limit 模拟全量
+        get_all = all
+
         query = session.query(MarketTemplate).filter_by(status="published")
 
         if category:
@@ -279,12 +384,11 @@ async def list_market_templates(
         else:
             query = query.order_by(desc(MarketTemplate.created_at))
 
-        items = query.offset((page - 1) * size).limit(size).all()
+        query = _apply_pagination(query, page, actual_page_size, get_all)
+        items = query.all()
         result = []
         for mt in items:
-            avg = mt.rating_avg if hasattr(mt, "rating_avg") else (
-                round(mt.rating_sum / mt.rating_count, 1) if mt.rating_count > 0 else 0.0
-            )
+            avg = _calc_rating_avg(mt.rating_sum or 0.0, mt.rating_count or 0)
             result.append(
                 MarketTemplateItem(
                     template_id=mt.template_id,
@@ -301,7 +405,11 @@ async def list_market_templates(
                 ).dict()
             )
 
-        return {"code": 0, "message": "ok", "data": {"items": result, "total": total, "page": page, "size": size}}
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -312,12 +420,17 @@ async def list_market_templates(
 async def search_templates(
     q: str,
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100),
+    size: Optional[int] = Query(None, ge=1, le=100),
+    all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
     """搜索模板."""
     _ensure_tables()
     session = _get_session()
     try:
+        actual_page_size = size if size is not None else page_size
+        get_all = all
+
         pattern = f"%{q}%"
         query = session.query(MarketTemplate).filter_by(status="published").filter(
             (MarketTemplate.name.ilike(pattern))
@@ -325,11 +438,13 @@ async def search_templates(
             | (MarketTemplate.author.ilike(pattern))
         )
         total = query.count()
-        items = query.order_by(desc(MarketTemplate.created_at)).offset((page - 1) * size).limit(size).all()
+        query = query.order_by(desc(MarketTemplate.created_at))
+        query = _apply_pagination(query, page, actual_page_size, get_all)
+        items = query.all()
 
         result = []
         for mt in items:
-            avg = round(mt.rating_sum / mt.rating_count, 1) if mt.rating_count and mt.rating_count > 0 else 0.0
+            avg = _calc_rating_avg(mt.rating_sum or 0.0, mt.rating_count or 0)
             result.append(
                 MarketTemplateItem(
                     template_id=mt.template_id,
@@ -346,7 +461,11 @@ async def search_templates(
                 ).dict()
             )
 
-        return {"code": 0, "message": "ok", "data": {"items": result, "total": total, "page": page, "size": size}}
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -355,7 +474,11 @@ async def search_templates(
 
 @market_router.get("/templates/{template_id}")
 async def get_template(template_id: str):
-    """模板详情."""
+    """模板详情（缓存 5 分钟）."""
+    cache_key = f"m7:market:templates:detail:{template_id}"
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -364,7 +487,7 @@ async def get_template(template_id: str):
             raise HTTPException(status_code=404, detail="模板不存在")
 
         avg = round(mt.rating_sum / mt.rating_count, 1) if mt.rating_count and mt.rating_count > 0 else 0.0
-        return {
+        result = {
             "code": 0,
             "message": "ok",
             "data": {
@@ -386,6 +509,11 @@ async def get_template(template_id: str):
                 "created_at": mt.created_at.strftime("%Y-%m-%d %H:%M:%S") if mt.created_at else "",
             },
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, result, ttl=300)  # 5 分钟
+
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -424,6 +552,12 @@ async def install_template(template_id: str):
 
         mt.download_count = (mt.download_count or 0) + 1
         session.commit()
+
+        # 失效相关缓存（下载计数变化）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:templates:detail:{template_id}")
+            _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.delete("m7:market:stats")
 
         return {
             "code": 0,
@@ -477,6 +611,12 @@ async def rate_template(template_id: str, request: RatingRequest):
         mt.updated_at = datetime.utcnow()
         session.commit()
 
+        # 失效相关缓存（评分变化）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:templates:detail:{template_id}")
+            _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.delete("m7:market:stats")
+
         avg = round(mt.rating_sum / mt.rating_count, 1) if mt.rating_count and mt.rating_count > 0 else 0.0
         return {"code": 0, "message": "ok", "data": {"rating_avg": avg, "rating_count": mt.rating_count}}
     except HTTPException:
@@ -500,6 +640,14 @@ async def unpublish_template(template_id: str):
         mt.status = "unpublished"
         mt.updated_at = datetime.utcnow()
         session.commit()
+
+        # 失效相关缓存（模板下架）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:templates:detail:{template_id}")
+            _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.delete("m7:market:stats")
+            _market_cache.delete("m7:market:categories")
+
         return {"code": 0, "message": "ok"}
     except HTTPException:
         raise
@@ -587,6 +735,12 @@ async def publish_block(
             details=f"发布积木到市场：{clean_name}（来源：{request.block_id}）",
         )
 
+        # 失效相关缓存
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.delete("m7:market:stats")
+            _market_cache.delete("m7:market:categories")
+
         return {"code": 0, "message": "ok", "data": {"block_id": mb.block_id, "name": mb.name, "status": mb.status}}
     except HTTPException:
         raise
@@ -601,22 +755,41 @@ async def publish_block(
 async def list_market_blocks(
     category: Optional[str] = None,
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100),
+    size: Optional[int] = Query(None, ge=1, le=100),
+    all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
-    """浏览积木市场."""
+    """浏览积木市场（缓存 1 分钟）."""
+    import hashlib
+    cache_key = (
+        f"m7:market:blocks:list:cat={category or 'all'}:"
+        f"p={page}:ps={page_size}:size={size or 'none'}:all={str(all).lower()}"
+    )
+    if len(cache_key) > 200:
+        h = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_key = f"m7:market:blocks:list:hash:{h}"
+
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
+        actual_page_size = size if size is not None else page_size
+        get_all = all
+
         query = session.query(MarketBlock).filter_by(status="published")
         if category:
             query = query.filter_by(category=category)
 
         total = query.count()
-        items = query.order_by(desc(MarketBlock.created_at)).offset((page - 1) * size).limit(size).all()
+        query = query.order_by(desc(MarketBlock.created_at))
+        query = _apply_pagination(query, page, actual_page_size, get_all)
+        items = query.all()
 
         result = []
         for mb in items:
-            avg = round(mb.rating_sum / mb.rating_count, 1) if mb.rating_count and mb.rating_count > 0 else 0.0
+            avg = _calc_rating_avg(mb.rating_sum or 0.0, mb.rating_count or 0)
             result.append(
                 MarketBlockItem(
                     block_id=mb.block_id,
@@ -632,7 +805,16 @@ async def list_market_blocks(
                 ).dict()
             )
 
-        return {"code": 0, "message": "ok", "data": {"items": result, "total": total, "page": page, "size": size}}
+        response = {
+            "code": 0,
+            "message": "ok",
+            "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
+        }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, response, ttl=60)  # 1 分钟
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -643,12 +825,17 @@ async def list_market_blocks(
 async def search_blocks(
     q: str,
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100),
+    size: Optional[int] = Query(None, ge=1, le=100),
+    all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
     """搜索积木."""
     _ensure_tables()
     session = _get_session()
     try:
+        actual_page_size = size if size is not None else page_size
+        get_all = all
+
         pattern = f"%{q}%"
         query = session.query(MarketBlock).filter_by(status="published").filter(
             (MarketBlock.name.ilike(pattern))
@@ -656,11 +843,13 @@ async def search_blocks(
             | (MarketBlock.author.ilike(pattern))
         )
         total = query.count()
-        items = query.order_by(desc(MarketBlock.created_at)).offset((page - 1) * size).limit(size).all()
+        query = query.order_by(desc(MarketBlock.created_at))
+        query = _apply_pagination(query, page, actual_page_size, get_all)
+        items = query.all()
 
         result = []
         for mb in items:
-            avg = round(mb.rating_sum / mb.rating_count, 1) if mb.rating_count and mb.rating_count > 0 else 0.0
+            avg = _calc_rating_avg(mb.rating_sum or 0.0, mb.rating_count or 0)
             result.append(
                 MarketBlockItem(
                     block_id=mb.block_id,
@@ -676,7 +865,11 @@ async def search_blocks(
                 ).dict()
             )
 
-        return {"code": 0, "message": "ok", "data": {"items": result, "total": total, "page": page, "size": size}}
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -685,7 +878,11 @@ async def search_blocks(
 
 @market_router.get("/blocks/{block_id}")
 async def get_block(block_id: str):
-    """积木详情."""
+    """积木详情（缓存 5 分钟）."""
+    cache_key = f"m7:market:blocks:detail:{block_id}"
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -694,7 +891,7 @@ async def get_block(block_id: str):
             raise HTTPException(status_code=404, detail="积木不存在")
 
         avg = round(mb.rating_sum / mb.rating_count, 1) if mb.rating_count and mb.rating_count > 0 else 0.0
-        return {
+        result = {
             "code": 0,
             "message": "ok",
             "data": {
@@ -714,6 +911,11 @@ async def get_block(block_id: str):
                 "created_at": mb.created_at.strftime("%Y-%m-%d %H:%M:%S") if mb.created_at else "",
             },
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, result, ttl=300)  # 5 分钟
+
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -778,6 +980,12 @@ async def install_block(
             block_id=new_id,
             details=f"安装市场积木：{mb.name}（来源：{block_id}）",
         )
+
+        # 失效相关缓存（下载计数变化）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:blocks:detail:{block_id}")
+            _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.delete("m7:market:stats")
 
         return {"code": 0, "message": "ok", "data": {"block_id": new_id, "name": mb.name}}
     except HTTPException:
@@ -869,29 +1077,49 @@ async def get_market_stats():
     _ensure_tables()
     session = _get_session()
     try:
+        # 模板总数（SQL count）
         tpl_count = session.query(MarketTemplate).filter_by(status="published").count()
+        # 积木总数（SQL count）
         blk_count = session.query(MarketBlock).filter_by(status="published").count()
-        tpl_dl = sum(
-            (mt.download_count or 0)
-            for mt in session.query(MarketTemplate).filter_by(status="published").all()
-        )
-        blk_dl = sum(
-            (mb.download_count or 0)
-            for mb in session.query(MarketBlock).filter_by(status="published").all()
-        )
 
-        all_ratings = session.query(MarketRating).all()
-        avg_rating = (
-            round(sum(r.rating for r in all_ratings) / len(all_ratings), 1) if all_ratings else 0.0
-        )
+        # 模板下载总量（SQL sum 替代 Python 循环）
+        tpl_dl_row = session.query(
+            func.coalesce(func.sum(MarketTemplate.download_count), 0)
+        ).filter_by(status="published").first()
+        tpl_dl = int(tpl_dl_row[0]) if tpl_dl_row else 0
 
+        # 积木下载总量（SQL sum 替代 Python 循环）
+        blk_dl_row = session.query(
+            func.coalesce(func.sum(MarketBlock.download_count), 0)
+        ).filter_by(status="published").first()
+        blk_dl = int(blk_dl_row[0]) if blk_dl_row else 0
+
+        # 平均评分（SQL avg 替代 Python 循环）
+        avg_rating_row = session.query(
+            func.coalesce(func.avg(MarketRating.rating), 0.0)
+        ).first()
+        avg_rating = round(float(avg_rating_row[0]), 1) if avg_rating_row else 0.0
+
+        # 分类统计（SQL group_by 替代 Python 循环）
         categories: Dict[str, int] = {}
-        for mt in session.query(MarketTemplate).filter_by(status="published").all():
-            cat = mt.category or "general"
-            categories[cat] = categories.get(cat, 0) + 1
-        for mb in session.query(MarketBlock).filter_by(status="published").all():
-            cat = mb.category or "general"
-            categories[cat] = categories.get(cat, 0) + 1
+
+        # 模板分类统计
+        tpl_cat_rows = session.query(
+            MarketTemplate.category,
+            func.count(MarketTemplate.template_id)
+        ).filter_by(status="published").group_by(MarketTemplate.category).all()
+        for cat, count in tpl_cat_rows:
+            cat_key = cat or "general"
+            categories[cat_key] = categories.get(cat_key, 0) + count
+
+        # 积木分类统计
+        blk_cat_rows = session.query(
+            MarketBlock.category,
+            func.count(MarketBlock.block_id)
+        ).filter_by(status="published").group_by(MarketBlock.category).all()
+        for cat, count in blk_cat_rows:
+            cat_key = cat or "general"
+            categories[cat_key] = categories.get(cat_key, 0) + count
 
         return {
             "code": 0,
