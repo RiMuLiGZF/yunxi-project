@@ -156,6 +156,148 @@ def health_check():
     }
 
 
+# ============================================================================
+# M8 标准管控接口（健康检查 / 指标 / 配置）
+# ============================================================================
+
+# 服务启动时间
+_start_time = time.time()
+
+
+def _get_uptime_seconds() -> float:
+    """获取服务运行时长（秒）."""
+    return time.time() - _start_time
+
+
+@app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
+def m8_health():
+    """M8 标准健康检查接口.
+
+    返回模块状态、版本、运行时长等信息。
+    """
+    uptime = _get_uptime_seconds()
+
+    # 检查连接器状态作为深度探针
+    connector_status = "unknown"
+    connector_count = 0
+    try:
+        from connectors.manager import get_connector_manager
+        mgr = get_connector_manager()
+        connectors_list = mgr.list_connectors()
+        connector_count = len(connectors_list)
+        if connector_count > 0:
+            healthy_count = sum(
+                1 for c in connectors_list
+                if getattr(c, 'status', '') == 'healthy'
+            )
+            connector_status = "healthy" if healthy_count == connector_count else "degraded"
+        else:
+            connector_status = "healthy"
+    except Exception:
+        connector_status = "unknown"
+
+    # 总体状态
+    overall_status = "healthy" if connector_status in ("healthy", "unknown") else "degraded"
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m9-data",
+            "module_name": MODULE_NAME,
+            "version": APP_VERSION,
+            "status": overall_status,
+            "uptime_seconds": int(uptime),
+            "timestamp": time.time(),
+            "checks": {
+                "connectors": connector_status,
+                "connector_count": connector_count,
+            },
+        },
+    }
+
+
+@app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
+def m8_metrics():
+    """M8 标准性能指标接口.
+
+    返回请求统计、连接器数量、管道数量等基础指标。
+    """
+    with _request_lock:
+        total_requests = _request_count
+        error_count = _request_error_count
+        avg_latency_ms = (
+            (_request_total_time / _request_count * 1000)
+            if _request_count > 0 else 0.0
+        )
+
+    # 连接器统计
+    connector_count = 0
+    pipeline_count = 0
+    try:
+        from connectors.manager import get_connector_manager
+        connector_count = len(get_connector_manager().list_connectors())
+    except Exception:
+        pass
+    try:
+        from pipelines.manager import get_pipeline_manager
+        pipeline_count = len(get_pipeline_manager().list_pipelines())
+    except Exception:
+        pass
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m9-data",
+            "version": APP_VERSION,
+            "timestamp": time.time(),
+            "requests": {
+                "total": total_requests,
+                "errors": error_count,
+                "avg_latency_ms": round(avg_latency_ms, 2),
+            },
+            "connectors": {
+                "total": connector_count,
+            },
+            "pipelines": {
+                "total": pipeline_count,
+            },
+        },
+    }
+
+
+@app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
+def m8_config():
+    """M8 标准配置查询接口.
+
+    返回脱敏后的当前配置信息。
+    """
+    cfg = get_config()
+
+    # 安全脱敏：不返回密钥、密码等敏感信息
+    safe_config = {
+        "module": "m9-data",
+        "version": APP_VERSION,
+        "env": getattr(cfg, "env", "development"),
+        "host": getattr(cfg, "host", "0.0.0.0"),
+        "port": getattr(cfg, "port", 8019),
+        "debug": getattr(cfg, "debug", True),
+        "log_level": getattr(cfg, "log_level", "INFO"),
+        "cors_enabled": True,
+        "database_type": getattr(cfg, "db_type", "sqlite"),
+        # 敏感字段脱敏
+        "db_url_masked": "***" if getattr(cfg, "db_url", None) else None,
+        "api_keys_masked": "***" if getattr(cfg, "api_keys", None) else None,
+    }
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": safe_config,
+    }
+
+
 # API 信息
 @app.get("/api/info", summary="API 信息")
 def api_info():

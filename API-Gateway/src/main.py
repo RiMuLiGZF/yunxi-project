@@ -646,17 +646,131 @@ async def reset_all_circuit_breakers():
     }
 
 
-# 兼容旧接口
-@app.get("/m8/health")
+# ============================================================================
+# M8 标准管控接口（健康检查 / 指标 / 配置）
+# ============================================================================
+
+@app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
 async def m8_health():
-    """M8标准健康检查接口（兼容旧路径）"""
-    return await gateway_status()
+    """M8 标准健康检查接口.
+
+    返回网关自身的健康状态、版本、运行时长等基础信息。
+    """
+    proxy: ProxyService = app.state.proxy
+    proxy_metrics = proxy.get_metrics()
+    uptime_seconds = proxy_metrics.get("uptime_seconds", 0)
+
+    # 熔断器统计（用于判断降级状态）
+    from .services.circuit_breaker import get_circuit_breaker
+    cb_stats = get_circuit_breaker().get_stats()
+    circuits_open = sum(1 for s in cb_stats.values() if s.get("state") == "open")
+
+    # 总体状态
+    overall_status = "healthy"
+    if circuits_open > 3:
+        overall_status = "degraded"
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "api-gateway",
+            "module_name": "API网关",
+            "version": "1.2.0",
+            "status": overall_status,
+            "uptime_seconds": int(uptime_seconds),
+            "timestamp": time.time(),
+            "checks": {
+                "routes_count": len(settings.routes),
+                "circuits_open": circuits_open,
+            },
+        },
+    }
 
 
-@app.get("/m8/metrics")
+@app.get("/m8/metrics", tags=["M8-标准接口"], summary="M8标准性能指标")
 async def m8_metrics():
-    """M8标准指标接口（兼容旧路径）"""
-    return await gateway_metrics()
+    """M8 标准性能指标接口.
+
+    返回请求量、延迟、错误率、限流、熔断等基础指标。
+    """
+    proxy: ProxyService = app.state.proxy
+    proxy_metrics = proxy.get_metrics()
+
+    # 限流统计
+    from .services.rate_limiter import get_rate_limiter
+    rate_stats = get_rate_limiter().get_stats()
+
+    # 熔断器统计
+    from .services.circuit_breaker import get_circuit_breaker
+    cb_stats = get_circuit_breaker().get_stats()
+    circuits_open = sum(1 for s in cb_stats.values() if s.get("state") == "open")
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "api-gateway",
+            "version": "1.2.0",
+            "timestamp": time.time(),
+            "requests": {
+                "total": proxy_metrics.get("total_requests", 0),
+                "success": proxy_metrics.get("successful_requests", 0),
+                "errors": proxy_metrics.get("failed_requests", 0),
+                "avg_latency_ms": proxy_metrics.get("avg_latency_ms", 0),
+            },
+            "rate_limit": {
+                "total_requests": rate_stats.get("total_requests", 0),
+                "blocked": rate_stats.get("blocked_requests", 0),
+            },
+            "circuit_breakers": {
+                "total": len(cb_stats),
+                "open": circuits_open,
+            },
+            "routes_count": len(settings.routes),
+        },
+    }
+
+
+@app.get("/m8/config", tags=["M8-标准接口"], summary="M8标准配置查询")
+async def m8_config():
+    """M8 标准配置查询接口.
+
+    返回脱敏后的网关配置信息，不含密钥等敏感数据。
+    """
+    # 安全脱敏：只返回可公开的配置项
+    safe_routes = []
+    for r in settings.routes:
+        safe_routes.append({
+            "key": getattr(r, "key", ""),
+            "path_prefix": getattr(r, "path_prefix", ""),
+            "target_service": getattr(r, "target_service", ""),
+            "enabled": getattr(r, "enabled", True),
+            # 不返回 target_url 中的敏感信息（如 API key）
+        })
+
+    safe_config = {
+        "module": "api-gateway",
+        "version": "1.2.0",
+        "env": getattr(settings, "env", "production"),
+        "host": getattr(settings, "host", "0.0.0.0"),
+        "port": getattr(settings, "port", 8000),
+        "log_level": getattr(settings, "log_level", "INFO"),
+        "cors_enabled": getattr(settings, "enable_cors", True),
+        "rate_limit_enabled": getattr(settings, "enable_rate_limit", True),
+        "circuit_breaker_enabled": getattr(settings, "enable_circuit_breaker", True),
+        "routes_count": len(settings.routes),
+        "routes": safe_routes,
+        # 敏感字段脱敏
+        "auth_secret_masked": "***" if getattr(settings, "auth_secret", None) else None,
+        "api_keys_masked": "***" if getattr(settings, "api_keys", None) else None,
+    }
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": safe_config,
+    }
 
 
 @app.get("/routes")

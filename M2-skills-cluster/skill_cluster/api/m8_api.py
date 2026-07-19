@@ -268,10 +268,14 @@ def register_m8_routes(
         """M8 标准健康检查接口（需 Token 鉴权）.
 
         返回模块标识、版本、健康状态与时间戳。
+        状态说明：
+        - healthy: 服务正常，技能加载成功
+        - degraded: 服务运行但部分功能异常（如技能加载失败）
+        - unhealthy: 服务不可用
         """
         _require_auth(x_m8_token)
         uptime = int(time.time() - _start_time)
-        skill_count, _ = _get_skill_metrics(registry)
+        skill_count, active_skills = _get_skill_metrics(registry)
         logger.info(
             "m8_health_checked",
             module=MODULE_ID,
@@ -279,6 +283,13 @@ def register_m8_routes(
             uptime=uptime,
             skill_count=skill_count,
         )
+
+        # 判断健康状态
+        status = "healthy"
+        if registry is not None and skill_count == 0:
+            # 有注册中心但没有任何技能，可能是加载异常
+            status = "degraded"
+
         return {
             "code": 0,
             "message": "ok",
@@ -286,8 +297,9 @@ def register_m8_routes(
                 "module": MODULE_ID,
                 "module_name": MODULE_NAME,
                 "version": version,
-                "status": "healthy",
+                "status": status,
                 "skill_count": skill_count,
+                "active_skills": active_skills,
                 "uptime_seconds": uptime,
                 "timestamp": _iso_timestamp(),
             },

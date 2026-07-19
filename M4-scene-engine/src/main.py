@@ -476,17 +476,42 @@ def _get_m4_real_metrics():
 
 @app.get("/m8/health", tags=["M8-标准接口"], summary="M8标准健康检查")
 async def m8_std_health(x_m8_token: str = Header(default="")):
+    """M8 标准健康检查接口.
+
+    状态说明：
+    - healthy: 服务正常运行
+    - degraded: 服务运行但场景数为 0 或资源占用过高
+    - unhealthy: 服务不可用
+    """
     if not _verify_m8_token(x_m8_token):
         raise HTTPException(status_code=401, detail="Invalid M8 token")
+
+    # 判断健康状态
+    status = "healthy"
+    metrics = _get_m4_real_metrics()
+    scenes_total = metrics.get("scenes_total", 0)
+    cpu_usage = metrics.get("cpu_usage", 0)
+    memory_mb = metrics.get("memory_mb", 0)
+
+    if scenes_total == 0:
+        status = "degraded"
+    elif cpu_usage > 90 or memory_mb > 2048:
+        status = "degraded"
+
     return {
         "code": 0,
         "message": "ok",
         "data": {
-            "status": "healthy",
+            "status": status,
             "module": "m4",
             "module_name": "场景引擎",
             "version": "1.2.0",
             "uptime_seconds": int(_time_m8.time() - _start_time_m8),
+            "checks": {
+                "scenes_total": scenes_total,
+                "cpu_usage": cpu_usage,
+                "memory_mb": memory_mb,
+            },
         }
     }
 

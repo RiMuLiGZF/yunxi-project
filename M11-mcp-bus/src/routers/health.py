@@ -187,11 +187,12 @@ def _check_db_status() -> str:
         return "unhealthy"
 
 
-@router.get("/m8/health", response_model=HealthResponse, summary="M8 标准健康检查")
-async def m8_health() -> HealthResponse:
+@router.get("/m8/health", summary="M8 标准健康检查")
+async def m8_health() -> Dict[str, Any]:
     """M8 标准健康检查接口.
 
     返回服务状态、版本、运行时长、数据库状态等信息。
+    标准格式：code/message/data
     """
     settings = get_settings()
     uptime = _get_uptime_seconds()
@@ -205,27 +206,34 @@ async def m8_health() -> HealthResponse:
         online_count = 0
         servers = []
 
-    return HealthResponse(
-        status="healthy" if db_status == "healthy" else "degraded",
-        module="m11",
-        version="1.2.0",
-        timestamp=datetime.utcnow(),
-        details={
+    overall_status = "healthy" if db_status == "healthy" else "degraded"
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m11",
+            "module_name": "MCP总线",
+            "version": "1.2.0",
+            "status": overall_status,
             "uptime_seconds": round(uptime, 2),
-            "uptime_human": _format_uptime(uptime),
-            "db_status": db_status,
-            "total_servers": len(servers),
-            "online_servers": online_count,
-            "env": settings.env,
+            "timestamp": datetime.utcnow().isoformat(),
+            "checks": {
+                "db_status": db_status,
+                "total_servers": len(servers),
+                "online_servers": online_count,
+                "env": settings.env,
+            },
         },
-    )
+    }
 
 
-@router.get("/m8/metrics", response_model=MetricsResponse, summary="M8 标准性能指标")
-async def m8_metrics() -> MetricsResponse:
+@router.get("/m8/metrics", summary="M8 标准性能指标")
+async def m8_metrics() -> Dict[str, Any]:
     """M8 标准性能指标接口.
 
     返回服务器状态、工具数量、调用统计、系统资源等指标。
+    标准格式：code/message/data
     """
     settings = get_settings()
 
@@ -250,38 +258,53 @@ async def m8_metrics() -> MetricsResponse:
     # 系统指标
     system_metrics = mcp_monitor.get_system_metrics()
 
-    return MetricsResponse(
-        module="m11",
-        timestamp=datetime.utcnow(),
-        total_servers=len(servers),
-        online_servers=online_count,
-        total_tools=total_tools,
-        total_calls=stats["total_calls"],
-        success_rate=stats["success_rate"],
-        avg_duration_ms=stats["avg_duration_ms"],
-        cpu_percent=system_metrics.get("cpu_percent", 0.0),
-        memory_percent=system_metrics.get("memory_percent", 0.0),
-    )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m11",
+            "version": "1.2.0",
+            "timestamp": datetime.utcnow().isoformat(),
+            "total_servers": len(servers),
+            "online_servers": online_count,
+            "total_tools": total_tools,
+            "requests": {
+                "total_calls": stats["total_calls"],
+                "success_rate": stats["success_rate"],
+                "avg_duration_ms": stats["avg_duration_ms"],
+            },
+            "system": {
+                "cpu_percent": system_metrics.get("cpu_percent", 0.0),
+                "memory_percent": system_metrics.get("memory_percent", 0.0),
+            },
+        },
+    }
 
 
-@router.get("/m8/config", response_model=ConfigResponse, summary="M8 标准配置查询")
-async def m8_config() -> ConfigResponse:
+@router.get("/m8/config", summary="M8 标准配置查询")
+async def m8_config() -> Dict[str, Any]:
     """M8 标准配置查询接口.
 
     返回可公开的配置信息，不含密钥等敏感数据。
+    标准格式：code/message/data
     """
     settings = get_settings()
 
-    return ConfigResponse(
-        module="m11",
-        version="1.2.0",
-        env=settings.env,
-        port=settings.port,
-        heartbeat_timeout=settings.heartbeat_timeout,
-        tool_refresh_interval=settings.tool_refresh_interval,
-        db_path=str(settings.db_file_path),
-        log_level=settings.log_level,
-    )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "module": "m11",
+            "module_name": "MCP总线",
+            "version": "1.2.0",
+            "env": settings.env,
+            "port": settings.port,
+            "heartbeat_timeout": settings.heartbeat_timeout,
+            "tool_refresh_interval": settings.tool_refresh_interval,
+            "db_path_masked": "***" if settings.db_file_path else None,
+            "log_level": settings.log_level,
+        },
+    }
 
 
 @router.get("/health", summary="简化健康检查")
