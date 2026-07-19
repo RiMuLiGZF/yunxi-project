@@ -30,13 +30,10 @@ from src.core.task_dispatcher import TaskDispatcher
 from src.core.a2a_protocol import MemoryTransport
 from src.core.message_adapter import MessageAdapter
 from src.core.intent_classifier_v2 import SemanticIntentClassifier
-from src.orchestration.orchestrator_v2 import OrchestratorV2
-from src.orchestration.orchestrator_v3 import OrchestratorV3
-from src.orchestration.orchestrator_v4 import OrchestratorV4
-from src.orchestration.orchestrator_v5 import OrchestratorV5
-from src.orchestration.orchestrator_v7 import OrchestratorV7
+# 公开 API：仅保留 v8（稳定版）和 v9（最新生产/开发版）
 from src.orchestration.orchestrator_v8 import OrchestratorV8
 from src.orchestration.orchestrator_v9 import OrchestratorV9
+# 内部依赖：v2/v3/v4/v5/v7 已归档至 _deprecated/，仅在 build() 内部按需导入
 from src.core.event_store import EventStore
 from src.core.streaming_engine import StreamingEngine
 from src.tools.llm_provider import LLMProviderFactory
@@ -74,7 +71,7 @@ class YunxiApplication:
         self.config = ConfigManager(config_path)
         self.lifecycle = LifecycleManager()
         self.health = HealthMonitor()
-        self.orchestrator: OrchestratorV9 | None = None
+        self.orchestrator: OrchestratorV9 | OrchestratorV8 | None = None
         self.api_server: YunxiAPI | None = None
         self._registry = None
         self._bus = None
@@ -86,13 +83,27 @@ class YunxiApplication:
         self._privacy_guard = None
         self._logger = logger.bind(service="yunxi_app")
 
-    async def build(self) -> OrchestratorV9:
+    async def build(self) -> OrchestratorV9 | OrchestratorV8:
         """构建完整的 V9 应用组件链
 
         从 V2 逐层构建至 V9，最终暴露 OrchestratorV9 作为统一入口。
         支持条件懒加载：未启用的组件不实例化，降低 7B 本地部署开销。
+
+        版本选择（优先级从高到低）：
+        1. 环境变量 M1_ORCHESTRATOR_VERSION (v8 / v9)
+        2. 配置文件 orchestration.version
+        3. 默认：v9（最新生产版）
         """
-        self._logger.info("app_build_start")
+        # 导入已归档的历史版本（内部依赖，不触发弃用警告）
+        from src.orchestration._deprecated.orchestrator_v2 import OrchestratorV2
+        from src.orchestration._deprecated.orchestrator_v3 import OrchestratorV3
+        from src.orchestration._deprecated.orchestrator_v4 import OrchestratorV4
+        from src.orchestration._deprecated.orchestrator_v5 import OrchestratorV5
+        from src.orchestration._deprecated.orchestrator_v7 import OrchestratorV7
+
+        # 版本选择：环境变量 > 配置文件 > 默认 v9
+        target_version = self._resolve_version()
+        self._logger.info("app_build_start", target_version=target_version)
 
         # 1. 配置
         db_path = self.config.get_str("persistence.db_path", ":memory:")
@@ -257,8 +268,52 @@ class YunxiApplication:
         # 12. 注册健康检查
         self._register_health_checks(bus, registry, persistence, v9)
 
+        # 版本选择：如果目标版本是 v8，返回 v8（v9 仍会构建以支持联邦等特性，但对外暴露 v8）
+        if target_version == "v8":
+            self.orchestrator = v8
+            self._logger.info("app_build_complete", version="v8", note="v8 稳定版（v9 组件已构建但对外暴露 v8）")
+            return v8
+
         self._logger.info("app_build_complete", version="v9")
         return v9
+
+    def _resolve_version(self) -> str:
+        """解析目标编排器版本
+
+        优先级：
+        1. 环境变量 M1_ORCHESTRATOR_VERSION
+        2. 配置文件 orchestration.version
+        3. 默认：v9
+
+        Returns:
+            "v8" 或 "v9"
+        """
+        import os
+
+        # 1. 环境变量
+        env_version = os.environ.get("M1_ORCHESTRATOR_VERSION", "").strip().lower()
+        if env_version in ("v8", "v9"):
+            return env_version
+        if env_version:
+            self._logger.warning(
+                "invalid_env_version",
+                env_version=env_version,
+                fallback="v9",
+            )
+
+        # 2. 配置文件
+        config_version = self.config.get_str("orchestration.version", "").strip().lower()
+        if config_version in ("v8", "v9"):
+            return config_version
+        if config_version:
+            self._logger.warning(
+                "invalid_config_version",
+                config_version=config_version,
+                fallback="v9",
+            )
+
+        # 3. 默认 v9
+        return "v9"
 
     def _init_federation(self, v9: OrchestratorV9) -> None:
         """[V11.0] 初始化联邦调度系统并注册所有内置联邦 Agent

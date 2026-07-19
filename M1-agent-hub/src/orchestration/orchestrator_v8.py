@@ -24,7 +24,7 @@ from typing import Any, AsyncIterator
 
 import structlog
 
-from src.orchestration.orchestrator_v7 import OrchestratorV7
+from src.orchestration._deprecated.orchestrator_v7 import OrchestratorV7  # 内部依赖，不触发弃用警告
 from src.core.a2a_protocol import A2AClient, A2ATransport, MemoryTransport, Task, TaskStatus, AgentCard
 from src.core.checkpointer import Checkpointer, CheckpointConfig
 from src.agents.enhanced_registry import EnhancedRegistry, LoopGuard, LoadBalancer, LazyAgentRegistry
