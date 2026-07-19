@@ -18,7 +18,7 @@ try:
     from ..services.ip_filter import get_ip_filter
     from ..services.audit_service import get_audit_service
     from ..config import get_settings
-    from ..auth import require_role, ROLE_ADMIN
+    from ..auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 except ImportError:
     import sys
     from pathlib import Path
@@ -29,7 +29,7 @@ except ImportError:
     from services.ip_filter import get_ip_filter
     from services.audit_service import get_audit_service
     from config import get_settings
-    from auth import require_role, ROLE_ADMIN
+    from auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/status", tags=["M12-状态检查"])
 
@@ -311,7 +311,9 @@ def module_info():
 # ===========================================================================
 
 @router.get("/overview", summary="服务状态概览")
-def service_overview():
+def service_overview(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取服务状态总览，包括各组件运行状态和关键指标
     """

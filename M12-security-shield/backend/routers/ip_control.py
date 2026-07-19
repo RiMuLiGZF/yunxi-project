@@ -11,14 +11,14 @@ from datetime import datetime
 try:
     from ..schemas.common import make_response, make_error_response
     from ..services.ip_filter import get_ip_filter
-    from ..auth import require_role, ROLE_ADMIN, ROLE_OPERATOR
+    from ..auth import require_role, ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 except ImportError:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from schemas.common import make_response, make_error_response
     from services.ip_filter import get_ip_filter
-    from auth import require_role, ROLE_ADMIN, ROLE_OPERATOR
+    from auth import require_role, ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/ip", tags=["M12-IP访问控制"])
 
@@ -28,7 +28,10 @@ router = APIRouter(prefix="/api/m12/ip", tags=["M12-IP访问控制"])
 # ===========================================================================
 
 @router.get("/check", summary="IP 状态检测")
-def check_ip(ip_address: str = Query(..., description="要检测的 IP 地址")):
+def check_ip(
+    ip_address: str = Query(..., description="要检测的 IP 地址"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     检测指定 IP 的状态（是否在黑白名单中、风险级别等）
     """
@@ -50,6 +53,7 @@ def list_blacklist(
     active_only: bool = Query(True, description="只返回生效的"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     获取 IP 黑名单列表
@@ -165,6 +169,7 @@ def list_whitelist(
     active_only: bool = Query(True, description="只返回生效的"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     获取 IP 白名单列表
@@ -270,7 +275,9 @@ def remove_whitelist(
 # ===========================================================================
 
 @router.get("/stats", summary="IP 控制统计")
-def ip_stats():
+def ip_stats(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取 IP 访问控制的统计信息
     """

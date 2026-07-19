@@ -15,7 +15,7 @@ try:
         GatewayWafCheckRequest, GatewayWafCheckResponse,
         GatewayWafBatchRequest, GatewayWafBatchResponse,
     )
-    from ..auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN
+    from ..auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN, ROLE_VIEWER
 except ImportError:
     import sys
     from pathlib import Path
@@ -27,7 +27,7 @@ except ImportError:
         GatewayWafCheckRequest, GatewayWafCheckResponse,
         GatewayWafBatchRequest, GatewayWafBatchResponse,
     )
-    from auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN
+    from auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN, ROLE_VIEWER
 
 router = APIRouter(prefix="/api/m12/waf", tags=["M12-WAF防护墙"])
 
@@ -37,7 +37,9 @@ router = APIRouter(prefix="/api/m12/waf", tags=["M12-WAF防护墙"])
 # ===========================================================================
 
 @router.get("/status", summary="WAF 状态查询")
-def waf_status():
+def waf_status(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取 WAF 防护墙的当前运行状态
     """
@@ -89,6 +91,7 @@ def list_rules(
     is_active: Optional[bool] = Query(None, description="是否启用筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     获取 WAF 规则列表，支持按类型和状态筛选
@@ -115,7 +118,10 @@ def list_rules(
 
 
 @router.get("/rules/{rule_id}", summary="获取规则详情")
-def get_rule(rule_id: int):
+def get_rule(
+    rule_id: int,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     根据 ID 获取单个 WAF 规则的详细信息
     """
@@ -235,6 +241,7 @@ def waf_check(
     query: str = "",
     body: str = "",
     client_ip: str = "127.0.0.1",
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
 ):
     """
     手动检测一个请求是否会被 WAF 拦截，用于规则测试
@@ -258,7 +265,10 @@ def waf_check(
 # ===========================================================================
 
 @router.post("/gateway-check", summary="网关WAF检测（高性能）")
-async def waf_gateway_check(request: GatewayWafCheckRequest):
+async def waf_gateway_check(
+    request: GatewayWafCheckRequest,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     网关专用 WAF 检测接口，高性能、精简响应格式。
 
@@ -282,7 +292,10 @@ async def waf_gateway_check(request: GatewayWafCheckRequest):
 
 
 @router.post("/gateway-batch-check", summary="网关WAF批量检测")
-async def waf_gateway_batch_check(request: GatewayWafBatchRequest):
+async def waf_gateway_batch_check(
+    request: GatewayWafBatchRequest,
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     批量 WAF 检测接口，一次提交多个请求进行检测。
 
@@ -326,7 +339,9 @@ async def waf_performance(current_user: dict = Depends(require_scope(SCOPE_WAF_R
 # ===========================================================================
 
 @router.get("/stats", summary="WAF 统计信息")
-def waf_stats():
+def waf_stats(
+    current_user: dict = Depends(require_role(ROLE_VIEWER)),
+):
     """
     获取 WAF 防护统计信息
     """
