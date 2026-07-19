@@ -356,9 +356,9 @@ CosyVoice 指令 / SSML
 | `prosody_controller.py` | `shared/` | 韵律控制器（人格→语音映射） |
 | `voice_preset_manager.py` | `shared/` | 音色预设管理器 |
 | `voice_engine.py` | `shared/` | TTS 统一入口（已更新） |
-| `voice.py` | `m8-control-tower/backend/routers/` | 语音路由（已更新） |
-| `voice_presets.py` | `m8-control-tower/backend/routers/` | 音色管理路由（新增） |
-| `main.py` | `m8-control-tower/backend/` | 主入口（已更新） |
+| `voice.py` | `M8-control-tower/backend/routers/` | 语音路由（已更新） |
+| `voice_presets.py` | `M8-control-tower/backend/routers/` | 音色管理路由（新增） |
+| `main.py` | `M8-control-tower/backend/` | 主入口（已更新） |
 
 ---
 

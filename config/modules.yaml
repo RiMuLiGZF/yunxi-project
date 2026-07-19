@@ -102,7 +102,7 @@ modules:
     id: m4
     name: 场景引擎
     port: 8004
-    directory: m4-scene-engine
+    directory: M4-scene-engine
     start_command: "python server.py"
     entrypoint: server.py
     enabled: true
