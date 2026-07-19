@@ -84,8 +84,8 @@ if _USE_UNIFIED_CONFIG_M11:
             default=True, description="MCP 端点是否需要鉴权，默认启用"
         )
         mcp_default_api_key: str = Field(
-            default="m11_mcp_dev_key_default_change_me",
-            description="MCP 默认 API Key（仅开发环境使用，生产环境必须显式配置）",
+            default="",
+            description="MCP 默认 API Key（仅开发环境自动生成，生产环境必须显式配置）",
         )
 
         # ---------- 数据库配置 ----------
@@ -212,13 +212,13 @@ if _USE_UNIFIED_CONFIG_M11:
         @model_validator(mode="after")
         def _validate_mcp_security(self) -> "M11ModuleConfig":
             """
-            MCP 安全配置校验。
+            MCP 安全配置校验（SEC-001 安全加固）。
 
             生产环境：
             - MCP 鉴权必须启用
-            - 禁止使用默认 API Key
+            - 禁止使用空/默认 API Key
             开发环境：
-            - 使用默认 key 时发出警告
+            - 未配置时自动生成随机 API Key 并打印警告
             """
             if self.is_production:
                 # 生产环境：MCP 鉴权必须启用
@@ -227,21 +227,23 @@ if _USE_UNIFIED_CONFIG_M11:
                         "生产环境下 MCP 鉴权必须启用（M11_MCP_REQUIRE_AUTH=true），"
                         "禁止在生产环境中关闭 MCP 端点认证"
                     )
-                # 生产环境：禁止使用默认 API Key
-                if self.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+                # 生产环境：禁止使用空 API Key
+                if not self.mcp_default_api_key:
                     raise ValueError(
                         "生产环境下必须显式配置 MCP API Key（M11_MCP_DEFAULT_API_KEY），"
-                        "禁止使用默认开发密钥"
+                        "禁止使用空值或默认开发密钥"
                     )
             elif self.is_development:
-                # 开发环境：使用默认 key 时发出警告
-                if self.mcp_require_auth and self.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+                # 开发环境：未配置时自动生成随机 API Key
+                if self.mcp_require_auth and not self.mcp_default_api_key:
+                    random_key = "m11-dev-" + secrets.token_hex(16)
+                    self.mcp_default_api_key = random_key
                     logger.warning(
-                        "m11.security.mcp_using_default_key",
-                        message="MCP 端点当前使用默认开发 API Key，仅适用于本地开发。"
+                        "m11.security.mcp_auto_generated_key",
+                        message="MCP 端点未配置 API Key，开发环境已自动生成临时密钥。"
                                 "请通过 M11_MCP_DEFAULT_API_KEY 环境变量配置自定义密钥，"
                                 "或在数据库中创建正式 API Key。",
-                        default_key_preview="m11_mcp_dev_key..._change_me",
+                        generated_key_preview=random_key[:16] + "..." + random_key[-8:],
                     )
 
             # admin_token 警告（BaseConfig 已处理生产环境校验，这里仅开发环境警告）
@@ -344,7 +346,7 @@ class Settings:
         self.api_key_auth_enabled = kwargs.get("api_key_auth_enabled", True)
         self.mcp_require_auth = kwargs.get("mcp_require_auth", True)
         self.mcp_default_api_key = kwargs.get(
-            "mcp_default_api_key", "m11_mcp_dev_key_default_change_me"
+            "mcp_default_api_key", ""
         )
 
         # 数据库
@@ -488,10 +490,10 @@ def get_settings() -> Settings:
                 "生产环境下 MCP 鉴权必须启用（M11_MCP_REQUIRE_AUTH=true），"
                 "禁止在生产环境中关闭 MCP 端点认证"
             )
-        if settings.mcp_default_api_key == "m11_mcp_dev_key_default_change_me":
+        if not settings.mcp_default_api_key:
             raise RuntimeError(
                 "生产环境下必须显式配置 MCP API Key（M11_MCP_DEFAULT_API_KEY），"
-                "禁止使用默认开发密钥"
+                "禁止使用空值或默认开发密钥"
             )
     return settings
 

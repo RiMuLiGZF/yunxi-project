@@ -6,7 +6,7 @@
 # ============================================================
 system:
   name: "云汐系统"
-  version: "1.0.0"
+  version: "1.2.0"
   env: "production"  # production / staging / development
   timezone: "Asia/Shanghai"
   log_level: "INFO"  # DEBUG / INFO / WARNING / ERROR

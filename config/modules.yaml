@@ -22,7 +22,7 @@ modules:
     category: management
     health_check_path: /health
     description: 算力调度、API网关、统一管控台
-    version: v1.0.0
+    version: v1.2.0
 
   m10-system-guard:
     id: m10
@@ -36,7 +36,7 @@ modules:
     category: management
     health_check_path: /health
     description: 系统资源监控、进程管理、阈值防护、审计日志
-    version: v1.0.0
+    version: v1.2.0
 
   m12-security-shield:
     id: m12
@@ -50,7 +50,7 @@ modules:
     category: management
     health_check_path: /health
     description: 安全防护、攻击检测、漏洞扫描
-    version: v1.0.0
+    version: v1.2.0
 
   # ---- 核心能力 (Tier 1) ----
 
@@ -66,7 +66,7 @@ modules:
     category: core
     health_check_path: /health
     description: 多智能体协作、联邦调度、任务编排
-    version: v1.0.0
+    version: v1.2.0
 
   m5-tide-memory:
     id: m5
@@ -80,7 +80,7 @@ modules:
     category: core
     health_check_path: /health
     description: 长期记忆、向量检索、知识图谱
-    version: v1.0.0
+    version: v1.2.0
 
   m2-skills-cluster:
     id: m2
@@ -94,7 +94,7 @@ modules:
     category: core
     health_check_path: /health
     description: 技能库管理、技能发现、技能执行引擎
-    version: v1.0.0
+    version: v1.2.0
 
   # ---- 按需能力 (Tier 2) ----
 
@@ -110,7 +110,7 @@ modules:
     category: core
     health_check_path: /health
     description: 场景模板、场景编排、交互引擎
-    version: v1.0.0
+    version: v1.2.0
 
   m7-workflow-builder:
     id: m7
@@ -124,7 +124,7 @@ modules:
     category: tool
     health_check_path: /health
     description: 可视化流程编排、自动化任务、触发器
-    version: v1.0.0
+    version: v1.2.0
 
   m3-edge-cloud:
     id: m3
@@ -138,7 +138,7 @@ modules:
     category: infra
     health_check_path: /health
     description: 边缘计算、云边协同、混合算力调度
-    version: v1.0.0
+    version: v1.2.0
 
   # ---- 即用即启 (Tier 3) ----
 
@@ -154,7 +154,7 @@ modules:
     category: infra
     health_check_path: /health
     description: 硬件驱动、外设管理、设备联动
-    version: v1.0.0
+    version: v1.2.0
 
   m0-principal-console:
     id: m0
@@ -168,7 +168,7 @@ modules:
     category: management
     health_check_path: /health
     description: 云汐系统主理人专属管控平台，最高权限
-    version: v1.0.0
+    version: v1.2.0
 
   m11-mcp-bus:
     id: m11
@@ -182,7 +182,7 @@ modules:
     category: infra
     health_check_path: /health
     description: MCP 服务总线、工具协议适配
-    version: v1.0.0
+    version: v1.2.0
 
   # ---- API Gateway (独立入口) ----
 
@@ -198,7 +198,7 @@ modules:
     category: infra
     health_check_path: /health
     description: 统一接入层、路由转发、限流熔断
-    version: v1.0.0
+    version: v1.2.0
 
 # ============================================================
 # 全局配置

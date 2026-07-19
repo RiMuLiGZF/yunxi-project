@@ -8,6 +8,7 @@ M8 统一鉴权中间件
 
 import os
 import hmac
+import secrets
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -49,18 +50,30 @@ def is_whitelisted(path: str) -> bool:
 
 
 def _get_expected_token() -> str:
-    """获取预期的管理员 Token"""
+    """获取预期的管理员 Token
+
+    安全策略（SEC-001 加固）：
+    - 优先从环境变量 M6_ADMIN_TOKEN 读取
+    - 生产环境：必须配置，未配置则启动失败
+    - 开发环境：未配置时自动生成随机一次性 token（避免硬编码默认值）
+    """
     # 优先从环境变量读取
     token = os.environ.get("M6_ADMIN_TOKEN", "")
     if token:
         return token
-    # 开发环境默认 token（打印警告）
+
     env = os.environ.get("M6_ENV", os.environ.get("YUNXI_ENV", "development"))
     if env == "production":
         raise RuntimeError("生产环境必须配置 M6_ADMIN_TOKEN 环境变量")
-    default_token = "yunxi-m6-dev-token"
-    print(f"[WARNING] 未配置 M6_ADMIN_TOKEN，开发环境使用默认 token: {default_token}")
-    return default_token
+
+    # 开发环境：自动生成随机一次性 token（每次启动不同，防止硬编码泄露）
+    random_token = "dev-" + secrets.token_hex(16)
+    print(
+        f"[M6] ⚠️  开发模式：M6_ADMIN_TOKEN 未配置，已生成临时 token\n"
+        f"       临时 Token: {random_token}\n"
+        f"       请通过 M6_ADMIN_TOKEN 环境变量设置自定义 token"
+    )
+    return random_token
 
 
 def _verify_token(token: str) -> bool:

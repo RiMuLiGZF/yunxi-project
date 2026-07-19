@@ -41,10 +41,17 @@ ENV/
 logs/
 
 # 缓存
-.pytest_cache/
+**/.pytest_cache/
 .mypy_cache/
 .cache/
 *.tmp
+
+# 测试报告与覆盖率
+**/reports/
+**/coverage_html/
+tests/reports/
+.coverage
+htmlcov/
 
 # PDM - Monorepo 包管理
 .pdm-python
@@ -62,6 +69,7 @@ desktop.ini
 
 # 备份目录
 *_backup*/
+*backup*
 *.bak
 *.backup
 
@@ -168,13 +176,8 @@ M8-control-tower/backend/test_e2e.py
 M8-control-tower/data/
 
 # ============================================================================
-# 测试覆盖率报告（本地生成）
-# ============================================================================
-
-.coverage
-htmlcov/
-
 # 前端历史残留目录（git-temp迁移遗留）
+# ============================================================================
 frontend/m9/
 frontend/master/
 frontend/shared/

@@ -12,7 +12,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "yunxi-monorepo"
-version = "0.5.0"
+version = "1.2.0"
 description = "云汐项目 - Monorepo 根项目"
 requires-python = ">=3.10"
 readme = "README.md"
