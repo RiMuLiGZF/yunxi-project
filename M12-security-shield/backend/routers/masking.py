@@ -42,6 +42,10 @@ except ImportError:
     from auth import get_current_user, require_role, require_scope
     from auth import ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/masking", tags=["M12-数据脱敏"])
 
 
@@ -193,6 +197,7 @@ async def test_masking(
             "masked_length": len(result),
         })
     except Exception as e:
+        logger.error("脱敏测试失败异常: %s", e, exc_info=True)
         return make_error_response(f"脱敏测试失败: {str(e)}")
 
 
@@ -218,6 +223,7 @@ async def batch_masking(
             "rules_applied": len(request.rules),
         })
     except Exception as e:
+        logger.error("批量脱敏失败异常: %s", e, exc_info=True)
         return make_error_response(f"批量脱敏失败: {str(e)}")
 
 
@@ -415,4 +421,5 @@ async def test_enhanced_masking(
     except ImportError:
         return make_error_response("增强脱敏模块未启用", code=501)
     except Exception as e:
+        logger.error("增强脱敏测试失败异常: %s", e, exc_info=True)
         return make_error_response(f"增强脱敏测试失败: {str(e)}")

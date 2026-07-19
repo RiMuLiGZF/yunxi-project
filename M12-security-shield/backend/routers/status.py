@@ -31,6 +31,10 @@ except ImportError:
     from config import get_settings
     from auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/status", tags=["M12-状态检查"])
 
 
@@ -268,6 +272,7 @@ async def health_check(
             },
         })
     except Exception as e:
+        logger.error("健康检查失败异常: %s", e, exc_info=True)
         return make_error_response(f"健康检查失败: {str(e)}")
 
 
@@ -303,6 +308,7 @@ def module_info():
             "docs_url": "/docs",
         })
     except Exception as e:
+        logger.error("获取模块信息失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取模块信息失败: {str(e)}")
 
 
@@ -351,6 +357,7 @@ def service_overview(
             },
         })
     except Exception as e:
+        logger.error("获取状态概览失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取状态概览失败: {str(e)}")
 
 
@@ -403,4 +410,5 @@ def system_config(
             },
         })
     except Exception as e:
+        logger.error("获取配置信息失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取配置信息失败: {str(e)}")

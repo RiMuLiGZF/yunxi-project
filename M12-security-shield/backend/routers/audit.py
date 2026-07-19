@@ -21,6 +21,10 @@ except ImportError:
     from services.masking import mask_audit_data, mask_ip_address
     from auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/audit", tags=["M12-安全审计"])
 
 
@@ -61,6 +65,7 @@ def list_events(
         result["items"] = [mask_audit_data(item) for item in result["items"]]
         return make_response(data=result)
     except Exception as e:
+        logger.error("查询安全事件失败异常: %s", e, exc_info=True)
         return make_error_response(f"查询安全事件失败: {str(e)}")
 
 
@@ -81,6 +86,7 @@ def get_event_detail(
         masked_event = mask_audit_data(event)
         return make_response(data=masked_event)
     except Exception as e:
+        logger.error("获取事件详情失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取事件详情失败: {str(e)}")
 
 
@@ -107,6 +113,7 @@ def resolve_event(
         masked_event = mask_audit_data(event)
         return make_response(data=masked_event, message="事件处理完成")
     except Exception as e:
+        logger.error("处理事件失败异常: %s", e, exc_info=True)
         return make_error_response(f"处理事件失败: {str(e)}")
 
 
@@ -145,6 +152,7 @@ def list_audit_logs(
         result["items"] = [mask_audit_data(item) for item in result["items"]]
         return make_response(data=result)
     except Exception as e:
+        logger.error("查询审计日志失败异常: %s", e, exc_info=True)
         return make_error_response(f"查询审计日志失败: {str(e)}")
 
 
@@ -164,6 +172,7 @@ def audit_stats(
         stats = audit.get_stats()
         return make_response(data=stats)
     except Exception as e:
+        logger.error("获取统计数据失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取统计数据失败: {str(e)}")
 
 
@@ -191,6 +200,7 @@ def stats_summary(
 
         return make_response(data=summary)
     except Exception as e:
+        logger.error("获取统计概览失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取统计概览失败: {str(e)}")
 
 
@@ -217,6 +227,7 @@ def stats_by_type(
             "total": stats["total_events"],
         })
     except Exception as e:
+        logger.error("获取类型统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取类型统计失败: {str(e)}")
 
 
@@ -242,6 +253,7 @@ def stats_by_severity(
             "total": stats["total_events"],
         })
     except Exception as e:
+        logger.error("获取级别统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取级别统计失败: {str(e)}")
 
 
@@ -261,6 +273,7 @@ def stats_trend(
             "granularity": "hour",
         })
     except Exception as e:
+        logger.error("获取趋势数据失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取趋势数据失败: {str(e)}")
 
 
@@ -288,6 +301,7 @@ def stats_top_ips(
             "total": len(top_ips_masked),
         })
     except Exception as e:
+        logger.error("获取 IP 排行失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取 IP 排行失败: {str(e)}")
 
 
@@ -321,6 +335,7 @@ def list_alerts(
     except ImportError:
         return make_error_response("安全告警模块未启用", code=501)
     except Exception as e:
+        logger.error("获取告警列表失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取告警列表失败: {str(e)}")
 
 
@@ -342,6 +357,7 @@ def get_alert_detail(
     except ImportError:
         return make_error_response("安全告警模块未启用", code=501)
     except Exception as e:
+        logger.error("获取告警详情失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取告警详情失败: {str(e)}")
 
 
@@ -366,6 +382,7 @@ def acknowledge_alert(
     except ImportError:
         return make_error_response("安全告警模块未启用", code=501)
     except Exception as e:
+        logger.error("确认告警失败异常: %s", e, exc_info=True)
         return make_error_response(f"确认告警失败: {str(e)}")
 
 
@@ -392,6 +409,7 @@ def resolve_alert(
     except ImportError:
         return make_error_response("安全告警模块未启用", code=501)
     except Exception as e:
+        logger.error("解决告警失败异常: %s", e, exc_info=True)
         return make_error_response(f"解决告警失败: {str(e)}")
 
 
@@ -410,6 +428,7 @@ def audit_stats_enhanced(
     except ImportError:
         return make_error_response("增强审计模块未启用", code=501)
     except Exception as e:
+        logger.error("获取增强统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取增强统计失败: {str(e)}")
 
 
@@ -429,4 +448,5 @@ def daily_security_report(
     except ImportError:
         return make_error_response("增强审计模块未启用", code=501)
     except Exception as e:
+        logger.error("获取每日报告失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取每日报告失败: {str(e)}")

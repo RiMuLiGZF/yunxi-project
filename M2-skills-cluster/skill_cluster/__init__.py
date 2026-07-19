@@ -31,49 +31,186 @@ SYSTEM_VERSION = _load_system_version()
 
 
 # ============================================================
-# 预注册向后兼容存根模块到 sys.modules
-# 必须在主导入之前执行，确保内部模块引用 skill_cluster.xxx 时能找到存根
+# 向后兼容：旧模块名 -> 新模块路径 映射表
+# 原 stubs/ 目录已归档至 _deprecated/stubs/
+# 通过动态创建代理模块保持 skill_cluster.xxx 旧路径的兼容性
 # ============================================================
 
-_STUB_MODULES = [
-    'a2a_bus', 'a2a_protocol', 'adaptive_router', 'agent_memory', 'agent_runtime',
-    'api_v2', 'ast_scanner', 'circuit_breaker', 'code_execution_bridge',
-    'config_center', 'edge_cloud_orchestrator', 'event_bus', 'function_schema',
-    'health_checker', 'hooks', 'http_api', 'idempotency', 'm8_auth_middleware',
-    'mcp_bridge', 'memory_skill_bridge', 'metrics', 'middleware', 'permissions',
-    'pipeline_store', 'plugin_loader', 'rate_limiter', 'result_renderer', 'sandbox',
-    'skill_bandit_router', 'skill_cache', 'skill_discovery', 'skill_experience',
-    'skill_graph', 'skill_handbook', 'skill_health', 'skill_pipeline',
-    'skill_recommender', 'skill_registry', 'skill_router', 'skill_selection',
-    'streaming', 'test_endpoints', 'token_budget', 'tool_lazy_discoverer',
-    'trace_aggregator', 'upgrade_endpoints', 'voice_polish',
-]
+_DEPRECATED_MODULE_MAP = {
+    'a2a_bus': 'skill_cluster.extensions.a2a.bus',
+    'a2a_protocol': 'skill_cluster.models.a2a',
+    'adaptive_router': 'skill_cluster.discovery.routers.adaptive',
+    'agent_memory': 'skill_cluster.agent.memory',
+    'agent_runtime': 'skill_cluster.agent.runtime',
+    'api_v2': 'skill_cluster.api.v2',
+    'ast_scanner': 'skill_cluster.security.ast_scanner',
+    'circuit_breaker': 'skill_cluster.resilience.circuit_breaker',
+    'code_execution_bridge': 'skill_cluster.security.code_exec.bridge',
+    'config_center': 'skill_cluster.infrastructure.config_center',
+    'edge_cloud_orchestrator': 'skill_cluster.discovery.routers.edge_cloud',
+    'event_bus': 'skill_cluster.infrastructure.event_bus',
+    'function_schema': 'skill_cluster.core.function_schema',
+    'health_checker': 'skill_cluster.infrastructure.health.checker',
+    'hooks': 'skill_cluster.infrastructure.hooks',
+    'http_api': 'skill_cluster.api.http',
+    'idempotency': 'skill_cluster.resilience.idempotency',
+    'm8_auth_middleware': 'skill_cluster.api.middleware.m8_auth',
+    'mcp_bridge': 'skill_cluster.extensions.mcp.bridge',
+    'memory_skill_bridge': 'skill_cluster.agent.experience.memory_bridge',
+    'metrics': 'skill_cluster.infrastructure.metrics',
+    'middleware': 'skill_cluster.core.middleware',
+    'permissions': 'skill_cluster.security.permissions',
+    'pipeline_store': 'skill_cluster.core.pipeline.store',
+    'plugin_loader': 'skill_cluster.extensions.plugins.loader',
+    'rate_limiter': 'skill_cluster.resilience.rate_limiter',
+    'result_renderer': 'skill_cluster.security.code_exec.renderer',
+    'sandbox': 'skill_cluster.security.sandbox',
+    'skill_bandit_router': 'skill_cluster.discovery.routers.bandit',
+    'skill_cache': 'skill_cluster.core.cache',
+    'skill_discovery': 'skill_cluster.discovery.engine',
+    'skill_experience': 'skill_cluster.agent.experience.bank',
+    'skill_graph': 'skill_cluster.agent.experience.graph',
+    'skill_handbook': 'skill_cluster.agent.experience.handbook',
+    'skill_health': 'skill_cluster.infrastructure.health.skill_health',
+    'skill_pipeline': 'skill_cluster.core.pipeline',
+    'skill_recommender': 'skill_cluster.discovery.recommender',
+    'skill_registry': 'skill_cluster.core.registry',
+    'skill_router': 'skill_cluster.core.router',
+    'skill_selection': 'skill_cluster.discovery.selection',
+    'streaming': 'skill_cluster.infrastructure.streaming',
+    'test_endpoints': 'skill_cluster.api.test_endpoints',
+    'token_budget': 'skill_cluster.agent.token_budget',
+    'tool_lazy_discoverer': 'skill_cluster.discovery.lazy_discoverer',
+    'trace_aggregator': 'skill_cluster.infrastructure.tracing.aggregator',
+    'upgrade_endpoints': 'skill_cluster.api.upgrade',
+    'voice_polish': 'skill_cluster.extensions.voice_polish',
+}
+
+# 特殊符号别名：某些旧模块中有额外的符号别名（非直接重导出）
+# 格式: {模块名: {旧符号名: 新符号名}}
+_DEPRECATED_SYMBOL_ALIASES = {
+    'http_api': {
+        'create_app': 'create_http_app',
+    },
+}
 
 
-def _register_stub_modules():
-    """将存根模块预注册到 sys.modules，使 from skill_cluster.xxx import 能正常工作。
-    
-    由于部分内部模块仍引用旧的根级模块名（如 skill_router），
-    必须在主导入之前将这些存根注册到 sys.modules，避免 ImportError。
+def _create_lazy_deprecated_module(name: str, target_module: str):
+    """创建一个惰性加载的废弃模块代理。
+
+    预注册到 sys.modules 时不需要立即加载目标模块，
+    首次属性访问时才真正导入目标模块，避免循环导入问题。
+
+    替代原 stubs/ 目录下的 47 个存根文件，
+    以统一的动态模块机制保持向后兼容。
     """
     import sys
-    import importlib
+    import os
     import warnings
-    
-    for name in _STUB_MODULES:
+    from types import ModuleType
+
+    warning_msg = (
+        f"skill_cluster.{name} is deprecated, use {target_module} instead. "
+        f"原 stubs 目录已归档至 _deprecated/stubs/，请更新 import 路径。"
+    )
+
+    _real_mod = [None]  # 使用列表以便在闭包中修改
+    # 获取该模块的特殊符号别名映射
+    _aliases = _DEPRECATED_SYMBOL_ALIASES.get(name, {})
+
+    def _get_real_mod():
+        if _real_mod[0] is None:
+            import importlib
+            _real_mod[0] = importlib.import_module(target_module)
+        return _real_mod[0]
+
+    def _resolve_attr(attr):
+        """解析属性名，处理符号别名。"""
+        real = _get_real_mod()
+        # 先尝试直接获取
+        try:
+            return getattr(real, attr)
+        except AttributeError:
+            # 如果有别名，尝试通过别名获取
+            if attr in _aliases:
+                return getattr(real, _aliases[attr])
+            raise
+
+    # 预计算目标模块的文件路径（不导入模块），设置 __file__
+    # 避免 inspect.getmodule 等触发 __getattr__ 导致循环导入
+    def _derive_module_file(mod_name):
+        """根据模块名推导文件路径，不实际导入模块。"""
+        parts = mod_name.split('.')
+        # 只处理 skill_cluster 内部的模块
+        if parts[0] != 'skill_cluster':
+            return None
+        # 从 skill_cluster 包目录开始查找
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        rel_parts = parts[1:]
+        # 模块可能是 package/__init__.py 或 module.py
+        pkg_path = os.path.join(base_dir, *rel_parts, '__init__.py')
+        mod_path = os.path.join(base_dir, *rel_parts[:-1], rel_parts[-1] + '.py')
+        if os.path.exists(pkg_path):
+            return pkg_path
+        if os.path.exists(mod_path):
+            return mod_path
+        return None
+
+    class _LazyDeprecatedModule(ModuleType):
+        """惰性代理模块：首次业务属性访问时才加载真实模块并发出废弃警告。"""
+
+        def __getattr__(self, attr):
+            # 注意：Python 特殊属性如 __file__, __name__, __path__ 等
+            # 由 ModuleType 基类或实例字典直接处理，
+            # 只有业务属性访问才会走到这里
+            warnings.warn(warning_msg, DeprecationWarning, stacklevel=2)
+            return _resolve_attr(attr)
+
+        def __dir__(self):
+            try:
+                names = dir(_get_real_mod())
+                # 添加别名到 dir 结果中
+                names.extend(_aliases.keys())
+                return names
+            except Exception:
+                return list(_aliases.keys())
+
+        def __repr__(self):
+            if _real_mod[0] is not None:
+                return f"<deprecated module 'skill_cluster.{name}' (alias for {target_module})>"
+            return f"<deprecated module 'skill_cluster.{name}' (lazy, alias for {target_module})>"
+
+    proxy = _LazyDeprecatedModule(f'skill_cluster.{name}')
+    proxy.__package__ = 'skill_cluster'
+
+    # 预设置 __file__ 属性，避免 inspect 等工具触发 __getattr__
+    derived_file = _derive_module_file(target_module)
+    if derived_file:
+        proxy.__file__ = derived_file
+
+    return proxy
+
+
+def _register_deprecated_modules():
+    """将所有废弃模块名预注册到 sys.modules。
+
+    使用惰性加载代理模块，避免在包初始化阶段因循环导入而失败。
+    使 `from skill_cluster.xxx import ...` 形式的旧导入路径仍能正常工作，
+    同时发出 DeprecationWarning 提示迁移到新路径。
+    """
+    import sys
+
+    for name, target in _DEPRECATED_MODULE_MAP.items():
         full_name = f'skill_cluster.{name}'
         if full_name not in sys.modules:
             try:
-                # 从 stubs 子包导入存根模块
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", DeprecationWarning)
-                    mod = importlib.import_module(f'skill_cluster.stubs.{name}')
+                mod = _create_lazy_deprecated_module(name, target)
                 sys.modules[full_name] = mod
             except Exception:
-                pass  # 导入失败不影响主包启动
+                pass  # 注册失败不影响主包启动
 
 
-_register_stub_modules()
+_register_deprecated_modules()
 
 
 from skill_cluster.interfaces import (
@@ -408,16 +545,18 @@ __all__ = [
 
 def __getattr__(name):
     """属性访问兜底，保持向后兼容。
-    
-    存根模块已在包加载时预注册到 sys.modules，
+
+    废弃模块已在包加载时预注册到 sys.modules，
     此函数用于属性访问形式的兜底（如 skill_cluster.skill_router）。
     """
-    if name in _STUB_MODULES:
+    if name in _DEPRECATED_MODULE_MAP:
         import sys
         full_name = f'skill_cluster.{name}'
         if full_name in sys.modules:
             return sys.modules[full_name]
-        import importlib
-        mod = importlib.import_module(f'skill_cluster.stubs.{name}')
-        return mod
+        target = _DEPRECATED_MODULE_MAP[name]
+        mod = _create_lazy_deprecated_module(name, target)
+        if mod is not None:
+            sys.modules[full_name] = mod
+            return mod
     raise AttributeError(f"module 'skill_cluster' has no attribute '{name}'")

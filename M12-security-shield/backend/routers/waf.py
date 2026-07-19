@@ -29,6 +29,10 @@ except ImportError:
     )
     from auth import get_current_user, require_scope, require_role, SCOPE_WAF_READ, SCOPE_WAF_WRITE, ROLE_ADMIN, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/waf", tags=["M12-WAF防护墙"])
 
 
@@ -48,6 +52,7 @@ def waf_status(
         status = waf.get_status()
         return make_response(data=status)
     except Exception as e:
+        logger.error("获取WAF状态失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取WAF状态失败: {str(e)}")
 
 
@@ -78,6 +83,7 @@ def waf_toggle(
             "message": f"WAF已{'启用' if status['enabled'] else '禁用'}",
         })
     except Exception as e:
+        logger.error("切换WAF状态失败异常: %s", e, exc_info=True)
         return make_error_response(f"切换WAF状态失败: {str(e)}")
 
 
@@ -114,6 +120,7 @@ def list_rules(
             "total_pages": total_pages,
         })
     except Exception as e:
+        logger.error("获取规则列表失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取规则列表失败: {str(e)}")
 
 
@@ -135,6 +142,7 @@ def get_rule(
 
         return make_response(data=rule)
     except Exception as e:
+        logger.error("获取规则详情失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取规则详情失败: {str(e)}")
 
 
@@ -169,6 +177,7 @@ def create_rule(
         })
         return make_response(data=new_rule, message="规则创建成功")
     except Exception as e:
+        logger.error("创建规则失败异常: %s", e, exc_info=True)
         return make_error_response(f"创建规则失败: {str(e)}")
 
 
@@ -208,6 +217,7 @@ def update_rule(
 
         return make_response(data=updated, message="规则更新成功")
     except Exception as e:
+        logger.error("更新规则失败异常: %s", e, exc_info=True)
         return make_error_response(f"更新规则失败: {str(e)}")
 
 
@@ -227,6 +237,7 @@ def delete_rule(
 
         return make_response(data={"deleted": True}, message="规则删除成功")
     except Exception as e:
+        logger.error("删除规则失败异常: %s", e, exc_info=True)
         return make_error_response(f"删除规则失败: {str(e)}")
 
 
@@ -257,6 +268,7 @@ def waf_check(
         )
         return make_response(data=result)
     except Exception as e:
+        logger.error("WAF检测失败异常: %s", e, exc_info=True)
         return make_error_response(f"WAF检测失败: {str(e)}")
 
 
@@ -288,6 +300,7 @@ async def waf_gateway_check(
         )
         return make_response(data=result)
     except Exception as e:
+        logger.error("WAF网关检测失败异常: %s", e, exc_info=True)
         return make_error_response(f"WAF网关检测失败: {str(e)}")
 
 
@@ -318,6 +331,7 @@ async def waf_gateway_batch_check(
         result = waf.gateway_batch_check(req_list)
         return make_response(data=result)
     except Exception as e:
+        logger.error("WAF批量检测失败异常: %s", e, exc_info=True)
         return make_error_response(f"WAF批量检测失败: {str(e)}")
 
 
@@ -331,6 +345,7 @@ async def waf_performance(current_user: dict = Depends(require_scope(SCOPE_WAF_R
         perf = waf.get_performance_stats()
         return make_response(data=perf)
     except Exception as e:
+        logger.error("获取性能统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取性能统计失败: {str(e)}")
 
 
@@ -371,6 +386,7 @@ def waf_stats(
             ],
         })
     except Exception as e:
+        logger.error("获取WAF统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取WAF统计失败: {str(e)}")
 
 
@@ -404,6 +420,7 @@ def waf_block_logs(
     except ImportError:
         return make_error_response("增强版 WAF 模块未启用", code=501)
     except Exception as e:
+        logger.error("获取拦截日志失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取拦截日志失败: {str(e)}")
 
 
@@ -422,6 +439,7 @@ def waf_stats_enhanced(
     except ImportError:
         return make_error_response("增强版 WAF 模块未启用", code=501)
     except Exception as e:
+        logger.error("获取增强统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取增强统计失败: {str(e)}")
 
 
@@ -446,4 +464,5 @@ def set_low_confidence_mode(
     except ImportError:
         return make_error_response("增强版 WAF 模块未启用", code=501)
     except Exception as e:
+        logger.error("设置低误报模式失败异常: %s", e, exc_info=True)
         return make_error_response(f"设置低误报模式失败: {str(e)}")

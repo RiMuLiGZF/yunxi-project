@@ -50,6 +50,10 @@ except ImportError:
     from database import get_db
     from config import get_settings
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/auth", tags=["M12-鉴权管理"])
 
 
@@ -127,6 +131,7 @@ def login(
             "user": user_info,
         }, message="登录成功")
     except Exception as e:
+        logger.error("登录失败异常: %s", e, exc_info=True)
         return make_error_response(f"登录失败: {str(e)}")
 
 
@@ -169,6 +174,7 @@ def refresh_token(refresh_token: str):
             "expires_in": settings.jwt_expire_minutes * 60,
         }, message="Token 刷新成功")
     except Exception as e:
+        logger.error("刷新 Token 失败异常: %s", e, exc_info=True)
         return make_error_response(f"刷新 Token 失败: {str(e)}")
 
 
@@ -188,6 +194,7 @@ def logout(
             clean_expired_blacklist_tokens(db)
         return make_response(data={"success": True}, message="登出成功")
     except Exception as e:
+        logger.error("登出失败异常: %s", e, exc_info=True)
         return make_error_response(f"登出失败: {str(e)}")
 
 
@@ -235,6 +242,7 @@ def list_api_keys(
             "total_pages": total_pages,
         })
     except Exception as e:
+        logger.error("获取密钥列表失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取密钥列表失败: {str(e)}")
 
 
@@ -291,6 +299,7 @@ def create_api_key(
 
         return make_response(data=result, message="API 密钥创建成功，请妥善保存")
     except Exception as e:
+        logger.error("创建 API 密钥失败异常: %s", e, exc_info=True)
         return make_error_response(f"创建 API 密钥失败: {str(e)}")
 
 
@@ -315,6 +324,7 @@ def get_api_key_detail(
 
         return make_response(data=result)
     except Exception as e:
+        logger.error("获取密钥详情失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取密钥详情失败: {str(e)}")
 
 
@@ -360,6 +370,7 @@ def update_api_key(
 
         return make_response(data=result, message="密钥更新成功")
     except Exception as e:
+        logger.error("更新密钥失败异常: %s", e, exc_info=True)
         return make_error_response(f"更新密钥失败: {str(e)}")
 
 
@@ -382,6 +393,7 @@ def revoke_api_key(
 
         return make_response(data={"revoked": True, "key_id": key_id}, message="密钥已吊销")
     except Exception as e:
+        logger.error("吊销密钥失败异常: %s", e, exc_info=True)
         return make_error_response(f"吊销密钥失败: {str(e)}")
 
 
@@ -419,4 +431,5 @@ def rotate_api_key(
 
         return make_response(data=result, message="密钥轮换成功，请妥善保存新密钥")
     except Exception as e:
+        logger.error("轮换密钥失败异常: %s", e, exc_info=True)
         return make_error_response(f"轮换密钥失败: {str(e)}")

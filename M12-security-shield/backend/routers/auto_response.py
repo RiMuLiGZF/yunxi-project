@@ -38,6 +38,10 @@ except ImportError:
     from auth import get_current_user, require_role, require_scope
     from auth import ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/auto-response", tags=["M12-自动响应"])
 
 
@@ -107,6 +111,7 @@ async def list_response_rules(
             "total": len(rules),
         })
     except Exception as e:
+        logger.error("获取响应规则失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取响应规则失败: {str(e)}")
 
 
@@ -131,6 +136,7 @@ async def update_response_rule(
 
         return make_response(data=result, message="规则更新成功")
     except Exception as e:
+        logger.error("更新规则失败异常: %s", e, exc_info=True)
         return make_error_response(f"更新规则失败: {str(e)}")
 
 
@@ -166,6 +172,7 @@ async def list_banned_ips(
             "total_pages": total_pages,
         })
     except Exception as e:
+        logger.error("获取封禁列表失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取封禁列表失败: {str(e)}")
 
 
@@ -188,6 +195,7 @@ async def unban_ip(
             message="IP 已解封"
         )
     except Exception as e:
+        logger.error("解封失败异常: %s", e, exc_info=True)
         return make_error_response(f"解封失败: {str(e)}")
 
 
@@ -220,6 +228,7 @@ async def ban_ip(
             message="IP 已封禁"
         )
     except Exception as e:
+        logger.error("封禁失败异常: %s", e, exc_info=True)
         return make_error_response(f"封禁失败: {str(e)}")
 
 
@@ -249,6 +258,7 @@ async def get_response_settings(
             "enabled_rules": stats["enabled_rules"],
         })
     except Exception as e:
+        logger.error("获取设置失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取设置失败: {str(e)}")
 
 
@@ -284,6 +294,7 @@ async def update_response_settings(
             message=f"响应级别已设置为: {request.response_level}"
         )
     except Exception as e:
+        logger.error("设置更新失败异常: %s", e, exc_info=True)
         return make_error_response(f"设置更新失败: {str(e)}")
 
 
@@ -316,6 +327,7 @@ async def submit_event(
         result = engine.process_event(event)
         return make_response(data=result)
     except Exception as e:
+        logger.error("事件处理失败异常: %s", e, exc_info=True)
         return make_error_response(f"事件处理失败: {str(e)}")
 
 
@@ -335,6 +347,7 @@ async def get_alerts(
             "total": len(alerts),
         })
     except Exception as e:
+        logger.error("获取告警失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取告警失败: {str(e)}")
 
 
@@ -350,4 +363,5 @@ async def get_auto_response_stats(
         stats = engine.get_stats()
         return make_response(data=stats)
     except Exception as e:
+        logger.error("获取统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取统计失败: {str(e)}")

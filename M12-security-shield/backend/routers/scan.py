@@ -20,6 +20,10 @@ except ImportError:
     from services.vulnerability_scanner import get_vulnerability_scanner
     from auth import require_role, ROLE_ADMIN, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/scan", tags=["M12-漏洞扫描"])
 
 
@@ -78,6 +82,7 @@ def scan_static(
         )
         return make_response(data=result.to_dict())
     except Exception as e:
+        logger.error("静态扫描失败异常: %s", e, exc_info=True)
         return make_error_response(f"静态扫描失败: {str(e)}")
 
 
@@ -103,6 +108,7 @@ def scan_dependency(
         )
         return make_response(data=result.to_dict())
     except Exception as e:
+        logger.error("依赖扫描失败异常: %s", e, exc_info=True)
         return make_error_response(f"依赖扫描失败: {str(e)}")
 
 
@@ -131,6 +137,7 @@ def scan_dynamic(
         )
         return make_response(data=result.to_dict())
     except Exception as e:
+        logger.error("动态扫描失败异常: %s", e, exc_info=True)
         return make_error_response(f"动态扫描失败: {str(e)}")
 
 
@@ -158,6 +165,7 @@ def scan_config(
         )
         return make_response(data=result.to_dict())
     except Exception as e:
+        logger.error("配置扫描失败异常: %s", e, exc_info=True)
         return make_error_response(f"配置扫描失败: {str(e)}")
 
 
@@ -190,6 +198,7 @@ def scan_history(
             "total_pages": (total + page_size - 1) // page_size if page_size > 0 else 0,
         })
     except Exception as e:
+        logger.error("获取扫描历史失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取扫描历史失败: {str(e)}")
 
 
@@ -208,6 +217,7 @@ def scan_detail(
             return make_error_response(f"扫描记录不存在: {scan_id}", code=404)
         return make_response(data=result.to_dict())
     except Exception as e:
+        logger.error("获取扫描详情失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取扫描详情失败: {str(e)}")
 
 
@@ -230,4 +240,5 @@ def scan_stats_summary(
         stats = scanner.get_scan_stats()
         return make_response(data=stats)
     except Exception as e:
+        logger.error("获取扫描统计失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取扫描统计失败: {str(e)}")

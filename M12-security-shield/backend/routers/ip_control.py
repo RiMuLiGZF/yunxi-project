@@ -20,6 +20,10 @@ except ImportError:
     from services.ip_filter import get_ip_filter
     from auth import require_role, ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/ip", tags=["M12-IP访问控制"])
 
 
@@ -40,6 +44,7 @@ def check_ip(
         result = ipf.check_ip(ip_address)
         return make_response(data=result)
     except Exception as e:
+        logger.error("IP 检测失败异常: %s", e, exc_info=True)
         return make_error_response(f"IP 检测失败: {str(e)}")
 
 
@@ -96,6 +101,7 @@ def list_blacklist(
             "total_pages": total_pages,
         })
     except Exception as e:
+        logger.error("获取黑名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取黑名单失败: {str(e)}")
 
 
@@ -138,6 +144,7 @@ def add_blacklist(
 
         return make_response(data=result, message="已添加到黑名单")
     except Exception as e:
+        logger.error("添加黑名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"添加黑名单失败: {str(e)}")
 
 
@@ -157,6 +164,7 @@ def remove_blacklist(
 
         return make_response(data={"removed": True, "ip_address": ip_address}, message="已从黑名单移除")
     except Exception as e:
+        logger.error("移除黑名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"移除黑名单失败: {str(e)}")
 
 
@@ -210,6 +218,7 @@ def list_whitelist(
             "total_pages": total_pages,
         })
     except Exception as e:
+        logger.error("获取白名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取白名单失败: {str(e)}")
 
 
@@ -248,6 +257,7 @@ def add_whitelist(
 
         return make_response(data=result, message="已添加到白名单")
     except Exception as e:
+        logger.error("添加白名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"添加白名单失败: {str(e)}")
 
 
@@ -267,6 +277,7 @@ def remove_whitelist(
 
         return make_response(data={"removed": True, "ip_address": ip_address}, message="已从白名单移除")
     except Exception as e:
+        logger.error("移除白名单失败异常: %s", e, exc_info=True)
         return make_error_response(f"移除白名单失败: {str(e)}")
 
 
@@ -286,4 +297,5 @@ def ip_stats(
         stats = ipf.get_stats()
         return make_response(data=stats)
     except Exception as e:
+        logger.error("获取统计信息失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取统计信息失败: {str(e)}")

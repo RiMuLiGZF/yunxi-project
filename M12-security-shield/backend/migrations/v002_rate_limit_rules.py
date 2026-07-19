@@ -7,6 +7,10 @@
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # 迁移元数据
 __migration_name__ = "rate_limit_rules"
 __description__ = "新增速率限制规则表 rate_limit_rules，扩展限流配置能力"
@@ -63,16 +67,17 @@ def up(conn):
         conn.execute(text("""
             ALTER TABLE api_keys ADD COLUMN custom_rate_limit_json TEXT DEFAULT '{}'
         """))
-    except Exception:
+    except Exception as e:
         # 列已存在，跳过
-        pass
+        logger.debug("列 custom_rate_limit_json 已存在，跳过: %s", e)
 
     try:
         conn.execute(text("""
             ALTER TABLE api_keys ADD COLUMN rate_limit_override BOOLEAN DEFAULT 0
         """))
-    except Exception:
-        pass
+    except Exception as e:
+        # 列已存在，跳过
+        logger.debug("列 rate_limit_override 已存在，跳过: %s", e)
 
     # ============================================================
     # 3. 插入默认限流规则

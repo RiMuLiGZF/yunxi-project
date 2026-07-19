@@ -24,6 +24,10 @@ except ImportError:
     from services.rate_limiter import get_rate_limiter
     from auth import require_role, ROLE_VIEWER
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/m12/dashboard", tags=["M12-安全仪表盘"])
 
 
@@ -128,6 +132,7 @@ def dashboard_summary(
 
         return make_response(data=summary)
     except Exception as e:
+        logger.error("获取安全概览失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取安全概览失败: {str(e)}")
 
 
@@ -173,6 +178,7 @@ def attack_trend(
             "total_events": sum(d["count"] for d in trend_data),
         })
     except Exception as e:
+        logger.error("获取攻击趋势失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取攻击趋势失败: {str(e)}")
 
 
@@ -212,6 +218,7 @@ def threat_distribution(
             "total_events": stats["total_events"],
         })
     except Exception as e:
+        logger.error("获取威胁分布失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取威胁分布失败: {str(e)}")
 
 
@@ -252,6 +259,7 @@ def attack_sources(
             "total_sources": len(stats["top_source_ips"]),
         })
     except Exception as e:
+        logger.error("获取攻击来源失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取攻击来源失败: {str(e)}")
 
 
@@ -286,6 +294,7 @@ def realtime_data(
             "last_updated": __import__("time").time(),
         })
     except Exception as e:
+        logger.error("获取实时数据失败异常: %s", e, exc_info=True)
         return make_error_response(f"获取实时数据失败: {str(e)}")
 
 
