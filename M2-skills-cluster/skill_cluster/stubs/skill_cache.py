@@ -19,10 +19,15 @@ warnings.warn(
 )
 
 from skill_cluster.core.cache import (
+    CACHE_TTL_HOT,
+    CACHE_TTL_METADATA,
+    CACHE_TTL_RESULT,
+    DEFAULT_L1_MAX_SIZE,
     L1MemoryCache,
     L2DiskCache,
     SQLiteL2Cache,
     SkillCache,
+    normalize_params,
 )
 
 __all__ = [
@@ -30,4 +35,9 @@ __all__ = [
     "L1MemoryCache",
     "L2DiskCache",
     "SQLiteL2Cache",
+    "normalize_params",
+    "CACHE_TTL_METADATA",
+    "CACHE_TTL_RESULT",
+    "CACHE_TTL_HOT",
+    "DEFAULT_L1_MAX_SIZE",
 ]

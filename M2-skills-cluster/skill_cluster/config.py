@@ -250,11 +250,22 @@ class LoggingConfig(BaseModel):
 
 
 class CacheConfig(BaseModel):
-    """缓存配置."""
+    """缓存配置.
+
+    【v3.11.0 优化】新增分层 TTL、参数规范化、L1 容量等配置项。
+    """
     type: str = "memory"
     ttl_seconds: int = 300
-    max_size: int = 1000
+    max_size: int = 5000  # L1 内存缓存最大条目数（原 1000，优化后提升）
     redis_url: str = ""
+    # 分层 TTL 配置（秒）
+    metadata_ttl_seconds: int = 3600  # 元数据长 TTL：1 小时
+    result_ttl_seconds: int = 300    # 执行结果中 TTL：5 分钟
+    hot_ttl_seconds: int = 60        # 热点短 TTL：1 分钟
+    # 优化开关
+    normalize_params: bool = True    # 是否启用参数规范化
+    warmup_enabled: bool = False     # 是否启用缓存预热
+    use_sqlite_l2: bool = False      # 是否使用 SQLite L2 后端
 
 
 class BudgetConfig(BaseModel):

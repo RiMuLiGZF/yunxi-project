@@ -157,13 +157,21 @@ def _get_skill_metrics(registry: Any) -> tuple[int, int]:
 def _get_cache_hit_rate(cache: Any = None) -> float:
     """获取缓存命中率.
 
-    当前 SkillCache 未维护命中/未命中计数器，暂返回 0.0。
+    【v3.11.0 优化】SkillCache 已维护命中/未命中计数器，
+    直接读取 hit_rate 属性即可。兼容旧版无属性情况。
+
     若传入具备 ``hit_count`` / ``miss_count`` 属性的缓存对象，
     则按 hits / (hits + misses) 计算。
     """
     if cache is None:
         return 0.0
     try:
+        # 优先读取已计算好的 hit_rate 属性
+        if hasattr(cache, "hit_rate"):
+            rate = getattr(cache, "hit_rate")
+            if isinstance(rate, (int, float)):
+                return round(float(rate), 4)
+        # 回退：手动计算
         hits = getattr(cache, "hit_count", 0) or 0
         misses = getattr(cache, "miss_count", 0) or 0
         total = hits + misses
