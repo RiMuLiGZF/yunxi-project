@@ -10,11 +10,11 @@ from fastapi import APIRouter, Query
 
 from ..models import make_response, ReportGenerateRequest
 from ..report_generator import get_report_generator
+from ..i18n import t
 
 from .response import success as _success
 
 router = APIRouter()
-
 
 
 
@@ -51,7 +51,10 @@ async def report_detail(report_id: str):
     generator = get_report_generator()
     report = generator.get_report(report_id)
     if report is None:
-        return make_response(code=404, message=f"报告不存在: {report_id}")
+        return make_response(
+            code=404,
+            message=t("m10_api.report.not_found", report_id=report_id),
+        )
     return _success(report.to_dict())
 
 
@@ -61,7 +64,10 @@ async def report_markdown(report_id: str):
     generator = get_report_generator()
     report = generator.get_report(report_id)
     if report is None:
-        return make_response(code=404, message=f"报告不存在: {report_id}")
+        return make_response(
+            code=404,
+            message=t("m10_api.report.not_found", report_id=report_id),
+        )
     content = generator.render_markdown(report)
     return _success({
         "report_id": report_id,
@@ -76,7 +82,10 @@ async def report_html(report_id: str):
     generator = get_report_generator()
     report = generator.get_report(report_id)
     if report is None:
-        return make_response(code=404, message=f"报告不存在: {report_id}")
+        return make_response(
+            code=404,
+            message=t("m10_api.report.not_found", report_id=report_id),
+        )
     content = generator.render_html(report)
     return _success({
         "report_id": report_id,

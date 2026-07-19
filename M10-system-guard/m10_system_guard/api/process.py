@@ -11,11 +11,11 @@ from fastapi import APIRouter, Query
 from ..errors import M10ErrorCode
 from ..models import make_response
 from ..process_manager import get_process_manager
+from ..i18n import t
 
 from .response import success as _success
 
 router = APIRouter()
-
 
 
 
@@ -117,7 +117,10 @@ async def process_detail(pid: int):
     pm = get_process_manager()
     proc = pm.get_process_by_pid(pid)
     if proc is None:
-        return make_response(code=M10ErrorCode.PROCESS_NOT_FOUND, message=f"进程 PID={pid} 不存在")
+        return make_response(
+            code=M10ErrorCode.PROCESS_NOT_FOUND,
+            message=t("m10_api.process.not_found", pid=pid),
+        )
     return _success(proc.to_dict())
 
 

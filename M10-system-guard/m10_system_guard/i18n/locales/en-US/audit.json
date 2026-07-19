@@ -1,0 +1,23 @@
+{
+  "audit_log": "Audit Log",
+  "audit_export": "Audit Export",
+  "audit_clear": "Clear Audit Logs",
+  "log_type": "Log Type",
+  "log_level": "Log Level",
+  "trigger_condition": "Trigger Condition",
+  "action": "Action",
+  "result": "Result",
+  "source_memory": "Memory Cache",
+  "source_database": "Database",
+  "export_format": "Export Format",
+  "clear_success": "Logs cleared successfully",
+  "clear_count": "Cleared {count} logs",
+  "by_level": {
+    "info": "Info",
+    "warning": "Warning",
+    "critical": "Critical"
+  },
+  "storage_memory_only": "Memory Only",
+  "storage_database": "Database Persistence",
+  "memory_cache_size": "Memory Cache Size"
+}

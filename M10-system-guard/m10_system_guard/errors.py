@@ -69,45 +69,58 @@ class M10ErrorCode:
     REPORT_FORMAT_INVALID = 106003
 
 
-# 错误码到消息的映射
-_ERROR_MESSAGES: dict[int, str] = {
-    M10ErrorCode.SUCCESS: "成功",
-    M10ErrorCode.UNKNOWN_ERROR: "未知错误",
-    M10ErrorCode.INVALID_PARAMETER: "参数错误",
-    M10ErrorCode.AUTH_FAILED: "认证失败",
-    M10ErrorCode.TOKEN_MISSING: "缺少认证令牌",
-    M10ErrorCode.RATE_LIMITED: "请求频率超限",
-    M10ErrorCode.NOT_FOUND: "资源不存在",
-    M10ErrorCode.INTERNAL_ERROR: "内部服务错误",
-    M10ErrorCode.SERVICE_UNAVAILABLE: "服务暂不可用",
-    M10ErrorCode.MONITOR_NOT_STARTED: "系统监控未启动",
-    M10ErrorCode.MONITOR_COLLECTION_FAILED: "数据采集失败",
-    M10ErrorCode.METRIC_TYPE_INVALID: "无效的指标类型",
-    M10ErrorCode.GPU_NOT_AVAILABLE: "GPU 不可用",
-    M10ErrorCode.PROCESS_NOT_FOUND: "进程不存在",
-    M10ErrorCode.PROCESS_KILL_FAILED: "进程终止失败",
-    M10ErrorCode.PROCESS_TREE_ERROR: "进程树构建失败",
-    M10ErrorCode.GUARD_CHECK_FAILED: "防护检查失败",
-    M10ErrorCode.POLICY_NOT_FOUND: "防护策略不存在",
-    M10ErrorCode.POLICY_UPDATE_FAILED: "策略更新失败",
-    M10ErrorCode.ALERT_NOT_FOUND: "告警记录不存在",
-    M10ErrorCode.THROTTLING_ACTIVE: "系统处于限流状态",
-    M10ErrorCode.TIDE_NOT_INITIALIZED: "潮汐引擎未初始化",
-    M10ErrorCode.MISSION_NOT_FOUND: "任务不存在",
-    M10ErrorCode.MISSION_SUBMIT_FAILED: "任务提交失败",
-    M10ErrorCode.GPU_ORCHESTRATION_FAILED: "GPU 编排失败",
-    M10ErrorCode.AUDIT_LOG_NOT_FOUND: "审计日志不存在",
-    M10ErrorCode.AUDIT_EXPORT_FAILED: "日志导出失败",
-    M10ErrorCode.AUDIT_CLEAR_FAILED: "日志清空失败",
-    M10ErrorCode.REPORT_NOT_FOUND: "报告不存在",
-    M10ErrorCode.REPORT_GENERATE_FAILED: "报告生成失败",
-    M10ErrorCode.REPORT_FORMAT_INVALID: "无效的报告格式",
+# 错误码到翻译 key 的映射
+_ERROR_MESSAGE_KEYS: dict[int, str] = {
+    M10ErrorCode.SUCCESS: "success",
+    M10ErrorCode.UNKNOWN_ERROR: "unknown_error",
+    M10ErrorCode.INVALID_PARAMETER: "invalid_parameter",
+    M10ErrorCode.AUTH_FAILED: "auth_failed",
+    M10ErrorCode.TOKEN_MISSING: "token_missing",
+    M10ErrorCode.RATE_LIMITED: "rate_limited",
+    M10ErrorCode.NOT_FOUND: "not_found",
+    M10ErrorCode.INTERNAL_ERROR: "internal_error",
+    M10ErrorCode.SERVICE_UNAVAILABLE: "service_unavailable",
+    M10ErrorCode.MONITOR_NOT_STARTED: "monitor_not_started",
+    M10ErrorCode.MONITOR_COLLECTION_FAILED: "monitor_collection_failed",
+    M10ErrorCode.METRIC_TYPE_INVALID: "metric_type_invalid",
+    M10ErrorCode.GPU_NOT_AVAILABLE: "gpu_not_available",
+    M10ErrorCode.PROCESS_NOT_FOUND: "process_not_found",
+    M10ErrorCode.PROCESS_KILL_FAILED: "process_kill_failed",
+    M10ErrorCode.PROCESS_TREE_ERROR: "process_tree_error",
+    M10ErrorCode.GUARD_CHECK_FAILED: "guard_check_failed",
+    M10ErrorCode.POLICY_NOT_FOUND: "policy_not_found",
+    M10ErrorCode.POLICY_UPDATE_FAILED: "policy_update_failed",
+    M10ErrorCode.ALERT_NOT_FOUND: "alert_not_found",
+    M10ErrorCode.THROTTLING_ACTIVE: "throttling_active",
+    M10ErrorCode.TIDE_NOT_INITIALIZED: "tide_not_initialized",
+    M10ErrorCode.MISSION_NOT_FOUND: "mission_not_found",
+    M10ErrorCode.MISSION_SUBMIT_FAILED: "mission_submit_failed",
+    M10ErrorCode.GPU_ORCHESTRATION_FAILED: "gpu_orchestration_failed",
+    M10ErrorCode.AUDIT_LOG_NOT_FOUND: "audit_log_not_found",
+    M10ErrorCode.AUDIT_EXPORT_FAILED: "audit_export_failed",
+    M10ErrorCode.AUDIT_CLEAR_FAILED: "audit_clear_failed",
+    M10ErrorCode.REPORT_NOT_FOUND: "report_not_found",
+    M10ErrorCode.REPORT_GENERATE_FAILED: "report_generate_failed",
+    M10ErrorCode.REPORT_FORMAT_INVALID: "report_format_invalid",
 }
 
 
 def get_error_message(code: int) -> str:
-    """获取错误码对应的消息."""
-    return _ERROR_MESSAGES.get(code, "未知错误")
+    """
+    获取错误码对应的消息（使用 i18n 翻译）.
+
+    Args:
+        code: 错误码
+
+    Returns:
+        翻译后的错误消息
+    """
+    from .i18n import t
+
+    key = _ERROR_MESSAGE_KEYS.get(code)
+    if key:
+        return t(f"m10_errors.{key}")
+    return t("m10_errors.unknown_error")
 
 
 # ============================================================
@@ -133,25 +146,37 @@ class M10Error(Exception):
 
 class M10AuthError(M10Error):
     """认证异常."""
-    def __init__(self, message: str = "认证失败"):
+    def __init__(self, message: str = ""):
+        if not message:
+            from .i18n import t
+            message = t("m10_errors.auth_failed")
         super().__init__(code=M10ErrorCode.AUTH_FAILED, message=message)
 
 
 class M10ParamError(M10Error):
     """参数异常."""
-    def __init__(self, message: str = "参数错误", details: dict | None = None):
+    def __init__(self, message: str = "", details: dict | None = None):
+        if not message:
+            from .i18n import t
+            message = t("m10_errors.invalid_parameter")
         super().__init__(code=M10ErrorCode.INVALID_PARAMETER, message=message, details=details)
 
 
 class M10NotFoundError(M10Error):
     """资源不存在异常."""
-    def __init__(self, message: str = "资源不存在"):
+    def __init__(self, message: str = ""):
+        if not message:
+            from .i18n import t
+            message = t("m10_errors.not_found")
         super().__init__(code=M10ErrorCode.NOT_FOUND, message=message)
 
 
 class M10MonitorError(M10Error):
     """监控异常."""
-    def __init__(self, message: str = "监控异常"):
+    def __init__(self, message: str = ""):
+        if not message:
+            from .i18n import t
+            message = t("m10_errors.monitor_collection_failed")
         super().__init__(code=M10ErrorCode.MONITOR_COLLECTION_FAILED, message=message)
 
 
@@ -193,6 +218,8 @@ def register_exception_handlers(app) -> None:
     async def general_exception_handler(request: Request, exc: Exception):
         """处理未捕获的异常."""
         import os
+        from .i18n import t
+
         env = os.getenv("M10_ENV", "development")
         error_detail = traceback.format_exc() if env == "development" else "Internal Server Error"
 
@@ -200,7 +227,7 @@ def register_exception_handlers(app) -> None:
             status_code=500,
             content={
                 "code": M10ErrorCode.INTERNAL_ERROR,
-                "message": "内部服务错误",
+                "message": t("m10_errors.internal_error"),
                 "data": {"detail": error_detail} if env == "development" else {},
             },
         )

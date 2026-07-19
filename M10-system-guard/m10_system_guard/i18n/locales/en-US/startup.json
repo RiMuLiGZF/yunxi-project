@@ -1,0 +1,59 @@
+{
+  "levels": {
+    "safe": {
+      "name": "Safe",
+      "description": "Sufficient system resources, tasks can be started safely"
+    },
+    "warning": {
+      "name": "Warning",
+      "description": "System resources are high, can start but attention is recommended"
+    },
+    "danger": {
+      "name": "Danger",
+      "description": "Insufficient system resources, not recommended to start tasks"
+    }
+  },
+  "task_levels": {
+    "light": {
+      "name": "Light",
+      "description": "Low resource requirement tasks"
+    },
+    "normal": {
+      "name": "Normal",
+      "description": "Standard resource requirement tasks"
+    },
+    "heavy": {
+      "name": "Heavy",
+      "description": "High resource requirement tasks"
+    },
+    "super_heavy": {
+      "name": "Super Heavy",
+      "description": "Extremely high resource requirement tasks"
+    }
+  },
+  "memory_check": {
+    "danger": "Estimated memory usage will reach {percent:.1f}%, exceeding danger threshold",
+    "warning": "Estimated memory usage will reach {percent:.1f}%, elevated",
+    "safe": "Sufficient memory"
+  },
+  "cpu_check": {
+    "danger": "Estimated CPU usage will reach {percent:.1f}%, exceeding danger threshold",
+    "warning": "Estimated CPU usage will reach {percent:.1f}%, elevated",
+    "safe": "Sufficient CPU resources"
+  },
+  "temperature_check": {
+    "danger": "Estimated temperature will reach {temp:.1f}°C, overheating danger",
+    "warning": "Estimated temperature will reach {temp:.1f}°C, elevated",
+    "safe": "Normal temperature"
+  },
+  "process_check": {
+    "danger": "Too many similar processes ({count}), may cause resource competition",
+    "warning": "Similar process count ({count}) has reached limit, recommend waiting",
+    "safe": "Similar process count ({count}) within reasonable range"
+  },
+  "recommendations": {
+    "safe": "System status is good, tasks can be started safely",
+    "warning": "System status is elevated, recommendations: {warnings}",
+    "danger": "Danger! Not recommended to start tasks. Reasons: {reasons}"
+  }
+}

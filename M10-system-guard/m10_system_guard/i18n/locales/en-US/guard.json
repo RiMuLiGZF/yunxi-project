@@ -1,0 +1,55 @@
+{
+  "cpu_protection": {
+    "name": "CPU Protection",
+    "description": "Trigger graded interception when CPU usage exceeds threshold"
+  },
+  "memory_protection": {
+    "name": "Memory Protection",
+    "description": "Trigger graded interception when memory usage exceeds threshold"
+  },
+  "temperature_protection": {
+    "name": "Temperature Protection",
+    "description": "Trigger hardware protection when system temperature exceeds threshold"
+  },
+  "disk_protection": {
+    "name": "Disk Protection",
+    "description": "Trigger alert when disk usage exceeds threshold"
+  },
+  "action_on_warning": {
+    "cpu": "Log record, reduce non-core task priority",
+    "memory": "Log record, trigger GC collection",
+    "temperature": "Log record, increase fan speed (simulated)",
+    "disk": "Log record, remind to clean up disk"
+  },
+  "action_on_critical": {
+    "cpu": "Enable overload throttling, reduce concurrency",
+    "memory": "Enable memory throttling, limit new task memory allocation",
+    "temperature": "Reduce CPU frequency, pause heavy computation",
+    "disk": "Pause disk write-intensive tasks"
+  },
+  "action_on_emergency": {
+    "cpu": "Pause heavy tasks, only keep core services",
+    "memory": "Pause heavy tasks, release cache memory",
+    "temperature": "Pause all heavy tasks, force cooling",
+    "disk": "Force clean temporary files and caches"
+  },
+  "metric_names": {
+    "cpu": "CPU Usage",
+    "memory": "Memory Usage",
+    "temperature": "System Temperature",
+    "disk": "Disk Usage",
+    "gpu": "GPU Usage",
+    "network": "Network Bandwidth",
+    "battery": "Battery Level"
+  },
+  "level_descriptions": {
+    "info": "Normal Range",
+    "warning": "Elevated, recommend monitoring",
+    "critical": "Too High, throttling measures activated",
+    "emergency": "Danger! Heavy tasks have been paused"
+  },
+  "policy_disabled": "Policy disabled",
+  "overall_level": "Overall Protection Level",
+  "throttling_active": "Throttling active",
+  "heavy_tasks_paused": "Heavy tasks paused"
+}

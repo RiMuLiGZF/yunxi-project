@@ -11,11 +11,11 @@ from fastapi import APIRouter, Query
 from ..errors import M10ErrorCode
 from ..models import make_response, GuardPolicyUpdateRequest, MetricType
 from ..guard_engine import get_guard_engine
+from ..i18n import t
 
 from .response import success as _success
 
 router = APIRouter()
-
 
 
 
@@ -69,11 +69,17 @@ async def get_policy(metric_type: str):
     try:
         mtype = MetricType(metric_type.lower())
     except ValueError:
-        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"无效的指标类型: {metric_type}")
+        return make_response(
+            code=M10ErrorCode.METRIC_TYPE_INVALID,
+            message=t("m10_api.guard.invalid_metric_type", metric_type=metric_type),
+        )
 
     policy = engine.get_policy(mtype)
     if policy is None:
-        return make_response(code=M10ErrorCode.POLICY_NOT_FOUND, message=f"未找到策略: {metric_type}")
+        return make_response(
+            code=M10ErrorCode.POLICY_NOT_FOUND,
+            message=t("m10_api.guard.policy_not_found", metric_type=metric_type),
+        )
 
     return _success({
         "name": policy.name,
@@ -97,7 +103,10 @@ async def update_policy(metric_type: str, request: GuardPolicyUpdateRequest):
     try:
         mtype = MetricType(metric_type.lower())
     except ValueError:
-        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"无效的指标类型: {metric_type}")
+        return make_response(
+            code=M10ErrorCode.METRIC_TYPE_INVALID,
+            message=t("m10_api.guard.invalid_metric_type", metric_type=metric_type),
+        )
 
     success = engine.update_policy(
         mtype,
@@ -109,7 +118,10 @@ async def update_policy(metric_type: str, request: GuardPolicyUpdateRequest):
     )
 
     if not success:
-        return make_response(code=M10ErrorCode.POLICY_NOT_FOUND, message=f"未找到策略: {metric_type}")
+        return make_response(
+            code=M10ErrorCode.POLICY_NOT_FOUND,
+            message=t("m10_api.guard.policy_not_found", metric_type=metric_type),
+        )
 
     return _success({"updated": True, "metric_type": metric_type})
 
@@ -134,7 +146,10 @@ async def acknowledge_alert(alert_id: str):
     engine = get_guard_engine()
     success = engine.acknowledge_alert(alert_id)
     if not success:
-        return make_response(code=M10ErrorCode.ALERT_NOT_FOUND, message=f"告警不存在: {alert_id}")
+        return make_response(
+            code=M10ErrorCode.ALERT_NOT_FOUND,
+            message=t("m10_api.guard.alert_not_found", alert_id=alert_id),
+        )
     return _success({"acknowledged": True, "alert_id": alert_id})
 
 

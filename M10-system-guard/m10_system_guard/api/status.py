@@ -14,6 +14,7 @@ from ..config import get_config
 from ..errors import M10ErrorCode
 from ..system_monitor import get_system_monitor
 from ..models import make_response, AggregationLevel
+from ..i18n import t
 
 from .response import success as _success
 
@@ -70,7 +71,10 @@ async def metric_value(metric_type: str):
             "timestamp": time.time(),
         })
     except ValueError:
-        return make_response(code=M10ErrorCode.METRIC_TYPE_INVALID, message=f"未知的指标类型: {metric_type}")
+        return make_response(
+            code=M10ErrorCode.METRIC_TYPE_INVALID,
+            message=t("m10_api.status.unknown_metric", metric_type=metric_type),
+        )
 
 
 @router.get("/history", summary="历史数据")
@@ -83,7 +87,10 @@ async def history_data(
     try:
         agg_level = AggregationLevel(level.lower())
     except ValueError:
-        return make_response(code=M10ErrorCode.INVALID_PARAMETER, message=f"无效的聚合级别: {level}")
+        return make_response(
+            code=M10ErrorCode.INVALID_PARAMETER,
+            message=t("m10_api.status.invalid_aggregation", level=level),
+        )
 
     data = monitor.get_history(agg_level, limit=limit)
     return _success({
@@ -204,7 +211,10 @@ async def gpu_device_detail(gpu_id: int):
     gpu = latest.gpu if latest else None
 
     if gpu is None or not gpu.devices:
-        return _success(data={}, message=f"GPU {gpu_id} not found")
+        return _success(
+            data={},
+            message=t("m10_api.status.gpu_not_found", gpu_id=gpu_id),
+        )
 
     for dev in gpu.devices:
         dev_id = getattr(dev, "gpu_id", -1)
@@ -217,7 +227,10 @@ async def gpu_device_detail(gpu_id: int):
                 "usage_percent": getattr(dev, "usage_percent", 0),
             })
 
-    return _success(data={}, message=f"GPU {gpu_id} not found")
+    return _success(
+        data={},
+        message=t("m10_api.status.gpu_not_found", gpu_id=gpu_id),
+    )
 
 
 @router.get("/gpu/processes", summary="GPU 进程列表")

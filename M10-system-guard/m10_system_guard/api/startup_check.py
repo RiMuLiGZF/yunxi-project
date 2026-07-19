@@ -10,11 +10,11 @@ from fastapi import APIRouter, Query
 
 from ..models import make_response, StartupCheckRequest
 from ..startup_check import get_startup_checker
+from ..i18n import t
 
 from .response import success as _success
 
 router = APIRouter()
-
 
 
 
@@ -45,7 +45,10 @@ async def check_result(check_id: str):
     for result in history:
         if result.check_id == check_id:
             return _success(result.to_dict())
-    return make_response(code=404, message=f"检查记录不存在: {check_id}")
+    return make_response(
+        code=404,
+        message=t("m10_api.startup_check.not_found", check_id=check_id),
+    )
 
 
 @router.get("/history", summary="检查历史")
@@ -73,25 +76,37 @@ async def check_levels():
     return _success({
         "levels": {
             "safe": {
-                "name": "安全",
-                "description": "系统资源充足，可以安全启动任务",
+                "name": t("m10_api.startup_check.level_safe_name"),
+                "description": t("m10_api.startup_check.level_safe_desc"),
                 "allowed": True,
             },
             "warning": {
-                "name": "警告",
-                "description": "系统资源偏高，可以启动但建议关注",
+                "name": t("m10_api.startup_check.level_warning_name"),
+                "description": t("m10_api.startup_check.level_warning_desc"),
                 "allowed": True,
             },
             "danger": {
-                "name": "危险",
-                "description": "系统资源不足，不建议启动任务",
+                "name": t("m10_api.startup_check.level_danger_name"),
+                "description": t("m10_api.startup_check.level_danger_desc"),
                 "allowed": False,
             },
         },
         "task_levels": {
-            "light": {"name": "轻量", "description": "低资源需求任务"},
-            "normal": {"name": "普通", "description": "标准资源需求任务"},
-            "heavy": {"name": "重型", "description": "高资源需求任务"},
-            "super_heavy": {"name": "超重型", "description": "极高资源需求任务"},
+            "light": {
+                "name": t("m10_api.startup_check.task_light_name"),
+                "description": t("m10_api.startup_check.task_light_desc"),
+            },
+            "normal": {
+                "name": t("m10_api.startup_check.task_normal_name"),
+                "description": t("m10_api.startup_check.task_normal_desc"),
+            },
+            "heavy": {
+                "name": t("m10_api.startup_check.task_heavy_name"),
+                "description": t("m10_api.startup_check.task_heavy_desc"),
+            },
+            "super_heavy": {
+                "name": t("m10_api.startup_check.task_super_heavy_name"),
+                "description": t("m10_api.startup_check.task_super_heavy_desc"),
+            },
         },
     })

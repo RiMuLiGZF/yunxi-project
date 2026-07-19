@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 
 from ..models import make_response
+from ..i18n import t
 from ..tide_engine import (
     get_tide_engine,
     TideStrategy,
@@ -138,7 +139,10 @@ async def submit_mission(req: GPUMissionSubmitRequest):
     try:
         priority = MissionPriority(req.priority)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的优先级: {req.priority}")
+        raise HTTPException(
+            status_code=400,
+            detail=t("m10_api.tide.invalid_priority", priority=req.priority),
+        )
 
     mission = GPUMission(
         name=req.name,
@@ -159,7 +163,7 @@ async def submit_mission(req: GPUMissionSubmitRequest):
 
     return _success(
         data=mission.to_dict() if mission else {"mission_id": mission_id},
-        message="任务提交成功",
+        message=t("m10_api.tide.mission_submit_success"),
     )
 
 
@@ -183,7 +187,10 @@ async def get_mission(mission_id: str):
     engine = _get_engine()
     mission = engine.scheduler.get_mission(mission_id)
     if not mission:
-        raise HTTPException(status_code=404, detail="任务不存在")
+        raise HTTPException(
+            status_code=404,
+            detail=t("m10_api.tide.mission_not_found"),
+        )
     return _success(data=mission.to_dict())
 
 
@@ -196,13 +203,16 @@ async def complete_mission(
     engine = _get_engine()
     mission = engine.scheduler.get_mission(mission_id)
     if not mission:
-        raise HTTPException(status_code=404, detail="任务不存在")
+        raise HTTPException(
+            status_code=404,
+            detail=t("m10_api.tide.mission_not_found"),
+        )
 
     engine.scheduler.complete_mission(mission_id, success=success)
     mission = engine.scheduler.get_mission(mission_id)
     return _success(
         data=mission.to_dict() if mission else {},
-        message="任务已完成",
+        message=t("m10_api.tide.mission_completed"),
     )
 
 
@@ -212,11 +222,14 @@ async def cancel_mission(mission_id: str):
     engine = _get_engine()
     result = engine.scheduler.cancel_mission(mission_id)
     if not result:
-        raise HTTPException(status_code=400, detail="任务无法取消")
+        raise HTTPException(
+            status_code=400,
+            detail=t("m10_api.tide.mission_cannot_cancel"),
+        )
     mission = engine.scheduler.get_mission(mission_id)
     return _success(
         data=mission.to_dict() if mission else {},
-        message="任务已取消",
+        message=t("m10_api.tide.mission_cancelled"),
     )
 
 
@@ -267,7 +280,10 @@ async def update_strategy(req: TideStrategyUpdateRequest):
     # 应用新策略
     engine.scheduler.update_strategy(strategy)
 
-    return _success(data=strategy.to_dict(), message="策略已更新")
+    return _success(
+        data=strategy.to_dict(),
+        message=t("m10_api.tide.strategy_updated"),
+    )
 
 
 @router.post("/strategy/reset", summary="重置策略")
@@ -276,7 +292,10 @@ async def reset_strategy():
     engine = _get_engine()
     default = TideStrategy()
     engine.scheduler.update_strategy(default)
-    return _success(data=default.to_dict(), message="已重置为默认策略")
+    return _success(
+        data=default.to_dict(),
+        message=t("m10_api.tide.strategy_reset"),
+    )
 
 
 # ============================================================
@@ -291,11 +310,17 @@ async def manual_set_phase(req: ManualPhaseRequest):
     try:
         phase = TidePhase(req.phase)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的阶段: {req.phase}")
+        raise HTTPException(
+            status_code=400,
+            detail=t("m10_api.tide.invalid_phase", phase=req.phase),
+        )
 
     engine.scheduler.manual_set_phase(phase)
     snapshot = engine.scheduler.get_snapshot()
-    return _success(data=snapshot.to_dict(), message=f"已设置为 {phase.value}")
+    return _success(
+        data=snapshot.to_dict(),
+        message=t("m10_api.tide.phase_set", phase=phase.value),
+    )
 
 
 @router.get("/phases", summary="潮汐阶段说明")
@@ -304,29 +329,29 @@ async def tide_phases():
     phases = [
         {
             "phase": "flood",
-            "name": "涨潮",
-            "description": "资源充裕，GPU 显存使用率低，提升并发，放行批量任务",
+            "name": t("m10_api.tide.phase_flood_name"),
+            "description": t("m10_api.tide.phase_flood_desc"),
             "concurrency_multiplier": "2.0x",
             "allowed_priority": "batch+",
         },
         {
             "phase": "slack",
-            "name": "平潮",
-            "description": "资源平稳，标准并发运行",
+            "name": t("m10_api.tide.phase_slack_name"),
+            "description": t("m10_api.tide.phase_slack_desc"),
             "concurrency_multiplier": "1.0x",
             "allowed_priority": "normal+",
         },
         {
             "phase": "ebb",
-            "name": "退潮",
-            "description": "资源紧张，降低并发，仅放行高优先级任务",
+            "name": t("m10_api.tide.phase_ebb_name"),
+            "description": t("m10_api.tide.phase_ebb_desc"),
             "concurrency_multiplier": "0.5x",
             "allowed_priority": "high+",
         },
         {
             "phase": "low",
-            "name": "枯潮",
-            "description": "资源严重不足，最低并发，仅关键任务运行",
+            "name": t("m10_api.tide.phase_low_name"),
+            "description": t("m10_api.tide.phase_low_desc"),
             "concurrency_multiplier": "0.2x",
             "allowed_priority": "critical+",
         },

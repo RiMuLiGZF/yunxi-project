@@ -1,0 +1,23 @@
+{
+  "audit_log": "审计日志",
+  "audit_export": "审计导出",
+  "audit_clear": "清空审计日志",
+  "log_type": "日志类型",
+  "log_level": "日志级别",
+  "trigger_condition": "触发条件",
+  "action": "执行动作",
+  "result": "执行结果",
+  "source_memory": "内存缓存",
+  "source_database": "数据库",
+  "export_format": "导出格式",
+  "clear_success": "日志清空成功",
+  "clear_count": "已清空 {count} 条日志",
+  "by_level": {
+    "info": "信息",
+    "warning": "警告",
+    "critical": "严重"
+  },
+  "storage_memory_only": "仅内存存储",
+  "storage_database": "数据库持久化",
+  "memory_cache_size": "内存缓存数量"
+}
