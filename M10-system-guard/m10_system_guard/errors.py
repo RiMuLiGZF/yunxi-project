@@ -1,77 +1,96 @@
 """
-M10 系统卫士 - 统一错误码与异常定义
+M10 系统卫士 - 统一错误码与异常定义（已迁移至统一 6 位错误码体系）
+==================================================================
 
-错误码规则：M10 + 3位序号
-- M100xx: 通用错误（参数、认证、系统）
-- M101xx: 系统监控相关
-- M102xx: 进程管理相关
-- M103xx: 防护引擎相关
-- M104xx: 潮汐引擎相关
-- M105xx: 审计日志相关
-- M106xx: 报告生成相关
+.. deprecated::
+    新代码请使用 ``m10_system_guard.unified_errors.M10ErrorCode``。
+
+错误码已从旧版体系（10xxxx 子模块格式）迁移至统一 6 位体系（10YYZZ）。
+所有旧错误码常量仍然可用，但其底层值已映射为新的 6 位编码。
 """
 
 from __future__ import annotations
 
+import warnings
+
 from fastapi import HTTPException
 
+from .unified_errors import (
+    M10ErrorCode,
+    M10_LEGACY_ERROR_MAP,
+    m10_normalize_error_code,
+    m10_is_legacy_code,
+    _UNIFIED_ERRORS_AVAILABLE,
+)
+
 
 # ============================================================
-# 错误码常量
+# 兼容层：旧版 M10ErrorCode 类
 # ============================================================
+# 保持旧的常量名不变，但其值已映射为新的 6 位错误码
 
-class M10ErrorCode:
-    """M10 错误码定义."""
+class _LegacyM10ErrorCode:
+    """M10 错误码定义（已迁移至统一 6 位体系）.
+
+    .. deprecated::
+        请使用 ``M10ErrorCode`` 替代。
+
+    所有旧常量名仍然可用，其值已自动映射为新的 6 位错误码。
+    """
 
     # 通用错误 M100xx
     SUCCESS = 0
-    UNKNOWN_ERROR = 100001
-    INVALID_PARAMETER = 100002
-    AUTH_FAILED = 100003
-    TOKEN_MISSING = 100004
-    RATE_LIMITED = 100005
-    NOT_FOUND = 100006
-    INTERNAL_ERROR = 100007
-    SERVICE_UNAVAILABLE = 100008
+    UNKNOWN_ERROR = M10ErrorCode.UNKNOWN_ERROR
+    INVALID_PARAMETER = M10ErrorCode.INVALID_PARAMETER
+    AUTH_FAILED = M10ErrorCode.AUTH_FAILED
+    TOKEN_MISSING = M10ErrorCode.TOKEN_MISSING
+    RATE_LIMITED = M10ErrorCode.RATE_LIMITED
+    NOT_FOUND = M10ErrorCode.NOT_FOUND
+    INTERNAL_ERROR = M10ErrorCode.INTERNAL_ERROR
+    SERVICE_UNAVAILABLE = M10ErrorCode.SERVICE_UNAVAILABLE
 
     # 系统监控 M101xx
-    MONITOR_NOT_STARTED = 101001
-    MONITOR_COLLECTION_FAILED = 101002
-    METRIC_TYPE_INVALID = 101003
-    GPU_NOT_AVAILABLE = 101004
+    MONITOR_NOT_STARTED = M10ErrorCode.MONITOR_NOT_STARTED
+    MONITOR_COLLECTION_FAILED = M10ErrorCode.MONITOR_COLLECTION_FAILED
+    METRIC_TYPE_INVALID = M10ErrorCode.METRIC_TYPE_INVALID
+    GPU_NOT_AVAILABLE = M10ErrorCode.GPU_NOT_AVAILABLE
 
     # 进程管理 M102xx
-    PROCESS_NOT_FOUND = 102001
-    PROCESS_KILL_FAILED = 102002
-    PROCESS_TREE_ERROR = 102003
+    PROCESS_NOT_FOUND = M10ErrorCode.PROCESS_NOT_FOUND
+    PROCESS_KILL_FAILED = M10ErrorCode.PROCESS_KILL_FAILED
+    PROCESS_TREE_ERROR = M10ErrorCode.PROCESS_TREE_ERROR
 
     # 防护引擎 M103xx
-    GUARD_CHECK_FAILED = 103001
-    POLICY_NOT_FOUND = 103002
-    POLICY_UPDATE_FAILED = 103003
-    ALERT_NOT_FOUND = 103004
-    THROTTLING_ACTIVE = 103005
+    GUARD_CHECK_FAILED = M10ErrorCode.GUARD_CHECK_FAILED
+    POLICY_NOT_FOUND = M10ErrorCode.POLICY_NOT_FOUND
+    POLICY_UPDATE_FAILED = M10ErrorCode.POLICY_UPDATE_FAILED
+    ALERT_NOT_FOUND = M10ErrorCode.ALERT_NOT_FOUND
+    THROTTLING_ACTIVE = M10ErrorCode.THROTTLING_ACTIVE
 
     # 潮汐引擎 M104xx
-    TIDE_NOT_INITIALIZED = 104001
-    MISSION_NOT_FOUND = 104002
-    MISSION_SUBMIT_FAILED = 104003
-    GPU_ORCHESTRATION_FAILED = 104004
+    TIDE_NOT_INITIALIZED = M10ErrorCode.TIDE_NOT_INITIALIZED
+    MISSION_NOT_FOUND = M10ErrorCode.MISSION_NOT_FOUND
+    MISSION_SUBMIT_FAILED = M10ErrorCode.MISSION_SUBMIT_FAILED
+    GPU_ORCHESTRATION_FAILED = M10ErrorCode.GPU_ORCHESTRATION_FAILED
 
     # 审计日志 M105xx
-    AUDIT_LOG_NOT_FOUND = 105001
-    AUDIT_EXPORT_FAILED = 105002
-    AUDIT_CLEAR_FAILED = 105003
+    AUDIT_LOG_NOT_FOUND = M10ErrorCode.AUDIT_LOG_NOT_FOUND
+    AUDIT_EXPORT_FAILED = M10ErrorCode.AUDIT_EXPORT_FAILED
+    AUDIT_CLEAR_FAILED = M10ErrorCode.AUDIT_CLEAR_FAILED
 
     # 报告生成 M106xx
-    REPORT_NOT_FOUND = 106001
-    REPORT_GENERATE_FAILED = 106002
-    REPORT_FORMAT_INVALID = 106003
+    REPORT_NOT_FOUND = M10ErrorCode.REPORT_NOT_FOUND
+    REPORT_GENERATE_FAILED = M10ErrorCode.REPORT_GENERATE_FAILED
+    REPORT_FORMAT_INVALID = M10ErrorCode.REPORT_FORMAT_INVALID
 
 
-# 错误码到翻译 key 的映射
+# 旧版名称保持可用
+M10ErrorCodeLegacy = _LegacyM10ErrorCode
+
+
+# 错误码到翻译 key 的映射（使用新错误码作为 key）
 _ERROR_MESSAGE_KEYS: dict[int, str] = {
-    M10ErrorCode.SUCCESS: "success",
+    0: "success",
     M10ErrorCode.UNKNOWN_ERROR: "unknown_error",
     M10ErrorCode.INVALID_PARAMETER: "invalid_parameter",
     M10ErrorCode.AUTH_FAILED: "auth_failed",
@@ -109,6 +128,8 @@ def get_error_message(code: int) -> str:
     """
     获取错误码对应的消息（使用 i18n 翻译）.
 
+    自动规范化旧版错误码为新版统一 6 位编码。
+
     Args:
         code: 错误码
 
@@ -117,7 +138,8 @@ def get_error_message(code: int) -> str:
     """
     from .i18n import t
 
-    key = _ERROR_MESSAGE_KEYS.get(code)
+    normalized_code = m10_normalize_error_code(code)
+    key = _ERROR_MESSAGE_KEYS.get(normalized_code)
     if key:
         return t(f"m10_errors.{key}")
     return t("m10_errors.unknown_error")
@@ -128,11 +150,16 @@ def get_error_message(code: int) -> str:
 # ============================================================
 
 class M10Error(Exception):
-    """M10 基础异常类."""
+    """M10 基础异常类（已迁移至统一错误码体系）.
+
+    旧版错误码会自动规范化为新版 6 位编码。
+    """
 
     def __init__(self, code: int, message: str = "", details: dict | None = None):
-        self.code = code
-        self.message = message or get_error_message(code)
+        # 自动规范化旧错误码
+        normalized_code = m10_normalize_error_code(code)
+        self.code = normalized_code
+        self.message = message or get_error_message(normalized_code)
         self.details = details or {}
         super().__init__(self.message)
 
@@ -231,3 +258,28 @@ def register_exception_handlers(app) -> None:
                 "data": {"detail": error_detail} if env == "development" else {},
             },
         )
+
+
+# 发出废弃警告（模块级别）
+warnings.warn(
+    "m10_system_guard.errors 已迁移至统一错误码体系。"
+    "新代码请使用 m10_system_guard.unified_errors.M10ErrorCode。"
+    "旧错误码常量仍然可用但已映射为新的 6 位编码。",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+
+__all__ = [
+    "M10ErrorCode",
+    "M10ErrorCodeLegacy",
+    "M10Error",
+    "M10AuthError",
+    "M10ParamError",
+    "M10NotFoundError",
+    "M10MonitorError",
+    "get_error_message",
+    "register_exception_handlers",
+    "M10_LEGACY_ERROR_MAP",
+    "_UNIFIED_ERRORS_AVAILABLE",
+]

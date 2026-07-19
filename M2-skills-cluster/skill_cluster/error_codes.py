@@ -1,156 +1,193 @@
-"""M2 错误码定义.
+"""M2 错误码定义（已迁移至统一 6 位错误码体系）.
 
-错误码段：20000 - 29999（M2 模块专属）
+.. deprecated::
+    此模块保留向后兼容，新代码请使用 ``skill_cluster.unified_errors``。
 
-错误码分段：
-- 20000 - 20999: 通用错误
-- 21000 - 21999: 技能相关错误
-- 22000 - 22999: 执行相关错误
-- 23000 - 23999: 权限相关错误
-- 24000 - 24999: MCP 相关错误
-- 25000 - 25999: 代码执行相关错误
-- 26000 - 26999: 推荐相关错误
+错误码已从旧版 5 位体系（2xxxx）迁移至统一 6 位体系（02YYZZ）。
+所有旧错误码常量仍然可用，但底层值已映射为新的 6 位编码。
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
+from .unified_errors import (
+    M2ErrorCode,
+    M2_LEGACY_ERROR_MAP,
+    m2_normalize_error_code,
+    _UNIFIED_ERRORS_AVAILABLE,
+)
 
-class ErrorCode:
-    """错误码常量."""
+
+# ============================================================
+# 兼容层：旧版 ErrorCode 类
+# ============================================================
+# 保持旧的常量名，但其值已映射为新的 6 位错误码
+# 旧版常量名（ErrorCode.SKILL_NOT_FOUND 等）仍然可用
+
+class _LegacyErrorCodeMeta(type):
+    """元类：让旧版 ErrorCode 常量的值自动映射为新编码."""
+
+    def __getattr__(cls, name: str) -> int:
+        # 优先从 M2ErrorCode 获取（如果名称匹配）
+        if hasattr(M2ErrorCode, name):
+            return getattr(M2ErrorCode, name)
+        # 否则尝试在旧错误码表中查找并映射
+        raise AttributeError(f"{cls.__name__} has no attribute {name!r}")
+
+
+class ErrorCode(metaclass=_LegacyErrorCodeMeta):
+    """错误码常量（已迁移至统一 6 位体系）.
+
+    .. deprecated::
+        请使用 ``M2ErrorCode`` 替代。
+
+    所有旧常量名仍然可用，其值已自动映射为新的 6 位错误码。
+    """
 
     # === 通用错误 20000-20999 ===
-    SUCCESS = 20000
-    UNKNOWN_ERROR = 20001
-    INVALID_PARAMS = 20002
-    UNAUTHORIZED = 20003
-    FORBIDDEN = 20004
-    NOT_FOUND = 20005
-    RATE_LIMITED = 20006
-    SERVICE_UNAVAILABLE = 20007
-    TIMEOUT = 20008
-    INTERNAL_ERROR = 20009
-    CONFIG_ERROR = 20010
+    SUCCESS = 0
+    UNKNOWN_ERROR = M2ErrorCode.UNKNOWN_ERROR
+    INVALID_PARAMS = M2ErrorCode.INVALID_PARAMS
+    UNAUTHORIZED = M2ErrorCode.UNAUTHORIZED
+    FORBIDDEN = M2ErrorCode.FORBIDDEN
+    NOT_FOUND = M2ErrorCode.NOT_FOUND
+    RATE_LIMITED = M2ErrorCode.RATE_LIMITED
+    SERVICE_UNAVAILABLE = M2ErrorCode.SERVICE_UNAVAILABLE
+    TIMEOUT = M2ErrorCode.EXECUTION_TIMEOUT  # 旧 TIMEOUT -> 执行超时
+    INTERNAL_ERROR = M2ErrorCode.INTERNAL_ERROR
+    CONFIG_ERROR = M2ErrorCode.CONFIG_ERROR
 
     # === 技能相关错误 21000-21999 ===
-    SKILL_NOT_FOUND = 21001
-    SKILL_DISABLED = 21002
-    SKILL_LOAD_FAILED = 21003
-    SKILL_VERSION_MISMATCH = 21004
-    SKILL_DEPENDENCY_MISSING = 21005
-    SKILL_ALREADY_EXISTS = 21006
-    SKILL_INVALID_MANIFEST = 21007
-    SKILL_ACTION_NOT_FOUND = 21008
-    SKILL_CATEGORY_NOT_FOUND = 21009
+    SKILL_NOT_FOUND = M2ErrorCode.SKILL_NOT_FOUND
+    SKILL_DISABLED = M2ErrorCode.SKILL_DISABLED
+    SKILL_LOAD_FAILED = M2ErrorCode.SKILL_LOAD_FAILED
+    SKILL_VERSION_MISMATCH = M2ErrorCode.SKILL_VERSION_MISMATCH
+    SKILL_DEPENDENCY_MISSING = M2ErrorCode.SKILL_DEPENDENCY_MISSING
+    SKILL_ALREADY_EXISTS = M2ErrorCode.SKILL_ALREADY_EXISTS
+    SKILL_INVALID_MANIFEST = M2ErrorCode.INVALID_SKILL_MANIFEST
+    SKILL_ACTION_NOT_FOUND = M2ErrorCode.SKILL_ACTION_NOT_FOUND
+    SKILL_CATEGORY_NOT_FOUND = M2ErrorCode.SKILL_CATEGORY_NOT_FOUND
 
     # === 执行相关错误 22000-22999 ===
-    EXECUTION_FAILED = 22001
-    EXECUTION_TIMEOUT = 22002
-    EXECUTION_CANCELLED = 22003
-    EXECUTION_RETRY_EXHAUSTED = 22004
-    EXECUTION_PARAMS_INVALID = 22005
-    EXECUTION_RESULT_INVALID = 22006
+    EXECUTION_FAILED = M2ErrorCode.EXECUTION_FAILED
+    EXECUTION_TIMEOUT = M2ErrorCode.EXECUTION_TIMEOUT
+    EXECUTION_CANCELLED = M2ErrorCode.EXECUTION_CANCELLED
+    EXECUTION_RETRY_EXHAUSTED = M2ErrorCode.EXECUTION_RETRY_EXHAUSTED
+    EXECUTION_PARAMS_INVALID = M2ErrorCode.INVALID_EXECUTION_PARAMS
+    EXECUTION_RESULT_INVALID = M2ErrorCode.EXECUTION_RESULT_INVALID
 
     # === 权限相关错误 23000-23999 ===
-    PERMISSION_DENIED = 23001
-    PERMISSION_LEVEL_INSUFFICIENT = 23002
-    PERMISSION_SCOPE_INVALID = 23003
-    PERMISSION_TOKEN_INVALID = 23004
-    PERMISSION_ROLE_NOT_FOUND = 23005
+    PERMISSION_DENIED = M2ErrorCode.PERMISSION_DENIED
+    PERMISSION_LEVEL_INSUFFICIENT = M2ErrorCode.PERMISSION_LEVEL_INSUFFICIENT
+    PERMISSION_SCOPE_INVALID = M2ErrorCode.INVALID_PERMISSION_SCOPE
+    PERMISSION_TOKEN_INVALID = M2ErrorCode.PERMISSION_TOKEN_INVALID
+    PERMISSION_ROLE_NOT_FOUND = M2ErrorCode.PERMISSION_ROLE_NOT_FOUND
 
     # === MCP 相关错误 24000-24999 ===
-    MCP_SERVER_NOT_FOUND = 24001
-    MCP_SERVER_UNAVAILABLE = 24002
-    MCP_TOOL_NOT_FOUND = 24003
-    MCP_CALL_FAILED = 24004
-    MCP_PROTOCOL_ERROR = 24005
-    MCP_CONNECTION_FAILED = 24006
+    MCP_SERVER_NOT_FOUND = M2ErrorCode.MCP_SERVER_NOT_FOUND
+    MCP_SERVER_UNAVAILABLE = M2ErrorCode.MCP_SERVER_UNAVAILABLE
+    MCP_TOOL_NOT_FOUND = M2ErrorCode.MCP_TOOL_NOT_FOUND
+    MCP_CALL_FAILED = M2ErrorCode.MCP_CALL_FAILED
+    MCP_PROTOCOL_ERROR = M2ErrorCode.MCP_PROTOCOL_ERROR
+    MCP_CONNECTION_FAILED = M2ErrorCode.MCP_CONNECTION_FAILED
 
     # === 代码执行相关错误 25000-25999 ===
-    CODE_EXEC_FAILED = 25001
-    CODE_SYNTAX_ERROR = 25002
-    CODE_TIMEOUT = 25003
-    CODE_MEMORY_LIMIT = 25004
-    CODE_SECURITY_BLOCKED = 25005
-    CODE_DEPENDENCY_MISSING = 25006
-    CODE_LANGUAGE_UNSUPPORTED = 25007
-    CODE_REPL_NOT_FOUND = 25008
-    CODE_REPL_LIMIT_EXCEEDED = 25009
-    CODE_INSTALL_FAILED = 25010
+    CODE_EXEC_FAILED = M2ErrorCode.CODE_EXEC_FAILED
+    CODE_SYNTAX_ERROR = M2ErrorCode.INVALID_CODE_SYNTAX
+    CODE_TIMEOUT = M2ErrorCode.CODE_TIMEOUT
+    CODE_MEMORY_LIMIT = M2ErrorCode.CODE_MEMORY_LIMIT
+    CODE_SECURITY_BLOCKED = M2ErrorCode.CODE_SECURITY_BLOCKED
+    CODE_DEPENDENCY_MISSING = M2ErrorCode.CODE_DEPENDENCY_MISSING
+    CODE_LANGUAGE_UNSUPPORTED = M2ErrorCode.INVALID_LANGUAGE
+    CODE_REPL_NOT_FOUND = M2ErrorCode.CODE_REPL_NOT_FOUND
+    CODE_REPL_LIMIT_EXCEEDED = M2ErrorCode.CODE_REPL_LIMIT_EXCEEDED
+    CODE_INSTALL_FAILED = M2ErrorCode.CODE_INSTALL_FAILED
 
     # === 推荐相关错误 26000-26999 ===
-    RECOMMEND_NO_RESULT = 26001
-    RECOMMEND_QUERY_EMPTY = 26002
-    RECOMMEND_SCENE_INVALID = 26003
-    RECOMMEND_CACHE_ERROR = 26004
+    RECOMMEND_NO_RESULT = M2ErrorCode.RECOMMEND_NO_RESULT
+    RECOMMEND_QUERY_EMPTY = M2ErrorCode.RECOMMEND_QUERY_EMPTY
+    RECOMMEND_SCENE_INVALID = M2ErrorCode.INVALID_RECOMMEND_SCENE
+    RECOMMEND_CACHE_ERROR = M2ErrorCode.RECOMMEND_CACHE_ERROR
 
 
-# 错误码对应的默认消息
+# 错误码对应的默认消息（保持与旧版兼容，使用新错误码作为 key）
 ERROR_MESSAGES: dict[int, str] = {
-    ErrorCode.SUCCESS: "成功",
-    ErrorCode.UNKNOWN_ERROR: "未知错误",
-    ErrorCode.INVALID_PARAMS: "参数无效",
-    ErrorCode.UNAUTHORIZED: "未授权",
-    ErrorCode.FORBIDDEN: "禁止访问",
-    ErrorCode.NOT_FOUND: "资源不存在",
-    ErrorCode.RATE_LIMITED: "请求过于频繁",
-    ErrorCode.SERVICE_UNAVAILABLE: "服务不可用",
-    ErrorCode.TIMEOUT: "请求超时",
-    ErrorCode.INTERNAL_ERROR: "内部错误",
-    ErrorCode.CONFIG_ERROR: "配置错误",
+    # 通用错误
+    0: "成功",
+    M2ErrorCode.UNKNOWN_ERROR: "未知错误",
+    M2ErrorCode.INVALID_PARAMS: "参数无效",
+    M2ErrorCode.UNAUTHORIZED: "未授权",
+    M2ErrorCode.FORBIDDEN: "禁止访问",
+    M2ErrorCode.NOT_FOUND: "资源不存在",
+    M2ErrorCode.RATE_LIMITED: "请求过于频繁",
+    M2ErrorCode.SERVICE_UNAVAILABLE: "服务不可用",
+    M2ErrorCode.EXECUTION_TIMEOUT: "请求超时",
+    M2ErrorCode.INTERNAL_ERROR: "内部错误",
+    M2ErrorCode.CONFIG_ERROR: "配置错误",
 
-    ErrorCode.SKILL_NOT_FOUND: "技能不存在",
-    ErrorCode.SKILL_DISABLED: "技能已禁用",
-    ErrorCode.SKILL_LOAD_FAILED: "技能加载失败",
-    ErrorCode.SKILL_VERSION_MISMATCH: "技能版本不匹配",
-    ErrorCode.SKILL_DEPENDENCY_MISSING: "技能依赖缺失",
-    ErrorCode.SKILL_ALREADY_EXISTS: "技能已存在",
-    ErrorCode.SKILL_INVALID_MANIFEST: "技能清单无效",
-    ErrorCode.SKILL_ACTION_NOT_FOUND: "技能动作不存在",
-    ErrorCode.SKILL_CATEGORY_NOT_FOUND: "技能分类不存在",
+    # 技能相关错误
+    M2ErrorCode.SKILL_NOT_FOUND: "技能不存在",
+    M2ErrorCode.SKILL_DISABLED: "技能已禁用",
+    M2ErrorCode.SKILL_LOAD_FAILED: "技能加载失败",
+    M2ErrorCode.SKILL_VERSION_MISMATCH: "技能版本不匹配",
+    M2ErrorCode.SKILL_DEPENDENCY_MISSING: "技能依赖缺失",
+    M2ErrorCode.SKILL_ALREADY_EXISTS: "技能已存在",
+    M2ErrorCode.INVALID_SKILL_MANIFEST: "技能清单无效",
+    M2ErrorCode.SKILL_ACTION_NOT_FOUND: "技能动作不存在",
+    M2ErrorCode.SKILL_CATEGORY_NOT_FOUND: "技能分类不存在",
 
-    ErrorCode.EXECUTION_FAILED: "执行失败",
-    ErrorCode.EXECUTION_TIMEOUT: "执行超时",
-    ErrorCode.EXECUTION_CANCELLED: "执行已取消",
-    ErrorCode.EXECUTION_RETRY_EXHAUSTED: "重试次数耗尽",
-    ErrorCode.EXECUTION_PARAMS_INVALID: "执行参数无效",
-    ErrorCode.EXECUTION_RESULT_INVALID: "执行结果无效",
+    # 执行相关错误
+    M2ErrorCode.EXECUTION_FAILED: "执行失败",
+    M2ErrorCode.EXECUTION_TIMEOUT: "执行超时",
+    M2ErrorCode.EXECUTION_CANCELLED: "执行已取消",
+    M2ErrorCode.EXECUTION_RETRY_EXHAUSTED: "重试次数耗尽",
+    M2ErrorCode.INVALID_EXECUTION_PARAMS: "执行参数无效",
+    M2ErrorCode.EXECUTION_RESULT_INVALID: "执行结果无效",
 
-    ErrorCode.PERMISSION_DENIED: "权限不足",
-    ErrorCode.PERMISSION_LEVEL_INSUFFICIENT: "权限等级不足",
-    ErrorCode.PERMISSION_SCOPE_INVALID: "权限作用域无效",
-    ErrorCode.PERMISSION_TOKEN_INVALID: "权限令牌无效",
-    ErrorCode.PERMISSION_ROLE_NOT_FOUND: "角色不存在",
+    # 权限相关错误
+    M2ErrorCode.PERMISSION_DENIED: "权限不足",
+    M2ErrorCode.PERMISSION_LEVEL_INSUFFICIENT: "权限等级不足",
+    M2ErrorCode.INVALID_PERMISSION_SCOPE: "权限作用域无效",
+    M2ErrorCode.PERMISSION_TOKEN_INVALID: "权限令牌无效",
+    M2ErrorCode.PERMISSION_ROLE_NOT_FOUND: "角色不存在",
 
-    ErrorCode.MCP_SERVER_NOT_FOUND: "MCP服务不存在",
-    ErrorCode.MCP_SERVER_UNAVAILABLE: "MCP服务不可用",
-    ErrorCode.MCP_TOOL_NOT_FOUND: "MCP工具不存在",
-    ErrorCode.MCP_CALL_FAILED: "MCP调用失败",
-    ErrorCode.MCP_PROTOCOL_ERROR: "MCP协议错误",
-    ErrorCode.MCP_CONNECTION_FAILED: "MCP连接失败",
+    # MCP 相关错误
+    M2ErrorCode.MCP_SERVER_NOT_FOUND: "MCP服务不存在",
+    M2ErrorCode.MCP_SERVER_UNAVAILABLE: "MCP服务不可用",
+    M2ErrorCode.MCP_TOOL_NOT_FOUND: "MCP工具不存在",
+    M2ErrorCode.MCP_CALL_FAILED: "MCP调用失败",
+    M2ErrorCode.MCP_PROTOCOL_ERROR: "MCP协议错误",
+    M2ErrorCode.MCP_CONNECTION_FAILED: "MCP连接失败",
 
-    ErrorCode.CODE_EXEC_FAILED: "代码执行失败",
-    ErrorCode.CODE_SYNTAX_ERROR: "代码语法错误",
-    ErrorCode.CODE_TIMEOUT: "代码执行超时",
-    ErrorCode.CODE_MEMORY_LIMIT: "内存不足",
-    ErrorCode.CODE_SECURITY_BLOCKED: "安全拦截",
-    ErrorCode.CODE_DEPENDENCY_MISSING: "依赖缺失",
-    ErrorCode.CODE_LANGUAGE_UNSUPPORTED: "不支持的语言",
-    ErrorCode.CODE_REPL_NOT_FOUND: "REPL会话不存在",
-    ErrorCode.CODE_REPL_LIMIT_EXCEEDED: "REPL会话数超限",
-    ErrorCode.CODE_INSTALL_FAILED: "包安装失败",
+    # 代码执行相关错误
+    M2ErrorCode.CODE_EXEC_FAILED: "代码执行失败",
+    M2ErrorCode.INVALID_CODE_SYNTAX: "代码语法错误",
+    M2ErrorCode.CODE_TIMEOUT: "代码执行超时",
+    M2ErrorCode.CODE_MEMORY_LIMIT: "内存不足",
+    M2ErrorCode.CODE_SECURITY_BLOCKED: "安全拦截",
+    M2ErrorCode.CODE_DEPENDENCY_MISSING: "依赖缺失",
+    M2ErrorCode.INVALID_LANGUAGE: "不支持的语言",
+    M2ErrorCode.CODE_REPL_NOT_FOUND: "REPL会话不存在",
+    M2ErrorCode.CODE_REPL_LIMIT_EXCEEDED: "REPL会话数超限",
+    M2ErrorCode.CODE_INSTALL_FAILED: "包安装失败",
 
-    ErrorCode.RECOMMEND_NO_RESULT: "无推荐结果",
-    ErrorCode.RECOMMEND_QUERY_EMPTY: "查询为空",
-    ErrorCode.RECOMMEND_SCENE_INVALID: "场景无效",
-    ErrorCode.RECOMMEND_CACHE_ERROR: "推荐缓存错误",
+    # 推荐相关错误
+    M2ErrorCode.RECOMMEND_NO_RESULT: "无推荐结果",
+    M2ErrorCode.RECOMMEND_QUERY_EMPTY: "查询为空",
+    M2ErrorCode.INVALID_RECOMMEND_SCENE: "场景无效",
+    M2ErrorCode.RECOMMEND_CACHE_ERROR: "推荐缓存错误",
 }
 
 
 def get_error_message(code: int) -> str:
-    """获取错误码对应的默认消息."""
-    return ERROR_MESSAGES.get(code, "未知错误")
+    """获取错误码对应的默认消息.
+
+    自动规范化旧版 5 位错误码为新版 6 位编码。
+    """
+    normalized = m2_normalize_error_code(code)
+    return ERROR_MESSAGES.get(normalized, "未知错误")
 
 
 def make_error_response(
@@ -159,23 +196,17 @@ def make_error_response(
     data: Any = None,
     trace_id: str = "",
 ) -> dict[str, Any]:
-    """构造标准错误响应.
+    """构造标准错误响应（已迁移至统一错误码体系）.
 
-    Args:
-        code: 错误码
-        message: 错误消息（不传则用默认）
-        data: 附加数据
-        trace_id: 追踪ID
-
-    Returns:
-        标准错误响应字典
+    旧版 5 位错误码会自动映射为新版 6 位编码。
     """
+    normalized_code = m2_normalize_error_code(code)
     return {
-        "code": code,
-        "message": message or get_error_message(code),
+        "code": normalized_code,
+        "message": message or get_error_message(normalized_code),
         "data": data,
         "trace_id": trace_id,
-        "success": code == ErrorCode.SUCCESS,
+        "success": normalized_code == 0,
     }
 
 
@@ -186,9 +217,30 @@ def make_success_response(
 ) -> dict[str, Any]:
     """构造标准成功响应."""
     return {
-        "code": ErrorCode.SUCCESS,
+        "code": 0,
         "message": message,
         "data": data,
         "trace_id": trace_id,
         "success": True,
     }
+
+
+# 发出废弃警告（模块级别）
+warnings.warn(
+    "skill_cluster.error_codes 已废弃，请使用 skill_cluster.unified_errors.M2ErrorCode。"
+    "旧错误码常量仍然可用但已映射为新的 6 位编码。",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+
+__all__ = [
+    "ErrorCode",
+    "ERROR_MESSAGES",
+    "get_error_message",
+    "make_error_response",
+    "make_success_response",
+    "M2ErrorCode",
+    "M2_LEGACY_ERROR_MAP",
+    "_UNIFIED_ERRORS_AVAILABLE",
+]
