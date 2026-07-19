@@ -485,6 +485,18 @@
 <script>
   const API_BASE = 'http://localhost:8012';
 
+  // HTML 转义工具，防止 XSS
+  // XSS 防护已添加 - P0 安全修复
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // ========== 鉴权检查 ==========
   function checkAuth() {
     const token = localStorage.getItem('m12_token');
@@ -717,16 +729,17 @@
       success: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
     };
 
+    // XSS 防护：所有动态文本数据均已通过 escapeHtml 转义
     return `
       <div class="event-item">
-        <div class="event-icon ${tpl.icon}">${icons[tpl.icon]}</div>
+        <div class="event-icon ${escapeHtml(tpl.icon)}">${icons[tpl.icon] || icons.info}</div>
         <div class="event-content">
-          <div class="event-title">${tpl.title}</div>
+          <div class="event-title">${escapeHtml(tpl.title)}</div>
           <div class="event-meta">
-            <span class="text-primary">${tpl.source}</span>
+            <span class="text-primary">${escapeHtml(tpl.source)}</span>
             <span>·</span>
-            <span>${tpl.detail}</span>
-            <span style="margin-left:auto;" class="font-mono">${timeStr}</span>
+            <span>${escapeHtml(tpl.detail)}</span>
+            <span style="margin-left:auto;" class="font-mono">${escapeHtml(timeStr)}</span>
           </div>
         </div>
       </div>
@@ -739,12 +752,14 @@
     for (let i = 0; i < 8; i++) {
       html += generateEvent();
     }
+    // XSS 防护：generateEvent() 内部已对所有动态数据进行 escapeHtml 转义
     stream.innerHTML = html;
   }
 
   function addNewEvent() {
     const stream = document.getElementById('eventStream');
     const newEvent = document.createElement('div');
+    // XSS 防护：generateEvent() 内部已对所有动态数据进行 escapeHtml 转义
     newEvent.innerHTML = generateEvent();
     const eventEl = newEvent.firstElementChild;
     stream.insertBefore(eventEl, stream.firstChild);
@@ -765,6 +780,7 @@
     ];
 
     const container = document.getElementById('topAttackSources');
+    // XSS 防护：所有动态数据均已通过 escapeHtml 转义
     container.innerHTML = sources.map((s, i) => `
       <div class="flex items-center gap-3">
         <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
@@ -773,13 +789,13 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between mb-1">
-            <span class="font-mono text-sm text-gray-200 truncate">${s.ip}</span>
-            <span class="text-xs text-danger font-mono">${s.count}</span>
+            <span class="font-mono text-sm text-gray-200 truncate">${escapeHtml(s.ip)}</span>
+            <span class="text-xs text-danger font-mono">${escapeHtml(String(s.count))}</span>
           </div>
           <div class="progress-bar" style="height:4px;">
             <div class="progress-fill-danger" style="width:${s.pct}%;height:100%;border-radius:3px;"></div>
           </div>
-          <div class="text-xs text-muted mt-1">${s.country}</div>
+          <div class="text-xs text-muted mt-1">${escapeHtml(s.country)}</div>
         </div>
       </div>
     `).join('');

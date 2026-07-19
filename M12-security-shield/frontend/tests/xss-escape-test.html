@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>XSS 防护验证 - escapeHtml 函数测试 | M12 安全盾</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 8px; color: #34d399; }
+  .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+  .test-section {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .test-section h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .test-case {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+  }
+  .test-case:last-child { margin-bottom: 0; }
+  .status {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+  .status.pass { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+  .status.fail { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+  .test-info { flex: 1; min-width: 0; }
+  .test-name { font-size: 14px; color: #e2e8f0; margin-bottom: 4px; }
+  .test-detail {
+    font-size: 12px;
+    color: #94a3b8;
+    font-family: 'Consolas', monospace;
+    word-break: break-all;
+  }
+  .test-detail .input { color: #fbbf24; }
+  .test-detail .output { color: #34d399; }
+  .summary {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .summary h2 { font-size: 18px; margin-bottom: 12px; color: #34d399; }
+  .summary-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .stat-item {
+    text-align: center;
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+  }
+  .stat-item .num {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'Consolas', monospace;
+  }
+  .stat-item.pass .num { color: #10b981; }
+  .stat-item.fail .num { color: #ef4444; }
+  .stat-item.total .num { color: #60a5fa; }
+  .stat-item .label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .demo-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #334155;
+  }
+  .demo-section h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: #f1f5f9;
+  }
+  .demo-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .demo-box {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 60px;
+    word-break: break-all;
+  }
+  .demo-label {
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .demo-box.danger { border-color: rgba(239, 68, 68, 0.5); }
+  .demo-box.safe { border-color: rgba(16, 185, 129, 0.5); }
+  .xss-alert {
+    display: none;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid #ef4444;
+    color: #fca5a5;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  .xss-alert.show { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>XSS 防护验证测试</h1>
+  <p class="subtitle">M12 安全盾前端 escapeHtml 函数正确性验证</p>
+
+  <!-- 测试概览 -->
+  <div class="summary" id="summary">
+    <h2>测试结果概览</h2>
+    <div class="summary-stats">
+      <div class="stat-item total">
+        <div class="num" id="totalCount">0</div>
+        <div class="label">总用例</div>
+      </div>
+      <div class="stat-item pass">
+        <div class="num" id="passCount">0</div>
+        <div class="label">通过</div>
+      </div>
+      <div class="stat-item fail">
+        <div class="num" id="failCount">0</div>
+        <div class="label">失败</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 基础转义测试 -->
+  <div class="test-section">
+    <h2>一、基础字符转义测试</h2>
+    <div id="basicTests"></div>
+  </div>
+
+  <!-- XSS payload 测试 -->
+  <div class="test-section">
+    <h2>二、常见 XSS Payload 测试</h2>
+    <div id="payloadTests"></div>
+  </div>
+
+  <!-- 边界情况测试 -->
+  <div class="test-section">
+    <h2>三、边界与特殊情况测试</h2>
+    <div id="edgeTests"></div>
+  </div>
+
+  <!-- 实时演示 -->
+  <div class="test-section">
+    <h2>四、实时演示</h2>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">
+      输入任意包含 HTML/JS 代码的文本，对比直接渲染与转义后渲染的区别。
+    </p>
+    <input type="text" id="demoInput"
+      value="<script>alert('XSS')</script>"
+      style="width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-family: Consolas, monospace; font-size: 13px; margin-bottom: 16px;"
+      oninput="runDemo()" />
+    <div class="demo-row">
+      <div class="demo-box danger">
+        <div class="demo-label">直接 innerHTML（危险）</div>
+        <div id="demoDanger"></div>
+      </div>
+      <div class="demo-box safe">
+        <div class="demo-label">escapeHtml 转义后（安全）</div>
+        <div id="demoSafe"></div>
+      </div>
+    </div>
+    <div class="xss-alert" id="xssAlert">
+      注意：左侧为危险演示，直接将用户输入插入 innerHTML，可能触发 XSS。
+      右侧使用 escapeHtml 转义后，所有 HTML 标签均被转为纯文本显示，XSS 无法执行。
+    </div>
+  </div>
+
+  <!-- 函数源码 -->
+  <div class="test-section">
+    <h2>五、escapeHtml 函数定义</h2>
+    <pre style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; font-size: 12px; color: #94a3b8; overflow-x: auto;"><code id="functionSource"></code></pre>
+  </div>
+</div>
+
+<script>
+  // ========== escapeHtml 函数（与 M12 各页面保持一致） ==========
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // 显示函数源码
+  document.getElementById('functionSource').textContent = escapeHtml.toString();
+
+  // ========== 测试框架 ==========
+  let totalTests = 0;
+  let passedTests = 0;
+  let failedTests = 0;
+
+  function assert(description, input, expected, actual) {
+    totalTests++;
+    const pass = actual === expected;
+    if (pass) passedTests++;
+    else failedTests++;
+
+    return `
+      <div class="test-case">
+        <div class="status ${pass ? 'pass' : 'fail'}">${pass ? '✓' : '✗'}</div>
+        <div class="test-info">
+          <div class="test-name">${description}</div>
+          <div class="test-detail">
+            输入: <span class="input">${escapeHtml(typeof input === 'string' ? input : String(input))}</span>
+            → 期望: <span class="output">${escapeHtml(expected)}</span>
+            → 实际: <span class="${pass ? 'output' : 'input'}">${escapeHtml(actual)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateSummary() {
+    document.getElementById('totalCount').textContent = totalTests;
+    document.getElementById('passCount').textContent = passedTests;
+    document.getElementById('failCount').textContent = failedTests;
+  }
+
+  // ========== 一、基础字符转义测试 ==========
+  let basicHtml = '';
+  basicHtml += assert('小于号 <', '<', '&lt;', escapeHtml('<'));
+  basicHtml += assert('大于号 >', '>', '&gt;', escapeHtml('>'));
+  basicHtml += assert('和号 &', '&', '&amp;', escapeHtml('&'));
+  basicHtml += assert('双引号 "', '"', '&quot;', escapeHtml('"'));
+  basicHtml += assert("单引号 '", "'", '&#039;', escapeHtml("'"));
+  basicHtml += assert('普通文本无变化', 'hello world', 'hello world', escapeHtml('hello world'));
+  basicHtml += assert('空字符串', '', '', escapeHtml(''));
+  basicHtml += assert('多个特殊字符混合', '<a href="test&more">', '&lt;a href=&quot;test&amp;more&quot;&gt;', escapeHtml('<a href="test&more">'));
+  document.getElementById('basicTests').innerHTML = basicHtml;
+
+  // ========== 二、常见 XSS Payload 测试 ==========
+  let payloadHtml = '';
+  payloadHtml += assert(
+    'script 标签',
+    '<script>alert(1)</script>',
+    '&lt;script&gt;alert(1)&lt;/script&gt;',
+    escapeHtml('<script>alert(1)</script>')
+  );
+  payloadHtml += assert(
+    'img onerror',
+    '<img src=x onerror=alert(1)>',
+    '&lt;img src=x onerror=alert(1)&gt;',
+    escapeHtml('<img src=x onerror=alert(1)>')
+  );
+  payloadHtml += assert(
+    'svg onload',
+    '<svg onload=alert(1)>',
+    '&lt;svg onload=alert(1)&gt;',
+    escapeHtml('<svg onload=alert(1)>')
+  );
+  payloadHtml += assert(
+    'javascript: 协议',
+    '<a href="javascript:alert(1)">click</a>',
+    '&lt;a href=&quot;javascript:alert(1)&quot;&gt;click&lt;/a&gt;',
+    escapeHtml('<a href="javascript:alert(1)">click</a>')
+  );
+  payloadHtml += assert(
+    'onclick 事件',
+    '<div onclick="alert(1)">',
+    '&lt;div onclick=&quot;alert(1)&quot;&gt;',
+    escapeHtml('<div onclick="alert(1)">')
+  );
+  payloadHtml += assert(
+    '单引号闭合注入',
+    "' onclick='alert(1)'",
+    '&#039; onclick=&#039;alert(1)&#039;',
+    escapeHtml("' onclick='alert(1)'")
+  );
+  payloadHtml += assert(
+    'iframe 注入',
+    '<iframe src="evil.com"></iframe>',
+    '&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;',
+    escapeHtml('<iframe src="evil.com"></iframe>')
+  );
+  document.getElementById('payloadTests').innerHTML = payloadHtml;
+
+  // ========== 三、边界与特殊情况测试 ==========
+  let edgeHtml = '';
+  edgeHtml += assert('数字输入', 123, '123', escapeHtml(123));
+  edgeHtml += assert('null 输入', null, 'null', escapeHtml(null));
+  edgeHtml += assert('undefined 输入', undefined, 'undefined', escapeHtml(undefined));
+  edgeHtml += assert('布尔值 true', true, 'true', escapeHtml(true));
+  edgeHtml += assert('布尔值 false', false, 'false', escapeHtml(false));
+  edgeHtml += assert('对象输入', {a:1}, '[object Object]', escapeHtml({a:1}));
+  edgeHtml += assert('数组输入', [1,2,3], '1,2,3', escapeHtml([1,2,3]));
+  edgeHtml += assert('Unicode 字符', '你好 & 世界 <tag>', '你好 &amp; 世界 &lt;tag&gt;', escapeHtml('你好 & 世界 <tag>'));
+  edgeHtml += assert('重复字符多次转义', '<<<<', '&lt;&lt;&lt;&lt;', escapeHtml('<<<<'));
+  edgeHtml += assert('已转义内容不二次转义问题', '&amp;', '&amp;amp;', escapeHtml('&amp;'));
+  document.getElementById('edgeTests').innerHTML = edgeHtml;
+
+  // ========== 四、实时演示 ==========
+  function runDemo() {
+    const input = document.getElementById('demoInput').value;
+    // 危险：直接插入
+    document.getElementById('demoDanger').innerHTML = input;
+    // 安全：转义后插入
+    document.getElementById('demoSafe').textContent = input;
+    document.getElementById('xssAlert').classList.add('show');
+  }
+  runDemo();
+
+  // 更新概览
+  updateSummary();
+</script>
+</body>
+</html>

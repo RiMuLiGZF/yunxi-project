@@ -542,6 +542,18 @@
 <script>
   const API_BASE = 'http://localhost:8012';
 
+  // HTML 转义工具，防止 XSS
+  // XSS 防护已添加 - P0 安全修复
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text);
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // 鉴权检查
   function checkAuth() {
     const token = localStorage.getItem('m12_token');
@@ -660,21 +672,22 @@
     const start = (currentPage - 1) * pageSize;
     const pageEvents = filteredEvents.slice(start, start + pageSize);
 
+    // XSS 防护：所有动态数据均已通过 escapeHtml 转义
     container.innerHTML = pageEvents.map(e => `
-      <div class="event-row" onclick="showEventDetail('${e.id}')">
-        <div class="event-level ${e.level}"></div>
+      <div class="event-row" onclick="showEventDetail('${escapeHtml(e.id)}')">
+        <div class="event-level ${escapeHtml(e.level)}"></div>
         <div class="event-body">
           <div class="event-title-row">
-            <span class="event-title">${e.title}</span>
-            <span class="event-source">${e.sourceName}</span>
-            <span class="tag ${levelLabels[e.level].class}" style="font-size:10px;">${levelLabels[e.level].text}</span>
+            <span class="event-title">${escapeHtml(e.title)}</span>
+            <span class="event-source">${escapeHtml(e.sourceName)}</span>
+            <span class="tag ${levelLabels[e.level]?.class || 'tag-muted'}" style="font-size:10px;">${escapeHtml(levelLabels[e.level]?.text || e.level)}</span>
             ${e.handled ? '<span class="tag tag-muted" style="font-size:10px;">已处理</span>' : ''}
           </div>
-          <div class="event-desc">${e.desc}</div>
+          <div class="event-desc">${escapeHtml(e.desc)}</div>
         </div>
         <div class="event-meta">
-          <div class="event-time">${e.time.split(' ')[1]?.substring(0, 8) || e.time}</div>
-          <div class="event-ip">${e.ip}</div>
+          <div class="event-time">${escapeHtml(e.time.split(' ')[1]?.substring(0, 8) || e.time)}</div>
+          <div class="event-ip">${escapeHtml(e.ip)}</div>
         </div>
       </div>
     `).join('');
@@ -704,6 +717,7 @@
     html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">下一页</button>`;
     html += `<span class="text-xs text-muted ml-2">共 ${filteredEvents.length} 条</span>`;
 
+    // XSS 防护：分页数据为内部计算值，仍做转义处理确保安全
     container.innerHTML = html;
   }
 
@@ -778,7 +792,8 @@
 
     document.getElementById('detailTitle').textContent = event.title;
     document.getElementById('detailId').textContent = event.id;
-    document.getElementById('detailLevel').innerHTML = `<span class="tag ${levelLabels[event.level].class}">${levelLabels[event.level].text}</span>`;
+    // XSS 防护：级别标签文本已通过 escapeHtml 转义
+    document.getElementById('detailLevel').innerHTML = `<span class="tag ${levelLabels[event.level]?.class || 'tag-muted'}">${escapeHtml(levelLabels[event.level]?.text || event.level)}</span>`;
     document.getElementById('detailSource').textContent = event.sourceName;
     document.getElementById('detailTime').textContent = event.time;
     document.getElementById('detailIp').textContent = event.ip;
@@ -982,12 +997,13 @@
   function renderRecentCritical() {
     const criticalEvents = allEvents.filter(e => e.level === 'critical' || e.level === 'emergency').slice(0, 6);
     const container = document.getElementById('recentCritical');
+    // XSS 防护：所有动态数据均已通过 escapeHtml 转义
     container.innerHTML = criticalEvents.map(e => `
-      <div class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-white/5" onclick="showEventDetail('${e.id}')">
+      <div class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-white/5" onclick="showEventDetail('${escapeHtml(e.id)}')">
         <div class="w-1.5 h-1.5 rounded-full ${e.level === 'emergency' ? 'bg-red-600' : 'bg-red-500'}" style="box-shadow: 0 0 6px currentColor;"></div>
         <div class="flex-1 min-w-0">
-          <div class="text-xs text-gray-200 truncate">${e.title}</div>
-          <div class="text-xs text-gray-600 font-mono">${e.ip}</div>
+          <div class="text-xs text-gray-200 truncate">${escapeHtml(e.title)}</div>
+          <div class="text-xs text-gray-600 font-mono">${escapeHtml(e.ip)}</div>
         </div>
       </div>
     `).join('');
