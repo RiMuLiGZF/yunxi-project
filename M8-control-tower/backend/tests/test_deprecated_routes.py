@@ -67,8 +67,10 @@ _ops_aggregator_mod = _load_module(
 )
 
 # 源码文件路径（用于静态检查）
-_SYSTEM_PY = _M8_ROOT / "routers" / "system.py"
-_MONITOR_PY = _M8_ROOT / "routers" / "monitor.py"
+# 注意：system.py 和 monitor.py 已迁移到子目录
+# 顶层文件现在是存根，完整实现位于子目录
+_SYSTEM_PY = _M8_ROOT / "routers" / "core" / "system.py"
+_MONITOR_PY = _M8_ROOT / "routers" / "ops" / "monitor.py"
 _HEALTH_SERVICE_PY = _M8_ROOT / "services" / "health_service.py"
 _MODULE_CLIENT_PY = _PROJECT_ROOT / "shared" / "business" / "module_client.py"
 _DEPRECATED_DOC = _PROJECT_ROOT / "M8-control-tower" / "docs" / "deprecated_routes.md"

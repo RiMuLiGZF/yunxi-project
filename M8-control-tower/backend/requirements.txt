@@ -1,6 +1,30 @@
 # 云汐系统 - M8 管理工作台后端
 # 整合阶段 MVP 版本
+# SEC-013: 关键安全依赖使用 ~= 格式收紧版本范围
 
-fastapi>=0.110.0
-uvicorn[standard]>=0.27.0
-pydantic>
+# ---- Web 框架（关键安全依赖） ----
+fastapi~=0.115.0
+uvicorn[standard]~=0.30.0
+pydantic~=2.9.0
+pydantic-settings~=2.5.0
+
+# ---- HTTP 客户端（关键安全依赖） ----
+httpx~=0.27.0
+
+# ---- 配置 ----
+python-dotenv~=1.0.0
+pyyaml~=6.0.1
+
+# ---- 认证安全（关键安全依赖） ----
+# SEC-013: JWT 和密码库必须严格控制版本
+python-jose[cryptography]~=3.3.0
+passlib[bcrypt]~=1.7.4
+bcrypt~=4.0.0
+
+# ---- 日志 ----
+structlog>=24.0.0
+
+# ---- 数据库 ----
+aiosqlite>=0.20.0
+sqlalchemy~=2.0.35
+alembic>=1.13.0

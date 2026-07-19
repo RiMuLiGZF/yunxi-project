@@ -9,6 +9,7 @@ from .query_service import (
     QueryService,
     AggregationQuery,
     AggregationResult,
+    AggregateFunc,
     JoinQuery,
     JoinType,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "QueryService",
     "AggregationQuery",
     "AggregationResult",
+    "AggregateFunc",
     "JoinQuery",
     "JoinType",
     # 数据视图

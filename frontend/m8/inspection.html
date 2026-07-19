@@ -847,4 +847,453 @@ html:not(.dark) .glass-surface {
             let html = '';
             filtered.forEach(alert => {
                 const levelColors = {
-                    high: { border: 'var(--state-error)', icon: 'alert
+                    high: { border: 'var(--state-error)', icon: 'alert-octagon' },
+                    medium: { border: 'var(--state-warning)', icon: 'alert-triangle' },
+                    low: { border: 'var(--color-primary)', icon: 'info' },
+                };
+                const lc = levelColors[alert.level];
+                html += `
+                    <div class="alert-item p-3 rounded-lg mb-2"
+                         style="border-left: 3px solid ${lc.border}; background: rgba(148, 163, 184, 0.03);">
+                        <div class="flex items-start gap-2">
+                            <i data-lucide="${lc.icon}" class="w-4 h-4 shrink-0 mt-0.5" style="color: ${lc.border};"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 mb-1">
+                                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">${escapeHtml(alert.title)}</p>
+                                    ${getLevelBadge(alert.level)}
+                                </div>
+                                <p class="text-xs mb-2" style="color: var(--color-text-secondary);">${escapeHtml(alert.desc)}</p>
+                                <div class="flex items-center justify-between text-xs" style="color: var(--color-text-tertiary);">
+                                    <span>${alert.module}</span>
+                                    <span>${alert.time}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function filterAlerts(filter) {
+            // 更新按钮状态
+            document.querySelectorAll('.alert-filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.style.background = 'rgba(59, 130, 246, 0.1)';
+                    btn.style.color = 'var(--color-primary)';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--color-text-tertiary)';
+                }
+            });
+            renderAlerts(filter);
+        }
+
+        // ========== 一键巡检 ==========
+        let isInspecting = false;
+
+        function startQuickInspection() {
+            if (isInspecting) return;
+            isInspecting = true;
+
+            const btn = document.getElementById('quick-inspect-btn');
+            const btnText = document.getElementById('inspect-btn-text');
+            const btnIcon = document.getElementById('inspect-icon');
+
+            btn.style.opacity = '0.7';
+            btnText.textContent = '巡检中...';
+            btnIcon.classList.add('animate-spin');
+
+            // 打开巡检弹窗
+            const modal = document.getElementById('inspect-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const steps = [
+                { name: '系统巡检', status: 'pending' },
+                { name: '安全巡检', status: 'pending' },
+                { name: '性能巡检', status: 'pending' },
+                { name: '数据巡检', status: 'pending' },
+                { name: '网络巡检', status: 'pending' },
+            ];
+
+            function updateProgressList() {
+                const list = document.getElementById('inspect-progress-list');
+                let html = '';
+                steps.forEach(s => {
+                    let icon = 'circle';
+                    let color = 'var(--color-text-tertiary)';
+                    if (s.status === 'running') { icon = 'loader'; color = 'var(--color-primary)'; }
+                    else if (s.status === 'done') { icon = 'check-circle-2'; color = 'var(--state-success)'; }
+                    html += `
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-md"
+                             style="background: rgba(148, 163, 184, 0.04);">
+                            <i data-lucide="${icon}" class="w-4 h-4 shrink-0 ${s.status === 'running' ? 'animate-spin' : ''}" style="color: ${color};"></i>
+                            <span class="text-sm" style="color: ${s.status === 'pending' ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)'};">${s.name}</span>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+                lucide.createIcons();
+            }
+
+            updateProgressList();
+
+            let currentStep = 0;
+            const statusTexts = [
+                '正在检测系统资源与服务状态...',
+                '正在扫描安全漏洞与策略配置...',
+                '正在分析性能指标与瓶颈...',
+                '正在校验数据完整性与备份...',
+                '正在检测网络连通与延迟...',
+            ];
+
+            function runNextStep() {
+                if (currentStep >= steps.length) {
+                    // 完成
+                    document.getElementById('inspect-status').textContent = '巡检完成！';
+                    document.getElementById('inspect-progress-bar').style.width = '100%';
+                    document.getElementById('inspect-percent').textContent = '100';
+
+                    setTimeout(() => {
+                        closeInspectModal();
+                        showToast('巡检完成，发现 8 个问题');
+                        // 更新数据
+                        document.getElementById('today-count').textContent =
+                            parseInt(document.getElementById('today-count').textContent) + 1;
+                    }, 800);
+                    return;
+                }
+
+                steps[currentStep].status = 'running';
+                document.getElementById('inspect-status').textContent = statusTexts[currentStep];
+                updateProgressList();
+
+                const progress = ((currentStep + 0.5) / steps.length) * 100;
+                document.getElementById('inspect-progress-bar').style.width = progress + '%';
+                document.getElementById('inspect-percent').textContent = Math.floor(progress);
+
+                setTimeout(() => {
+                    steps[currentStep].status = 'done';
+                    currentStep++;
+                    runNextStep();
+                }, 800 + Math.random() * 600);
+            }
+
+            setTimeout(runNextStep, 500);
+        }
+
+        function closeInspectModal() {
+            const modal = document.getElementById('inspect-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            const btn = document.getElementById('quick-inspect-btn');
+            const btnText = document.getElementById('inspect-btn-text');
+            const btnIcon = document.getElementById('inspect-icon');
+
+            btn.style.opacity = '1';
+            btnText.textContent = '一键巡检';
+            btnIcon.classList.remove('animate-spin');
+            isInspecting = false;
+
+            // 重置进度
+            document.getElementById('inspect-progress-bar').style.width = '0%';
+            document.getElementById('inspect-percent').textContent = '0';
+        }
+
+        function runInspection(type) {
+            const item = inspectionItems.find(i => i.id === type);
+            if (item) {
+                showToast(`开始执行${item.name}...`, 'info');
+            }
+        }
+
+        // ========== 详情弹窗 ==========
+        function viewDetail(id) {
+            const modal = document.getElementById('detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const record = inspectionHistory.find(h => h.id === id);
+            if (!record) return;
+
+            const issuesList = [
+                { name: 'CPU 使用率检查', status: 'pass', value: '45%', desc: '正常范围内' },
+                { name: '内存使用率检查', status: 'pass', value: '62%', desc: '正常范围内' },
+                { name: '磁盘空间检查', status: 'warning', value: '85%', desc: '日志分区空间不足' },
+                { name: '服务进程检查', status: 'pass', value: '全部运行中', desc: '12/12 服务正常' },
+                { name: '端口连通性检查', status: 'pass', value: '全部开放', desc: '24/24 端口正常' },
+                { name: '数据库连接池', status: 'warning', value: '85%', desc: '接近上限，建议扩容' },
+                { name: 'SSL 证书有效期', status: 'error', value: '7天', desc: '即将过期，请及时更新' },
+                { name: '弱密码策略', status: 'warning', value: '未开启', desc: '建议启用强密码策略' },
+            ];
+
+            let html = `
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="p-3 rounded-lg" style="background: rgba(148, 163, 184, 0.06);">
+                        <p class="text-xs mb-1" style="color: var(--color-text-tertiary);">巡检ID</p>
+                        <p class="text-sm font-medium" style="font-family: var(--font-family-mono); color: var(--color-text-primary);">${record.id}</p>
+                    </div>
+                    <div class="p-3 rounded-lg" style="background: rgba(148, 163, 184, 0.06);">
+                        <p class="text-xs mb-1" style="color: var(--color-text-tertiary);">巡检类型</p>
+                        <p class="text-sm font-medium" style="color: var(--color-text-primary);">${record.type}</p>
+                    </div>
+                    <div class="p-3 rounded-lg" style="background: rgba(148, 163, 184, 0.06);">
+                        <p class="text-xs mb-1" style="color: var(--color-text-tertiary);">耗时</p>
+                        <p class="text-sm font-medium" style="color: var(--color-text-primary);">${record.duration}</p>
+                    </div>
+                </div>
+
+                <h4 class="text-sm font-medium mb-3" style="color: var(--color-text-primary);">
+                    检测项详情 <span class="text-xs font-normal" style="color: var(--color-text-tertiary);">（共 ${issuesList.length} 项）</span>
+                </h4>
+                <div class="space-y-2">
+            `;
+
+            issuesList.forEach(item => {
+                const statusMap = {
+                    pass: { icon: 'check-circle-2', color: 'var(--state-success)', text: '通过' },
+                    warning: { icon: 'alert-triangle', color: 'var(--state-warning)', text: '告警' },
+                    error: { icon: 'x-circle', color: 'var(--state-error)', text: '异常' },
+                };
+                const s = statusMap[item.status];
+                html += `
+                    <div class="flex items-center gap-3 p-3 rounded-lg"
+                         style="background: rgba(148, 163, 184, 0.03); border: 1px solid var(--color-border-subtle);">
+                        <i data-lucide="${s.icon}" class="w-5 h-5 shrink-0" style="color: ${s.color};"></i>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-sm font-medium" style="color: var(--color-text-primary);">${item.name}</p>
+                                <span class="text-sm font-medium" style="color: ${s.color};">${item.value}</span>
+                            </div>
+                            <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">${item.desc}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+
+            document.getElementById('detail-content').innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // ========== 刷新 ==========
+        function refreshAll() {
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+            setTimeout(() => {
+                renderInspectionItems();
+                renderHistoryTable();
+                renderAlerts('all');
+                if (icon) icon.style.animation = '';
+                lucide.createIcons();
+                showToast('数据已刷新');
+            }, 600);
+        }
+
+        // ========== 响应式 ==========
+        function handleResize() {
+            // 简单的响应式处理
+            const sidebar = document.querySelector('aside');
+            const mainArea = document.querySelector('.flex-1.flex.flex-col');
+            if (window.innerWidth < 1024) {
+                sidebar.style.transform = 'translateX(-100%)';
+                mainArea.style.marginLeft = '0';
+            } else {
+                sidebar.style.transform = 'translateX(0)';
+                mainArea.style.marginLeft = '240px';
+            }
+        }
+
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderInspectionItems();
+            renderHistoryTable();
+            renderAlerts('all');
+
+            // 健康度环形进度条动画
+            const healthScore = 92;
+            const circumference = 2 * Math.PI * 28; // r=28
+            const offset = circumference - (healthScore / 100) * circumference;
+            setTimeout(() => {
+                document.getElementById('health-ring').style.strokeDashoffset = offset;
+            }, 300);
+
+            window.addEventListener('resize', handleResize);
+        });
+
+        // ESC 关闭弹窗
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetailModal();
+                if (!isInspecting) closeInspectModal();
+            }
+        });
+
+        // 点击遮罩关闭详情弹窗
+        document.getElementById('detail-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'detail-modal') closeDetailModal();
+        });
+    </script>
+
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        .grid { display: grid; }
+        .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+        .col-span-8 { grid-column: span 8 / span 8; }
+        .col-span-4 { grid-column: span 4 / span 4; }
+        .col-span-7 { grid-column: span 7 / span 7; }
+        .col-span-5 { grid-column: span 5 / span 5; }
+        .gap-4 { gap: 1rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-1 { gap: 0.25rem; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1 1 0%; }
+        .shrink-0 { flex-shrink: 0; }
+        .min-w-0 { min-width: 0px; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .items-start { align-items: flex-start; }
+        .fixed { position: fixed; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .top-0 { top: 0; }
+        .right-5 { right: 1.25rem; }
+        .left-0 { left: 0; }
+        .bottom-0 { bottom: 0; }
+        .top-5 { top: 1.25rem; }
+        .z-\[200\] { z-index: 200; }
+        .z-\[500\] { z-index: 500; }
+        .z-\[600\] { z-index: 600; }
+        .w-full { width: 100%; }
+        .w-8 { width: 2rem; }
+        .w-10 { width: 2.5rem; }
+        .w-3 { width: 0.75rem; }
+        .w-4 { width: 1rem; }
+        .w-7 { width: 1.75rem; }
+        .w-px { width: 1px; }
+        .w-5 { width: 1.25rem; }
+        .w-\[18px\] { width: 18px; }
+        .w-\[240px\] { width: 240px; }
+        .w-16 { width: 4rem; }
+        .h-14 { height: 3.5rem; }
+        .h-8 { height: 2rem; }
+        .h-10 { height: 2.5rem; }
+        .h-3 { height: 0.75rem; }
+        .h-4 { height: 1rem; }
+        .h-7 { height: 1.75rem; }
+        .h-5 { height: 1.25rem; }
+        .h-\[18px\] { height: 18px; }
+        .h-\[2px\] { height: 2px; }
+        .h-16 { height: 4rem; }
+        .min-h-screen { min-height: 100vh; }
+        .max-h-80 { max-height: 20rem; }
+        .p-6 { padding: 1.5rem; }
+        .p-5 { padding: 1.25rem; }
+        .p-4 { padding: 1rem; }
+        .p-3 { padding: 0.75rem; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+        .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
+        .pt-2 { padding-top: 0.5rem; }
+        .pt-1 { padding-top: 0.25rem; }
+        .mt-0\.5 { margin-top: 0.125rem; }
+        .pb-3 { padding-bottom: 0.75rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 0.75rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-1\.5 { margin-bottom: 0.375rem; }
+        .mt-1 { margin-top: 0.25rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .mx-4 { margin-left: 1rem; margin-right: 1rem; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .ml-2 { margin-left: 0.5rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .space-y-2 > * + * { margin-top: 0.5rem; }
+        .text-center { text-align: center; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .whitespace-nowrap { white-space: nowrap; }
+        .overflow-y-auto { overflow-y: auto; }
+        .overflow-x-auto { overflow-x: auto; }
+        .overflow-hidden { overflow: hidden; }
+        .hidden { display: none; }
+        .block { display: block; }
+        .inline { display: inline; }
+        .rounded-lg { border-radius: var(--radius-lg); }
+        .rounded-xl { border-radius: var(--radius-xl); }
+        .rounded-full { border-radius: var(--radius-full); }
+        .rounded-md { border-radius: var(--radius-md); }
+        .rounded { border-radius: var(--radius-sm); }
+        .font-medium { font-weight: 500; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .font-normal { font-weight: 400; }
+        .text-xs { font-size: var(--text-xs); }
+        .text-sm { font-size: var(--text-sm); }
+        .text-base { font-size: var(--text-base); }
+        .text-lg { font-size: var(--text-lg); }
+        .text-xl { font-size: var(--text-xl); }
+        .text-2xl { font-size: var(--text-2xl); }
+        .text-3xl { font-size: var(--text-3xl); }
+        .opacity-80 { opacity: 0.8; }
+        .opacity-90 { opacity: 0.9; }
+        .opacity-70 { opacity: 0.7; }
+        .cursor-pointer { cursor: pointer; }
+        .outline-none { outline: none; }
+        .w-6 { width: 1.5rem; }
+        .h-6 { height: 1.5rem; }
+
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .col-span-8 { grid-column: span 12 / span 12; }
+            .col-span-4 { grid-column: span 12 / span 12; }
+        }
+        @media (max-width: 768px) {
+            .grid-cols-4 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+            .grid-cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid-cols-3 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+            .p-6 { padding: 1rem; }
+        }
+    </style>
+</body>
+</html>
