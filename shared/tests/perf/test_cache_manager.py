@@ -519,3 +519,317 @@ class TestCacheDecorators:
         assert call_count == 1
 
         cm.shutdown()
+
+    def test_cache_result_invalidate_pattern(self):
+        """测试 @cache_result 装饰器的 invalidate_pattern 方法"""
+        cm = CacheManager(l1_max_size=100, l1_default_ttl=60)
+        call_count = 0
+
+        @cache_result(ttl=30, key_prefix="test_item", cache_manager=cm)
+        def get_item(item_id):
+            nonlocal call_count
+            call_count += 1
+            return {"id": item_id, "name": f"item_{item_id}"}
+
+        # 写入多个缓存
+        get_item(1)
+        get_item(2)
+        get_item(3)
+        assert call_count == 3
+
+        # 再次调用，应该命中缓存
+        get_item(1)
+        get_item(2)
+        assert call_count == 3
+
+        # 按模式批量失效
+        get_item.invalidate_pattern("test_item:*")
+
+        # 再次调用，应该重新执行
+        get_item(1)
+        get_item(2)
+        assert call_count == 5
+
+        cm.shutdown()
+
+    def test_cache_result_cache_none_false(self):
+        """测试 cache_none=False 时空值不缓存"""
+        cm = CacheManager(l1_max_size=100, l1_default_ttl=60)
+        call_count = 0
+
+        @cache_result(ttl=30, key_prefix="test_none", cache_manager=cm, cache_none=False)
+        def get_none():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        # 第一次调用
+        result1 = get_none()
+        assert result1 is None
+        assert call_count == 1
+
+        # 第二次调用，cache_none=False 应该不缓存空值，重新执行
+        result2 = get_none()
+        assert result2 is None
+        assert call_count == 2
+
+        cm.shutdown()
+
+    def test_cache_result_empty_list_handling(self):
+        """测试空列表/空字典的缓存处理（穿透防护）"""
+        cm = CacheManager(l1_max_size=100, l1_default_ttl=60, enable_penetration_guard=True)
+        call_count = 0
+
+        @cache_result(ttl=30, key_prefix="test_empty", cache_manager=cm)
+        def get_empty_list():
+            nonlocal call_count
+            call_count += 1
+            return []
+
+        # 第一次调用
+        result1 = get_empty_list()
+        assert result1 == []
+        assert call_count == 1
+
+        # 第二次调用，空列表应该被缓存（穿透防护）
+        result2 = get_empty_list()
+        assert result2 == []
+        assert call_count == 1
+
+        cm.shutdown()
+
+    def test_cache_result_kwargs_different_keys(self):
+        """测试不同 kwargs 产生不同缓存 key"""
+        call_count = 0
+
+        @cache_result(ttl=60, key_prefix="test_kwargs")
+        def search(query: str, page: int = 1, page_size: int = 20):
+            nonlocal call_count
+            call_count += 1
+            return f"search:{query}:p{page}:ps{page_size}"
+
+        # 相同参数
+        search("hello", page=1, page_size=20)
+        search("hello", page=1, page_size=20)
+        assert call_count == 1
+
+        # 不同查询词
+        search("world", page=1, page_size=20)
+        assert call_count == 2
+
+        # 不同分页
+        search("hello", page=2, page_size=20)
+        assert call_count == 3
+
+        # 不同 page_size
+        search("hello", page=1, page_size=50)
+        assert call_count == 4
+
+        reset_default_cache_manager()
+
+
+# ============================================================
+# 并发安全测试
+# ============================================================
+
+class TestConcurrency:
+    """并发安全测试"""
+
+    def test_concurrent_set_get(self, cache_manager):
+        """测试并发读写的线程安全"""
+        import threading
+
+        cm = cache_manager
+        num_threads = 10
+        num_ops = 100
+        errors = []
+
+        def writer(thread_id):
+            try:
+                for i in range(num_ops):
+                    key = f"thread_{thread_id}_key_{i}"
+                    cm.set(key, f"value_{thread_id}_{i}")
+            except Exception as e:
+                errors.append(str(e))
+
+        def reader(thread_id):
+            try:
+                for i in range(num_ops):
+                    key = f"thread_{thread_id}_key_{i}"
+                    cm.get(key)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = []
+        for i in range(num_threads):
+            t1 = threading.Thread(target=writer, args=(i,))
+            t2 = threading.Thread(target=reader, args=(i,))
+            threads.extend([t1, t2])
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+
+        assert len(errors) == 0, f"并发错误: {errors}"
+
+    def test_concurrent_get_or_set(self, cache_manager):
+        """测试 get_or_set 的击穿防护（单飞锁）"""
+        import threading
+
+        cm = cache_manager
+        call_count = 0
+        call_lock = threading.Lock()
+        num_threads = 20
+
+        def loader():
+            nonlocal call_count
+            with call_lock:
+                call_count += 1
+            # 模拟慢查询
+            time.sleep(0.1)
+            return "shared_value"
+
+        results = []
+        results_lock = threading.Lock()
+
+        def worker():
+            result = cm.get_or_set("hot_key", loader)
+            with results_lock:
+                results.append(result)
+
+        threads = [threading.Thread(target=worker) for _ in range(num_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5)
+
+        # 所有线程应该得到相同结果
+        assert all(r == "shared_value" for r in results)
+        assert len(results) == num_threads
+        # 击穿防护：loader 应该只被调用一次
+        assert call_count == 1, f"loader 被调用了 {call_count} 次，期望 1 次"
+
+
+# ============================================================
+# 缓存 key 生成测试
+# ============================================================
+
+class TestCacheKeyGeneration:
+    """缓存 key 生成测试"""
+
+    def test_key_contains_all_params(self):
+        """测试缓存 key 包含所有参数"""
+        from shared.perf.cache_manager import _make_cache_key
+
+        def sample_func(a, b, c=3):
+            pass
+
+        key1 = _make_cache_key(sample_func, (1, 2), {"c": 3}, "test")
+        key2 = _make_cache_key(sample_func, (1, 2), {"c": 4}, "test")
+
+        # 不同参数应该产生不同 key
+        assert key1 != key2
+
+    def test_key_deterministic(self):
+        """测试相同参数产生相同 key（确定性）"""
+        from shared.perf.cache_manager import _make_cache_key
+
+        def sample_func(x, y=10):
+            pass
+
+        key1 = _make_cache_key(sample_func, (5,), {"y": 20}, "prefix")
+        key2 = _make_cache_key(sample_func, (5,), {"y": 20}, "prefix")
+
+        assert key1 == key2
+
+    def test_long_key_hash_fallback(self):
+        """测试超长 key 会被哈希截断"""
+        from shared.perf.cache_manager import _make_cache_key
+
+        def sample_func():
+            pass
+
+        # 构造一个超长的 kwargs
+        long_str = "a" * 500
+        key = _make_cache_key(sample_func, (), {"long_param": long_str}, "test_prefix")
+
+        # key 不应该太长
+        assert len(key) < 250
+        assert "hash:" in key
+
+
+# ============================================================
+# 缓存命名规范测试
+# ============================================================
+
+class TestCacheNamingConvention:
+    """缓存命名规范测试"""
+
+    def test_m7_market_keys(self):
+        """测试 M7 市场模块缓存 key 命名规范"""
+        # 模拟生成的 key
+        keys = [
+            "m7:market:stats",
+            "m7:market:categories",
+            "m7:market:templates:list:cat=all:tag=all:p=1:ps=20",
+            "m7:market:templates:detail:mkt_abc123",
+            "m7:market:templates:search:q=test:p=1:ps=20",
+            "m7:market:blocks:list:cat=all:p=1:ps=20",
+            "m7:market:blocks:detail:mkb_xyz789",
+            "m7:market:blocks:search:q=test:p=1:ps=20",
+        ]
+
+        # 验证都以 m7:market: 开头
+        for key in keys:
+            assert key.startswith("m7:market:"), f"Key 不符合命名规范: {key}"
+
+    def test_m11_registry_keys(self):
+        """测试 M11 注册中心模块缓存 key 命名规范"""
+        keys = [
+            "m11:registry:servers:status=all",
+            "m11:registry:servers:id:1",
+            "m11:registry:servers:name:test-server",
+            "m11:registry:tools:sid=all:cat=all:kw=none:p=1:ps=50",
+        ]
+
+        for key in keys:
+            assert key.startswith("m11:registry:"), f"Key 不符合命名规范: {key}"
+
+    def test_m9_dashboard_keys(self):
+        """测试 M9 仪表盘模块缓存 key 命名规范"""
+        keys = [
+            "m9:dashboard:overview",
+            "m9:dashboard:today_activities:limit=20",
+            "m9:dashboard:top_projects:limit=10",
+            "m9:dashboard:activity_trend:days=7",
+            "m9:dashboard:system_status",
+        ]
+
+        for key in keys:
+            assert key.startswith("m9:dashboard:"), f"Key 不符合命名规范: {key}"
+
+    def test_pattern_matching_covers_subkeys(self):
+        """测试模式匹配能正确覆盖子 key"""
+        cm = CacheManager(l1_max_size=100, l1_default_ttl=60)
+
+        # 设置多个模板相关的 key
+        cm.set("m7:market:templates:list:page=1", "list1")
+        cm.set("m7:market:templates:list:page=2", "list2")
+        cm.set("m7:market:templates:detail:tpl1", "detail1")
+        cm.set("m7:market:templates:search:q=test", "search1")
+        cm.set("m7:market:blocks:list:page=1", "blocks_list")  # 不应被删除
+
+        # 按模板模式清理
+        cm.clear(pattern="m7:market:templates:*")
+
+        # 验证模板相关都被清理了
+        assert cm.exists("m7:market:templates:list:page=1") is False
+        assert cm.exists("m7:market:templates:list:page=2") is False
+        assert cm.exists("m7:market:templates:detail:tpl1") is False
+        assert cm.exists("m7:market:templates:search:q=test") is False
+
+        # 验证积木相关不受影响
+        assert cm.exists("m7:market:blocks:list:page=1") is True
+
+        cm.shutdown()

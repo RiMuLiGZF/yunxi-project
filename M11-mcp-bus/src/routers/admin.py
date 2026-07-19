@@ -51,7 +51,7 @@ from ..models import (
 from ..models_db import ApiKey, McpCall, McpTool
 from ..services.audit import audit_logger
 from ..services.monitor import mcp_monitor
-from ..services.registry import mcp_registry
+from ..services.registry import mcp_registry, _registry_cache, _HAS_UNIFIED_CACHE
 from ..config import get_settings
 from ..errors import M11ErrorCode
 from shared.core.errors import NotFoundError, BusinessError, ValidationError
@@ -378,6 +378,58 @@ async def refresh_tools(
         "total_tools": result["total_tools"],
         "errors": result["errors"],
         "message": f"刷新完成：成功 {result['refreshed']} 个，失败 {result['failed']} 个，共 {result['total_tools']} 个工具",
+    }
+
+
+# ============================================================
+# 缓存管理
+# ============================================================
+
+@router.get("/cache/stats", summary="获取缓存统计")
+async def get_cache_stats(
+    api_key: ApiKey = Depends(require_authenticated),
+) -> Dict[str, Any]:
+    """获取注册中心缓存统计信息.
+
+    返回命中率、缓存大小、各级缓存状态等统计数据。
+    需要鉴权。
+    """
+    if not _HAS_UNIFIED_CACHE:
+        return {
+            "status": "disabled",
+            "message": "缓存未启用",
+        }
+    stats = _registry_cache.get_stats()
+    return {
+        "status": "ok",
+        "data": stats,
+    }
+
+
+@router.post("/cache/clear", summary="手动清理缓存")
+async def clear_cache(
+    pattern: Optional[str] = Query(None, description="按模式清理，如 m11:registry:tools:*，不传则清空全部"),
+    api_key: ApiKey = Depends(require_authenticated),
+) -> Dict[str, Any]:
+    """手动清理注册中心缓存.
+
+    - 不传 pattern：清空所有缓存
+    - 传 pattern：按 glob 模式清理，如 m11:registry:tools:*
+
+    需要鉴权。
+    """
+    if not _HAS_UNIFIED_CACHE:
+        return {
+            "status": "disabled",
+            "message": "缓存未启用",
+        }
+
+    count = _registry_cache.clear(pattern=pattern)
+    return {
+        "status": "ok",
+        "cleared_count": count,
+        "pattern": pattern or "all",
+        "message": f"缓存已清理，约 {count} 条记录",
     }
 
 

@@ -1,10 +1,17 @@
 """
 云汐 M9 开发者工坊 - 工作台仪表盘 API
 提供统计数据、今日活动、常用项目等仪表盘数据
+
+性能说明：
+- 高频读接口接入三级缓存（L1内存 + L2文件 + L3 Redis预留）
+- 缓存 key 统一命名：m9:dashboard:*
+- 仪表盘概览等统计数据使用短 TTL（1分钟），保证数据时效性
 """
 
+import sys
+from pathlib import Path
 from fastapi import APIRouter
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
 # 兼容相对导入和直接运行
@@ -14,13 +21,46 @@ try:
     from ..mcp_bridge import get_mcp_registry
     from ..models import SessionLocal, DevActivity, WorkspaceProject, VSCodeSession
 except ImportError:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
     from workspace_manager import get_workspace_manager
     from vscode_manager import get_vscode_manager
     from mcp_bridge import get_mcp_registry
     from models import SessionLocal, DevActivity, WorkspaceProject, VSCodeSession
+
+# ---------------------------------------------------------------------------
+# 接入统一缓存框架 (shared.perf)
+# ---------------------------------------------------------------------------
+try:
+    _project_root = Path(__file__).resolve()
+    for _ in range(10):
+        _project_root = _project_root.parent
+        if (_project_root / "shared" / "perf" / "cache_manager.py").exists():
+            if str(_project_root) not in sys.path:
+                sys.path.insert(0, str(_project_root))
+            break
+except Exception:
+    pass
+
+try:
+    from shared.perf.cache_manager import CacheManager, cache_result
+    _dashboard_cache = CacheManager.from_env(namespace="m9_dashboard")
+    _HAS_UNIFIED_CACHE = True
+except ImportError:
+    _HAS_UNIFIED_CACHE = False
+    _dashboard_cache = None  # type: ignore
+
+
+# ============================================================
+# 缓存 key 命名空间 (统一前缀：m9:dashboard:)
+# ============================================================
+# m9:dashboard:overview         - 仪表盘概览
+# m9:dashboard:today_activities - 今日活动
+# m9:dashboard:top_projects     - 常用项目
+# m9:dashboard:recent_projects  - 近期项目
+# m9:dashboard:activity_trend   - 活动趋势
+# m9:dashboard:system_status    - 系统状态
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["仪表盘"])
 
@@ -34,7 +74,11 @@ def _get_db():
 
 @router.get("/overview", summary="仪表盘概览")
 def get_overview():
-    """获取仪表盘综合概览数据"""
+    """获取仪表盘综合概览数据（缓存 1 分钟）."""
+    cache_key = "m9:dashboard:overview"
+    if _HAS_UNIFIED_CACHE and _dashboard_cache.exists(cache_key):
+        return _dashboard_cache.get(cache_key)
+
     db = _get_db()
     today = datetime.now().date()
     today_start = datetime.combine(today, datetime.min.time())
@@ -70,7 +114,7 @@ def get_overview():
 
     db.close()
 
-    return {
+    result = {
         "success": True,
         "data": {
             "total_projects": total_projects,
@@ -85,12 +129,21 @@ def get_overview():
         }
     }
 
+    if _HAS_UNIFIED_CACHE:
+        _dashboard_cache.set(cache_key, result, ttl=60)  # 1 分钟
+
+    return result
+
 
 # ===== 今日活动 =====
 
 @router.get("/today-activities", summary="今日活动")
 def get_today_activities(limit: int = 20):
-    """获取今日的开发活动记录"""
+    """获取今日的开发活动记录（缓存 30 秒）."""
+    cache_key = f"m9:dashboard:today_activities:limit={limit}"
+    if _HAS_UNIFIED_CACHE and _dashboard_cache.exists(cache_key):
+        return _dashboard_cache.get(cache_key)
+
     db = _get_db()
     today = datetime.now().date()
     today_start = datetime.combine(today, datetime.min.time())
@@ -103,21 +156,30 @@ def get_today_activities(limit: int = 20):
         .all()
     )
 
-    result = [a.to_dict() for a in activities]
+    result_data = [a.to_dict() for a in activities]
     db.close()
 
-    return {
+    result = {
         "success": True,
-        "count": len(result),
-        "activities": result,
+        "count": len(result_data),
+        "activities": result_data,
     }
+
+    if _HAS_UNIFIED_CACHE:
+        _dashboard_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+    return result
 
 
 # ===== 常用项目 =====
 
 @router.get("/top-projects", summary="常用项目")
 def get_top_projects(limit: int = 10):
-    """获取最常用的项目（按打开次数排序）"""
+    """获取最常用的项目（按打开次数排序）（缓存 2 分钟）."""
+    cache_key = f"m9:dashboard:top_projects:limit={limit}"
+    if _HAS_UNIFIED_CACHE and _dashboard_cache.exists(cache_key):
+        return _dashboard_cache.get(cache_key)
+
     db = _get_db()
 
     projects = (
@@ -127,9 +189,9 @@ def get_top_projects(limit: int = 10):
         .all()
     )
 
-    result = []
+    result_data = []
     for p in projects:
-        result.append({
+        result_data.append({
             "id": p.id,
             "name": p.name,
             "path": p.path,
@@ -141,11 +203,16 @@ def get_top_projects(limit: int = 10):
 
     db.close()
 
-    return {
+    result = {
         "success": True,
-        "count": len(result),
-        "projects": result,
+        "count": len(result_data),
+        "projects": result_data,
     }
+
+    if _HAS_UNIFIED_CACHE:
+        _dashboard_cache.set(cache_key, result, ttl=120)  # 2 分钟
+
+    return result
 
 
 # ===== 近期项目 =====
@@ -166,7 +233,11 @@ def get_recent_projects(limit: int = 8):
 
 @router.get("/activity-trend", summary="活动趋势")
 def get_activity_trend(days: int = 7):
-    """获取近 N 天的开发活动趋势数据"""
+    """获取近 N 天的开发活动趋势数据（缓存 5 分钟）."""
+    cache_key = f"m9:dashboard:activity_trend:days={days}"
+    if _HAS_UNIFIED_CACHE and _dashboard_cache.exists(cache_key):
+        return _dashboard_cache.get(cache_key)
+
     db = _get_db()
 
     trend_data = []
@@ -200,18 +271,27 @@ def get_activity_trend(days: int = 7):
 
     db.close()
 
-    return {
+    result = {
         "success": True,
         "days": days,
         "trend": trend_data,
     }
+
+    if _HAS_UNIFIED_CACHE:
+        _dashboard_cache.set(cache_key, result, ttl=300)  # 5 分钟
+
+    return result
 
 
 # ===== 系统状态 =====
 
 @router.get("/system-status", summary="系统状态")
 def get_system_status():
-    """获取各子系统的运行状态"""
+    """获取各子系统的运行状态（缓存 30 秒）."""
+    cache_key = "m9:dashboard:system_status"
+    if _HAS_UNIFIED_CACHE and _dashboard_cache.exists(cache_key):
+        return _dashboard_cache.get(cache_key)
+
     vscode_mgr = get_vscode_manager()
     mcp_registry = get_mcp_registry()
 
@@ -245,11 +325,16 @@ def get_system_status():
         },
     ]
 
-    return {
+    result = {
         "success": True,
         "services": services,
         "overall_status": "healthy" if all(s["status"] == "healthy" for s in services) else "warning",
     }
+
+    if _HAS_UNIFIED_CACHE:
+        _dashboard_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+    return result
 
 
 # ===== 快捷操作 =====

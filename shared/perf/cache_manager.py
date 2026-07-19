@@ -822,10 +822,9 @@ class CacheManager:
 
     def set(self, key: str, value: Any, ttl: Optional[float] = None) -> None:
         """写入缓存 (同时写入所有层)"""
-        # 穿透防护
-        is_null = value is None or value is NULL_VALUE or (
-            isinstance(value, (list, dict)) and len(value) == 0
-        )
+        # 穿透防护：仅对 None 使用 NULL_VALUE
+        # 空列表/空字典是合法业务结果，正常缓存
+        is_null = value is None or value is NULL_VALUE
         if is_null and self.enable_penetration_guard:
             store_value = NULL_VALUE
             with self._stats_lock:
@@ -961,7 +960,7 @@ class CacheManager:
         """加载数据并缓存"""
         result = loader()
 
-        if result is None or (isinstance(result, (list, dict)) and len(result) == 0):
+        if result is None:
             if cache_null and self.enable_penetration_guard:
                 self.set(key, NULL_VALUE, ttl)
         else:
@@ -1056,8 +1055,11 @@ def cache_result(
     ttl: float = 60.0,
     key_prefix: Optional[str] = None,
     cache_manager: Optional[CacheManager] = None,
+    cache_none: bool = True,
 ):
     """函数结果缓存装饰器
+
+    使用 get_or_set 模式（带击穿防护的单飞锁），避免 exists + get 两次查询。
 
     用法::
 
@@ -1067,6 +1069,9 @@ def cache_result(
 
         # 手动失效
         get_user_info.invalidate(user_id=123)
+
+        # 按模式批量失效
+        get_user_info.invalidate_pattern("user_info:*")
     """
     def decorator(func: Callable) -> Callable:
         prefix = key_prefix or f"{func.__module__}.{func.__qualname__}"
@@ -1075,21 +1080,27 @@ def cache_result(
         def wrapper(*args, **kwargs):
             cm = cache_manager or _get_default_cm()
             cache_key = _make_cache_key(func, args, kwargs, prefix)
-
-            if cm.exists(cache_key):
-                return cm.get(cache_key)
-
-            result = func(*args, **kwargs)
-            cm.set(cache_key, result, ttl=ttl)
-            return result
+            return cm.get_or_set(
+                cache_key,
+                lambda: func(*args, **kwargs),
+                ttl=ttl,
+                cache_null=cache_none,
+            )
 
         def invalidate(*args, **kwargs):
             cm = cache_manager or _get_default_cm()
             cache_key = _make_cache_key(func, args, kwargs, prefix)
             cm.delete(cache_key)
 
+        def invalidate_pattern(pattern: str):
+            """按模式批量失效缓存"""
+            cm = cache_manager or _get_default_cm()
+            cm.clear(pattern=pattern)
+
         wrapper.invalidate = invalidate  # type: ignore
+        wrapper.invalidate_pattern = invalidate_pattern  # type: ignore
         wrapper.cache_key_func = lambda *a, **kw: _make_cache_key(func, a, kw, prefix)  # type: ignore
+        wrapper._cache_prefix = prefix  # type: ignore
 
         return wrapper
     return decorator
@@ -1113,6 +1124,169 @@ def cache_invalidate(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             result = func(*args, **kwargs)
+            cm = cache_manager or _get_default_cm()
+            cm.clear(pattern=pattern)
+            return result
+        return wrapper
+    return decorator
+
+
+# ============================================================
+# 异步缓存装饰器 (用于 async 函数)
+# ============================================================
+
+def async_cache_result(
+    ttl: float = 60.0,
+    key_prefix: Optional[str] = None,
+    cache_manager: Optional[CacheManager] = None,
+    cache_none: bool = True,
+):
+    """异步函数结果缓存装饰器
+
+    使用 get_or_set 模式（带击穿防护的单飞锁），避免 exists + get 两次查询。
+
+    用法::
+
+        @async_cache_result(ttl=300, key_prefix="user_info")
+        async def get_user_info(user_id: int) -> dict:
+            return await db.query(user_id)
+
+        # 手动失效
+        await get_user_info.invalidate(user_id=123)
+
+        # 按模式批量失效
+        await get_user_info.invalidate_pattern("user_info:*")
+    """
+    def decorator(func: Callable) -> Callable:
+        prefix = key_prefix or f"{func.__module__}.{func.__qualname__}"
+
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            cm = cache_manager or _get_default_cm()
+            cache_key = _make_cache_key(func, args, kwargs, prefix)
+
+            # 先尝试读取缓存
+            value = cm.get(cache_key)
+            if value is not None:
+                return value
+
+            # 检查空值缓存（穿透防护）
+            if cm.l1 is not None and cm.l1.has(cache_key):
+                return None
+
+            # 击穿防护：单飞锁
+            return await _async_get_or_set(cm, cache_key, lambda: func(*args, **kwargs), ttl, cache_none)
+
+        async def invalidate(*args, **kwargs):
+            cm = cache_manager or _get_default_cm()
+            cache_key = _make_cache_key(func, args, kwargs, prefix)
+            cm.delete(cache_key)
+
+        async def invalidate_pattern(pattern: str):
+            """按模式批量失效缓存"""
+            cm = cache_manager or _get_default_cm()
+            cm.clear(pattern=pattern)
+
+        def invalidate_sync(*args, **kwargs):
+            """同步版本的失效（用于从同步代码中调用）"""
+            cm = cache_manager or _get_default_cm()
+            cache_key = _make_cache_key(func, args, kwargs, prefix)
+            cm.delete(cache_key)
+
+        def invalidate_pattern_sync(pattern: str):
+            """同步版本的模式失效"""
+            cm = cache_manager or _get_default_cm()
+            cm.clear(pattern=pattern)
+
+        wrapper.invalidate = invalidate  # type: ignore
+        wrapper.invalidate_pattern = invalidate_pattern  # type: ignore
+        wrapper.invalidate_sync = invalidate_sync  # type: ignore
+        wrapper.invalidate_pattern_sync = invalidate_pattern_sync  # type: ignore
+        wrapper.cache_key_func = lambda *a, **kw: _make_cache_key(func, a, kw, prefix)  # type: ignore
+        wrapper._cache_prefix = prefix  # type: ignore
+
+        return wrapper
+    return decorator
+
+
+async def _async_get_or_set(
+    cm: CacheManager,
+    key: str,
+    loader: Callable[[], Any],
+    ttl: Optional[float],
+    cache_none: bool,
+) -> Any:
+    """异步版本的 get_or_set（带单飞锁击穿防护）"""
+    import asyncio
+
+    event = None
+    is_first = False
+
+    with cm._flight_lock:
+        if key in cm._flight_locks:
+            event = cm._flight_locks[key]
+        else:
+            event = threading.Event()
+            cm._flight_locks[key] = event
+            is_first = True
+
+    if not is_first:
+        # 等待其他请求完成（在线程中等待，避免阻塞事件循环）
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: event.wait(timeout=10.0))
+        # 再查一次缓存
+        value = cm.get(key)
+        if value is not None or (cm.l1 and cm.l1.has(key)):
+            return value
+        # 等待失败，自己加载
+        result = await loader() if asyncio.iscoroutinefunction(loader) else loader()
+        _set_cached_value(cm, key, result, ttl, cache_none)
+        return result
+
+    # 第一个请求，执行加载
+    try:
+        result = await loader() if asyncio.iscoroutinefunction(loader) else loader()
+        _set_cached_value(cm, key, result, ttl, cache_none)
+        return result
+    finally:
+        event.set()
+        with cm._flight_lock:
+            cm._flight_locks.pop(key, None)
+
+
+def _set_cached_value(
+    cm: CacheManager,
+    key: str,
+    value: Any,
+    ttl: Optional[float],
+    cache_none: bool,
+) -> None:
+    """设置缓存值（处理空值穿透防护）"""
+    if value is None:
+        if cache_none and cm.enable_penetration_guard:
+            cm.set(key, NULL_VALUE, ttl)
+    else:
+        cm.set(key, value, ttl)
+
+
+def async_cache_invalidate(
+    pattern: str,
+    cache_manager: Optional[CacheManager] = None,
+):
+    """异步缓存失效装饰器
+
+    异步函数执行后清除匹配模式的所有缓存。
+
+    用法::
+
+        @async_cache_invalidate("user_info:*")
+        async def update_user(user_id: int, data: dict):
+            await db.update(user_id, data)
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            result = await func(*args, **kwargs)
             cm = cache_manager or _get_default_cm()
             cm.clear(pattern=pattern)
             return result

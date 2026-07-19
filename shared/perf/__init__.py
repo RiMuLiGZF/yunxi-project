@@ -104,6 +104,19 @@ def cache_result(ttl: float = 60.0, key_prefix: Optional[str] = None):
     return _cache_result(ttl=ttl, key_prefix=key_prefix)
 
 
+def async_cache_result(ttl: float = 60.0, key_prefix: Optional[str] = None):
+    """异步函数结果缓存装饰器 (便捷入口)
+
+    用法::
+
+        @async_cache_result(ttl=300, key_prefix="user_info")
+        async def get_user(user_id: int) -> dict:
+            ...
+    """
+    from shared.perf.cache_manager import async_cache_result as _async_cache_result
+    return _async_cache_result(ttl=ttl, key_prefix=key_prefix)
+
+
 def cache_invalidate(pattern: str):
     """缓存失效装饰器 (便捷入口)
 
@@ -115,6 +128,19 @@ def cache_invalidate(pattern: str):
     """
     from shared.perf.cache_manager import cache_invalidate as _cache_invalidate
     return _cache_invalidate(pattern=pattern)
+
+
+def async_cache_invalidate(pattern: str):
+    """异步缓存失效装饰器 (便捷入口)
+
+    用法::
+
+        @async_cache_invalidate("user_info:*")
+        async def update_user(user_id: int, data: dict):
+            ...
+    """
+    from shared.perf.cache_manager import async_cache_invalidate as _async_cache_invalidate
+    return _async_cache_invalidate(pattern=pattern)
 
 
 def profile_time(name: Optional[str] = None, slow_threshold_ms: float = 1000.0):
@@ -155,7 +181,9 @@ __all__ = [
     "get_metrics_collector",
     "get_async_task_queue",
     "cache_result",
+    "async_cache_result",
     "cache_invalidate",
+    "async_cache_invalidate",
     "profile_time",
     "background_task",
 ]

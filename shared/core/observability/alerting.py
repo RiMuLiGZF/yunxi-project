@@ -784,14 +784,14 @@ def _build_builtin_rules() -> List[AlertRule]:
         )
     )
 
-    # CPU 使用率 > 95% (CRITICAL)
+    # CPU 使用率 > 90% (CRITICAL)
     rules.append(
         AlertRule(
             rule_id="system_cpu_high_critical",
             name="CPU使用率严重过高",
-            description="CPU 使用率超过 95%，系统可能出现严重性能问题",
+            description="CPU 使用率超过 90%，系统可能出现严重性能问题",
             severity=AlertSeverity.CRITICAL,
-            condition="cpu_usage > 95",
+            condition="cpu_usage > 90",
             check_interval=30,
             silence_period=120,
             labels={"category": "system", "resource": "cpu"},
@@ -902,6 +902,41 @@ def _build_builtin_rules() -> List[AlertRule]:
                 "impact": "所有需要写入磁盘的操作都会失败",
             },
             is_builtin=True,
+        )
+    )
+
+    # 磁盘剩余空间 < 10% (CRITICAL)
+    def _check_disk_free_percent(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        disk_usage = context.get("disk_usage", 0.0)
+        try:
+            usage = float(disk_usage)
+        except (ValueError, TypeError):
+            return False, None, {}
+        free_percent = 100.0 - usage
+        threshold = 10.0
+        triggered = free_percent < threshold
+        return triggered, round(free_percent, 2), {
+            "threshold": threshold,
+            "unit": "%",
+            "disk_usage": round(usage, 2),
+        }
+
+    rules.append(
+        AlertRule(
+            rule_id="system_disk_free_percent_critical",
+            name="磁盘剩余空间不足10%",
+            description="磁盘剩余空间不足 10%，请及时清理磁盘空间",
+            severity=AlertSeverity.CRITICAL,
+            condition=_check_disk_free_percent,
+            check_interval=300,
+            silence_period=1800,
+            labels={"category": "system", "resource": "disk"},
+            annotations={
+                "runbook": "清理日志文件、临时文件，考虑扩容磁盘",
+                "impact": "磁盘空间不足可能导致服务异常",
+            },
+            is_builtin=True,
+            enabled=True,
         )
     )
 
@@ -1128,6 +1163,245 @@ def _build_builtin_rules() -> List[AlertRule]:
             },
             is_builtin=True,
             enabled=False,
+        )
+    )
+
+    # ---- 接口性能类（基于上下文数据，需配合指标提供者使用）----
+
+    # 错误率 > 5% (WARNING)
+    def _check_error_rate_warning(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        error_rate = context.get("error_rate", 0.0)
+        threshold = 5.0
+        try:
+            rate = float(error_rate)
+        except (ValueError, TypeError):
+            return False, None, {}
+        triggered = rate > threshold
+        return triggered, round(rate, 2), {"threshold": threshold, "unit": "%"}
+
+    rules.append(
+        AlertRule(
+            rule_id="api_error_rate_warning",
+            name="API错误率偏高",
+            description="API 错误率超过 5%，建议排查错误原因",
+            severity=AlertSeverity.WARNING,
+            condition=_check_error_rate_warning,
+            check_interval=60,
+            silence_period=300,
+            labels={"category": "performance", "type": "api"},
+            annotations={
+                "runbook": "查看错误日志，排查高错误率接口",
+                "impact": "用户体验下降",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # 错误率 > 10% (CRITICAL)
+    def _check_error_rate_critical(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        error_rate = context.get("error_rate", 0.0)
+        threshold = 10.0
+        try:
+            rate = float(error_rate)
+        except (ValueError, TypeError):
+            return False, None, {}
+        triggered = rate > threshold
+        return triggered, round(rate, 2), {"threshold": threshold, "unit": "%"}
+
+    rules.append(
+        AlertRule(
+            rule_id="api_error_rate_critical",
+            name="API错误率严重过高",
+            description="API 错误率超过 10%，服务可能存在严重问题",
+            severity=AlertSeverity.CRITICAL,
+            condition=_check_error_rate_critical,
+            check_interval=30,
+            silence_period=120,
+            labels={"category": "performance", "type": "api"},
+            annotations={
+                "runbook": "立即排查错误原因，考虑回滚或限流",
+                "impact": "大量用户请求失败",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # 慢请求占比 > 10% (WARNING)
+    def _check_slow_request_ratio(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        ratio = context.get("slow_request_ratio", 0.0)
+        threshold = 10.0
+        try:
+            r = float(ratio)
+        except (ValueError, TypeError):
+            return False, None, {}
+        triggered = r > threshold
+        return triggered, round(r, 2), {"threshold": threshold, "unit": "%", "slow_threshold_seconds": 3}
+
+    rules.append(
+        AlertRule(
+            rule_id="api_slow_request_ratio_warning",
+            name="慢请求占比偏高",
+            description="慢请求（>3s）占比超过 10%，接口性能需要优化",
+            severity=AlertSeverity.WARNING,
+            condition=_check_slow_request_ratio,
+            check_interval=120,
+            silence_period=600,
+            labels={"category": "performance", "type": "latency"},
+            annotations={
+                "runbook": "排查慢接口，优化性能或扩容",
+                "impact": "用户体验下降，响应缓慢",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # QPS 突降（环比下降 > 50%）(WARNING)
+    def _check_qps_drop(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        qps_current = context.get("qps", 0.0)
+        qps_prev = context.get("qps_previous", 0.0)
+        try:
+            current = float(qps_current)
+            previous = float(qps_prev)
+        except (ValueError, TypeError):
+            return False, None, {}
+        # 只有上一周期有流量时才检测
+        if previous < 1.0:
+            return False, current, {"reason": "previous_qps_too_low"}
+        drop_ratio = (previous - current) / previous * 100
+        threshold = 50.0
+        triggered = drop_ratio > threshold
+        return triggered, round(drop_ratio, 2), {
+            "threshold": threshold,
+            "unit": "%",
+            "current_qps": current,
+            "previous_qps": previous,
+        }
+
+    rules.append(
+        AlertRule(
+            rule_id="api_qps_drop_warning",
+            name="QPS突降告警",
+            description="QPS 环比下降超过 50%，可能存在流量异常或服务故障",
+            severity=AlertSeverity.WARNING,
+            condition=_check_qps_drop,
+            check_interval=60,
+            silence_period=300,
+            labels={"category": "performance", "type": "qps"},
+            annotations={
+                "runbook": "检查流量来源、服务健康状态、上游依赖",
+                "impact": "流量骤降可能意味着服务不可用或业务异常",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # ---- 业务健康类（基于上下文数据，需配合指标提供者使用）----
+
+    # 模块离线 - 任何模块健康检查失败（CRITICAL）
+    def _check_module_offline(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        offline_count = context.get("module_offline_count", 0)
+        module_total = context.get("module_total", 0)
+        try:
+            offline = int(offline_count)
+            total = int(module_total)
+        except (ValueError, TypeError):
+            return False, None, {}
+        triggered = offline > 0
+        return triggered, float(offline), {
+            "offline_modules": offline,
+            "total_modules": total,
+        }
+
+    rules.append(
+        AlertRule(
+            rule_id="service_module_offline_critical",
+            name="模块离线告警",
+            description="检测到模块健康检查失败，服务可能不可用",
+            severity=AlertSeverity.CRITICAL,
+            condition=_check_module_offline,
+            check_interval=60,
+            silence_period=300,
+            labels={"category": "service", "type": "health"},
+            annotations={
+                "runbook": "立即检查离线模块状态，尝试重启服务",
+                "impact": "部分或全部功能不可用",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # 数据库连接失败（CRITICAL）
+    def _check_db_connection(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        db_ok = context.get("db_connection_ok", True)
+        failed_count = context.get("db_connection_failed_count", 0)
+        try:
+            failed = int(failed_count)
+        except (ValueError, TypeError):
+            failed = 0
+        triggered = not db_ok if isinstance(db_ok, bool) else False
+        # 也支持数字判断
+        if not triggered and failed > 0:
+            triggered = True
+        return triggered, float(failed), {
+            "db_connection_ok": db_ok,
+            "failed_count": failed,
+        }
+
+    rules.append(
+        AlertRule(
+            rule_id="service_db_connection_critical",
+            name="数据库连接失败",
+            description="数据库连接失败，核心业务可能受影响",
+            severity=AlertSeverity.CRITICAL,
+            condition=_check_db_connection,
+            check_interval=30,
+            silence_period=120,
+            labels={"category": "service", "type": "database"},
+            annotations={
+                "runbook": "检查数据库服务状态、连接池配置、网络连接",
+                "impact": "数据库依赖的所有功能不可用",
+            },
+            is_builtin=True,
+            enabled=True,
+        )
+    )
+
+    # ---- 系统资源类补充 ----
+
+    # 进程数量异常 > 阈值（WARNING）
+    def _check_process_count(context: Dict[str, Any]) -> Tuple[bool, Optional[float], Dict[str, Any]]:
+        process_count = context.get("process_count", 0)
+        # 默认阈值 500，可通过 context 中的 process_count_threshold 覆盖
+        threshold = context.get("process_count_threshold", 500)
+        try:
+            count = int(process_count)
+            th = int(threshold)
+        except (ValueError, TypeError):
+            return False, None, {}
+        triggered = count > th
+        return triggered, float(count), {"threshold": th, "unit": "个"}
+
+    rules.append(
+        AlertRule(
+            rule_id="system_process_count_warning",
+            name="进程数量异常",
+            description="系统进程数量超过阈值，可能存在进程泄漏",
+            severity=AlertSeverity.WARNING,
+            condition=_check_process_count,
+            check_interval=120,
+            silence_period=600,
+            labels={"category": "system", "resource": "process"},
+            annotations={
+                "runbook": "检查异常进程，排查进程泄漏原因",
+                "impact": "系统资源耗尽，服务不稳定",
+            },
+            is_builtin=True,
+            enabled=True,
         )
     )
 
@@ -2196,63 +2470,7 @@ def create_alert_router(
             "data": stats,
         }
 
-    @router.get("/alerts/{alert_id}", summary="获取告警详情")
-    async def get_alert_detail(alert_id: str):
-        alert = engine.get_alert(alert_id)
-        if not alert:
-            raise HTTPException(status_code=404, detail="告警不存在")
-        return {
-            "code": 0,
-            "message": "ok",
-            "data": alert.to_dict(),
-        }
-
-    # ---- 告警操作 ----
-
-    @router.post("/alerts/{alert_id}/acknowledge", summary="确认告警")
-    async def acknowledge_alert(alert_id: str, body: AcknowledgeRequest):
-        success = engine.acknowledge_alert(alert_id, acknowledged_by=body.acknowledged_by)
-        if not success:
-            raise HTTPException(status_code=404, detail="告警不存在")
-        alert = engine.get_alert(alert_id)
-        return {
-            "code": 0,
-            "message": "告警已确认",
-            "data": alert.to_dict() if alert else None,
-        }
-
-    @router.post("/alerts/{alert_id}/silence", summary="静默告警")
-    async def silence_alert(alert_id: str, body: SilenceRequest):
-        success = engine.silence_alert(
-            alert_id,
-            duration_seconds=body.duration_seconds,
-            silenced_by=body.silenced_by,
-            reason=body.reason,
-        )
-        if not success:
-            raise HTTPException(status_code=404, detail="告警不存在")
-        alert = engine.get_alert(alert_id)
-        return {
-            "code": 0,
-            "message": "告警已静默",
-            "data": alert.to_dict() if alert else None,
-        }
-
-    @router.post("/alerts/{alert_id}/resolve", summary="解决告警")
-    async def resolve_alert(alert_id: str, body: ResolveRequest):
-        success = engine.resolve_alert(
-            alert_id,
-            resolved_by=body.resolved_by,
-            reason=body.reason,
-        )
-        if not success:
-            raise HTTPException(status_code=404, detail="告警不存在")
-        return {
-            "code": 0,
-            "message": "告警已解决",
-        }
-
-    # ---- 规则管理 ----
+    # ---- 规则管理（必须在 /alerts/{alert_id} 之前定义，避免路由冲突）----
 
     @router.get("/alerts/rules", summary="获取告警规则列表")
     async def get_alert_rules(
@@ -2345,6 +2563,28 @@ def create_alert_router(
             "message": "规则删除成功",
         }
 
+    @router.post("/alerts/rules/{rule_id}/toggle", summary="开关告警规则")
+    async def toggle_alert_rule(rule_id: str):
+        """切换告警规则的启用/禁用状态"""
+        rule = engine.get_rule(rule_id)
+        if not rule:
+            raise HTTPException(status_code=404, detail="规则不存在")
+
+        new_state = not rule.enabled
+        if new_state:
+            engine.enable_rule(rule_id)
+        else:
+            engine.disable_rule(rule_id)
+
+        return {
+            "code": 0,
+            "message": "规则已" + ("启用" if new_state else "禁用"),
+            "data": {
+                "rule_id": rule_id,
+                "enabled": new_state,
+            },
+        }
+
     # ---- 通知渠道 ----
 
     @router.get("/alerts/channels", summary="获取通知渠道列表")
@@ -2357,6 +2597,110 @@ def create_alert_router(
                 "total": len(channels),
                 "items": channels,
             },
+        }
+
+    # ---- 系统状态 ----
+
+    @router.get("/alerts/status", summary="告警系统状态")
+    async def get_alert_system_status():
+        """获取告警系统整体状态，包括运行状态、规则数、活跃告警数、通知渠道等"""
+        stats = engine.get_stats()
+        rules = engine.list_rules()
+        channels = engine.notifier_manager.list_channels()
+
+        enabled_rules = sum(1 for r in rules if r.enabled)
+        disabled_rules = sum(1 for r in rules if not r.enabled)
+
+        rules_by_category: Dict[str, int] = {}
+        for r in rules:
+            cat = r.labels.get("category", "unknown")
+            rules_by_category[cat] = rules_by_category.get(cat, 0) + 1
+
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": {
+                "running": engine.is_running,
+                "service_name": engine.service_name,
+                "rules": {
+                    "total": len(rules),
+                    "enabled": enabled_rules,
+                    "disabled": disabled_rules,
+                    "by_category": rules_by_category,
+                },
+                "alerts": {
+                    "active": stats["active_count"],
+                    "firing": stats["by_state"]["firing"],
+                    "acknowledged": stats["by_state"]["acknowledged"],
+                    "silenced": stats["by_state"]["silenced"],
+                    "by_severity": stats["by_severity"],
+                    "total_fired": stats["total_fired"],
+                    "total_resolved": stats["total_resolved"],
+                },
+                "channels": {
+                    "total": len(channels),
+                    "items": channels,
+                },
+                "history_size": stats["history_size"],
+            },
+        }
+
+    # ---- 告警详情与操作（参数化路径必须在所有静态路径之后）----
+
+    @router.get("/alerts/{alert_id}", summary="获取告警详情")
+    async def get_alert_detail(alert_id: str):
+        alert = engine.get_alert(alert_id)
+        if not alert:
+            raise HTTPException(status_code=404, detail="告警不存在")
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": alert.to_dict(),
+        }
+
+    # ---- 告警操作 ----
+
+    @router.post("/alerts/{alert_id}/acknowledge", summary="确认告警")
+    async def acknowledge_alert(alert_id: str, body: AcknowledgeRequest):
+        success = engine.acknowledge_alert(alert_id, acknowledged_by=body.acknowledged_by)
+        if not success:
+            raise HTTPException(status_code=404, detail="告警不存在")
+        alert = engine.get_alert(alert_id)
+        return {
+            "code": 0,
+            "message": "告警已确认",
+            "data": alert.to_dict() if alert else None,
+        }
+
+    @router.post("/alerts/{alert_id}/silence", summary="静默告警")
+    async def silence_alert(alert_id: str, body: SilenceRequest):
+        success = engine.silence_alert(
+            alert_id,
+            duration_seconds=body.duration_seconds,
+            silenced_by=body.silenced_by,
+            reason=body.reason,
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="告警不存在")
+        alert = engine.get_alert(alert_id)
+        return {
+            "code": 0,
+            "message": "告警已静默",
+            "data": alert.to_dict() if alert else None,
+        }
+
+    @router.post("/alerts/{alert_id}/resolve", summary="解决告警")
+    async def resolve_alert(alert_id: str, body: ResolveRequest):
+        success = engine.resolve_alert(
+            alert_id,
+            resolved_by=body.resolved_by,
+            reason=body.reason,
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="告警不存在")
+        return {
+            "code": 0,
+            "message": "告警已解决",
         }
 
     return router

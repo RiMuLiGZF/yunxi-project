@@ -169,6 +169,14 @@ from .dashboards import (
     DASHBOARD_REGISTRY,
     PanelType,
 )
+from .alert_metrics_provider import (
+    BaseMetricsProvider,
+    AlertMetricsProvider,
+    MockMetricsProvider,
+    get_metrics_provider,
+    set_metrics_provider,
+    reset_metrics_provider,
+)
 
 __all__ = [
     # ---- Logger ----
@@ -288,4 +296,11 @@ __all__ = [
     "generate_all_dashboards",
     "DASHBOARD_REGISTRY",
     "PanelType",
+    # ---- Alert Metrics Provider ----
+    "BaseMetricsProvider",
+    "AlertMetricsProvider",
+    "MockMetricsProvider",
+    "get_metrics_provider",
+    "set_metrics_provider",
+    "reset_metrics_provider",
 ]

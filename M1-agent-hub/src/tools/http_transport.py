@@ -22,6 +22,34 @@ from src.core.a2a_protocol import A2ATransport, Task, TaskUpdate, TaskStatus, Ag
 
 logger = structlog.get_logger(__name__)
 
+# 全链路追踪：惰性导入 trace_context，获取 trace_id 透传
+_trace_ctx_available = False
+_get_trace_headers = None
+
+def _get_trace_headers_safe() -> dict[str, str]:
+    """安全获取追踪 HTTP 头（惰性导入，避免循环依赖）。"""
+    global _trace_ctx_available, _get_trace_headers
+    if _get_trace_headers is not None:
+        return _get_trace_headers()
+    try:
+        from src.observability.trace_context import get_trace_headers
+        _get_trace_headers = get_trace_headers
+        _trace_ctx_available = True
+        return get_trace_headers()
+    except ImportError:
+        _trace_ctx_available = False
+        _get_trace_headers = lambda: {}  # type: ignore[assignment]
+        return {}
+
+def _merge_trace_headers(base_headers: dict[str, str]) -> dict[str, str]:
+    """将追踪头合并到基础头中。"""
+    trace_headers = _get_trace_headers_safe()
+    if trace_headers:
+        merged = dict(base_headers)
+        merged.update(trace_headers)
+        return merged
+    return base_headers
+
 
 class HTTPTransport(A2ATransport):
     """A2A HTTP 传输实现
@@ -84,10 +112,11 @@ class HTTPTransport(A2ATransport):
         for attempt in range(self.max_retries):
             try:
                 session = await self._get_session()
+                headers = _merge_trace_headers({"Content-Type": "application/json"})
                 async with session.post(
                     url,
                     json=payload,
-                    headers={"Content-Type": "application/json"},
+                    headers=headers,
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -173,10 +202,11 @@ class HTTPTransport(A2ATransport):
         for poll_count in range(max_polls):
             try:
                 session = await self._get_session()
+                headers = _merge_trace_headers({"Accept": "application/json"})
                 async with session.get(
                     poll_url,
                     params=params,
-                    headers={"Accept": "application/json"},
+                    headers=headers,
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -218,7 +248,8 @@ class HTTPTransport(A2ATransport):
         discovery_url = f"{url.rstrip('/')}/.well-known/agent-card.json"
         try:
             session = await self._get_session()
-            async with session.get(discovery_url, timeout=self.timeout) as resp:
+            headers = _merge_trace_headers({})
+            async with session.get(discovery_url, timeout=self.timeout, headers=headers) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     return AgentCard(

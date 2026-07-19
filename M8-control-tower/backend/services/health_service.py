@@ -564,6 +564,9 @@ def register_observability_routes(app: FastAPI, settings, logger,
                 create_alert_router,
                 AlertSeverity,
             )
+            from shared.core.observability.alert_metrics_provider import (
+                get_metrics_provider,
+            )
 
             # 初始化全局告警引擎（启动后台检查线程）
             alert_engine = get_alert_engine(
@@ -571,6 +574,11 @@ def register_observability_routes(app: FastAPI, settings, logger,
                 history_limit=2000,
                 auto_start=True,
             )
+
+            # 初始化指标数据提供者并注册到告警引擎
+            metrics_provider = get_metrics_provider(service_name="m8")
+            alert_engine.add_context_provider(metrics_provider.get_context)
+            logger.info("告警指标数据提供者已注册（系统/接口/健康指标）")
 
             # 注册告警 API 路由
             alert_router = create_alert_router(
@@ -581,6 +589,13 @@ def register_observability_routes(app: FastAPI, settings, logger,
                 "内置告警引擎已启动（%d 条内置规则，%d 个通知渠道）",
                 len(alert_engine.list_rules()),
                 len(alert_engine.notifier_manager.list_channels()),
+            )
+
+            # 输出已启用的规则统计
+            enabled_rules = alert_engine.list_rules(enabled_only=True)
+            logger.info(
+                "已启用告警规则 %d 条（系统资源类、接口性能类、业务健康类）",
+                len(enabled_rules),
             )
 
             # 将告警状态集成到健康检查器中

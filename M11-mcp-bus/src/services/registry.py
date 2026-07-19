@@ -2,13 +2,22 @@
 
 管理 MCP 服务器的注册、心跳、工具列表刷新等核心功能。
 所有操作通过数据库持久化，支持多实例部署。
+
+性能说明：
+- 高频读接口接入三级缓存（L1内存 + L2文件 + L3 Redis预留）
+- 服务器列表/工具列表使用短 TTL 缓存，心跳变化靠 TTL 自然过期
+- 注册/注销/刷新操作后主动失效缓存
+- 缓存 key 统一命名：m11:registry:*
 """
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import string
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -17,6 +26,37 @@ from sqlalchemy.orm import Session, joinedload
 from ..config import get_settings
 from ..db import get_session
 from ..models_db import McpServer, McpTool
+
+# ---------------------------------------------------------------------------
+# 接入统一缓存框架 (shared.perf)
+# ---------------------------------------------------------------------------
+try:
+    _project_root = Path(__file__).resolve()
+    for _ in range(10):
+        _project_root = _project_root.parent
+        if (_project_root / "shared" / "perf" / "cache_manager.py").exists():
+            if str(_project_root) not in sys.path:
+                sys.path.insert(0, str(_project_root))
+            break
+except Exception:
+    pass
+
+try:
+    from shared.perf.cache_manager import CacheManager
+    _registry_cache = CacheManager.from_env(namespace="m11_registry")
+    _HAS_UNIFIED_CACHE = True
+except ImportError:
+    _HAS_UNIFIED_CACHE = False
+    _registry_cache = None  # type: ignore
+
+
+# ============================================================
+# 缓存 key 命名空间 (统一前缀：m11:registry:)
+# ============================================================
+# m11:registry:servers           - 服务器列表
+# m11:registry:servers:{id}      - 服务器详情
+# m11:registry:tools             - 工具列表（聚合）
+# m11:registry:tools:{name}      - 工具详情
 
 
 def _generate_api_key(length: int = 32) -> str:
@@ -105,6 +145,10 @@ class McpRegistry:
             db.commit()
             db.refresh(server)
 
+            # 失效服务器列表缓存
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.clear(pattern="m11:registry:servers:*")
+
             return server, api_key
         finally:
             db.close()
@@ -125,6 +169,12 @@ class McpRegistry:
                 return False
             db.delete(server)
             db.commit()
+
+            # 失效相关缓存
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.clear(pattern="m11:registry:servers:*")
+                _registry_cache.clear(pattern="m11:registry:tools:*")
+
             return True
         finally:
             db.close()
@@ -156,7 +206,10 @@ class McpRegistry:
             db.close()
 
     def list_servers(self, status: Optional[str] = None) -> List[McpServer]:
-        """获取服务器列表.
+        """获取服务器列表（缓存 30 秒）.
+
+        心跳状态变化通过短 TTL 自然过期，不主动失效，
+        避免频繁心跳导致缓存抖动。
 
         Args:
             status: 可选，按状态过滤
@@ -164,17 +217,26 @@ class McpRegistry:
         Returns:
             服务器列表
         """
+        cache_key = f"m11:registry:servers:status={status or 'all'}"
+        if _HAS_UNIFIED_CACHE and _registry_cache.exists(cache_key):
+            return _registry_cache.get(cache_key)
+
         db = get_session()
         try:
             query = db.query(McpServer)
             if status:
                 query = query.filter(McpServer.status == status)
-            return query.order_by(McpServer.created_at.desc()).all()
+            result = query.order_by(McpServer.created_at.desc()).all()
+
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+            return result
         finally:
             db.close()
 
     def get_server(self, server_id: int) -> Optional[McpServer]:
-        """获取服务器详情.
+        """获取服务器详情（缓存 30 秒）.
 
         Args:
             server_id: 服务器 ID
@@ -182,14 +244,23 @@ class McpRegistry:
         Returns:
             服务器对象，不存在则返回 None
         """
+        cache_key = f"m11:registry:servers:id:{server_id}"
+        if _HAS_UNIFIED_CACHE and _registry_cache.exists(cache_key):
+            return _registry_cache.get(cache_key)
+
         db = get_session()
         try:
-            return db.query(McpServer).filter(McpServer.id == server_id).first()
+            result = db.query(McpServer).filter(McpServer.id == server_id).first()
+
+            if _HAS_UNIFIED_CACHE and result is not None:
+                _registry_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+            return result
         finally:
             db.close()
 
     def get_server_by_name(self, name: str) -> Optional[McpServer]:
-        """按名称获取服务器.
+        """按名称获取服务器（缓存 30 秒）.
 
         Args:
             name: 服务器名称
@@ -197,9 +268,18 @@ class McpRegistry:
         Returns:
             服务器对象，不存在则返回 None
         """
+        cache_key = f"m11:registry:servers:name:{name}"
+        if _HAS_UNIFIED_CACHE and _registry_cache.exists(cache_key):
+            return _registry_cache.get(cache_key)
+
         db = get_session()
         try:
-            return db.query(McpServer).filter(McpServer.name == name).first()
+            result = db.query(McpServer).filter(McpServer.name == name).first()
+
+            if _HAS_UNIFIED_CACHE and result is not None:
+                _registry_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+            return result
         finally:
             db.close()
 
@@ -279,6 +359,11 @@ class McpRegistry:
                     result["errors"].append(f"{server.name}: {str(e)}")
 
             db.commit()
+
+            # 失效工具列表缓存
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.clear(pattern="m11:registry:tools:*")
+
             return result
         finally:
             db.close()
@@ -440,7 +525,7 @@ class McpRegistry:
         page: int = 1,
         page_size: int = 50,
     ) -> Tuple[List[McpTool], int, List[str]]:
-        """获取聚合工具列表.
+        """获取聚合工具列表（缓存 30 秒）.
 
         Args:
             server_id: 可选，按服务器过滤
@@ -452,6 +537,20 @@ class McpRegistry:
         Returns:
             (工具列表, 总数, 分类列表) 元组
         """
+        cache_key = (
+            f"m11:registry:tools:sid={server_id or 'all'}:"
+            f"cat={category or 'all'}:kw={keyword or 'none'}:"
+            f"p={page}:ps={page_size}"
+        )
+        if len(cache_key) > 200:
+            h = hashlib.md5(cache_key.encode()).hexdigest()
+            cache_key = f"m11:registry:tools:hash:{h}"
+
+        if _HAS_UNIFIED_CACHE and _registry_cache.exists(cache_key):
+            cached = _registry_cache.get(cache_key)
+            if isinstance(cached, (list, tuple)) and len(cached) == 3:
+                return cached[0], cached[1], cached[2]
+
         db = get_session()
         try:
             query = db.query(McpTool).options(joinedload(McpTool.server))
@@ -482,7 +581,12 @@ class McpRegistry:
                 .all()
             )
 
-            return tools, total, sorted(categories)
+            result = (tools, total, sorted(categories))
+
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.set(cache_key, result, ttl=30)  # 30 秒
+
+            return result
         finally:
             db.close()
 
@@ -576,6 +680,10 @@ class McpRegistry:
             # 更新数据库
             self._update_server_tools(db, server.id, server.name, tools)
             db.commit()
+
+            # 失效工具列表缓存
+            if _HAS_UNIFIED_CACHE:
+                _registry_cache.clear(pattern="m11:registry:tools:*")
 
             return len(tools)
         finally:

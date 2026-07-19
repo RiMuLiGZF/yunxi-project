@@ -325,9 +325,10 @@ async def publish_template(request: PublishTemplateRequest):
         session.add(mt)
         session.commit()
 
-        # 失效相关缓存
+        # 失效相关缓存（发布模板：清理列表、搜索、统计、分类）
         if _HAS_UNIFIED_CACHE:
             _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.clear(pattern="m7:market:templates:search:*")
             _market_cache.delete("m7:market:stats")
             _market_cache.delete("m7:market:categories")
 
@@ -359,7 +360,21 @@ async def list_market_templates(
     sort: str = "newest",
     all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
-    """浏览模板市场."""
+    """浏览模板市场（缓存 1 分钟）."""
+    import hashlib
+    # 生成缓存 key，包含所有过滤和分页参数
+    cache_key = (
+        f"m7:market:templates:list:cat={category or 'all'}:"
+        f"tag={tag or 'all'}:p={page}:ps={page_size}:size={size or 'none'}:"
+        f"sort={sort}:all={str(all).lower()}"
+    )
+    if len(cache_key) > 200:
+        h = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_key = f"m7:market:templates:list:hash:{h}"
+
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -405,11 +420,16 @@ async def list_market_templates(
                 ).dict()
             )
 
-        return {
+        response = {
             "code": 0,
             "message": "ok",
             "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, response, ttl=60)  # 1 分钟
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -424,7 +444,19 @@ async def search_templates(
     size: Optional[int] = Query(None, ge=1, le=100),
     all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
-    """搜索模板."""
+    """搜索模板（缓存 30 秒）."""
+    import hashlib
+    cache_key = (
+        f"m7:market:templates:search:q={q}:"
+        f"p={page}:ps={page_size}:size={size or 'none'}:all={str(all).lower()}"
+    )
+    if len(cache_key) > 200:
+        h = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_key = f"m7:market:templates:search:hash:{h}"
+
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -461,11 +493,16 @@ async def search_templates(
                 ).dict()
             )
 
-        return {
+        response = {
             "code": 0,
             "message": "ok",
             "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, response, ttl=30)  # 30 秒
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -553,10 +590,11 @@ async def install_template(template_id: str):
         mt.download_count = (mt.download_count or 0) + 1
         session.commit()
 
-        # 失效相关缓存（下载计数变化）
+        # 失效相关缓存（下载计数变化：清理详情、列表、搜索、统计）
         if _HAS_UNIFIED_CACHE:
             _market_cache.delete(f"m7:market:templates:detail:{template_id}")
             _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.clear(pattern="m7:market:templates:search:*")
             _market_cache.delete("m7:market:stats")
 
         return {
@@ -611,10 +649,11 @@ async def rate_template(template_id: str, request: RatingRequest):
         mt.updated_at = datetime.utcnow()
         session.commit()
 
-        # 失效相关缓存（评分变化）
+        # 失效相关缓存（评分变化：清理详情、列表、搜索、统计）
         if _HAS_UNIFIED_CACHE:
             _market_cache.delete(f"m7:market:templates:detail:{template_id}")
             _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.clear(pattern="m7:market:templates:search:*")
             _market_cache.delete("m7:market:stats")
 
         avg = round(mt.rating_sum / mt.rating_count, 1) if mt.rating_count and mt.rating_count > 0 else 0.0
@@ -641,10 +680,11 @@ async def unpublish_template(template_id: str):
         mt.updated_at = datetime.utcnow()
         session.commit()
 
-        # 失效相关缓存（模板下架）
+        # 失效相关缓存（模板下架：清理详情、列表、搜索、统计、分类）
         if _HAS_UNIFIED_CACHE:
             _market_cache.delete(f"m7:market:templates:detail:{template_id}")
             _market_cache.clear(pattern="m7:market:templates:list:*")
+            _market_cache.clear(pattern="m7:market:templates:search:*")
             _market_cache.delete("m7:market:stats")
             _market_cache.delete("m7:market:categories")
 
@@ -735,9 +775,10 @@ async def publish_block(
             details=f"发布积木到市场：{clean_name}（来源：{request.block_id}）",
         )
 
-        # 失效相关缓存
+        # 失效相关缓存（发布积木：清理列表、搜索、统计、分类）
         if _HAS_UNIFIED_CACHE:
             _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.clear(pattern="m7:market:blocks:search:*")
             _market_cache.delete("m7:market:stats")
             _market_cache.delete("m7:market:categories")
 
@@ -829,7 +870,19 @@ async def search_blocks(
     size: Optional[int] = Query(None, ge=1, le=100),
     all: bool = Query(False, description="是否返回全部数据（跳过分页）"),
 ):
-    """搜索积木."""
+    """搜索积木（缓存 30 秒）."""
+    import hashlib
+    cache_key = (
+        f"m7:market:blocks:search:q={q}:"
+        f"p={page}:ps={page_size}:size={size or 'none'}:all={str(all).lower()}"
+    )
+    if len(cache_key) > 200:
+        h = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_key = f"m7:market:blocks:search:hash:{h}"
+
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -865,11 +918,16 @@ async def search_blocks(
                 ).dict()
             )
 
-        return {
+        response = {
             "code": 0,
             "message": "ok",
             "data": _paginate_result(result, total, page, actual_page_size if not get_all else total),
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, response, ttl=30)  # 30 秒
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -981,10 +1039,11 @@ async def install_block(
             details=f"安装市场积木：{mb.name}（来源：{block_id}）",
         )
 
-        # 失效相关缓存（下载计数变化）
+        # 失效相关缓存（下载计数变化：清理详情、列表、搜索、统计）
         if _HAS_UNIFIED_CACHE:
             _market_cache.delete(f"m7:market:blocks:detail:{block_id}")
             _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.clear(pattern="m7:market:blocks:search:*")
             _market_cache.delete("m7:market:stats")
 
         return {"code": 0, "message": "ok", "data": {"block_id": new_id, "name": mb.name}}
@@ -1035,6 +1094,13 @@ async def rate_block(block_id: str, request: RatingRequest):
         mb.updated_at = datetime.utcnow()
         session.commit()
 
+        # 失效相关缓存（评分变化：清理详情、列表、搜索、统计）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:blocks:detail:{block_id}")
+            _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.clear(pattern="m7:market:blocks:search:*")
+            _market_cache.delete("m7:market:stats")
+
         avg = round(mb.rating_sum / mb.rating_count, 1) if mb.rating_count and mb.rating_count > 0 else 0.0
         return {"code": 0, "message": "ok", "data": {"rating_avg": avg, "rating_count": mb.rating_count}}
     except HTTPException:
@@ -1058,6 +1124,15 @@ async def unpublish_block(block_id: str):
         mb.status = "unpublished"
         mb.updated_at = datetime.utcnow()
         session.commit()
+
+        # 失效相关缓存（积木下架：清理详情、列表、搜索、统计、分类）
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.delete(f"m7:market:blocks:detail:{block_id}")
+            _market_cache.clear(pattern="m7:market:blocks:list:*")
+            _market_cache.clear(pattern="m7:market:blocks:search:*")
+            _market_cache.delete("m7:market:stats")
+            _market_cache.delete("m7:market:categories")
+
         return {"code": 0, "message": "ok"}
     except HTTPException:
         raise
@@ -1073,7 +1148,11 @@ async def unpublish_block(block_id: str):
 
 @market_router.get("/stats/summary")
 async def get_market_stats():
-    """市场统计."""
+    """市场统计（缓存 5 分钟）."""
+    cache_key = "m7:market:stats"
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -1121,7 +1200,7 @@ async def get_market_stats():
             cat_key = cat or "general"
             categories[cat_key] = categories.get(cat_key, 0) + count
 
-        return {
+        result = {
             "code": 0,
             "message": "ok",
             "data": MarketStats(
@@ -1132,6 +1211,11 @@ async def get_market_stats():
                 categories=categories,
             ).dict(),
         }
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, result, ttl=300)  # 5 分钟
+
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -1140,7 +1224,11 @@ async def get_market_stats():
 
 @market_router.get("/categories/list")
 async def get_categories():
-    """分类列表."""
+    """分类列表（缓存 10 分钟）."""
+    cache_key = "m7:market:categories"
+    if _HAS_UNIFIED_CACHE and _market_cache.exists(cache_key):
+        return _market_cache.get(cache_key)
+
     _ensure_tables()
     session = _get_session()
     try:
@@ -1152,8 +1240,13 @@ async def get_categories():
             if mb.category:
                 cats.add(mb.category)
 
-        result = sorted(cats) if cats else ["general"]
-        return {"code": 0, "message": "ok", "data": result}
+        result_data = sorted(cats) if cats else ["general"]
+        result = {"code": 0, "message": "ok", "data": result_data}
+
+        if _HAS_UNIFIED_CACHE:
+            _market_cache.set(cache_key, result, ttl=600)  # 10 分钟
+
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
