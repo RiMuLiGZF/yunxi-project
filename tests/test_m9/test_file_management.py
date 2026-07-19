@@ -46,33 +46,24 @@ class TestFileManager:
     @pytest.mark.project
     def test_file_manager_module_exists(self):
         """file_manager 模块存在"""
-        try:
-            import file_manager
-            assert file_manager is not None
-        except ImportError:
-            pytest.skip("file_manager 模块不可用")
+        import file_manager
+        assert file_manager is not None
 
     @pytest.mark.unit
     @pytest.mark.m9
     @pytest.mark.project
     def test_file_manager_class_exists(self):
         """FileManager 类存在"""
-        try:
-            from file_manager import FileManager
-            assert FileManager is not None
-        except (ImportError, AttributeError):
-            pytest.skip("FileManager 类不可用")
+        from file_manager import FileManager
+        assert FileManager is not None
 
     @pytest.mark.unit
     @pytest.mark.m9
     @pytest.mark.project
     def test_workspace_manager_module_exists(self):
         """workspace_manager 模块存在"""
-        try:
-            import workspace_manager
-            assert workspace_manager is not None
-        except ImportError:
-            pytest.skip("workspace_manager 模块不可用")
+        import workspace_manager
+        assert workspace_manager is not None
 
 
 class TestFileOperationsWithTempDir:

@@ -355,25 +355,19 @@ class TestUnifiedErrors:
     @pytest.mark.error
     def test_m9_error_codes_exist(self):
         """M9 错误码定义存在"""
-        try:
-            from core.unified_errors import M9ErrorCode
-            assert M9ErrorCode is not None
-        except ImportError:
-            pytest.skip("M9 错误码模块不可用")
+        from core.unified_errors import M9ErrorCode
+        assert M9ErrorCode is not None
 
     @pytest.mark.unit
     @pytest.mark.m9
     @pytest.mark.error
     def test_m9_error_module_prefix(self):
         """M9 错误码模块前缀正确"""
-        try:
-            from core.unified_errors import M9ErrorCode
-            from shared.core.errors import ModuleCode
+        from core.unified_errors import M9ErrorCode
+        from shared.core.errors import ModuleCode
 
-            if hasattr(M9ErrorCode, "MODULE"):
-                assert M9ErrorCode.MODULE == ModuleCode.M9
-        except ImportError:
-            pytest.skip("shared/core/errors 模块不可用")
+        if hasattr(M9ErrorCode, "MODULE"):
+            assert M9ErrorCode.MODULE == ModuleCode.M9
 
 
 # ============================================================

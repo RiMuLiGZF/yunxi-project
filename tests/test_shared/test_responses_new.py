@@ -10,6 +10,7 @@ shared.core.responses 模块单元测试 - 新版响应格式
 """
 
 import pytest
+from fastapi import FastAPI
 
 from shared.core.responses import (
     ApiResponse,
@@ -564,11 +565,7 @@ class TestGlobalExceptionHandler:
     @pytest.fixture
     def fastapi_app(self):
         """创建 FastAPI 测试应用"""
-        try:
-            from fastapi import FastAPI
-            return FastAPI()
-        except ImportError:
-            pytest.skip("FastAPI 不可用")
+        return FastAPI()
 
     @pytest.mark.unit
     @pytest.mark.shared

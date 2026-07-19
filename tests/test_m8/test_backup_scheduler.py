@@ -14,10 +14,10 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-M8_BACKEND_PATH = PROJECT_ROOT / "M8-control-tower" / "backend"
+M8_PATH = PROJECT_ROOT / "M8-control-tower"
 
-if str(M8_BACKEND_PATH) not in sys.path:
-    sys.path.insert(0, str(M8_BACKEND_PATH))
+if str(M8_PATH) not in sys.path:
+    sys.path.insert(0, str(M8_PATH))
 
 
 # ============================================================
@@ -32,33 +32,25 @@ class TestBackupModelUnit:
     @pytest.mark.backup
     def test_backup_service_module_exists(self):
         """备份服务模块存在"""
-        try:
-            from services.backup_service import BackupService
-            assert BackupService is not None
-        except (ImportError, AttributeError):
-            pytest.skip("BackupService 不可用")
+        from backend.services.backup_service import BackupService
+        assert BackupService is not None
 
     @pytest.mark.unit
     @pytest.mark.m8
     @pytest.mark.backup
+    @pytest.mark.xfail(reason="M8 备份调度器主类为 BackupOrchestratorService，原测试期望的 BackupScheduler 类名不匹配")
     def test_backup_scheduler_service_exists(self):
         """备份调度器服务存在"""
-        try:
-            from services.backup_scheduler import BackupScheduler
-            assert BackupScheduler is not None
-        except (ImportError, AttributeError):
-            pytest.skip("BackupScheduler 不可用")
+        from backend.services.backup_scheduler import BackupScheduler
+        assert BackupScheduler is not None
 
     @pytest.mark.unit
     @pytest.mark.m8
     @pytest.mark.backup
     def test_backup_module_model_exists(self):
         """备份模块模型存在"""
-        try:
-            from models import WorkflowDefinition  # 用已知存在的模型测试导入
-            assert WorkflowDefinition is not None
-        except ImportError:
-            pytest.skip("模型模块不可用")
+        from backend.models import WorkflowDefinition
+        assert WorkflowDefinition is not None
 
 
 # ============================================================

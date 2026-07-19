@@ -35,31 +35,43 @@ def _try_import(module_path, attr_name=None):
         return None
 
 
+def _import_auth_module():
+    """获取 auth 模块"""
+    # 方式1：通过包导入
+    try:
+        from backend import auth
+        return auth
+    except ImportError:
+        pass
+    # 方式2：直接导入
+    try:
+        m8_backend = str(PROJECT_ROOT / "M8-control-tower" / "backend")
+        if m8_backend not in sys.path:
+            sys.path.insert(0, m8_backend)
+        import auth
+        return auth
+    except ImportError:
+        return None
+
+
+# 模块级 auth 模块（只尝试导入一次）
+_auth_module = _import_auth_module()
+
+
+@pytest.fixture(scope="module")
+def auth_module():
+    """获取 auth 模块（模块级 fixture，只导入一次）"""
+    if _auth_module is None:
+        pytest.skip("auth 模块不可用")
+    return _auth_module
+
+
 # ============================================================
 # 密码哈希单元测试
 # ============================================================
 
 class TestPasswordHashing:
     """密码哈希功能测试（纯函数，100% 可运行）"""
-
-    @pytest.fixture
-    def auth_module(self):
-        """获取 auth 模块"""
-        # 方式1：通过包导入
-        try:
-            from backend import auth
-            return auth
-        except ImportError:
-            pass
-        # 方式2：直接导入
-        try:
-            m8_backend = str(PROJECT_ROOT / "M8-control-tower" / "backend")
-            if m8_backend not in sys.path:
-                sys.path.insert(0, m8_backend)
-            import auth
-            return auth
-        except ImportError:
-            pytest.skip("auth 模块不可用")
 
     @pytest.mark.unit
     @pytest.mark.m8
@@ -171,23 +183,6 @@ class TestPasswordHashing:
 class TestRefreshTokenStorage:
     """Refresh Token 存储机制测试"""
 
-    @pytest.fixture
-    def auth_module(self):
-        """获取 auth 模块"""
-        try:
-            from backend import auth
-            return auth
-        except ImportError:
-            pass
-        try:
-            m8_backend = str(PROJECT_ROOT / "M8-control-tower" / "backend")
-            if m8_backend not in sys.path:
-                sys.path.insert(0, m8_backend)
-            import auth
-            return auth
-        except ImportError:
-            pytest.skip("auth 模块不可用")
-
     @pytest.mark.unit
     @pytest.mark.m8
     @pytest.mark.auth
@@ -271,23 +266,6 @@ class TestRefreshTokenStorage:
 
 class TestTokenBlacklist:
     """Token 黑名单机制测试"""
-
-    @pytest.fixture
-    def auth_module(self):
-        """获取 auth 模块"""
-        try:
-            from backend import auth
-            return auth
-        except ImportError:
-            pass
-        try:
-            m8_backend = str(PROJECT_ROOT / "M8-control-tower" / "backend")
-            if m8_backend not in sys.path:
-                sys.path.insert(0, m8_backend)
-            import auth
-            return auth
-        except ImportError:
-            pytest.skip("auth 模块不可用")
 
     @pytest.mark.unit
     @pytest.mark.m8
