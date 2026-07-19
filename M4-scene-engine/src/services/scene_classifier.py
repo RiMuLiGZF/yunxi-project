@@ -3,8 +3,15 @@
 实现多层级场景分类：
 1. 基于规则的基线分类 - if-else 决策树，快速可解释
 2. 基于统计的分类 - 朴素贝叶斯，用户历史数据训练
-3. 集成分类 - 规则 + 统计结果加权融合
-4. 在线学习 - 用户反馈更新模型，增量学习
+3. 基于语义的分类 - 向量嵌入相似度匹配（新增）
+4. 集成分类 - 规则 + 统计 + 语义结果加权融合
+5. 在线学习 - 用户反馈更新模型，增量学习
+
+【第六轮优化】新增语义匹配维度：
+- 使用向量嵌入 + 余弦相似度进行语义场景识别
+- 作为第四种方法加入 ensemble
+- 权重：规则(0.3) + 关键词(0.3) + 贝叶斯(0.2) + 语义(0.2)
+- 语义不可用时自动降级为三方法 ensemble
 
 使用方式::
 
@@ -22,6 +29,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.models import SCENE_DEFINITIONS
+
+# 尝试导入语义识别器（可选依赖）
+try:
+    from src.scene.semantic import SemanticSceneRecognizer
+
+    _SEMANTIC_RECOGNIZER_AVAILABLE = True
+except ImportError:
+    _SEMANTIC_RECOGNIZER_AVAILABLE = False
+    SemanticSceneRecognizer = None  # type: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -533,28 +549,110 @@ class NaiveBayesClassifier:
 class EnsembleClassifier:
     """集成场景分类器.
 
-    融合规则分类和统计分类的结果，加权输出最终结果。
+    融合规则分类、统计分类和语义分类的结果，加权输出最终结果。
     低置信度时回退到规则引擎。
+
+    权重分配：
+    - 规则分类: 0.3
+    - 关键词分类: 0.3 （通过规则分类器近似）
+    - 贝叶斯分类: 0.2
+    - 语义分类: 0.2 （新增，可选）
     """
 
     def __init__(
         self,
-        rule_weight: float = 0.4,
-        bayes_weight: float = 0.6,
+        rule_weight: float = 0.375,
+        bayes_weight: float = 0.25,
+        semantic_weight: float = 0.25,
         fallback_threshold: float = 0.3,
+        enable_semantic: bool = True,
     ) -> None:
         """初始化集成分类器.
 
         Args:
             rule_weight: 规则分类器权重
             bayes_weight: 贝叶斯分类器权重
+            semantic_weight: 语义分类器权重
             fallback_threshold: 低置信度回退阈值
+            enable_semantic: 是否启用语义识别
         """
         self.rule_classifier = RuleBasedClassifier()
         self.bayes_classifier = NaiveBayesClassifier()
         self.rule_weight = rule_weight
         self.bayes_weight = bayes_weight
+        self.semantic_weight = semantic_weight
         self.fallback_threshold = fallback_threshold
+
+        # 语义识别器（可选）
+        self.semantic_recognizer = None
+        self._semantic_enabled = False
+
+        if enable_semantic and _SEMANTIC_RECOGNIZER_AVAILABLE:
+            try:
+                self.semantic_recognizer = SemanticSceneRecognizer(SCENE_DEFINITIONS)
+                self._semantic_enabled = self.semantic_recognizer.enabled
+                if self._semantic_enabled:
+                    import structlog
+                    log = structlog.get_logger()
+                    log.info(
+                        "classifier.semantic_enabled",
+                        provider=self.semantic_recognizer.provider_name,
+                    )
+                else:
+                    import structlog
+                    log = structlog.get_logger()
+                    log.info("classifier.semantic_disabled_fallback")
+            except Exception as e:
+                import structlog
+                log = structlog.get_logger()
+                log.warning(
+                    "classifier.semantic_init_failed",
+                    error=str(e),
+                )
+                self._semantic_enabled = False
+
+    @property
+    def semantic_enabled(self) -> bool:
+        """语义识别是否启用."""
+        return self._semantic_enabled
+
+    def _get_text_from_features(self, features: dict[str, Any]) -> str:
+        """从特征字典中提取文本内容用于语义识别.
+
+        Args:
+            features: 扁平化特征字典
+
+        Returns:
+            用于语义匹配的文本
+        """
+        text_parts: list[str] = []
+
+        # 对话话题
+        topic = features.get("conversation_topic", "")
+        if topic and topic != "unknown":
+            text_parts.append(str(topic))
+
+        # 活动应用
+        app = features.get("active_app", "")
+        if app and app != "unknown":
+            text_parts.append(str(app))
+
+        # 位置
+        loc = features.get("location_type", "")
+        if loc and loc != "unknown":
+            text_parts.append(str(loc))
+
+        # 情绪倾向
+        mood = features.get("mood_tendency", "")
+        if mood and mood != "unknown":
+            text_parts.append(str(mood))
+
+        # 时间段
+        period = features.get("time_period", "")
+        if period and period != "unknown":
+            text_parts.append(str(period))
+
+        return " ".join(text_parts) if text_parts else ""
 
     def classify(
         self,
@@ -574,17 +672,43 @@ class EnsembleClassifier:
         # 2. 贝叶斯分类
         bayes_result = self.bayes_classifier.classify(features)
 
-        # 3. 加权融合
-        has_bayes_training = self.bayes_classifier._total_samples > 10
+        # 3. 语义分类（可选）
+        semantic_result = None
+        if self._semantic_enabled and self.semantic_recognizer is not None:
+            text = self._get_text_from_features(features)
+            if text:
+                try:
+                    semantic_result = self.semantic_recognizer.recognize(text)
+                except Exception as e:
+                    import structlog
+                    log = structlog.get_logger()
+                    log.warning("classifier.semantic_recognize_failed", error=str(e))
+                    semantic_result = None
 
-        if not has_bayes_training:
-            # 贝叶斯训练数据不足，直接使用规则结果
+        # 4. 加权融合
+        has_bayes_training = self.bayes_classifier._total_samples > 10
+        has_semantic = semantic_result is not None and semantic_result.confidence > 0
+
+        # 计算有效方法数和总权重
+        active_methods = ["rule"]
+        total_weight = self.rule_weight
+
+        if has_bayes_training:
+            active_methods.append("bayes")
+            total_weight += self.bayes_weight
+
+        if has_semantic:
+            active_methods.append("semantic")
+            total_weight += self.semantic_weight
+
+        if not has_bayes_training and not has_semantic:
+            # 只有规则分类
             return ClassificationResult(
                 scene=rule_result.scene,
                 confidence=rule_result.confidence,
                 method="ensemble_rule_only",
                 candidates=rule_result.candidates,
-                reason=f"贝叶斯训练不足，使用规则分类: {rule_result.reason}",
+                reason=f"贝叶斯/语义均不可用，使用规则分类: {rule_result.reason}",
                 feature_contributions=rule_result.feature_contributions,
             )
 
@@ -597,24 +721,33 @@ class EnsembleClassifier:
             scene_scores[scene] += conf * self.rule_weight
 
         # 贝叶斯分类贡献
-        for scene, conf in bayes_result.candidates:
-            scene_scores[scene] += conf * self.bayes_weight
+        if has_bayes_training:
+            for scene, conf in bayes_result.candidates:
+                scene_scores[scene] += conf * self.bayes_weight
+
+        # 语义分类贡献
+        if has_semantic and semantic_result is not None:
+            for scene, conf in semantic_result.candidates:
+                scene_scores[scene] += conf * self.semantic_weight
 
         # 特征贡献融合
         for feat, contrib in rule_result.feature_contributions.items():
             feature_contributions[feat] += contrib * self.rule_weight
-        for feat, contrib in bayes_result.feature_contributions.items():
-            feature_contributions[feat] += contrib * self.bayes_weight
+        if has_bayes_training:
+            for feat, contrib in bayes_result.feature_contributions.items():
+                feature_contributions[feat] += contrib * self.bayes_weight
 
         # 排序
         sorted_scenes = sorted(scene_scores.items(), key=lambda x: x[1], reverse=True)
         best_scene, best_score = sorted_scenes[0]
 
         # 归一化
-        total_weight = self.rule_weight + self.bayes_weight
-        confidence = best_score / total_weight
+        confidence = best_score / total_weight if total_weight > 0 else best_score
 
-        candidates = [(s, sc / total_weight) for s, sc in sorted_scenes[:5]]
+        candidates = [
+            (s, sc / total_weight if total_weight > 0 else sc)
+            for s, sc in sorted_scenes[:5]
+        ]
 
         # 低置信度回退到规则引擎
         if confidence < self.fallback_threshold:
@@ -627,16 +760,28 @@ class EnsembleClassifier:
                 feature_contributions=rule_result.feature_contributions,
             )
 
+        # 构建方法描述
+        method_desc_parts = []
+        if "rule" in active_methods:
+            method_desc_parts.append(f"规则{self.rule_weight / total_weight:.0%}")
+        if "bayes" in active_methods:
+            method_desc_parts.append(f"贝叶斯{self.bayes_weight / total_weight:.0%}")
+        if "semantic" in active_methods:
+            method_desc_parts.append(f"语义{self.semantic_weight / total_weight:.0%}")
+
+        reason_parts = [f"集成分类（{'+'.join(method_desc_parts)}）"]
+        reason_parts.append(f"规则: {rule_result.scene}({rule_result.confidence:.1%})")
+        if has_bayes_training:
+            reason_parts.append(f"贝叶斯: {bayes_result.scene}({bayes_result.confidence:.1%})")
+        if has_semantic and semantic_result is not None:
+            reason_parts.append(f"语义: {semantic_result.scene}({semantic_result.confidence:.1%})")
+
         return ClassificationResult(
             scene=best_scene,
             confidence=confidence,
             method="ensemble",
             candidates=candidates,
-            reason=(
-                f"集成分类（规则{self.rule_weight:.0%}+贝叶斯{self.bayes_weight:.0%}）"
-                f" - 规则: {rule_result.scene}({rule_result.confidence:.1%}), "
-                f"贝叶斯: {bayes_result.scene}({bayes_result.confidence:.1%})"
-            ),
+            reason=" - ".join(reason_parts),
             feature_contributions=dict(feature_contributions),
         )
 
@@ -694,7 +839,7 @@ class SceneClassifier:
 
         Args:
             features: 扁平化特征字典
-            method: 分类方法 ensemble/rule/bayes
+            method: 分类方法 ensemble/rule/bayes/semantic
 
         Returns:
             ClassificationResult 分类结果
@@ -703,6 +848,21 @@ class SceneClassifier:
             return self._ensemble.rule_classifier.classify(features)
         elif method == "bayes":
             return self._ensemble.bayes_classifier.classify(features)
+        elif method == "semantic":
+            # 语义识别（需要从 features 中提取文本）
+            if self._ensemble.semantic_enabled and self._ensemble.semantic_recognizer:
+                text = self._ensemble._get_text_from_features(features)
+                if text:
+                    sem_result = self._ensemble.semantic_recognizer.recognize(text)
+                    return ClassificationResult(
+                        scene=sem_result.scene,
+                        confidence=sem_result.confidence,
+                        method="semantic",
+                        candidates=sem_result.candidates,
+                        reason=sem_result.reason,
+                    )
+            # 语义不可用时回退到规则
+            return self._ensemble.rule_classifier.classify(features)
         else:
             return self._ensemble.classify(features)
 
@@ -804,5 +964,10 @@ class SceneClassifier:
             ),
             "bayes_trained_samples": self._ensemble.bayes_classifier._total_samples,
             "rule_count": len(self._ensemble.rule_classifier._rules),
+            "semantic_enabled": self._ensemble.semantic_enabled,
+            "semantic_provider": (
+                self._ensemble.semantic_recognizer.provider_name
+                if self._ensemble.semantic_recognizer else "none"
+            ),
             "method": "ensemble",
         }

@@ -6,6 +6,12 @@ from __future__ import annotations
 融合 BM25F 关键词评分、经验成功率、记忆上下文偏好、
 技能图谱依赖满足度，生成推荐排序。
 
+【第六轮优化】新增语义匹配维度：
+- 使用向量嵌入 + 余弦相似度进行语义匹配
+- 作为第六维加入评分体系，权重 0.3
+- embedding 不可用时自动降级，不影响原有功能
+- 复用 shared.semantic 工具包
+
 打通记忆层数据联动：
 - 从 AgentMemory 中提取用户历史偏好
 - 从 SkillExperienceBank 中提取成功率画像
@@ -23,6 +29,15 @@ from skill_cluster.agent.memory import AgentMemory
 from skill_cluster.interfaces import SkillManifest
 
 logger = structlog.get_logger()
+
+# 尝试导入语义路由器（可选依赖）
+try:
+    from skill_cluster.semantic import SemanticSkillRouter
+
+    _SEMANTIC_ROUTER_AVAILABLE = True
+except ImportError:
+    _SEMANTIC_ROUTER_AVAILABLE = False
+    logger.debug("semantic.router_not_available")
 
 
 class SkillRecommendation(BaseModel):
@@ -48,23 +63,56 @@ class SkillRecommender:
         self,
         memory: AgentMemory | None = None,
         experience: Any | None = None,
+        enable_semantic: bool = True,
     ) -> None:
         self._memory = memory
         self._experience = experience
         self._skill_profiles: dict[str, SkillManifest] = {}
         self._weights = {
-            "keyword": 0.3,
-            "capability": 0.25,
-            "experience": 0.2,
-            "memory_preference": 0.15,
-            "tag_match": 0.1,
+            "keyword": 0.25,
+            "capability": 0.2,
+            "experience": 0.15,
+            "memory_preference": 0.1,
+            "tag_match": 0.05,
+            "semantic": 0.25,
         }
+
+        # 语义路由器（可选）
+        self._semantic_router: SemanticSkillRouter | None = None
+        self._semantic_enabled = False
+        if enable_semantic and _SEMANTIC_ROUTER_AVAILABLE:
+            try:
+                self._semantic_router = SemanticSkillRouter()
+                self._semantic_enabled = self._semantic_router.semantic_enabled
+                if self._semantic_enabled:
+                    logger.info(
+                        "recommender.semantic_enabled",
+                        provider=self._semantic_router.provider_name,
+                    )
+                else:
+                    logger.info("recommender.semantic_disabled_fallback")
+            except Exception as e:
+                logger.warning(
+                    "recommender.semantic_init_failed",
+                    error=str(e),
+                )
+                self._semantic_enabled = False
 
     # ---- 技能注册 ----
 
     def register_profile(self, manifest: SkillManifest) -> None:
         """注册技能画像用于推荐匹配."""
         self._skill_profiles[manifest.skill_id] = manifest
+        # 同步注册到语义路由器
+        if self._semantic_router is not None:
+            try:
+                self._semantic_router.register_skill(manifest)
+            except Exception as e:
+                logger.warning(
+                    "recommender.semantic_register_failed",
+                    skill_id=manifest.skill_id,
+                    error=str(e),
+                )
 
     def register_profiles(self, manifests: list[SkillManifest]) -> None:
         """批量注册技能画像."""
@@ -102,6 +150,21 @@ class SkillRecommender:
                 goal, agent_id
             )
 
+        # 预计算语义匹配得分
+        semantic_scores: dict[str, float] = {}
+        if self._semantic_enabled and self._semantic_router is not None:
+            try:
+                semantic_results = self._semantic_router.match(
+                    goal, top_k=len(self._skill_profiles)
+                )
+                for r in semantic_results:
+                    semantic_scores[r.skill_id] = r.score
+            except Exception as e:
+                logger.warning(
+                    "recommender.semantic_match_failed",
+                    error=str(e),
+                )
+
         scored: list[SkillRecommendation] = []
 
         for sid, profile in self._skill_profiles.items():
@@ -114,6 +177,7 @@ class SkillRecommender:
             exp_score = self._experience_score(sid)
             mem_score = memory_prefs.get(sid, 0.0)
             tag_score = self._tag_score(goal_tokens, profile)
+            sem_score = semantic_scores.get(sid, 0.0)
 
             # 加权融合
             w = self._weights
@@ -123,24 +187,29 @@ class SkillRecommender:
                 + w["experience"] * exp_score
                 + w["memory_preference"] * mem_score
                 + w["tag_match"] * tag_score
+                + w["semantic"] * sem_score
             )
 
             reasons = self._generate_reasons(
-                profile, kw_score, cap_score, exp_score, mem_score
+                profile, kw_score, cap_score, exp_score, mem_score, sem_score
             )
+
+            dims = {
+                "keyword": round(kw_score, 3),
+                "capability": round(cap_score, 3),
+                "experience": round(exp_score, 3),
+                "memory": round(mem_score, 3),
+                "tag": round(tag_score, 3),
+            }
+            if self._semantic_enabled:
+                dims["semantic"] = round(sem_score, 3)
 
             scored.append(
                 SkillRecommendation(
                     skill_id=sid,
                     score=round(total, 4),
                     reasons=reasons,
-                    match_dimensions={
-                        "keyword": round(kw_score, 3),
-                        "capability": round(cap_score, 3),
-                        "experience": round(exp_score, 3),
-                        "memory": round(mem_score, 3),
-                        "tag": round(tag_score, 3),
-                    },
+                    match_dimensions=dims,
                 )
             )
 
@@ -253,6 +322,7 @@ class SkillRecommender:
         cap: float,
         exp: float,
         mem: float,
+        sem: float = 0.0,
     ) -> list[str]:
         """生成推荐理由."""
         reasons: list[str] = []
@@ -264,6 +334,8 @@ class SkillRecommender:
             reasons.append("历史成功率较高")
         if mem > 0.3:
             reasons.append("用户历史偏好")
+        if sem > 0.5:
+            reasons.append(f"语义相似度高 ({sem:.0%})")
         if not reasons:
             reasons.append("综合匹配推荐")
         return reasons
@@ -282,7 +354,10 @@ class SkillRecommender:
         Args:
             weights: 维度权重字典，key 为维度名，value 为权重值.
         """
-        valid_keys = {"keyword", "capability", "experience", "memory_preference", "tag_match"}
+        valid_keys = {
+            "keyword", "capability", "experience",
+            "memory_preference", "tag_match", "semantic",
+        }
         for k, v in weights.items():
             if k in valid_keys:
                 self._weights[k] = v

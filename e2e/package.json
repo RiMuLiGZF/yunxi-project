@@ -1,0 +1,24 @@
+{
+  "name": "yunxi-e2e-tests",
+  "version": "1.0.0",
+  "description": "云汐项目 E2E 测试套件（Playwright）",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:login": "playwright test --grep @login",
+    "test:dashboard": "playwright test --grep @dashboard",
+    "test:modules": "playwright test --grep @modules",
+    "test:settings": "playwright test --grep @settings",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
