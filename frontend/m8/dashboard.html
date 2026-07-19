@@ -1782,7 +1782,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     var running = modulesData.running;
                     var total = modulesData.total;
                     if (total > 0) {
-                        numEl.innerHTML = running + '<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/' + total + '</span>';
+                        // 安全改造：使用 DOM 操作替代 innerHTML
+                        numEl.textContent = '';
+                        numEl.appendChild(document.createTextNode(String(running)));
+                        var slashSpan = document.createElement('span');
+                        slashSpan.className = 'text-lg font-normal';
+                        slashSpan.style.color = 'var(--color-text-tertiary)';
+                        slashSpan.textContent = '/' + total;
+                        numEl.appendChild(slashSpan);
                         if (subEl) {
                             if (running === total) {
                                 subEl.textContent = '全部在线';
@@ -1796,7 +1803,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     } else {
-                        numEl.innerHTML = '0<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/0</span>';
+                        // 安全改造：使用 DOM 操作替代 innerHTML
+                        numEl.textContent = '';
+                        numEl.appendChild(document.createTextNode('0'));
+                        var zeroSlashSpan = document.createElement('span');
+                        zeroSlashSpan.className = 'text-lg font-normal';
+                        zeroSlashSpan.style.color = 'var(--color-text-tertiary)';
+                        zeroSlashSpan.textContent = '/0';
+                        numEl.appendChild(zeroSlashSpan);
                     }
                 }
             }
@@ -1825,7 +1839,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 var subEl4 = kpiCards[3].querySelector('.text-xs.mt-1');
                 if (numEl4) {
                     var score = stats.health_score || 0;
-                    numEl4.innerHTML = score + '<span class="text-lg font-normal" style="color: var(--color-text-tertiary);">/100</span>';
+                    // 安全改造：使用 DOM 操作替代 innerHTML
+                    numEl4.textContent = '';
+                    numEl4.appendChild(document.createTextNode(String(score)));
+                    var scoreSpan = document.createElement('span');
+                    scoreSpan.className = 'text-lg font-normal';
+                    scoreSpan.style.color = 'var(--color-text-tertiary)';
+                    scoreSpan.textContent = '/100';
+                    numEl4.appendChild(scoreSpan);
                     if (subEl4) {
                         if (score >= 90) {
                             subEl4.textContent = '优秀';
@@ -1925,6 +1946,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
     <!-- Dashboard API Integration -->
+    <script src="../common/security.js"></script>
     <script src="../common/api.js"></script>
     
 

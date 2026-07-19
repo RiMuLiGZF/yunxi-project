@@ -25,7 +25,7 @@ from .models import init_db
 from .m4_proxy_middleware import register_m4_proxy_middleware
 from .router_config import register_all_routers
 from .static_files import mount_frontend_static
-from .middleware_config import setup_cors, setup_distributed_cluster
+from .middleware_config import setup_cors, setup_security_headers, setup_distributed_cluster
 from .services.health_service import (
     register_m8_std_endpoints,
     register_module_status_endpoint,
@@ -165,6 +165,9 @@ def create_app() -> FastAPI:
 
     # ---- 中间件层 ----
     setup_cors(app, settings, logger)
+
+    # 安全响应头中间件（X-Content-Type-Options, X-Frame-Options, CSP 等）
+    setup_security_headers(app, settings, logger)
 
     # 可观测性中间件（统一日志 + 链路追踪 + 慢请求告警）
     if _observability_available:

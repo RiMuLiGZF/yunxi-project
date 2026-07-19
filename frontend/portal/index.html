@@ -815,6 +815,7 @@ body {
      Scripts
      ============================================================ -->
 <script src="../common/js/theme.js"></script>
+<script src="../common/security.js"></script>
 <script src="../common/api.js"></script>
 <script>
 (function() {
@@ -920,7 +921,12 @@ body {
     }
 
     loginBtn.disabled = true;
-    loginBtn.innerHTML = '<span class="spinner"></span>登录中...';
+    // 安全改造：使用 DOM 操作替代 innerHTML，防止 XSS
+    loginBtn.textContent = '';
+    var spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    loginBtn.appendChild(spinner);
+    loginBtn.appendChild(document.createTextNode('登录中...'));
     loginError.textContent = '';
 
     // Direct POST to M8 auth endpoint
@@ -1034,16 +1040,28 @@ body {
 
   // ── Health Status ──
   function buildHealthBar() {
-    healthBar.innerHTML = '';
+    // 清空容器（清空操作本身是安全的）
+    healthBar.textContent = '';
     MODULES.forEach(function(mod) {
-      var chip = document.createElement('div');
-      chip.className = 'health-chip';
-      chip.setAttribute('data-module', mod.id);
-      chip.innerHTML =
-        '<span class="chip-dot checking" data-health="' + mod.id + '"></span>' +
-        '<span class="chip-label">' + mod.id + ' ' + mod.name + '</span>';
-      chip.addEventListener('click', function() {
-        activateModule(mod.id);
+      // 安全改造：使用 createElement 替代 innerHTML，防止 XSS
+      var chip = SecurityUtils.createElement('div', {
+        className: 'health-chip',
+        attrs: { 'data-module': mod.id },
+        events: {
+          click: function() {
+            activateModule(mod.id);
+          }
+        },
+        children: [
+          SecurityUtils.createElement('span', {
+            className: 'chip-dot checking',
+            attrs: { 'data-health': mod.id }
+          }),
+          SecurityUtils.createElement('span', {
+            className: 'chip-label',
+            text: mod.id + ' ' + mod.name
+          })
+        ]
       });
       healthBar.appendChild(chip);
     });

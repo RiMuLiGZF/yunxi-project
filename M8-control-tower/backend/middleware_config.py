@@ -3,12 +3,84 @@ M8 中间件配置（ARC-005 重构辅助模块）
 
 集中管理 M8 应用的中间件配置，包括：
 - CORS 中间件配置
+- 安全响应头中间件配置
 - 分布式集群管理配置
 """
 
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
+def setup_security_headers(app: FastAPI, settings, logger) -> bool:
+    """
+    配置安全响应头中间件
+
+    为所有响应添加标准安全头，防止常见的 Web 攻击：
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: SAMEORIGIN（M8 需要在 iframe 中嵌入，所以用 SAMEORIGIN 而不是 DENY）
+    - X-XSS-Protection: 1; mode=block
+    - Content-Security-Policy
+    - Referrer-Policy
+    - Permissions-Policy
+
+    优先使用 shared.core.middleware.security_headers 的统一实现，
+    不可用时回退到本地实现。
+    """
+    try:
+        from shared.core.middleware.security_headers import (
+            SecurityHeadersMiddleware,
+            SecurityHeadersConfig,
+        )
+        env = getattr(settings, "env", "development").lower()
+        is_prod = env in ("production", "prod", "release")
+
+        # M8 是控制塔，需要在 iframe 中嵌入，所以 X-Frame-Options 用 SAMEORIGIN
+        config = SecurityHeadersConfig(
+            env=env,
+            frame_options_value="SAMEORIGIN",
+            # 开发环境 CSP 更宽松（允许 inline 脚本和 eval，便于调试）
+            csp_policy=None,  # 使用 SecurityHeadersConfig 中的默认策略
+        )
+        app.add_middleware(SecurityHeadersMiddleware, config=config)
+        logger.info("安全响应头中间件已注册（shared 统一实现）")
+        return True
+    except ImportError:
+        # 回退到本地简单实现
+        return _setup_security_headers_fallback(app, settings, logger)
+
+
+def _setup_security_headers_fallback(app: FastAPI, settings, logger) -> bool:
+    """
+    安全响应头中间件的本地回退实现（当 shared 不可用时）
+    使用 Starlette 的 BaseHTTPMiddleware 简单实现
+    """
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        class SimpleSecurityHeadersMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                response = await call_next(request)
+                # 跳过健康检查等路径
+                path = request.url.path
+                if path in ("/health", "/m8/health", "/m8/metrics"):
+                    return response
+                # 添加安全头
+                response.headers["X-Content-Type-Options"] = "nosniff"
+                response.headers["X-Frame-Options"] = "SAMEORIGIN"
+                response.headers["X-XSS-Protection"] = "1; mode=block"
+                response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                response.headers["Permissions-Policy"] = (
+                    "geolocation=(), microphone=(), camera=(), payment=()"
+                )
+                return response
+
+        app.add_middleware(SimpleSecurityHeadersMiddleware)
+        logger.info("安全响应头中间件已注册（本地回退实现）")
+        return True
+    except Exception as e:
+        logger.warning(f"安全响应头中间件注册失败: {e}")
+        return False
 
 
 def setup_cors(app: FastAPI, settings, logger) -> None:

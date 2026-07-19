@@ -1,6 +1,13 @@
 /**
  * 云汐系统 - 前端公共 API 工具
  * 处理认证、API 调用、Token 管理、系统校验、状态同步
+ *
+ * 安全增强（v1.1）：
+ * - Token 默认使用 sessionStorage（关闭浏览器即清除）
+ * - Token 有效期检查（默认 15 分钟）
+ * - 支持 refresh token 机制
+ * - 登出时调用后端接口失效 Token
+ * - 集成 SecurityUtils 安全工具库
  */
 
 const YunxiAPI = (function() {
@@ -11,6 +18,18 @@ const YunxiAPI = (function() {
     const TOKEN_KEY = 'yunxi_token';
     const USER_KEY = 'yunxi_user';
     const SYSTEM_STATUS_KEY = 'yunxi_system_status';
+    const TOKEN_TIME_KEY = 'yunxi_token_time';   // Token 设置时间戳
+    const REFRESH_TOKEN_KEY = 'yunxi_refresh_token'; // 刷新令牌
+
+    // Token 安全配置
+    const TOKEN_CONFIG = {
+        // Token 有效期（毫秒），0 表示不检查
+        tokenExpiryMs: 15 * 60 * 1000, // 15 分钟
+        // 是否启用 Token 过期检查
+        enableExpiryCheck: true,
+        // 默认存储方式：sessionStorage（更安全，关闭浏览器即清除）
+        defaultStorage: 'session', // 'session' | 'local'
+    };
 
     // 系统状态缓存
     let systemStatusCache = null;
@@ -22,30 +41,164 @@ const YunxiAPI = (function() {
     let loadingOverlay = null;
 
     /**
-     * 获取存储的 Token
+     * 获取当前使用的存储对象
+     * @param {boolean} remember - 是否持久化（true 用 localStorage）
      */
-    function getToken() {
-        return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    function _getStorage(remember) {
+        if (remember) return localStorage;
+        return TOKEN_CONFIG.defaultStorage === 'local' ? localStorage : sessionStorage;
     }
 
     /**
-     * 存储 Token
+     * 获取存储的 Token（带有效性检查）
+     * @returns {string|null} Token 或 null
      */
-    function setToken(token, remember = false) {
-        if (remember) {
-            localStorage.setItem(TOKEN_KEY, token);
-        } else {
-            sessionStorage.setItem(TOKEN_KEY, token);
+    function getToken() {
+        // 优先从 sessionStorage 获取，再从 localStorage
+        var token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+        if (!token) return null;
+
+        // 检查 Token 是否过期
+        if (TOKEN_CONFIG.enableExpiryCheck && TOKEN_CONFIG.tokenExpiryMs > 0) {
+            var tokenTime = parseInt(
+                sessionStorage.getItem(TOKEN_TIME_KEY) || localStorage.getItem(TOKEN_TIME_KEY) || '0',
+                10
+            );
+            if (tokenTime && Date.now() - tokenTime > TOKEN_CONFIG.tokenExpiryMs) {
+                // Token 已过期，尝试刷新
+                var refreshToken = getRefreshToken();
+                if (refreshToken) {
+                    // 异步刷新 Token（此处不阻塞，仅触发）
+                    _tryRefreshToken(refreshToken);
+                }
+                // 立即清除过期 Token
+                clearToken();
+                return null;
+            }
+        }
+
+        return token;
+    }
+
+    /**
+     * 尝试刷新 Token（异步，后台静默执行）
+     */
+    function _tryRefreshToken(refreshToken) {
+        // 避免并发刷新
+        if (_refreshInProgress) return;
+        _refreshInProgress = true;
+
+        fetch(API_BASE + '/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0 && data.data && data.data.access_token) {
+                // 刷新成功，更新 Token
+                var newToken = data.data.access_token;
+                var remember = !!localStorage.getItem(TOKEN_KEY);
+                setToken(newToken, remember);
+                if (data.data.refresh_token) {
+                    setRefreshToken(data.data.refresh_token);
+                }
+            } else {
+                // 刷新失败，清除所有 Token
+                clearToken();
+            }
+        })
+        .catch(function() {
+            // 刷新失败，静默处理
+        })
+        .finally(function() {
+            _refreshInProgress = false;
+        });
+    }
+
+    var _refreshInProgress = false;
+
+    /**
+     * 存储 Token
+     * @param {string} token - 访问令牌
+     * @param {boolean} remember - 是否持久化（记住我）
+     */
+    function setToken(token, remember) {
+        var storage = _getStorage(remember);
+        if (token) {
+            storage.setItem(TOKEN_KEY, token);
+            // 记录设置时间（用于过期检查）
+            storage.setItem(TOKEN_TIME_KEY, String(Date.now()));
         }
     }
 
     /**
-     * 清除 Token
+     * 获取刷新 Token
+     * @returns {string|null}
+     */
+    function getRefreshToken() {
+        return localStorage.getItem(REFRESH_TOKEN_KEY);
+    }
+
+    /**
+     * 设置刷新 Token
+     * @param {string} refreshToken - 刷新令牌
+     */
+    function setRefreshToken(refreshToken) {
+        if (refreshToken) {
+            localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        }
+    }
+
+    /**
+     * 清除所有 Token（包括访问令牌、刷新令牌、用户信息）
      */
     function clearToken() {
+        // 从两种存储中都清除
         localStorage.removeItem(TOKEN_KEY);
         sessionStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(TOKEN_TIME_KEY);
+        sessionStorage.removeItem(TOKEN_TIME_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+    }
+
+    /**
+     * 检查 Token 是否即将过期（剩余时间小于阈值）
+     * @param {number} thresholdMs - 阈值（毫秒），默认 2 分钟
+     * @returns {boolean}
+     */
+    function isTokenExpiringSoon(thresholdMs) {
+        thresholdMs = thresholdMs || 2 * 60 * 1000; // 默认 2 分钟
+        if (!TOKEN_CONFIG.enableExpiryCheck || TOKEN_CONFIG.tokenExpiryMs <= 0) {
+            return false;
+        }
+        var tokenTime = parseInt(
+            sessionStorage.getItem(TOKEN_TIME_KEY) || localStorage.getItem(TOKEN_TIME_KEY) || '0',
+            10
+        );
+        if (!tokenTime) return false;
+        var elapsed = Date.now() - tokenTime;
+        return TOKEN_CONFIG.tokenExpiryMs - elapsed < thresholdMs;
+    }
+
+    /**
+     * 获取 Token 剩余有效时间（毫秒）
+     * @returns {number} 剩余毫秒数，-1 表示不检查过期，0 表示已过期
+     */
+    function getTokenRemainingTime() {
+        if (!TOKEN_CONFIG.enableExpiryCheck || TOKEN_CONFIG.tokenExpiryMs <= 0) {
+            return -1;
+        }
+        var token = getToken();
+        if (!token) return 0;
+        var tokenTime = parseInt(
+            sessionStorage.getItem(TOKEN_TIME_KEY) || localStorage.getItem(TOKEN_TIME_KEY) || '0',
+            10
+        );
+        if (!tokenTime) return -1;
+        var elapsed = Date.now() - tokenTime;
+        return Math.max(0, TOKEN_CONFIG.tokenExpiryMs - elapsed);
     }
 
     /**
@@ -143,12 +296,20 @@ const YunxiAPI = (function() {
 
     /**
      * 登录
+     * @param {string} username - 用户名
+     * @param {string} password - 密码
+     * @param {boolean} remember - 是否记住我（持久化到 localStorage）
+     * @returns {Promise<Object>} 登录数据
      */
     async function login(username, password, remember = false) {
         const data = await request('POST', '/auth/login', {
             body: { username, password },
         });
         setToken(data.access_token, remember);
+        // 存储 refresh token（如果后端返回）
+        if (data.refresh_token) {
+            setRefreshToken(data.refresh_token);
+        }
         if (data.user) {
             setUser(data.user);
         }
@@ -157,14 +318,22 @@ const YunxiAPI = (function() {
 
     /**
      * 登出
+     * 调用后端登出接口失效 Token，然后清除本地存储
+     * @returns {Promise<void>}
      */
     async function logout() {
+        var token = getToken();
         try {
-            await request('POST', '/auth/logout');
+            // 调用后端登出接口，使服务端 Token 失效
+            await request('POST', '/auth/logout', {
+                // 即使请求失败也要清除本地 Token
+            });
         } catch (e) {
-            // 忽略登出错误
+            // 忽略登出错误（服务端可能已失效）
+        } finally {
+            // 无论成功失败，都清除本地 Token
+            clearToken();
         }
-        clearToken();
     }
 
     /**
@@ -468,31 +637,40 @@ const YunxiAPI = (function() {
                 z-index: 99999;
                 transition: opacity 0.2s;
             `;
-            loadingOverlay.innerHTML = `
-                <div style="
-                    background: white;
-                    padding: 24px 32px;
-                    border-radius: 12px;
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-                    display: flex;
-                    align-items: center;
-                    gap: 16px;
-                ">
-                    <div style="
-                        width: 32px;
-                        height: 32px;
-                        border: 3px solid #e5e7eb;
-                        border-top-color: #5B8DEF;
-                        border-radius: 50%;
-                        animation: yunxiSpin 0.8s linear infinite;
-                    "></div>
-                    <span id="yunxi-loading-text" style="
-                        font-size: 14px;
-                        color: #1A2B4A;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                    ">${text}</span>
-                </div>
+            // 安全改造：使用 DOM 操作替代 innerHTML，防止 text 参数 XSS 注入
+            var loadingBox = document.createElement('div');
+            loadingBox.style.cssText = `
+                background: white;
+                padding: 24px 32px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                gap: 16px;
             `;
+
+            var spinner = document.createElement('div');
+            spinner.style.cssText = `
+                width: 32px;
+                height: 32px;
+                border: 3px solid #e5e7eb;
+                border-top-color: #5B8DEF;
+                border-radius: 50%;
+                animation: yunxiSpin 0.8s linear infinite;
+            `;
+            loadingBox.appendChild(spinner);
+
+            var textSpan = document.createElement('span');
+            textSpan.id = 'yunxi-loading-text';
+            textSpan.style.cssText = `
+                font-size: 14px;
+                color: #1A2B4A;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            `;
+            textSpan.textContent = text;
+            loadingBox.appendChild(textSpan);
+
+            loadingOverlay.appendChild(loadingBox);
             document.body.appendChild(loadingOverlay);
 
             // 添加动画样式
@@ -696,32 +874,51 @@ const YunxiAPI = (function() {
                 animation: modalIn 0.2s ease;
             `;
 
-            modal.innerHTML = `
-                <h3 style="font-size: 16px; font-weight: 600; color: #1A2B4A; margin-bottom: 12px;">${title}</h3>
-                <p style="font-size: 14px; color: #4A5F80; line-height: 1.6; margin-bottom: 20px;">${message}</p>
-                <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                    <button class="cancel-btn" style="
-                        padding: 8px 20px;
-                        border-radius: 6px;
-                        border: 1px solid #d1d5db;
-                        background: white;
-                        color: #4A5F80;
-                        font-size: 14px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    ">取消</button>
-                    <button class="confirm-btn" style="
-                        padding: 8px 20px;
-                        border-radius: 6px;
-                        border: none;
-                        background: #5B8DEF;
-                        color: white;
-                        font-size: 14px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    ">确认</button>
-                </div>
+            // 安全改造：使用 DOM 操作替代 innerHTML，防止 title/message 参数 XSS 注入
+            var titleEl = document.createElement('h3');
+            titleEl.style.cssText = 'font-size: 16px; font-weight: 600; color: #1A2B4A; margin-bottom: 12px;';
+            titleEl.textContent = title;
+            modal.appendChild(titleEl);
+
+            var messageEl = document.createElement('p');
+            messageEl.style.cssText = 'font-size: 14px; color: #4A5F80; line-height: 1.6; margin-bottom: 20px;';
+            messageEl.textContent = message;
+            modal.appendChild(messageEl);
+
+            var btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display: flex; gap: 12px; justify-content: flex-end;';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-btn';
+            cancelBtn.style.cssText = `
+                padding: 8px 20px;
+                border-radius: 6px;
+                border: 1px solid #d1d5db;
+                background: white;
+                color: #4A5F80;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s;
             `;
+            cancelBtn.textContent = '取消';
+            btnContainer.appendChild(cancelBtn);
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.className = 'confirm-btn';
+            confirmBtn.style.cssText = `
+                padding: 8px 20px;
+                border-radius: 6px;
+                border: none;
+                background: #5B8DEF;
+                color: white;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+            confirmBtn.textContent = '确认';
+            btnContainer.appendChild(confirmBtn);
+
+            modal.appendChild(btnContainer);
 
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
@@ -784,15 +981,26 @@ const YunxiAPI = (function() {
 
     // 公开接口
     return {
+        // Token 管理
         getToken,
         setToken,
         clearToken,
+        getRefreshToken,
+        setRefreshToken,
         isLoggedIn,
+        isTokenExpiringSoon,
+        getTokenRemainingTime,
+        // 用户信息
         getCurrentUser,
+        setUser,
+        fetchCurrentUser,
+        // 认证
         login,
         logout,
-        fetchCurrentUser,
+        // 请求
         request,
+        // Token 配置（只读访问）
+        tokenConfig: TOKEN_CONFIG,
         // 任务
         submitTask,
         getTask,

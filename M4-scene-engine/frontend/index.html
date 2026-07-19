@@ -287,6 +287,19 @@
     <script>
         const API_BASE = '/api/v1';
 
+        // HTML 转义（防 XSS）
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            if (typeof str !== 'string') str = String(str);
+            return str.replace(/[&<>"'`=\/]/g, function(char) {
+                return {
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                    '"': '&quot;', "'": '&#x27;', '/': '&#x2F;',
+                    '`': '&#x60;', '=': '&#x3D;'
+                }[char];
+            });
+        }
+
         async function loadModes() {
             const container = document.getElementById('modesContainer');
             try {
@@ -301,7 +314,12 @@
                 document.getElementById('totalModes').textContent = modes.length;
 
                 if (modes.length === 0) {
-                    container.innerHTML = '<div class="error">暂无业务模式</div>';
+                    // 安全改造：使用 DOM 操作替代 innerHTML
+                    container.textContent = '';
+                    var emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'error';
+                    emptyDiv.textContent = '暂无业务模式';
+                    container.appendChild(emptyDiv);
                     return;
                 }
 
@@ -316,31 +334,64 @@
                     'general': '通用'
                 };
 
-                let html = '<div class="modes-grid">';
+                // 安全改造：使用 DOM 操作替代 innerHTML，防止 XSS
+                container.textContent = '';
+                var grid = document.createElement('div');
+                grid.className = 'modes-grid';
+
                 modes.forEach(mode => {
                     const categoryLabel = categoryNames[mode.category] || mode.category;
                     const disabledClass = mode.is_enabled ? '' : 'disabled';
-                    const statusClass = mode.is_enabled ? '' : 'disabled';
-                    const statusText = mode.is_enabled ? '已启用' : '未启用';
 
-                    html += `
-                        <div class="mode-card ${disabledClass}" onclick="enterMode('${mode.mode_id}')">
-                            <div class="mode-icon">${mode.icon}</div>
-                            <div class="mode-name">${mode.mode_name}</div>
-                            <div class="mode-desc">${mode.mode_description}</div>
-                            <div class="mode-meta">
-                                <span class="mode-category">${categoryLabel}</span>
-                                <span class="mode-priority">
-                                    <span class="mode-status ${statusClass}"></span>
-                                    ${statusText}
-                                </span>
-                            </div>
-                        </div>
-                    `;
+                    // 创建卡片
+                    var card = document.createElement('div');
+                    card.className = 'mode-card' + (disabledClass ? ' ' + disabledClass : '');
+                    card.addEventListener('click', function() {
+                        enterMode(mode.mode_id);
+                    });
+
+                    // 图标（icon 字段来自 API，可能是 emoji，用 textContent 安全渲染）
+                    var iconDiv = document.createElement('div');
+                    iconDiv.className = 'mode-icon';
+                    iconDiv.textContent = mode.icon || '';
+                    card.appendChild(iconDiv);
+
+                    // 模式名称
+                    var nameDiv = document.createElement('div');
+                    nameDiv.className = 'mode-name';
+                    nameDiv.textContent = mode.mode_name || '';
+                    card.appendChild(nameDiv);
+
+                    // 模式描述
+                    var descDiv = document.createElement('div');
+                    descDiv.className = 'mode-desc';
+                    descDiv.textContent = mode.mode_description || '';
+                    card.appendChild(descDiv);
+
+                    // 底部元信息
+                    var metaDiv = document.createElement('div');
+                    metaDiv.className = 'mode-meta';
+
+                    var categorySpan = document.createElement('span');
+                    categorySpan.className = 'mode-category';
+                    categorySpan.textContent = categoryLabel;
+                    metaDiv.appendChild(categorySpan);
+
+                    var prioritySpan = document.createElement('span');
+                    prioritySpan.className = 'mode-priority';
+
+                    var statusSpan = document.createElement('span');
+                    statusSpan.className = 'mode-status' + (mode.is_enabled ? '' : ' disabled');
+                    prioritySpan.appendChild(statusSpan);
+
+                    prioritySpan.appendChild(document.createTextNode(mode.is_enabled ? '已启用' : '未启用'));
+                    metaDiv.appendChild(prioritySpan);
+
+                    card.appendChild(metaDiv);
+                    grid.appendChild(card);
                 });
-                html += '</div>';
 
-                container.innerHTML = html;
+                container.appendChild(grid);
 
                 // 加载分类统计
                 loadCategories();
@@ -348,12 +399,22 @@
                 loadScenes();
 
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error">
-                        <div>⚠️ 加载失败: ${error.message}</div>
-                        <div style="font-size: 0.85rem; margin-top: 10px;">请确保后端服务已启动</div>
-                    </div>
-                `;
+                // 安全改造：使用 DOM 操作替代 innerHTML，防止错误消息中的 XSS
+                container.textContent = '';
+                var errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+
+                var errorMsg = document.createElement('div');
+                errorMsg.textContent = '⚠️ 加载失败: ' + (error.message || '未知错误');
+                errorDiv.appendChild(errorMsg);
+
+                var errorHint = document.createElement('div');
+                errorHint.style.fontSize = '0.85rem';
+                errorHint.style.marginTop = '10px';
+                errorHint.textContent = '请确保后端服务已启动';
+                errorDiv.appendChild(errorHint);
+
+                container.appendChild(errorDiv);
             }
         }
 
